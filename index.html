@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stock Checker</title>
+<meta name="description" content="Fundamental analysis and a halal screen for US stocks, explained in plain words.">
+<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stock Checker">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f5f2;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #6f6e69;
+  --line: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --accent: #2a78d6;
+  --accent-ink: #1c5cab;
+  --accent-wash: #e3eefc;
+  --series-1: #2a78d6;
+  --good: #0ca30c;
+  --good-ink: #006300;
+  --good-bg: #e6f4e6;
+  --warn: #c98500;
+  --warn-ink: #7a5200;
+  --warn-bg: #fdf3dc;
+  --bad: #d03b3b;
+  --bad-ink: #a32727;
+  --bad-bg: #fbe8e8;
+  --neutral-bg: #efeeea;
+  --shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 16px rgba(11, 11, 11, 0.04);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #232321;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #9a9890;
+    --line: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --accent: #3987e5;
+    --accent-ink: #86b6ef;
+    --accent-wash: #16263b;
+    --series-1: #3987e5;
+    --good: #0ca30c;
+    --good-ink: #3fc23f;
+    --good-bg: #13261a;
+    --warn: #fab219;
+    --warn-ink: #fab219;
+    --warn-bg: #2b2110;
+    --bad: #e66767;
+    --bad-ink: #f08a8a;
+    --bad-bg: #2d1616;
+    --neutral-bg: #262624;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #232321;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #9a9890;
+  --line: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --accent: #3987e5;
+  --accent-ink: #86b6ef;
+  --accent-wash: #16263b;
+  --series-1: #3987e5;
+  --good: #0ca30c;
+  --good-ink: #3fc23f;
+  --good-bg: #13261a;
+  --warn: #fab219;
+  --warn-ink: #fab219;
+  --warn-bg: #2b2110;
+  --bad: #e66767;
+  --bad-ink: #f08a8a;
+  --bad-bg: #2d1616;
+  --neutral-bg: #262624;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+/*SAFE-AREA*/
+a { color: var(--accent-ink); }
+button, input { font: inherit; color: inherit; }
+.wrap { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-block: 14px 10px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 18px; letter-spacing: -0.01em; background: none; border: 0; padding: 0; cursor: pointer; }
+.brand svg { width: 30px; height: 30px; flex: none; }
+.ghost { background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+.ghost:hover { background: var(--surface-2); }
+
+/* search */
+.search { position: relative; margin: 6px 0 4px; }
+.search form { display: flex; gap: 8px; }
+.search input {
+  flex: 1; min-width: 0; height: 50px; padding: 0 16px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow);
+  font-size: 17px; text-transform: none;
+}
+.search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn {
+  height: 50px; padding: 0 18px; border-radius: 12px; border: 0; background: var(--ink); color: var(--surface);
+  font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.btn:disabled { opacity: 0.6; cursor: default; }
+.suggest {
+  position: absolute; left: 0; right: 0; top: 56px; z-index: 20; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); overflow: hidden;
+}
+.suggest button {
+  display: flex; width: 100%; text-align: left; gap: 10px; align-items: baseline; padding: 11px 14px;
+  background: none; border: 0; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.suggest button:last-child { border-bottom: 0; }
+.suggest button:hover, .suggest button.active { background: var(--surface-2); }
+.suggest .t { font-weight: 650; min-width: 64px; }
+.suggest .n { color: var(--ink-2); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+.chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 14px; cursor: pointer; }
+.chip:hover { background: var(--surface-2); }
+.hint { color: var(--ink-2); font-size: 14px; margin: 10px 0 0; }
+
+/* cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin: 14px 0; }
+.card h2 { font-size: 17px; margin: 0 0 4px; letter-spacing: -0.01em; }
+.card h3 { font-size: 15px; margin: 16px 0 6px; }
+.sub { color: var(--ink-2); font-size: 14px; margin: 0; }
+.muted { color: var(--muted); }
+
+/* company header */
+.co { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-top: 18px; }
+.co h1 { font-size: 22px; line-height: 1.25; margin: 0; letter-spacing: -0.015em; }
+.co .meta { color: var(--ink-2); font-size: 14px; margin-top: 2px; }
+.px { text-align: right; flex: none; }
+.px .p { font-size: 22px; font-weight: 650; }
+.px .m { color: var(--ink-2); font-size: 13px; }
+
+/* verdict */
+.verdict { border-width: 1px; padding: 20px 18px; }
+.verdict .kicker { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 6px; }
+.verdict .title { font-size: 25px; font-weight: 700; line-height: 1.2; margin: 6px 0 8px; letter-spacing: -0.02em; }
+.verdict p { margin: 0; }
+.tone-good { background: var(--good-bg); border-color: color-mix(in srgb, var(--good) 35%, transparent); }
+.tone-good .kicker { color: var(--good-ink); }
+.tone-warn { background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.tone-warn .kicker { color: var(--warn-ink); }
+.tone-bad { background: var(--bad-bg); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+.tone-bad .kicker { color: var(--bad-ink); }
+.tone-neutral { background: var(--neutral-bg); }
+.conf { margin-top: 12px; font-size: 14px; color: var(--ink-2); }
+.conf b { color: var(--ink); }
+
+/* label tiles */
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+@media (min-width: 620px) { .tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; min-width: 0; }
+@media (max-width: 619px) { .tiles .tile:last-child:nth-child(odd) { grid-column: 1 / -1; } }
+.tile .l { font-size: 12px; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.tile .v { font-size: 16px; font-weight: 650; margin-top: 4px; line-height: 1.25; display: flex; gap: 6px; align-items: flex-start; }
+.tile .s { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+
+/* status icon */
+.ic { width: 18px; height: 18px; flex: none; display: inline-block; vertical-align: -3px; }
+.ic-good { color: var(--good); }
+.ic-ok { color: var(--warn); }
+.ic-bad { color: var(--bad); }
+.ic-na { color: var(--muted); }
+
+/* fair value */
+.fv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin-top: 14px; }
+@media (min-width: 620px) { .fv-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.fv-grid .k { font-size: 13px; color: var(--ink-2); }
+.fv-grid .val { font-size: 20px; font-weight: 650; }
+.range { position: relative; height: 54px; margin: 16px 6px 2px; }
+.range .track { position: absolute; left: 0; right: 0; top: 24px; height: 6px; border-radius: 3px; background: var(--surface-2); }
+.range .band { position: absolute; top: 24px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--series-1) 35%, transparent); }
+.range .mk { position: absolute; top: 16px; width: 2px; height: 22px; transform: translateX(-1px); }
+.range .mk.fair { background: var(--series-1); }
+.range .mk.buy { background: var(--good); }
+.range .mk.price { background: var(--ink); width: 3px; height: 28px; top: 13px; }
+.range .lab { position: absolute; font-size: 12px; white-space: nowrap; transform: translateX(-50%); color: var(--ink-2); }
+.range .lab.al { transform: none; }
+.range .lab.ar { transform: translateX(-100%); }
+.range .lab.top { top: -4px; font-weight: 650; color: var(--ink); }
+.range .lab.bot { top: 40px; }
+.callout { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-top: 14px; font-size: 15px; }
+
+/* lists */
+.two { display: grid; gap: 14px; }
+@media (min-width: 620px) { .two { grid-template-columns: 1fr 1fr; } }
+ul.clean { list-style: none; padding: 0; margin: 8px 0 0; }
+ul.clean li { display: flex; gap: 8px; padding: 6px 0; align-items: flex-start; }
+ul.clean li + li { border-top: 1px solid var(--line); }
+.empty { color: var(--muted); font-size: 14px; }
+
+/* business check */
+.q { border-top: 1px solid var(--line); padding: 12px 0; }
+.q:first-of-type { border-top: 0; }
+.q .qq { font-weight: 600; }
+.q .qh { color: var(--ink-2); font-size: 14px; margin-top: 2px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); }
+.ai { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.btn-accent { background: var(--accent); color: #fff; }
+.btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--border); }
+
+/* details sections */
+details.sec { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin: 10px 0; box-shadow: var(--shadow); }
+details.sec > summary { list-style: none; cursor: pointer; padding: 15px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary .st { font-weight: 650; }
+details.sec > summary .sc { color: var(--ink-2); font-size: 14px; display: flex; align-items: center; gap: 8px; }
+details.sec > summary .chev { width: 16px; height: 16px; transition: transform 0.2s; color: var(--muted); }
+details.sec[open] > summary .chev { transform: rotate(180deg); }
+.sec-body { padding: 0 18px 14px; }
+.row { border-top: 1px solid var(--line); padding: 11px 0; }
+.row-main { display: flex; align-items: flex-start; gap: 10px; }
+.row-label { flex: 1; min-width: 0; font-size: 15px; }
+.row-val { font-weight: 650; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.row-note { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+.row-text { font-weight: 600; font-size: 14px; margin-top: 2px; }
+.info { border: 0; background: none; padding: 0 2px; color: var(--accent-ink); cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.explain { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin-top: 8px; font-size: 14px; }
+.explain p { margin: 0 0 6px; }
+.explain p:last-child { margin: 0; }
+.pts { color: var(--muted); font-size: 12px; font-weight: 500; }
+
+/* charts */
+.chart { margin-top: 14px; }
+.chart .ct { font-weight: 600; font-size: 15px; }
+.chart .cs { color: var(--ink-2); font-size: 13px; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; margin-top: 6px; }
+.chart .bar { fill: var(--series-1); }
+.chart .bar:hover, .chart .bar:focus { opacity: 0.8; outline: none; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .base { stroke: var(--axis); stroke-width: 1; }
+.chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.chart text.vl { fill: var(--ink); font-weight: 600; }
+.tip { position: fixed; z-index: 50; pointer-events: none; background: var(--ink); color: var(--surface); border-radius: 8px; padding: 6px 10px; font-size: 13px; line-height: 1.35; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+.tip b { display: block; font-size: 15px; }
+
+/* status / errors */
+.loading { display: flex; align-items: center; gap: 12px; color: var(--ink-2); padding: 22px 4px; }
+.spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: sp 0.9s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+.err { border-left: 4px solid var(--bad); }
+.warnbox { font-size: 14px; color: var(--ink-2); }
+.warnbox li { margin: 4px 0; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.links a { text-decoration: none; border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
+.links a:hover { background: var(--surface-2); }
+footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align: center; }
+.how h2 { margin-top: 0; }
+.how h3 { margin: 18px 0 6px; font-size: 16px; }
+.how p, .how li { font-size: 15px; color: var(--ink-2); }
+.how li { margin: 4px 0; }
+.how table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+.how td { border-top: 1px solid var(--line); padding: 8px 6px 8px 0; vertical-align: top; color: var(--ink-2); }
+.how td:first-child { color: var(--ink); font-weight: 600; width: 40%; }
+.copied { color: var(--good-ink); font-size: 14px; align-self: center; }
+.promptbox { width: 100%; margin-top: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); padding: 10px; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.notice { font-size: 14px; color: var(--ink-2); }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } details.sec > summary .chev { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <button class="brand" id="homeBtn" aria-label="Stock Checker home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor" opacity="0.92"/><path d="M8 21l5-5 4 3 7-8" fill="none" stroke="var(--bg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="11" r="2.2" fill="var(--bg)"/></svg>
+      <span>Stock Checker</span>
+    </button>
+    <button class="ghost" id="howBtn">How it works</button>
+  </header>
+
+  <section class="search" aria-label="Search">
+    <form id="form" autocomplete="off">
+      <input id="q" name="q" type="search" inputmode="search" placeholder="Ticker or company, e.g. AAPL" aria-label="Ticker or company name" autocapitalize="characters" spellcheck="false" enterkeyhint="search">
+      <button class="btn" id="go" type="submit">Analyze</button>
+    </form>
+    <div class="suggest" id="suggest" role="listbox" hidden></div>
+    <div class="chips" id="recent" aria-label="Recent searches"></div>
+    <p class="hint" id="hint">Works for US-listed companies that file 10-K reports with the SEC.</p>
+  </section>
+
+  <section id="status" aria-live="polite"></section>
+  <main id="result" hidden></main>
+
+  <section id="how" class="card how" hidden>
+    <h2>How Stock Checker works</h2>
+    <p>It reads each company's official reports filed with the US SEC (up to 10 years), adds today's price, and runs the same checks every time. Nothing is hand-picked, and every number shows how it was judged.</p>
+    <h3>The five checks</h3>
+    <table>
+      <tr><td>Shariah screen</td><td>Business activity plus the AAOIFI-style ratios: interest-bearing debt under 30% of market value, cash and interest-bearing securities under 30%, interest income under 5% of revenue. A failure means an automatic Avoid.</td></tr>
+      <tr><td>Quality (0-100)</td><td>Mostly return on invested capital and how consistent it is, plus margins, cash conversion, profit history, share dilution and stock-based pay.</td></tr>
+      <tr><td>Balance sheet (0-100)</td><td>Net debt versus earnings, interest coverage, short-term liquidity, debt versus equity, and how fast free cash flow could repay all debt.</td></tr>
+      <tr><td>Growth (0-100)</td><td>Revenue, earnings-per-share and free-cash-flow-per-share growth over about 5 years, how consistent it was, and whether it is speeding up or slowing down.</td></tr>
+      <tr><td>Valuation</td><td>A fair value from future owner cash flow (free cash flow minus stock-based pay), checked against the stock's own past valuation and its PEG ratio.</td></tr>
+    </table>
+    <h3>How the verdict is decided</h3>
+    <table>
+      <tr><td>Strong buy candidate</td><td>High quality, healthy balance sheet, priced below fair value, no warning signs, high confidence.</td></tr>
+      <tr><td>Buy candidate</td><td>High quality at a fair price (or cheap with a caution).</td></tr>
+      <tr><td>Possible bargain</td><td>High quality and very cheap, but the price assumes a sharp slowdown. Either an opportunity or a trap: research first.</td></tr>
+      <tr><td>Watchlist</td><td>High quality, but the price is too high. A "buy below" price is shown.</td></tr>
+      <tr><td>Worth a closer look / Pass</td><td>Average business: cheap is worth researching, otherwise pass.</td></tr>
+      <tr><td>Avoid</td><td>Fails the Shariah screen, weak returns, or a risky balance sheet.</td></tr>
+      <tr><td>Speculative</td><td>Losing money and burning cash, so fundamentals cannot value it.</td></tr>
+    </table>
+    <h3>The fair value, in plain words</h3>
+    <p>The tool projects 10 years of owner cash flow. Revenue grows at a blend of the company's track record (the lower of its 5-year and 3-year growth rates, so one unusual year like 2020 can't inflate it) and its recent growth (capped at 20% a year), then slows to 2.5%. Cash margins stay at their typical recent level. Future cash is discounted at 8% for strong, large companies, 9% for typical ones and 10% for weaker or small ones. The bear and bull cases change growth and margins. It also works backwards: what growth does today's price assume? That one number often teaches more than the fair value itself.</p>
+    <p>Limits to know: it assumes today's cash margins continue, so companies spending heavily now to grow later can look expensive, and hypergrowth companies are capped at 20% growth.</p>
+    <h3>What it cannot do</h3>
+    <ul>
+      <li>See the future. Past numbers can't show a new competitor, a technology shift like AI, or a management mistake. The Business check section turns those questions into evidence, and the research button gets Claude to look at the latest news for you.</li>
+      <li>Judge banks, insurers, REITs or foreign companies (20-F filers) properly. Those get a warning or are not supported.</li>
+      <li>Replace the official halal screeners. Confirm every stock on Zoya or Musaffa before buying.</li>
+    </ul>
+    <h3>Using a verdict sensibly</h3>
+    <ul>
+      <li>Treat "buy candidate" as "worth owning", not "buy everything now". Buying in a few steps lowers the risk of bad timing.</li>
+      <li>Spread your money: as a rule of thumb, keep any single stock below about 10% of your portfolio.</li>
+      <li>Re-check after each quarterly report. Verdicts change when the numbers or the price change.</li>
+    </ul>
+    <h3>Data</h3>
+    <p id="dataNote">Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq, with backups. Results are cached for about 30 minutes. This is an educational tool, not financial advice.</p>
+    <p><button class="ghost" id="howClose">Close</button></p>
+  </section>
+
+  <footer>Educational tool, not financial advice. Financial data from SEC filings; prices from Nasdaq.</footer>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(() => {
+  'use strict';
+  // ------------------------------------------------------------------ helpers
+  const $ = (s) => document.querySelector(s);
+  const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : v);
+    }
+    for (const kid of kids.flat()) {
+      if (kid === null || kid === undefined || kid === false) continue;
+      el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+    }
+    return el;
+  }
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function s(tag, attrs, ...kids) {
+    const el = document.createElementNS(SVGNS, tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) if (v !== null && v !== undefined) el.setAttribute(k, v);
+    for (const kid of kids.flat()) if (kid) el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+    return el;
+  }
+  function money(x, d) {
+    if (!isNum(x)) return 'n/a';
+    const a = Math.abs(x), sign = x < 0 ? '-' : '';
+    if (a >= 1e12) return `${sign}$${(a / 1e12).toFixed(2)}T`;
+    if (a >= 1e9) return `${sign}$${(a / 1e9).toFixed(a >= 1e11 ? 0 : 1)}B`;
+    if (a >= 1e6) return `${sign}$${(a / 1e6).toFixed(0)}M`;
+    return `${sign}$${a.toFixed(d ?? 2)}`;
+  }
+  const price = (x) => (isNum(x) ? '$' + x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'n/a');
+  const pct = (x, d = 1) => (isNum(x) ? (x * 100).toFixed(d) + '%' : 'n/a');
+  const pctS = (x, d = 0) => (isNum(x) ? (x > 0 ? '+' : '') + (x * 100).toFixed(d) + '%' : 'n/a');
+  function fmtMetric(m) {
+    const v = m.value;
+    if (v === null || v === undefined) return 'n/a';
+    if (typeof v === 'string') return v;
+    switch (m.fmt) {
+      case 'pct': return pct(v, Math.abs(v) >= 0.1 ? 0 : 1);
+      case 'pctSigned': return pctS(v, 0);
+      case 'x': return v.toFixed(v >= 100 ? 0 : 1) + 'x';
+      case 'xRel': return v.toFixed(2) + 'x usual';
+      case 'years': return v.toFixed(1) + ' yrs';
+      case 'pts': return (v * 100).toFixed(1) + ' pts';
+      default: return String(v);
+    }
+  }
+  const ICONS = {
+    good: '<path d="M5 10.5l3.2 3.2L15 6.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+    ok: '<path d="M10 5.5v6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="14.6" r="1.3" fill="currentColor"/>',
+    bad: '<path d="M6.5 6.5l7 7M13.5 6.5l-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    na: '<path d="M6 10h8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  };
+  const RATING_TXT = { good: 'Good', ok: 'Fair', bad: 'Weak', na: 'Not rated' };
+  function icon(rating, label) {
+    const r = ICONS[rating] ? rating : 'na';
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 20 20');
+    svg.setAttribute('class', 'ic ic-' + r);
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', label || RATING_TXT[r]);
+    svg.innerHTML = `<circle cx="10" cy="10" r="9" fill="currentColor" opacity="0.14"/>${ICONS[r]}`;
+    return svg;
+  }
+  const chevron = () => {
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('class', 'chev');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = '<path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>';
+    return svg;
+  };
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+  };
+
+  // ------------------------------------------------------------------ plain-language explanations
+  const EXPLAIN = {
+    roic: ['How much profit the business earns each year for every dollar invested in it (by shareholders and lenders together).', 'The best single sign of a great business. If a company keeps earning high returns for years, something is stopping competitors from copying it.', 'Above 15% is excellent, 10 to 15% is good, below 8% is weak.'],
+    roic_consistency: ['How many of the last five years the return on invested capital stayed above 10%.', 'One good year can be luck. Five good years in a row is a pattern.', '5 of 5 is ideal.'],
+    gross_margin: ['Out of every $100 of sales, what is left after paying the direct cost of the product.', 'High gross margins usually mean customers pay for the brand or product, not just its cost. It varies a lot by industry.', 'Software often 70%+, strong brands 50%+, supermarkets 10 to 30% (normal for them).'],
+    op_margin: ['Out of every $100 of sales, the profit left after all running costs (staff, marketing, research). The points here cover both margin measures.', 'Shows how efficient and how protected from competition the business is.', 'Above 20% is strong for most industries. Supermarkets and retailers run thin margins by design, so a high return on capital counts for more there.'],
+    margin_stability: ['How much the margin moved up and down over five years, in percentage points.', 'Steady margins through good and bad years suggest pricing power. Swinging margins mean the business is at the mercy of costs or competitors.', 'Under 3 points is very steady.'],
+    fcf_margin: ['Free cash flow per $100 of sales: cash left after running the business and paying for new equipment.', 'This is the cash that can pay dividends, buy back shares or fund growth. Profits on paper can hide weak cash flow.', 'Above 15% is strong.'],
+    fcf_conversion: ['Free cash flow divided by reported profit over the last three years.', 'Checks that profits turn into real cash. If cash keeps falling short of profit, the accounting may be flattering the business.', '90% or more is healthy.'],
+    profit_consistency: ['How many of the last five years the company made a profit.', 'Reliable businesses stay profitable even in bad years.', '5 of 5.'],
+    dilution: ['How fast the number of shares changes each year.', 'More shares means your slice of the company shrinks. Fewer shares (buybacks) means your slice grows without you buying more.', 'Flat or falling is good. Rising more than 2% a year is a red flag.'],
+    sbc: ['Pay given to employees in new shares, as a share of revenue.', 'It does not use cash, so companies call it "non-cash", but it dilutes owners. This tool treats it as a real cost.', 'Under 5% of revenue is fine. Above 10% is heavy.'],
+    net_debt_ebitda: ['Debt minus cash, divided by a year of operating earnings before depreciation (EBITDA).', 'Roughly how many years of earnings it would take to clear the debt. High debt makes a bad year dangerous.', 'Net cash is best. Under 2x is comfortable, above 3x is heavy.'],
+    interest_cover: ['Operating profit divided by interest payments.', 'Shows how easily the company can pay the interest on its loans.', 'Above 8x is safe. Below 3x is risky.'],
+    current_ratio: ['Assets that turn into cash within a year, divided by bills due within a year.', 'Checks the company can pay its short-term bills. Subscription businesses often run below 1 safely because customers pay upfront.', 'Above 1.5x is comfortable.'],
+    debt_equity: ['Total debt divided by shareholders’ equity (what would be left for owners if everything were sold and debts paid).', 'Another view of how much the company relies on borrowed money. Big buybacks can push equity negative, which makes this number meaningless.', 'Below 0.5x is conservative.'],
+    debt_fcf: ['Total debt divided by a year of free cash flow.', 'How many years of cash it would take to repay every loan.', 'Under 3 years is comfortable.'],
+    rev_cagr: ['Average yearly revenue growth over about five years.', 'Revenue growth is the engine of long-term returns. It is harder to fake than profit.', 'Above 10% a year is strong for a large company.'],
+    eps_cagr: ['Average yearly growth in profit per share (adjusted for stock splits).', 'What you own is a share, so profit per share is what matters to you.', 'Ideally at least as fast as revenue.'],
+    fcfps_cagr: ['Average yearly growth in free cash flow per share, smoothed over two-year periods.', 'Cash per share is the most honest measure of value created for owners.', 'Above 10% a year is strong.'],
+    growth_consistency: ['How many of the last five years revenue went up.', 'Steady growers are easier to value and less likely to disappoint.', '5 of 5.'],
+    recent_growth: ['Revenue growth in the latest period compared with a year earlier.', 'Shows whether growth is speeding up or slowing down compared with the long-term average.', 'Close to or above the long-term rate is good.'],
+    dcf_upside: ['How far the price is below (+) or above (-) the estimated fair value.', 'Buying below fair value gives a "margin of safety" in case the estimate is too optimistic.', '+15% or more is attractive. Treat it as a range, not a precise number.'],
+    implied_growth: ['The revenue growth per year (next five years) that today’s price needs to be fair. Found by running the fair-value model backwards.', 'If the price needs much faster growth than the company has ever delivered, you are paying for hope. If it needs much slower growth, the market is pessimistic: find out why.', 'Below the company’s track record is good.'],
+    hist_multiple: ['Today’s price-to-cash-flow (or P/E) compared with the stock’s own usual level over the past several years.', 'Quality stocks usually trade at a premium. Buying when the premium is smaller than usual is often a good time.', 'Below 1.0x means cheaper than usual.'],
+    peg: ['The P/E ratio divided by yearly earnings growth (in %).', 'A quick check of whether the price is reasonable for the growth on offer.', 'Around 1 is attractive, above 2.5 is expensive.'],
+    pe: ['Price divided by a year of profit.', 'How many years of current profit you are paying for. Only meaningful when profit is positive and steady.', 'Depends on growth. Around 15 to 25 is typical for good companies.'],
+    pfcf: ['Market value divided by a year of free cash flow.', 'Like P/E but using cash, which is harder to manipulate.', 'Under 20x is reasonable for steady companies.'],
+    ev_ebit: ['Enterprise value (market value plus debt minus cash) divided by operating profit.', 'Compares companies fairly even when they carry different amounts of debt.', 'Under 15x is reasonable for steady companies.'],
+    owner_yield: ['Free cash flow after stock-based pay, divided by market value.', 'The cash return the business produces for owners at today’s price, before any growth.', 'Compare with the roughly 4% you could earn on a US government bond.'],
+    sh_business: ['Whether the core business is in an industry Islamic finance prohibits (conventional banking and insurance, alcohol, pork, gambling, tobacco, adult content). Judged from the official SEC industry code and a few known cases.', 'A company in a prohibited industry fails regardless of its financial ratios.', 'Mixed industries (restaurants, supermarkets, media, hotels) get "needs checking" because the impermissible share of revenue must be under 5%.'],
+    sh_debt: ['Interest-bearing debt divided by the company’s market value.', 'AAOIFI standard: a company may borrow with interest only to a limited degree.', 'Must be below 30%.'],
+    sh_cash: ['Cash plus interest-bearing investments divided by market value.', 'AAOIFI standard: limits how much of the company sits in interest-earning assets.', 'Must be below 30%.'],
+    sh_income: ['Interest income as a share of revenue (a proxy for impermissible income).', 'Income from interest must be small. Dividends you receive may need purifying in proportion.', 'Must be below 5%.'],
+  };
+
+  // ------------------------------------------------------------------ data layer
+  const MODE = 'server'; /*BUILD:MODE*/
+  const BUNDLE_B64 = ''; /*BUILD:BUNDLE*/
+  const REMOTE = { server: 'Composio', tool: 'COMPOSIO_REMOTE_BASH_TOOL', dir: '/mnt/files/stockchecker', file: '/mnt/files/stockchecker/cli-v1.mjs' };
+  const mcpReady = MODE === 'mcp' && window.claude && typeof window.claude.use === 'function'
+    ? window.claude.use('mcp').catch(() => null)
+    : Promise.resolve(null);
+  class ToolProblem extends Error { constructor(code, message) { super(message || code); this.code = code; } }
+  async function bash(command) {
+    const mcp = await mcpReady;
+    if (!mcp) throw new ToolProblem('no_mcp');
+    let res;
+    try { res = await mcp.callTool(REMOTE.server, REMOTE.tool, { command }); }
+    catch (e) { throw new ToolProblem((e && e.code) || 'upstream_error', e && e.message); }
+    const p = res && res.payload;
+    if (p && typeof p === 'object' && p.successful === false) throw new ToolProblem('tool_error', String(p.error || 'The remote command failed.'));
+    let out = findStdout(p);
+    if (out === null && res && Array.isArray(res.content)) {
+      for (const b of res.content) {
+        if (!b || b.type !== 'text') continue;
+        try { out = findStdout(JSON.parse(b.text)); } catch { /* not JSON */ }
+        if (out !== null) break;
+      }
+    }
+    if (out !== null) return out;
+    if (typeof p === 'string') return p;
+    return '';
+  }
+  // the bash tool's output normally sits at payload.data.stdout; look a little deeper in case the shape changes
+  function findStdout(o, depth = 0) {
+    if (!o || typeof o !== 'object' || depth > 4) return null;
+    if (typeof o.stdout === 'string') return o.stdout;
+    for (const v of Object.values(o)) {
+      const r = findStdout(v, depth + 1);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  async function installEngine() {
+    const parts = BUNDLE_B64.match(/.{1,6000}/g) || [];
+    for (let i = 0; i < parts.length; i++) {
+      await bash(`mkdir -p ${REMOTE.dir} && printf '%s' '${parts[i]}' ${i ? '>>' : '>'} ${REMOTE.dir}/cli.b64`);
+    }
+    const out = await bash(`cd ${REMOTE.dir} && base64 -d cli.b64 | gunzip > cli.tmp && rm -f cli-*.mjs && mv cli.tmp ${REMOTE.file} && rm -f cli.b64 && echo INSTALLED`);
+    if (!out.includes('INSTALLED')) throw new ToolProblem('install_failed');
+  }
+  function lastJson(out) {
+    const lines = String(out || '').trim().split('\n').reverse();
+    for (const line of lines) { try { return JSON.parse(line); } catch { /* keep looking */ } }
+    return null;
+  }
+  // static mode: the site is rebuilt every weekday; each company is a file in data/, plus a search index
+  let indexPromise = null;
+  function loadIndex() {
+    if (!indexPromise) {
+      indexPromise = fetch('data/index.json', { cache: 'no-cache' })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+    }
+    return indexPromise;
+  }
+  function searchIndex(idx, qs, limit) {
+    const query = String(qs || '').trim().toUpperCase();
+    if (!idx || !query) return [];
+    const scored = [];
+    for (const it of idx.items) {
+      const t = it[0];
+      const name = String(it[1] || '').toUpperCase();
+      let s = 0;
+      if (t === query) s = 100;
+      else if (t.startsWith(query)) s = 70 - t.length;
+      else if (name.startsWith(query)) s = 60;
+      else if (name.includes(' ' + query) || name.includes(query)) s = 40;
+      if (s) scored.push([s, it[6] || 0, it]);
+    }
+    scored.sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+    return scored.slice(0, limit).map(([, , it]) => ({ ticker: it[0], name: it[1], exchange: '' }));
+  }
+  const tickerFromInput = (raw) => String(raw || '').trim().toUpperCase().replace(/^\$/, '').replace(/[.\/]/g, '-').replace(/\s+/g, '');
+  async function apiAnalyze(t) {
+    if (MODE === 'server') {
+      const r = await fetch('/api/analyze?ticker=' + encodeURIComponent(t));
+      try { return await r.json(); } catch { return { ok: false, error: 'The server returned an unexpected response. Please try again.' }; }
+    }
+    if (MODE === 'static') {
+      const idx = await loadIndex();
+      const tk = tickerFromInput(t);
+      const notCovered = () => {
+        const sugg = searchIndex(idx, t, 6);
+        return {
+          ok: false,
+          error: sugg.length && sugg[0].ticker !== tk
+            ? `No company with the ticker "${tk}" in today's list.`
+            : `"${tk}" isn't covered. This site checks US-listed companies worth $2 billion or more that file reports with the SEC, and updates them every weekday after the market closes.`,
+          suggestions: sugg.filter((s) => s.ticker !== tk),
+        };
+      };
+      if (!/^[A-Z0-9-]{1,12}$/.test(tk)) return notCovered();
+      if (idx && !idx.items.some((it) => it[0] === tk)) return notCovered();
+      const r = await fetch('data/' + encodeURIComponent(tk) + '.json', { cache: 'no-cache' });
+      if (r.status === 404) return notCovered();
+      if (!r.ok) return { ok: false, error: 'The site could not load this company right now. Check your connection and try again.' };
+      try { return await r.json(); } catch { return { ok: false, error: 'This company’s file looks damaged. Please try again later today.' }; }
+    }
+    if (!/^[A-Z0-9.\-]{1,12}$/.test(t)) return { ok: false, error: 'Please enter a ticker symbol, for example AAPL.' };
+    const cmd = `test -s ${REMOTE.file} && node ${REMOTE.file} analyze ${t} || echo __MISSING__`;
+    let out = await bash(cmd);
+    if (out.includes('__MISSING__')) {
+      statusLine('Setting up the analysis engine (first run only)\u2026');
+      await installEngine();
+      out = await bash(cmd);
+    }
+    return lastJson(out) || { ok: false, error: 'The analysis did not return a result. Please try again in a minute.' };
+  }
+  async function apiSearch(qs) {
+    if (MODE === 'static') return searchIndex(await loadIndex(), qs, 8);
+    if (MODE !== 'server') return [];
+    const r = await fetch('/api/search?q=' + encodeURIComponent(qs));
+    const j = await r.json();
+    return j.results || [];
+  }
+  function problemMessage(e) {
+    const code = e && e.code;
+    const msgs = {
+      no_mcp: 'This copy of the page has no connection to the analysis engine. Open it inside Claude (claude.ai) while signed in.',
+      server_not_connected: 'The analysis runs through your Composio connection, which is not connected right now. Add Composio in Claude: Settings \u2192 Connectors, then try again.',
+      needs_reauth: 'Your Composio connection needs to be refreshed. Reconnect it in Claude: Settings \u2192 Connectors, then try again.',
+      selection_required: 'You have more than one Composio connection. Choose one in the prompt Claude shows, then try again.',
+      not_in_manifest: 'This page is not allowed to use Composio yet. Tap Analyze again and choose Allow when Claude asks.',
+      approval_required: 'Claude needs your approval to let this page use Composio. Tap Analyze again and choose Allow.',
+      blocked_by_policy: 'Your organization blocks this connection for pages.',
+      server_unavailable: 'Composio did not respond. Wait a few seconds and try again.',
+      install_failed: 'Setting up the analysis engine failed. Try again in a minute.',
+      tool_error: 'The analysis engine reported a problem: ' + ((e && e.message) || 'unknown error') + '.',
+    };
+    return msgs[code] || 'Something went wrong while running the analysis. Please try again in a minute.';
+  }
+
+  // ------------------------------------------------------------------ state + elements
+  const form = $('#form'), q = $('#q'), go = $('#go'), sug = $('#suggest'), statusEl = $('#status'), result = $('#result');
+  const tip = $('#tip');
+  let current = null;
+  let suggestItems = [];
+  let activeIdx = -1;
+
+  // ------------------------------------------------------------------ recent searches
+  function renderRecent() {
+    const r = store.get('recent', []);
+    const box = $('#recent');
+    box.replaceChildren();
+    if (!r.length) {
+      ['AAPL', 'ADBE', 'COST', 'MSFT'].forEach((t) => box.append(h('button', { class: 'chip', type: 'button', onclick: () => run(t) }, t)));
+      return;
+    }
+    r.slice(0, 8).forEach((t) => box.append(h('button', { class: 'chip', type: 'button', onclick: () => run(t) }, t)));
+  }
+  function remember(t) {
+    const r = store.get('recent', []).filter((x) => x !== t);
+    r.unshift(t);
+    store.set('recent', r.slice(0, 8));
+    renderRecent();
+  }
+
+  // ------------------------------------------------------------------ autocomplete
+  let sugTimer = null;
+  q.addEventListener('input', () => {
+    clearTimeout(sugTimer);
+    const v = q.value.trim();
+    if (v.length < 1 || MODE === 'mcp') { hideSuggest(); return; }
+    sugTimer = setTimeout(async () => {
+      try {
+        const results = await apiSearch(v);
+        if (q.value.trim() !== v) return;
+        showSuggest(results);
+      } catch { hideSuggest(); }
+    }, 220);
+  });
+  q.addEventListener('keydown', (e) => {
+    if (sug.hidden || !suggestItems.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, suggestItems.length - 1); paintActive(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); paintActive(); }
+    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); run(suggestItems[activeIdx].ticker); }
+    else if (e.key === 'Escape') hideSuggest();
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.search')) hideSuggest(); });
+  function showSuggest(items) {
+    suggestItems = items.slice(0, 7);
+    activeIdx = -1;
+    sug.replaceChildren();
+    if (!suggestItems.length) { hideSuggest(); return; }
+    suggestItems.forEach((it, i) => {
+      sug.append(h('button', { type: 'button', role: 'option', 'data-i': i, onclick: () => run(it.ticker) },
+        h('span', { class: 't', text: it.ticker }), h('span', { class: 'n', text: it.name })));
+    });
+    sug.hidden = false;
+  }
+  function paintActive() { [...sug.children].forEach((b, i) => b.classList.toggle('active', i === activeIdx)); }
+  function hideSuggest() { sug.hidden = true; suggestItems = []; }
+
+  // ------------------------------------------------------------------ run analysis
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = q.value.trim();
+    if (v) run(v);
+  });
+  async function run(raw) {
+    const t = String(raw).trim().toUpperCase().replace(/^\$/, '');
+    if (!t) return;
+    hideSuggest();
+    q.value = t;
+    q.blur();
+    $('#how').hidden = true;
+    go.disabled = true;
+    result.hidden = true;
+    statusEl.replaceChildren(h('div', { class: 'loading' }, h('div', { class: 'spin', 'aria-hidden': 'true' }),
+      h('div', null, h('div', { text: `Analyzing ${t}…` }), h('div', { class: 'muted', style: 'font-size:14px', text: MODE === 'static' ? 'Loading the latest analysis.' : 'Reading up to 10 years of SEC filings and today’s price. This takes a few seconds.' }))));
+    try {
+      const j = await apiAnalyze(t);
+      if (!j.ok) { showError(j, t); return; }
+      current = j;
+      statusEl.replaceChildren();
+      remember(j.ticker);
+      render(j);
+      if (MODE !== 'mcp') history.replaceState(null, '', '?t=' + encodeURIComponent(j.ticker));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      if (err instanceof ToolProblem) showError({ error: problemMessage(err) }, t);
+      else showError({ error: 'Could not reach the analysis service. Check your connection and try again.' }, t);
+    } finally {
+      go.disabled = false;
+    }
+  }
+  function statusLine(text) {
+    const el = statusEl.querySelector('.loading div div');
+    if (el) el.textContent = text;
+  }
+  function showError(j, t) {
+    const box = h('div', { class: 'card err' },
+      h('h2', { text: j.name ? `${j.name} (${t})` : 'Can’t analyze this one' }),
+      h('p', { class: 'sub', text: j.error || 'Something went wrong.' }));
+    if (j.suggestions && j.suggestions.length) {
+      box.append(h('p', { class: 'sub', style: 'margin-top:10px', text: 'Did you mean:' }));
+      const c = h('div', { class: 'chips' });
+      j.suggestions.forEach((it) => c.append(h('button', { class: 'chip', type: 'button', onclick: () => run(it.ticker) }, `${it.ticker} · ${it.name}`)));
+      box.append(c);
+    }
+    if (j.links && j.links.musaffa) {
+      box.append(h('div', { class: 'links' },
+        h('a', { href: j.links.musaffa, target: '_blank', rel: 'noopener' }, 'Halal check on Musaffa'),
+        h('a', { href: j.links.stockanalysis, target: '_blank', rel: 'noopener' }, 'Numbers on stockanalysis.com')));
+    }
+    statusEl.replaceChildren(box);
+  }
+
+  // ------------------------------------------------------------------ render
+  function render(d) {
+    result.replaceChildren();
+    const L = d.labels, f = d.fairValue, v = d.verdict;
+
+    // company header
+    result.append(h('div', { class: 'co' },
+      h('div', null,
+        h('h1', { text: d.name }),
+        h('div', { class: 'meta', text: [d.ticker, d.exchange, industry(d.industry)].filter(Boolean).join(' · ') })),
+      h('div', { class: 'px' },
+        h('div', { class: 'p', text: price(d.price) }),
+        h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' }))));
+
+    // verdict
+    const toneIcon = v.tone === 'good' ? 'good' : v.tone === 'bad' ? 'bad' : v.tone === 'warn' ? 'ok' : 'na';
+    result.append(h('section', { class: `card verdict tone-${v.tone}`, 'aria-label': 'Verdict' },
+      h('div', { class: 'kicker' }, icon(toneIcon, 'Verdict'), 'Verdict'),
+      h('div', { class: 'title', text: v.title }),
+      h('p', { text: v.summary }),
+      h('div', { class: 'conf' }, 'Confidence: ', h('b', { text: v.confidence }),
+        v.confidenceReasons && v.confidenceReasons.length ? ` (${v.confidenceReasons.join('; ')})` : '')));
+
+    // tiles
+    const tiles = h('div', { class: 'tiles' });
+    const tile = (label, rating, value, sub) => h('div', { class: 'tile' },
+      h('div', { class: 'l', text: label }),
+      h('div', { class: 'v' }, icon(rating), h('span', { text: value })),
+      sub ? h('div', { class: 's', text: sub }) : null);
+    const qR = L.quality.score >= 70 ? 'good' : L.quality.score >= 50 ? 'ok' : 'bad';
+    const hR = L.health.score >= 70 ? 'good' : L.health.score >= 40 ? 'ok' : 'bad';
+    const gR = !isNum(L.growth.rate) ? 'na' : L.growth.rate >= 0.07 ? 'good' : L.growth.rate >= 0.02 ? 'ok' : 'bad';
+    const vR = L.valuation.label === 'Undervalued' ? 'good' : L.valuation.label === 'Fairly valued' ? 'ok' : L.valuation.label === 'Overvalued' ? 'bad' : 'na';
+    const sR = L.shariah.status === 'pass' ? 'good' : L.shariah.status === 'fail' ? 'bad' : 'ok';
+    tiles.append(
+      tile('Quality', qR, L.quality.label, `${L.quality.score}/100`),
+      tile('Growth', gR, L.growth.label, isNum(L.growth.rate)
+        ? `${pct(L.growth.rate, 1)} a year` + (isNum(L.growth.recent) && Math.abs(L.growth.recent - L.growth.rate) >= 0.05 ? `, recently ${pct(L.growth.recent, 0)}` : '')
+        : ''),
+      tile('Valuation', vR, L.valuation.label, f ? `Fair value ~${price(f.base)}` : ''),
+      tile('Balance sheet', hR, L.health.label, `${L.health.score}/100`),
+      tile('Shariah', sR, L.shariah.label, 'Confirm on Zoya/Musaffa'));
+    result.append(tiles);
+
+    // fair value
+    if (f) result.append(fairValueCard(d));
+    else if (!String(L.valuation.label).startsWith('Not measurable (losing')) {
+      result.append(h('section', { class: 'card' }, h('h2', { text: 'Fair value' }),
+        h('p', { class: 'sub', text: 'Not estimated: the company does not produce steady free cash flow after stock-based pay, so a cash-flow value would be meaningless. The valuation label uses price multiples instead.' })));
+    }
+
+    // strengths & risks
+    const list = (items, rating) => items && items.length
+      ? h('ul', { class: 'clean' }, items.map((t) => h('li', null, icon(rating), h('span', { text: t }))))
+      : h('p', { class: 'empty', text: 'None flagged.' });
+    result.append(h('section', { class: 'card' }, h('div', { class: 'two' },
+      h('div', null, h('h2', { text: 'Strengths' }), list(d.strengths, 'good')),
+      h('div', null, h('h2', { text: 'Risks' }), list(d.risks, 'bad')))));
+
+    // business check (qualitative)
+    result.append(businessCard(d));
+
+    // details
+    const secs = d.sections;
+    result.append(detailSection('Quality', `${L.quality.score}/100 · ${L.quality.label}`, secs.quality, true));
+    result.append(detailSection('Balance sheet', `${L.health.score}/100 · ${L.health.label}`, secs.health, true));
+    result.append(detailSection('Growth', `${L.growth.score}/100 · ${L.growth.label}`, secs.growth, true, historyCharts(d)));
+    result.append(detailSection('Valuation', L.valuation.label, secs.valuation, false, valuationExtras(d)));
+    result.append(shariahSection(d));
+
+    // warnings + data
+    if (d.warnings && d.warnings.length) {
+      result.append(h('section', { class: 'card' }, h('h2', { text: 'Data notes' }),
+        h('ul', { class: 'warnbox' }, d.warnings.map((w) => h('li', { text: w })))));
+    }
+    const links = h('div', { class: 'links' },
+      h('a', { href: d.links.zoya, target: '_blank', rel: 'noopener' }, 'Zoya (halal)'),
+      h('a', { href: d.links.musaffa, target: '_blank', rel: 'noopener' }, 'Musaffa (halal)'),
+      h('a', { href: d.links.stockanalysis, target: '_blank', rel: 'noopener' }, 'stockanalysis.com'),
+      d.links.latestAnnualReport ? h('a', { href: d.links.latestAnnualReport, target: '_blank', rel: 'noopener' }, 'Latest annual report') : null,
+      h('a', { href: d.links.secFilings, target: '_blank', rel: 'noopener' }, 'All SEC filings'));
+    result.append(h('section', { class: 'card' }, h('h2', { text: 'Check it yourself' }),
+      h('p', { class: 'sub', text: niceDates(`Annual figures through ${d.asOf.fiscalYearEnd}; latest data covers the ${d.asOf.ttm}. Price ${d.priceSource ? 'from ' + d.priceSource : ''}${d.priceTime ? ' (' + d.priceTime + ')' : ''}.`) }),
+      links));
+
+    result.hidden = false;
+  }
+
+  function titleCase(sx) {
+    return String(sx || '').toLowerCase().replace(/(^|[\s\-/&(])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+  }
+  function industry(sx) {
+    return titleCase(String(sx || '').replace(/^(services|retail|wholesale)-/i, '')).replace(/\bNec\b/g, 'NEC');
+  }
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function niceDates(txt) {
+    return String(txt || '').replace(/(\d{4})-(\d{2})-(\d{2})/g, (m, y, mo, d) => `${MONTHS[Number(mo) - 1]} ${Number(d)}, ${y}`);
+  }
+  const price0 = (x) => (isNum(x) ? (x >= 100 ? '$' + Math.round(x).toLocaleString('en-US') : price(x)) : 'n/a');
+
+  function fairValueCard(d) {
+    const f = d.fairValue;
+    const card = h('section', { class: 'card', 'aria-label': 'Fair value' }, h('h2', { text: 'Price vs. fair value' }),
+      h('p', { class: 'sub', text: `Estimated from future owner cash flow, discounted at ${Math.round(f.discountRate * 100)}% a year.` }));
+    // range figure
+    const lo = Math.min(f.bear, f.buyBelow, d.price) * 0.92;
+    const hi = Math.max(f.bull, d.price) * 1.06;
+    const X = (val) => `${((val - lo) / (hi - lo)) * 100}%`;
+    const range = h('div', { class: 'range', role: 'img', 'aria-label': `Price ${price(d.price)}; fair value range ${price(f.bear)} to ${price(f.bull)}, base ${price(f.base)}` },
+      h('div', { class: 'track' }),
+      h('div', { class: 'band', style: `left:${X(f.bear)};width:calc(${X(f.bull)} - ${X(f.bear)})` }),
+      h('div', { class: 'mk buy', style: `left:${X(f.buyBelow)}` }),
+      h('div', { class: 'mk fair', style: `left:${X(f.base)}` }),
+      h('div', { class: 'mk price', style: `left:${X(d.price)}` }),
+      rangeLabel('top', X(d.price), `Price ${price0(d.price)}`));
+    range.append(rangeLabel('bot', X(f.base), `Fair value ${price0(f.base)}`));
+    card.append(range);
+    const up = f.upside;
+    card.append(h('div', { class: 'fv-grid' },
+      kv('Price', price(d.price)),
+      kv('Fair value (base)', price(f.base)),
+      kv('Range (bear to bull)', `${price0(f.bear)} – ${price0(f.bull)}`),
+      kv('Buy below', price(f.buyBelow))));
+    const imp = f.impliedCapped === 'above' ? 'more than 80%' : f.impliedCapped === 'below' ? 'a steep decline' : pct(f.impliedGrowth, 0);
+    card.append(h('div', { class: 'callout' },
+      h('b', { text: d.price <= f.base ? `Price is about ${pct(1 - d.price / f.base, 0)} below fair value. ` : `Price is about ${pct(d.price / f.base - 1, 0)} above fair value. ` }),
+      `Today’s price assumes revenue grows about ${imp} a year for the next 5 years. The model used ${pct(f.assumedGrowth, 0)}, from a track record of ${pct(f.historicalGrowth, 0)} a year.`));
+    return card;
+  }
+  function rangeLabel(pos, x, text) {
+    const n = parseFloat(x);
+    const align = n < 15 ? ' al' : n > 85 ? ' ar' : '';
+    return h('div', { class: `lab ${pos}${align}`, style: `left:${n}%`, text });
+  }
+  const kv = (k, val) => h('div', null, h('div', { class: 'k', text: k }), h('div', { class: 'val', text: val }));
+
+  function businessCard(d) {
+    const Q = d.qualitative;
+    const card = h('section', { class: 'card', 'aria-label': 'Business check' },
+      h('h2', { text: 'Business check: what numbers alone can’t settle' }),
+      h('p', { class: 'sub', text: 'The past leaves clues about the future. Here is what the evidence says, then a one-tap deep dive that researches the latest news for you.' }));
+    const moatR = Q.moat.level === 'Strong evidence' ? 'good' : Q.moat.level === 'Some evidence' ? 'ok' : 'bad';
+    card.append(h('h3', null, 'Moat (protection from competitors): ', h('span', { class: 'pill' }, icon(moatR), Q.moat.level)));
+    card.append(h('ul', { class: 'clean' }, Q.moat.points.map((t) => h('li', null, h('span', { text: t })))));
+    card.append(h('h3', null, 'Warning signs of disruption or decline: ',
+      h('span', { class: 'pill' }, icon(Q.warningSigns.length ? 'bad' : 'good'), Q.warningSigns.length ? `${Q.warningSigns.length} found` : 'none found')));
+    if (Q.warningSigns.length) card.append(h('ul', { class: 'clean' }, Q.warningSigns.map((t) => h('li', null, icon('bad'), h('span', { text: t })))));
+    else card.append(h('p', { class: 'empty', text: 'Growth, margins and returns look stable. Disruption often shows up in the news before the numbers, so still run the deep dive.' }));
+    if (Q.management.length) {
+      card.append(h('h3', { text: 'Management and use of cash' }));
+      card.append(h('ul', { class: 'clean' }, Q.management.map((m) => h('li', null, icon(m.tone === 'good' ? 'good' : m.tone === 'bad' ? 'bad' : 'ok'), h('span', { text: m.text })))));
+    }
+    card.append(h('h3', { text: 'The five questions, with what the evidence suggests' }));
+    Q.questions.forEach((x) => card.append(h('div', { class: 'q' }, h('div', { class: 'qq', text: x.q }), h('div', { class: 'qh', text: x.hint }))));
+    // deep dive with Claude
+    const url = 'https://claude.ai/new?q=' + encodeURIComponent(d.claudePrompt);
+    const copied = h('span', { class: 'copied', hidden: true, text: 'Copied' });
+    const promptBox = h('textarea', { class: 'promptbox', readonly: true, hidden: true, rows: '6', 'aria-label': 'Research prompt' });
+    promptBox.value = d.claudePrompt;
+    card.append(h('div', { class: 'callout' },
+      h('b', { text: 'Deep dive with Claude. ' }),
+      'Opens Claude with this company’s numbers and asks it to research the moat, AI and competitive threats, management, recent news and halal status, then give a clear call. Takes about a minute.'));
+    card.append(h('div', { class: 'ai' },
+      h('a', { class: 'btn btn-accent', href: url, target: '_blank', rel: 'noopener', style: 'display:inline-flex;align-items:center;text-decoration:none' }, 'Research with Claude'),
+      h('button', { class: 'btn btn-outline', type: 'button', onclick: async () => {
+        try { await navigator.clipboard.writeText(d.claudePrompt); copied.hidden = false; setTimeout(() => (copied.hidden = true), 2000); }
+        catch { promptBox.hidden = false; promptBox.focus(); promptBox.select(); }
+      } }, 'Copy prompt'),
+      copied));
+    card.append(promptBox);
+    return card;
+  }
+
+  function metricRow(m) {
+    const rating = m.rating || 'na';
+    const ex = EXPLAIN[m.key];
+    const row = h('div', { class: 'row' });
+    const exBox = ex ? h('div', { class: 'explain', hidden: true },
+      h('p', null, h('b', { text: 'What it is: ' }), ex[0]),
+      h('p', null, h('b', { text: 'Why it matters: ' }), ex[1]),
+      h('p', null, h('b', { text: 'Good looks like: ' }), ex[2])) : null;
+    const btn = ex ? h('button', { class: 'info', type: 'button', 'aria-expanded': 'false', onclick: () => {
+      exBox.hidden = !exBox.hidden; btn.setAttribute('aria-expanded', String(!exBox.hidden)); btn.textContent = exBox.hidden ? 'What is this?' : 'Hide';
+    } }, 'What is this?') : null;
+    const ptsTxt = isNum(m.points) && isNum(m.max) ? h('span', { class: 'pts', text: ` ${m.points}/${m.max} pts` }) : null;
+    const valTxt = fmtMetric(m);
+    const longVal = valTxt.length > 12;
+    row.append(h('div', { class: 'row-main' },
+      icon(rating),
+      h('div', { class: 'row-label' }, h('span', { text: m.label }), ptsTxt,
+        longVal ? h('div', { class: 'row-text', text: valTxt }) : null,
+        m.note ? h('div', { class: 'row-note', text: m.note }) : null, btn),
+      longVal ? null : h('div', { class: 'row-val', text: valTxt })));
+    if (exBox) row.append(exBox);
+    return row;
+  }
+
+  function detailSection(title, summary, metrics, scored, extra) {
+    const det = h('details', { class: 'sec' });
+    det.append(h('summary', null, h('span', { class: 'st', text: title }), h('span', { class: 'sc' }, h('span', { text: summary }), chevron())));
+    const body = h('div', { class: 'sec-body' });
+    metrics.forEach((m) => body.append(metricRow(m)));
+    if (extra) body.append(extra);
+    det.append(body);
+    return det;
+  }
+
+  function valuationExtras(d) {
+    const f = d.fairValue;
+    const box = h('div');
+    if (f) {
+      box.append(h('div', { class: 'explain' },
+        h('p', null, h('b', { text: 'Model assumptions: ' }), `Revenue growth ${pct(f.assumedGrowth, 0)} a year for 5 years, then slowing to ${pct(f.terminalGrowth, 1)}. Owner cash margin ${pct(f.ownerMargin, 0)} of revenue. Discount rate ${pct(f.discountRate, 0)}.`),
+        h('p', null, h('b', { text: 'Bear / bull: ' }), 'growth 5 points lower with 15% thinner margins / growth 4 points higher with 10% fatter margins.')));
+    }
+    if (d.historicalMultiples && d.historicalMultiples.length) {
+      const rows = d.historicalMultiples.filter((r) => isNum(r.pe) || isNum(r.pfcf));
+      if (rows.length) {
+        box.append(h('h3', { text: 'Past valuation at each year end' }));
+        const tbl = h('table', { style: 'width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums' },
+          h('tr', null, ['Year', 'Price', 'P/E', 'P/FCF'].map((x) => h('th', { style: 'text-align:right;padding:6px 4px;color:var(--ink-2);font-weight:600;border-bottom:1px solid var(--line)', text: x }))),
+          rows.map((r) => h('tr', null,
+            h('td', { style: 'text-align:right;padding:6px 4px', text: String(r.year) }),
+            h('td', { style: 'text-align:right;padding:6px 4px', text: price(r.price) }),
+            h('td', { style: 'text-align:right;padding:6px 4px', text: isNum(r.pe) ? r.pe.toFixed(1) + 'x' : '–' }),
+            h('td', { style: 'text-align:right;padding:6px 4px', text: isNum(r.pfcf) ? r.pfcf.toFixed(1) + 'x' : '–' }))));
+        box.append(tbl);
+      }
+    }
+    return box;
+  }
+
+  function shariahSection(d) {
+    const S = d.shariah;
+    const det = h('details', { class: 'sec', open: S.status !== 'pass' ? true : null });
+    det.append(h('summary', null, h('span', { class: 'st', text: 'Shariah screen' }),
+      h('span', { class: 'sc' }, icon(S.status === 'pass' ? 'good' : S.status === 'fail' ? 'bad' : 'ok'), h('span', { text: d.labels.shariah.label }), chevron())));
+    const body = h('div', { class: 'sec-body' });
+    body.append(h('p', { class: 'sub', style: 'margin-bottom:6px', text: S.headline }));
+    S.checks.forEach((c) => {
+      const rating = c.pass === true ? (c.borderline ? 'ok' : 'good') : c.pass === false ? 'bad' : 'ok';
+      const note = [`Limit: ${c.limit}`, c.note, c.borderline ? 'Close to the limit' : ''].filter(Boolean).join(' · ');
+      body.append(metricRow({ key: c.key, label: c.label, value: c.value, fmt: c.fmt || 'text', rating, note }));
+    });
+    body.append(h('div', { class: 'explain', style: 'margin-top:10px' }, h('p', { text: S.note })));
+    body.append(h('div', { class: 'links' },
+      h('a', { href: d.links.zoya, target: '_blank', rel: 'noopener' }, 'Confirm on Zoya'),
+      h('a', { href: d.links.musaffa, target: '_blank', rel: 'noopener' }, 'Confirm on Musaffa')));
+    det.append(body);
+    return det;
+  }
+
+  // ------------------------------------------------------------------ charts (single-series columns, hover tooltips)
+  function historyCharts(d) {
+    const hist = (d.history || []).filter((r) => isNum(r.revenue) || isNum(r.fcf));
+    if (hist.length < 3) return null;
+    const box = h('div');
+    box.append(columnChart('Revenue', 'Per fiscal year', hist.map((r) => ({ label: String(r.year), value: r.revenue }))));
+    box.append(columnChart('Free cash flow', 'Cash left after running and investing in the business', hist.map((r) => ({ label: String(r.year), value: r.fcf }))));
+    return box;
+  }
+  function axisMoney(v) {
+    if (v === 0) return '$0';
+    const a = Math.abs(v), sign = v < 0 ? '-' : '';
+    const fmt = (x, u) => sign + '$' + (Number.isInteger(+x.toFixed(1)) ? x.toFixed(0) : x.toFixed(1)) + u;
+    if (a >= 1e12) return fmt(a / 1e12, 'T');
+    if (a >= 1e9) return fmt(a / 1e9, 'B');
+    if (a >= 1e6) return fmt(a / 1e6, 'M');
+    return fmt(a / 1e3, 'K');
+  }
+  function niceStep(range, ticks) {
+    const raw = range / ticks;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / mag;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+  }
+  function columnChart(title, subtitle, data) {
+    const vals = data.map((x) => x.value).filter(isNum);
+    const wrap = h('div', { class: 'chart' }, h('div', { class: 'ct', text: title }), h('div', { class: 'cs', text: subtitle }));
+    if (!vals.length) return wrap;
+    const avail = (document.querySelector('.wrap') || document.body).clientWidth - 70;
+    const W = Math.round(Math.min(680, Math.max(300, avail))), H = 180, padL = 44, padR = 8, padT = 22, padB = 24;
+    const maxV = Math.max(0, ...vals), minV = Math.min(0, ...vals);
+    const step = niceStep((maxV - minV) || 1, 3);
+    const top = Math.ceil(maxV / step) * step, bot = Math.floor(minV / step) * step;
+    const y = (v) => padT + ((top - v) / ((top - bot) || 1)) * (H - padT - padB);
+    const band = (W - padL - padR) / data.length;
+    const bw = Math.min(24, band * 0.6);
+    const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `${title} by year` });
+    for (let t = bot; t <= top + 1e-9; t += step) {
+      svg.append(s('line', { class: t === 0 ? 'base' : 'grid', x1: padL, x2: W - padR, y1: y(t), y2: y(t) }));
+      svg.append(s('text', { x: padL - 6, y: y(t) + 4, 'text-anchor': 'end' }, axisMoney(t)));
+    }
+    data.forEach((pt, i) => {
+      const cx = padL + band * i + band / 2;
+      const every = band >= 34 ? 1 : 2;
+      if ((data.length - 1 - i) % every === 0) svg.append(s('text', { x: cx, y: H - 6, 'text-anchor': 'middle' }, every === 1 ? pt.label : "'" + pt.label.slice(2)));
+      if (!isNum(pt.value)) return;
+      const y0 = y(0), y1 = y(pt.value);
+      const hgt = Math.max(1, Math.abs(y1 - y0));
+      const r = Math.min(4, hgt / 2, bw / 2);
+      const x0 = cx - bw / 2;
+      // rounded data-end, square at the baseline
+      const path = pt.value >= 0
+        ? `M${x0},${y0} V${y1 + r} Q${x0},${y1} ${x0 + r},${y1} H${x0 + bw - r} Q${x0 + bw},${y1} ${x0 + bw},${y1 + r} V${y0} Z`
+        : `M${x0},${y0} V${y1 - r} Q${x0},${y1} ${x0 + r},${y1} H${x0 + bw - r} Q${x0 + bw},${y1} ${x0 + bw},${y1 - r} V${y0} Z`;
+      const bar = s('path', { d: path, class: 'bar', tabindex: '0', 'aria-label': `${pt.label}: ${money(pt.value)}` });
+      const hit = s('rect', { x: padL + band * i, y: padT, width: band, height: H - padT - padB, fill: 'transparent' });
+      const show = (e) => showTip(e, money(pt.value), `Fiscal ${pt.label}`, bar);
+      [bar, hit].forEach((el) => {
+        el.addEventListener('pointermove', show);
+        el.addEventListener('pointerleave', hideTip);
+      });
+      bar.addEventListener('focus', show);
+      bar.addEventListener('blur', hideTip);
+      svg.append(hit, bar);
+      if (i === data.length - 1) svg.append(s('text', { class: 'vl', x: cx, y: pt.value >= 0 ? y1 - 6 : y1 + 14, 'text-anchor': 'middle' }, money(pt.value)));
+    });
+    wrap.append(svg);
+    return wrap;
+  }
+  function showTip(e, value, label, el) {
+    tip.replaceChildren(h('b', { text: value }), h('span', { text: label }));
+    tip.hidden = false;
+    let x, yy;
+    if (e && e.clientX !== undefined && e.type !== 'focus') { x = e.clientX; yy = e.clientY; }
+    else { const r = el.getBoundingClientRect(); x = r.left + r.width / 2; yy = r.top; }
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = Math.min(window.innerWidth - tw - 8, Math.max(8, x - tw / 2)) + 'px';
+    tip.style.top = Math.max(8, yy - th - 12) + 'px';
+  }
+  function hideTip() { tip.hidden = true; }
+
+  // ------------------------------------------------------------------ nav
+  $('#howBtn').addEventListener('click', () => { const how = $('#how'); how.hidden = !how.hidden; if (!how.hidden) how.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  $('#howClose').addEventListener('click', () => { $('#how').hidden = true; });
+  $('#homeBtn').addEventListener('click', () => { result.hidden = true; statusEl.replaceChildren(); q.value = ''; if (MODE !== 'mcp') history.replaceState(null, '', location.pathname); q.focus(); });
+
+  renderRecent();
+  if (MODE === 'mcp') {
+    $('#hint').textContent = 'Works for US-listed companies that file 10-K reports. Runs through your Composio connection, so the first analysis may ask you to allow it.';
+  } else {
+    const start = new URLSearchParams(location.search).get('t');
+    if (start) run(start);
+  }
+  if (MODE === 'static') {
+    $('#dataNote').textContent = 'Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq. Every company worth $2 billion or more is re-analyzed each weekday after the US market closes. Your searches stay on your device. This is an educational tool, not financial advice.';
+    loadIndex().then((idx) => {
+      if (!idx) return;
+      const when = new Date(idx.asOf).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      $('#hint').textContent = `Covers ${idx.count.toLocaleString()} US companies worth $2 billion or more. Data as of ${when}, refreshed every weekday after the US market closes.`;
+    });
+  }
+})();
+</script>
+</body>
+</html>

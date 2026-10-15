@@ -1,0 +1,8 @@
+{
+  "name": "stock-checker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Beginner-friendly fundamental analysis for US stocks using SEC filings.",
+  "engines": { "node": "22.x" }
+}
