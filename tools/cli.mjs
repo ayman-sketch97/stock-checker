@@ -7,7 +7,8 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { loadCompanyData, searchTickers } from '../lib/data.js';
 import { analyze } from '../lib/engine.js';
-import { analyzeTechnical, techContextFrom } from '../lib/technical.js';
+import { prepare, analyzeTechnical, techContextFrom } from '../lib/technical.js';
+import { backtestStock, stockHistory } from '../lib/backtest.js';
 
 const [cmd, ...rest] = process.argv.slice(2);
 const arg = rest.join(' ');
@@ -25,7 +26,9 @@ try {
         const file = path.join(here, `tech-${String(result.ticker).replace(/[^A-Z0-9.-]/gi, '')}.b64`);
         try {
           if (data.price?.daily?.length) {
-            const tech = analyzeTechnical(data.price.daily, techContextFrom(result));
+            const P = prepare(data.price.daily);
+            const tech = analyzeTechnical(P || data.price.daily, techContextFrom(result));
+            if (P) tech.history = stockHistory(backtestStock(P));
             fs.writeFileSync(file, zlib.gzipSync(JSON.stringify(tech), { level: 9 }).toString('base64'));
           } else fs.rmSync(file, { force: true });
         } catch {

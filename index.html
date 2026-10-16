@@ -378,6 +378,138 @@ ol.exits li { margin: 4px 0; }
 .ind-grid .val { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .ind-grid .s { font-size: 12px; color: var(--muted); }
 .sig-name { font-weight: 650; }
+.b-bad { background: var(--bad-bg); color: var(--bad-ink); }
+
+/* navigation: in the header on wide screens, a tab bar at the bottom on phones */
+.nav { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+.nav button { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.nav button svg { width: 17px; height: 17px; flex: none; }
+.nav button[aria-current="page"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--border); }
+.nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.nav .dot { position: absolute; top: 3px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 0 2px var(--surface-2); }
+@media (max-width: 799px) {
+  .nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; justify-content: space-around; gap: 0;
+    border-radius: 0; border: 0; border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    padding: 5px max(6px, env(safe-area-inset-right, 0px)) calc(5px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
+  }
+  .nav button { flex: 1; flex-direction: column; gap: 2px; font-size: 11px; padding: 5px 4px; border-radius: 10px; }
+  .nav button svg { width: 22px; height: 22px; }
+  .nav button[aria-current="page"] { background: transparent; box-shadow: none; color: var(--accent-ink); }
+  .nav .dot { top: 3px; right: calc(50% - 18px); box-shadow: 0 0 0 2px var(--surface); }
+  body.has-nav footer { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+}
+.page-head { margin: 18px 0 4px; }
+.page-head h1 { font-size: 26px; line-height: 1.15; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+.page-head p { margin: 6px 0 0; color: var(--ink-2); font-size: 15px; max-width: 62ch; }
+
+/* at a glance */
+.glance { display: flex; gap: 8px; overflow-x: auto; padding: 2px 1px 4px; margin-top: 12px; scrollbar-width: none; }
+.glance::-webkit-scrollbar { display: none; }
+@media (min-width: 700px) { .glance { flex-wrap: wrap; overflow: visible; } }
+.gchip { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px 5px 9px; font-size: 13px; font-weight: 650; cursor: pointer; white-space: nowrap; color: var(--ink); }
+.gchip small { font-weight: 500; color: inherit; opacity: 0.8; font-size: 12px; }
+.gchip .ic { width: 16px; height: 16px; }
+.gchip.g-good { background: var(--good-bg); border-color: transparent; color: var(--good-ink); }
+.gchip.g-warn { background: var(--warn-bg); border-color: transparent; color: var(--warn-ink); }
+.gchip.g-bad { background: var(--bad-bg); border-color: transparent; color: var(--bad-ink); }
+.gchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.co-name { display: flex; align-items: center; gap: 10px; }
+.star { flex: none; width: 36px; height: 36px; display: inline-grid; place-items: center; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; color: var(--muted); cursor: pointer; padding: 0; }
+.star svg { width: 18px; height: 18px; }
+.star[aria-pressed="true"] { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+.star:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* lists (shortlist, watchlist, home) */
+.list { display: grid; gap: 8px; margin-top: 12px; }
+.srow { display: block; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; box-shadow: var(--shadow); color: inherit; font: inherit; min-width: 0; }
+.srow:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.srow:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.srow .top { display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+.srow .tk { font-weight: 700; font-size: 16px; flex: none; }
+.srow .nm { color: var(--ink-2); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.srow .pr { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
+.srow .chg { font-size: 12px; font-weight: 600; margin-left: 4px; }
+.srow .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.srow .det { font-size: 13px; color: var(--ink-2); margin-top: 7px; font-variant-numeric: tabular-nums; }
+.srow .det b { color: var(--ink); font-weight: 650; }
+.up { color: var(--good-ink); }
+.down { color: var(--bad-ink); }
+.tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 650; padding: 2px 9px; border-radius: 999px; background: var(--neutral-bg); color: var(--ink-2); white-space: nowrap; }
+.tag.t-good { background: var(--good-bg); color: var(--good-ink); }
+.tag.t-warn { background: var(--warn-bg); color: var(--warn-ink); }
+.tag.t-bad { background: var(--bad-bg); color: var(--bad-ink); }
+.tag.t-accent { background: var(--accent-wash); color: var(--accent-ink); }
+.presets { display: flex; gap: 6px; overflow-x: auto; padding: 2px 1px 4px; margin-top: 14px; scrollbar-width: none; }
+.presets::-webkit-scrollbar { display: none; }
+.presets button { flex: none; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 7px 14px; font-size: 14px; font-weight: 650; cursor: pointer; color: var(--ink-2); }
+.presets button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+.filters select, .filters input[type="search"], .field input, .field select { height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); padding: 0 10px; font-size: 15px; max-width: 100%; min-width: 0; }
+.filters input[type="search"] { flex: 1 1 140px; }
+.filters select:focus, .filters input:focus, .field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chk { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+.chk input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.count { font-size: 13px; color: var(--muted); margin-top: 12px; }
+.more { margin-top: 10px; width: 100%; }
+.seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 10px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; border-radius: 8px; padding: 5px 11px; font-size: 13px; font-weight: 650; cursor: pointer; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--border); }
+.ctl-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 12px; }
+.ctl-row .lbl { font-size: 13px; color: var(--ink-2); font-weight: 600; margin-right: 6px; }
+
+/* stats and tables */
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+@media (min-width: 620px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.stat { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.stat .k { font-size: 12px; color: var(--ink-2); font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat .val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; line-height: 1.2; }
+.stat .s { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.tscroll { overflow-x: auto; margin-top: 8px; }
+table.data { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+table.data th { text-align: right; color: var(--ink-2); font-weight: 650; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.data td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.data th:first-child, table.data td:first-child { text-align: left; padding-left: 0; }
+table.data tr.me td { font-weight: 700; background: var(--surface-2); }
+table.data tr.click { cursor: pointer; }
+table.data tr.click:hover td { background: var(--surface-2); }
+table.data td.dim { color: var(--muted); }
+.note { font-size: 13px; color: var(--ink-2); margin-top: 8px; }
+.mini-bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin-top: 6px; }
+.mini-bar > i { display: block; height: 100%; background: var(--series-1); border-radius: 4px; }
+.alert-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.alert-list li { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.alert-list li:first-child { border-top: 0; }
+.alert-list .tk { font-weight: 700; cursor: pointer; color: var(--accent-ink); background: none; border: 0; padding: 0; font: inherit; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.field { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); min-width: 0; }
+.field input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
+.btn-sm { height: 36px; padding: 0 14px; border-radius: 10px; font-size: 14px; }
+.row-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.wl-item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); min-width: 0; }
+.wl-item .srow { border: 0; box-shadow: none; padding: 0; background: transparent; }
+.wl-item .alerts { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; }
+.wl-item .alerts li { display: flex; gap: 6px; align-items: flex-start; margin-top: 4px; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent-ink); font: inherit; font-weight: 650; cursor: pointer; }
+details.fbox { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+details.fbox > summary { list-style: none; cursor: pointer; padding: 10px 14px; font-size: 14px; color: var(--ink-2); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+details.fbox > summary::-webkit-details-marker { display: none; }
+details.fbox > summary b { color: var(--ink); font-weight: 650; }
+details.fbox > summary .chev { width: 16px; height: 16px; flex: none; color: var(--muted); transition: transform 0.2s; }
+details.fbox[open] > summary .chev { transform: rotate(180deg); }
+details.fbox .filters { padding: 0 14px 12px; margin-top: 0; }
+.sl-tools { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.sl-tools select { flex: 1 1 140px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); padding: 0 10px; font-size: 15px; min-width: 0; }
+.sl-tools input[type="search"] { flex: 1 1 140px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); padding: 0 10px; font-size: 15px; min-width: 0; }
+td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+.editbox { display: grid; gap: 10px; margin-top: 10px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); }
+.page-sec { font-size: 18px; margin: 24px 0 0; letter-spacing: -0.01em; }
+.star svg path { fill: none; }
+.star[aria-pressed="true"] svg path { fill: currentColor; }
+.srow .det { display: block; }
+.srow .top, .srow .tags { display: flex; }
+.hero-num { font-size: 30px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 [hidden] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } details.sec > summary .chev { transition: none; } }
 </style>
@@ -389,21 +521,33 @@ ol.exits li { margin: 4px 0; }
       <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor" opacity="0.92"/><path d="M8 21l5-5 4 3 7-8" fill="none" stroke="var(--bg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="11" r="2.2" fill="var(--bg)"/></svg>
       <span>Stock Checker</span>
     </button>
+    <nav class="nav" id="nav" aria-label="Sections" hidden>
+      <button type="button" data-page="stock" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Stock</span></button>
+      <button type="button" data-page="shortlist" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Shortlist</span></button>
+      <button type="button" data-page="watchlist" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Watchlist</span><i class="dot" hidden></i></button>
+      <button type="button" data-page="record" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3.5-4 3 2.5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Record</span></button>
+    </nav>
     <button class="ghost" id="howBtn">How it works</button>
   </header>
 
-  <section class="search" aria-label="Search">
-    <form id="form" autocomplete="off">
-      <input id="q" name="q" type="search" inputmode="search" placeholder="Ticker or company, e.g. AAPL" aria-label="Ticker or company name" autocapitalize="characters" spellcheck="false" enterkeyhint="search">
-      <button class="btn" id="go" type="submit">Analyze</button>
-    </form>
-    <div class="suggest" id="suggest" role="listbox" hidden></div>
-    <div class="chips" id="recent" aria-label="Recent searches"></div>
-    <p class="hint" id="hint">Works for US-listed companies that file 10-K reports with the SEC.</p>
-  </section>
+  <div id="page-stock">
+    <section class="search" aria-label="Search">
+      <form id="form" autocomplete="off">
+        <input id="q" name="q" type="search" inputmode="search" placeholder="Ticker or company, e.g. AAPL" aria-label="Ticker or company name" autocapitalize="characters" spellcheck="false" enterkeyhint="search">
+        <button class="btn" id="go" type="submit">Analyze</button>
+      </form>
+      <div class="suggest" id="suggest" role="listbox" hidden></div>
+      <div class="chips" id="recent" aria-label="Recent searches"></div>
+      <p class="hint" id="hint">Works for US-listed companies that file 10-K reports with the SEC.</p>
+    </section>
 
-  <section id="status" aria-live="polite"></section>
-  <main id="result" hidden></main>
+    <section id="status" aria-live="polite"></section>
+    <section id="today" aria-label="Today" hidden></section>
+    <main id="result" hidden></main>
+  </div>
+  <section id="page-shortlist" aria-label="Shortlist" hidden></section>
+  <section id="page-watchlist" aria-label="Watchlist" hidden></section>
+  <section id="page-record" aria-label="Track record" hidden></section>
 
   <section id="how" class="card how" hidden>
     <h2>How Stock Checker works</h2>
@@ -432,6 +576,12 @@ ol.exits li { margin: 4px 0; }
     <h3>The Technical tab</h3>
     <p>A second view of the same stock: the chart. It reads about five years of daily prices and checks the trend (21-day EMA, 50-day and 200-day averages), momentum (RSI, MACD), volume, and support and resistance levels from past swing highs and lows. It then looks for one of a few long-only setups (a pullback to the averages in an uptrend, a breakout on strong volume, an oversold reversal, a bounce at range support) and builds a swing plan: entry trigger, stop loss, two targets and an exit plan. A calculator shows what that means in dollars, and the most you should invest so one loss costs at most 1% of your portfolio.</p>
     <p>The long-term plan on the Fundamental tab is different: buy and trim levels from the fair value, and "sell if" rules based on the business, with no stop loss. The best entries have both tabs on their side. No set of indicators wins most of the time, so judge any plan over many trades.</p>
+    <div id="howSite">
+      <h3>Shortlist, watchlist and track record</h3>
+      <p>The Shortlist screens every company each morning: swing buy signals, quality businesses below fair value, stocks near their buy price, market leaders and dividend payers, with halal, sector, size and earnings filters. The Watchlist follows the companies you star (saved on your device only) and flags what changed: the verdict, halal status, new signals, earnings dates, and your own stop and target levels. The Record shows how the exact swing rules did on five years of prices, and a live log of every signal since the site started.</p>
+      <h3>Dividends and purification</h3>
+      <p>For dividend payers, the Fundamental tab shows the yield, how much of profit is paid out, and the history, plus a calculator for the impure share to give to charity. It is estimated from interest income; if Zoya or Musaffa show a higher figure, use theirs.</p>
+    </div>
     <h3>What it cannot do</h3>
     <ul>
       <li>See the future. Past numbers can't show a new competitor, a technology shift like AI, or a management mistake. The Business check section turns those questions into evidence, and the research button gets Claude to look at the latest news for you.</li>
@@ -777,9 +927,13 @@ ol.exits li { margin: 4px 0; }
     const v = q.value.trim();
     if (v) run(v);
   });
-  async function run(raw) {
+  async function run(raw, fromNav) {
     const t = String(raw).trim().toUpperCase().replace(/^\$/, '');
     if (!t) return;
+    if (HAS_SITE && page !== 'stock') showPage('stock');
+    if (HAS_SITE && !fromNav) history.pushState({ p: 'stock' }, '', '?t=' + encodeURIComponent(tickerFromInput(t)));
+    homeToken++;
+    $('#today').hidden = true;
     hideSuggest();
     q.value = t;
     q.blur();
@@ -836,18 +990,26 @@ ol.exits li { margin: 4px 0; }
     destroyChart();
     result.replaceChildren();
     const L = d.labels, f = d.fairValue, v = d.verdict;
+    tech = { d, data: d.technical && d.technical.ok !== undefined ? d.technical : null, promise: null, rendered: false, chart: null, refit: null, rebuild: null, glance: null, row: null };
 
     // company header
     result.append(h('div', { class: 'co' },
-      h('div', null,
-        h('h1', { text: d.name }),
+      h('div', { style: 'min-width:0' },
+        h('div', { class: 'co-name' }, h('h1', { text: d.name }), starButton(d)),
         h('div', { class: 'meta', text: [d.ticker, d.exchange, industry(d.industry)].filter(Boolean).join(' · ') })),
       h('div', { class: 'px' },
         h('div', { class: 'p', text: price(d.price) }),
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' }))));
+    // at a glance: the verdict, halal status, chart signal and dates, each a shortcut to its section
+    tech.glance = h('div', { class: 'glance', 'aria-label': 'At a glance' });
+    result.append(tech.glance);
+    paintGlance();
+    if (HAS_SITE) {
+      const mine = tech;
+      loadScreen().then((scr) => { if (scr && mine === tech) { mine.row = scr.by.get(d.ticker) || null; paintGlance(); } });
+    }
 
     // tabs: fundamental (the business) and technical (the chart)
-    tech = { d, data: d.technical && d.technical.ok !== undefined ? d.technical : null, promise: null, rendered: false, chart: null, refit: null, rebuild: null };
     const fund = h('div', { id: 'panel-fund', role: 'tabpanel', 'aria-labelledby': 'tab-fund', tabindex: '-1' });
     const techPanel = h('div', { id: 'panel-tech', role: 'tabpanel', 'aria-labelledby': 'tab-tech', tabindex: '-1', hidden: true });
     const tabBtn = (id, label, sub) => h('button', { class: 'tab', id: 'tab-' + id, role: 'tab', type: 'button', 'aria-selected': 'false', 'aria-controls': 'panel-' + id, onclick: () => selectTab(id, true) },
@@ -901,6 +1063,8 @@ ol.exits li { margin: 4px 0; }
         h('p', { class: 'sub', text: 'Not estimated: the company does not produce steady free cash flow after stock-based pay, so a cash-flow value would be meaningless. The valuation label uses price multiples instead.' })));
     }
     fund.append(longTermCard(d));
+    const divCard = dividendsCard(d);
+    if (divCard) fund.append(divCard);
 
     // strengths & risks
     const list = (items, rating) => items && items.length
@@ -909,6 +1073,8 @@ ol.exits li { margin: 4px 0; }
     fund.append(h('section', { class: 'card' }, h('div', { class: 'two' },
       h('div', null, h('h2', { text: 'Strengths' }), list(d.strengths, 'good')),
       h('div', null, h('h2', { text: 'Risks' }), list(d.risks, 'bad')))));
+
+    if (HAS_SITE) fund.append(peersCard(d));
 
     // business check (qualitative)
     fund.append(businessCard(d));
@@ -937,8 +1103,8 @@ ol.exits li { margin: 4px 0; }
       links));
 
     result.hidden = false;
-    const fromUrl = MODE !== 'mcp' && new URLSearchParams(location.search).get('view') === 'technical';
-    selectTab(fromUrl || store.get('tab', 'fund') === 'tech' ? 'tech' : 'fund', false);
+    const view = MODE !== 'mcp' ? new URLSearchParams(location.search).get('view') : null;
+    selectTab(view === 'technical' ? 'tech' : view === 'fundamental' ? 'fund' : store.get('tab', 'fund') === 'tech' ? 'tech' : 'fund', false);
     if (!tech.data) loadTech(); // fetch in the background so the tab opens instantly
     else updateTechTab();
   }
@@ -1103,7 +1269,7 @@ ol.exits li { margin: 4px 0; }
 
   function shariahSection(d) {
     const S = d.shariah;
-    const det = h('details', { class: 'sec', open: S.status !== 'pass' ? true : null });
+    const det = h('details', { class: 'sec shariah', open: S.status !== 'pass' ? true : null });
     det.append(h('summary', null, h('span', { class: 'st', text: 'Shariah screen' }),
       h('span', { class: 'sc' }, icon(S.status === 'pass' ? 'good' : S.status === 'fail' ? 'bad' : 'ok'), h('span', { text: d.labels.shariah.label }), chevron())));
     const body = h('div', { class: 'sec-body' });
@@ -1311,6 +1477,7 @@ ol.exits li { margin: 4px 0; }
     const T = tech && tech.data;
     if (!el || !T) return;
     el.textContent = T.ok ? `${T.label} · ${T.score}/100` : 'Not available';
+    paintGlance();
   }
   async function showTech() {
     const t = tech;
@@ -1361,12 +1528,31 @@ ol.exits li { margin: 4px 0; }
     }
     const lead = p.status === 'active' ? 'How to enter: ' : p.status === 'none' ? 'What to wait for: ' : 'What has to happen first: ';
     card.append(h('div', { class: 'callout' }, h('b', { text: lead }), p.trigger));
-    if (!(isNum(p.entry) && isNum(p.stop))) return card;
+    // things that make a swing trade riskier right now
+    if (p.status !== 'none') {
+      if (T.market && T.market.regime === 'down') {
+        const box = h('div', { class: 'callout', style: 'border-left:4px solid var(--bad)' }, h('b', { text: 'The market is falling. ' }),
+          'The S&P 500 is below its 200-day average. Swing signals have worked less well in falling markets: consider waiting, or use half your usual size.');
+        card.append(box);
+        if (HAS_SITE) loadBtSummary().then((bt) => { const g = regimeStats(bt, 'down'); if (g) box.append(` In the backtest they averaged ${fmtR(g.avgR)} per trade (${g.n.toLocaleString()} trades).`); });
+      }
+      if (T.earnings && T.earnings.soon) {
+        const e = T.earnings;
+        card.append(h('div', { class: 'callout', style: 'border-left:4px solid var(--warn)' }, h('b', { text: `Earnings on ${niceDates(e.date)}${e.time ? ', ' + e.time : ''}. ` }),
+          `That is ${e.tradingDays <= 1 ? 'the next session' : `in about ${e.tradingDays} trading days`}, so a swing trade would likely be held through the report, and the price can jump past your stop. Consider waiting until after the report, or use half size. The date can be an estimate.`));
+      }
+    }
+    if (!(isNum(p.entry) && isNum(p.stop))) { card.append(trackRecordBox(T, d)); return card; }
     const live = p.status === 'active';
+    const fill = p.fill || fillOf(p.setup);
     const up = (x) => (isNum(x) ? `+${pct(x / p.entry - 1, 1)}` : '');
+    const entryVal = live && fill === 'open'
+      ? planVal('sw-entry', 'Buy at the next open', price(p.entry), isNum(p.maxEntry) ? `Today’s close. Limit ${price(p.maxEntry)}` : 'Today’s close')
+      : live
+        ? planVal('sw-entry', 'Buy-stop trigger', price(p.entry), isNum(p.maxEntry) ? `Limit ${price(p.maxEntry)}, next session only` : 'Next session only')
+        : planVal('sw-entry', 'Entry if triggered', price(p.entry), isNum(p.zoneLow) && isNum(p.zoneHigh) && p.setup !== 'breakout' ? `Zone ${price0(p.zoneLow)} to ${price0(p.zoneHigh)}` : '');
     card.append(h('div', { class: 'plan-grid' },
-      planVal('sw-entry', live ? 'Entry' : 'Entry if triggered', price(p.entry),
-        isNum(p.zoneLow) && isNum(p.zoneHigh) && p.setup !== 'breakout' ? `Zone ${price0(p.zoneLow)} to ${price0(p.zoneHigh)}` : live ? 'On a daily close above' : ''),
+      entryVal,
       planVal('sw-stop', 'Stop loss', price(p.stop), isNum(p.riskPct) ? `−${pct(p.riskPct, 1)} from entry` : ''),
       planVal('sw-target', 'Target 1', price(p.target1), `${up(p.target1)} · ${p.rr1}R`),
       planVal('sw-target', 'Target 2', price(p.target2), `${up(p.target2)} · ${p.rr2}R`)));
@@ -1374,9 +1560,10 @@ ol.exits li { margin: 4px 0; }
       card.append(h('div', { class: 'callout', style: 'border-left:4px solid var(--warn)' }, h('b', { text: 'Volatile stock. ' }),
         `It moves about ${pct(T.indicators.atrPct, 1)} on a normal day, so the stop sits ${pct(p.riskPct, 0)} below the entry. Keep the position small: the calculator below shows how small.`));
     }
-    card.append(h('p', { class: 'sub', style: 'margin-top:10px', text: `R is the reward for each unit of risk: target 1 at ${p.rr1}R means a win there is ${p.rr1} times the loss you would take at the stop.${live ? '' : ' These numbers only apply once the trigger above happens.'}` }));
+    card.append(h('p', { class: 'sub', style: 'margin-top:10px', text: `R is the reward for each unit of risk: target 1 at ${p.rr1}R means a win there is ${p.rr1} times the loss you would take at the stop.${live ? ' A limit protects you from a big gap: if the price opens above it, the order does not fill, and that is fine.' : ' These numbers only apply once the trigger above happens.'}` }));
     card.append(calcBox(p));
     card.append(h('h3', { text: 'Exit plan' }), h('ol', { class: 'exits' }, (p.exits || []).map((x) => h('li', { text: x }))));
+    card.append(trackRecordBox(T, d));
     return card;
   }
   function planVal(sw, k, val, sub) {
@@ -1506,7 +1693,7 @@ ol.exits li { margin: 4px 0; }
       localization: { locale: 'en-US' },
     });
     tech.chart = chart;
-    const on = { e21: true, s50: true, s200: true, levels: true, plan: !halalFail, volume: true };
+    const on = { e21: true, s50: true, s200: true, levels: true, plan: !halalFail, volume: true, trades: true };
     const planPrices = !halalFail && isNum(p.entry) && isNum(p.stop) ? [p.entry, p.stop, p.target1, p.target2].filter(isNum) : [];
     const cs = chart.addSeries(LW.CandlestickSeries, {
       upColor: col.up, downColor: col.down, borderVisible: false, wickUpColor: col.up, wickDownColor: col.down,
@@ -1552,7 +1739,9 @@ ol.exits li { margin: 4px 0; }
     const panes = chart.panes();
     if (panes.length >= 3) { panes[0].setStretchFactor(3.4); panes[1].setStretchFactor(1); panes[2].setStretchFactor(1); }
 
-    // event markers
+    // event markers, plus the trades these rules made on this stock (from the backtest) within the chart window
+    let setMarkers = () => {};
+    const tradeMk = [];
     if (typeof LW.createSeriesMarkers === 'function') {
       const STY = {
         golden: ['belowBar', col.good, 'arrowUp', 'Golden cross'],
@@ -1560,12 +1749,20 @@ ol.exits li { margin: 4px 0; }
         breakout: ['belowBar', col.accent, 'arrowUp', 'Breakout'],
         oversold: ['belowBar', col.warn, 'circle', 'Oversold bounce'],
       };
-      const mk = (C.markers || []).map((m) => {
+      const byTime = (a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
+      const eventMk = (C.markers || []).map((m) => {
         const st = STY[m.kind];
         return st && C.candles[m.i] ? { time: tm(m.i), position: st[0], color: st[1], shape: st[2], text: st[3] } : null;
-      }).filter(Boolean).sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
-      mk.forEach((m, k) => { if (k < mk.length - 3) m.text = ''; }); // label only the latest few, to keep the chart readable
-      if (mk.length) LW.createSeriesMarkers(cs, mk);
+      }).filter(Boolean).sort(byTime);
+      eventMk.forEach((m, k) => { if (k < eventMk.length - 3) m.text = ''; }); // label only the latest few, to keep the chart readable
+      const inChart = new Set(C.candles.map((c) => c[0]));
+      for (const tr of (T.history && T.history.recent) || []) {
+        if (inChart.has(tr.fill)) tradeMk.push({ time: tr.fill, position: 'belowBar', color: col.accent, shape: 'arrowUp', text: 'Buy' });
+        if (tr.exit && inChart.has(tr.exit)) tradeMk.push({ time: tr.exit, position: 'aboveBar', color: tr.R > 0 ? col.good : col.bad, shape: 'arrowDown', text: 'Sell ' + fmtR(tr.R, 1) });
+      }
+      const all = () => [...eventMk, ...(on.trades && !halalFail ? tradeMk : [])].sort(byTime);
+      const api = LW.createSeriesMarkers(cs, all());
+      setMarkers = () => { try { api.setMarkers(all()); } catch { /* older library */ } };
     }
 
     // support/resistance and the trade plan as horizontal lines
@@ -1632,6 +1829,7 @@ ol.exits li { margin: 4px 0; }
       tog('levels', 'Support / resistance', null, (v) => showGroup('levels', v)),
     ];
     if (planPrices.length) items.push(tog('plan', 'Entry, stop, targets', null, (v) => { showGroup('plan', v); cs.applyOptions({}); }));
+    if (tradeMk.length && !halalFail) items.push(tog('trades', 'Past trades by these rules', null, () => setMarkers()));
     items.push(tog('volume', 'Volume', null, (v) => vs.applyOptions({ visible: v })));
     toggles.replaceChildren(...items);
   }
@@ -1754,7 +1952,7 @@ ol.exits li { margin: 4px 0; }
       h('p', { text: 'The Fundamental tab answers "is this a good business at a fair price?". This tab answers "is now a good moment to buy, and where would I get out?". The best entries usually have both on your side.' }),
       h('h3', { text: 'The plan statuses' }),
       h('ul', null,
-        li('Buy signal live: the setup is in place. Enter only if the trigger happens (usually a daily close above a level), and place the stop at the same time.'),
+        li('Buy signal live: the setup is in place, and the plan says exactly which order to place for the next session (a stop-limit buy above the signal day’s high, or a limit buy at the open). If it does not fill, the signal lapses; check again the next morning. Place the stop as soon as you are in.'),
         li('Watch: not yet. The levels show where a trade would start.'),
         li('Wait: the price has run too far from its averages. Chasing it means a wide stop or a poor reward for the risk.'),
         li('No trade now: the trend is down or there is no edge. Doing nothing is a position too.')),
@@ -1766,25 +1964,1078 @@ ol.exits li { margin: 4px 0; }
         li('Buying only, no short selling, no margin: in line with halal investing.')),
       h('h3', { text: 'Honest expectations' }),
       h('p', { text: 'No indicator or combination of indicators wins 90% of the time. Good swing traders often win only 40 to 55% of trades and still make money, because winners (2R or more) are bigger than losers (1R). Judge the plan over 20 or more trades, not one.' }),
+      HAS_SITE ? h('p', null, 'The Record page shows how these exact rules did on five years of prices, and a live log of every signal since the site started. ', linkBtn('Open the record', () => navigate('record'))) : null,
       h('p', { text: 'Levels and signals are calculated from daily closing prices, refreshed every weekday morning (US time). Educational tool, not financial advice.' }));
     det.append(body);
     return det;
   }
 
+  // ------------------------------------------------------------------ site-wide data (public site only)
+  const HAS_SITE = MODE === 'static';
+  const TRADED = ['pullback', 'breakout', 'reversal', 'range'];
+  const GOOD_VERDICTS = new Set(['BUY_STRONG', 'BUY', 'CONTRARIAN', 'WATCH']);
+  const VERDICT_TONE = { BUY_STRONG: 'good', BUY: 'good', CONTRARIAN: 'warn', WATCH: 'accent', LOOK: 'neutral', PASS: 'neutral', AVOID_WEAK: 'bad', AVOID_SHARIAH: 'bad', SPECULATIVE: 'bad', NODATA: 'neutral', FINANCIAL: 'neutral' };
+  const SHARIAH_TAG = { pass: ['Halal', 'good'], review: ['Halal: check', 'warn'], fail: ['Not halal', 'bad'] };
+  const SH_WORD = { pass: 'passes', review: 'needs checking', fail: 'fails' };
+  const jsonCache = new Map();
+  function getJson(path) {
+    if (!jsonCache.has(path)) {
+      const p = fetch(path, { cache: 'no-cache' })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+        .then((j) => { if (!j) jsonCache.delete(path); return j; });
+      jsonCache.set(path, p);
+    }
+    return jsonCache.get(path);
+  }
+  let screenPromise = null;
+  function loadScreen() {
+    if (!HAS_SITE) return Promise.resolve(null);
+    if (!screenPromise) {
+      screenPromise = getJson('data/screen.json').then((j) => {
+        if (!j || !Array.isArray(j.rows) || !Array.isArray(j.fields)) { screenPromise = null; return null; }
+        const list = j.rows.map((r) => { const o = {}; j.fields.forEach((k, i) => { o[k] = r[i]; }); return o; });
+        return { ...j, list, by: new Map(list.map((o) => [o.ticker, o])) };
+      });
+    }
+    return screenPromise;
+  }
+  const loadBtSummary = () => (HAS_SITE ? getJson('data/backtest-summary.json') : Promise.resolve(null));
+  const todayISO = () => new Date().toISOString().slice(0, 10);
+  // weekdays from date a to date b: a rough count of trading days (holidays are ignored)
+  function weekdaysBetween(a, b) {
+    if (!a || !b) return null;
+    const d = new Date(a + 'T00:00:00Z');
+    const end = new Date(b + 'T00:00:00Z');
+    let n = 0;
+    while (d < end && n < 400) {
+      d.setUTCDate(d.getUTCDate() + 1);
+      const w = d.getUTCDay();
+      if (w !== 0 && w !== 6) n++;
+    }
+    return n;
+  }
+  const earnDays = (r, scr) => (r && r.earnings && scr && scr.priceDate ? weekdaysBetween(scr.priceDate, r.earnings) : null);
+  const fmtR = (x, d = 2) => (isNum(x) ? (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d) + 'R' : 'n/a');
+  const moneyS = (x) => (isNum(x) ? (x >= 0 ? '+' : '−') + price(Math.abs(x)) : 'n/a');
+  const shortDate = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '')); return m ? `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}` : ''; };
+  const ymdIso = (s) => { const t = String(s || ''); return /^\d{8}$/.test(t) ? `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}` : t; };
+  const fmtShares = (n) => (n >= 100 ? Math.round(n).toLocaleString('en-US') : String(Math.round(n * 10000) / 10000));
+  const tagEl = (text, tone) => h('span', { class: 'tag' + (tone && tone !== 'neutral' ? ' t-' + tone : ''), text });
+  const shariahTag = (st) => { const x = SHARIAH_TAG[st]; return x ? tagEl(x[0], x[1]) : null; };
+  const verdictTag = (code) => (code ? tagEl(VERDICT_SHORT[code] || code, VERDICT_TONE[code] || 'neutral') : null);
+  function setupTag(setup, status) {
+    if (!setup) return null;
+    const name = SETUP_NAME[setup] || setup;
+    if (status === 'active') return tagEl(name + ': buy signal', 'good');
+    if (status === 'watch') return tagEl(name + ': watch', 'warn');
+    if (status === 'wait') return tagEl('Extended: wait', 'warn');
+    return tagEl(name, 'neutral');
+  }
+  const pageHead = (title, sub) => h('div', { class: 'page-head' }, h('h1', { text: title }), sub ? h('p', { text: sub }) : null);
+  const loadingBox = (text) => h('div', { class: 'loading' }, h('div', { class: 'spin', 'aria-hidden': 'true' }), h('div', { text }));
+  const errCard = (text) => h('section', { class: 'card err' }, h('p', { class: 'sub', text }));
+  const stat = (k, val, sub) => h('div', { class: 'stat' }, h('div', { class: 'k', text: k }), h('div', { class: 'val', text: val }), sub ? h('div', { class: 's', text: sub }) : null);
+  const linkBtn = (text, fn) => h('button', { class: 'linkbtn', type: 'button', onclick: fn }, text);
+  const toneIcon = (tone) => icon(tone === 'bad' ? 'bad' : tone === 'warn' ? 'ok' : tone === 'good' ? 'good' : 'na');
+  // pullbacks and reversals buy with a stop-limit order above the signal day's high; breakouts and range trades at the open
+  const fillOf = (setup) => (setup === 'breakout' || setup === 'range' ? 'open' : 'stop');
+
+  // ------------------------------------------------------------------ pages
+  const PAGES = ['stock', 'shortlist', 'watchlist', 'record'];
+  let page = 'stock';
+  function showPage(p) {
+    page = p;
+    PAGES.forEach((k) => { const el = document.getElementById('page-' + k); if (el) el.hidden = k !== p; });
+    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === p ? 'page' : 'false'));
+    $('#how').hidden = true;
+    hideTip();
+    if (p === 'shortlist') renderShortlist();
+    else if (p === 'watchlist') renderWatchlist();
+    else if (p === 'record') renderRecord();
+    window.scrollTo(0, 0);
+  }
+  function navigate(p) {
+    if (p === 'stock') {
+      history.pushState({ p }, '', current && !result.hidden ? '?t=' + encodeURIComponent(current.ticker) : location.pathname);
+      showPage('stock');
+      if (result.hidden) showHome();
+      else if (tech && tech.refit) tech.refit();
+      return;
+    }
+    history.pushState({ p }, '', '?p=' + p);
+    showPage(p);
+  }
+  function openStock(t, view) {
+    history.pushState({ p: 'stock' }, '', '?t=' + encodeURIComponent(t) + (view === 'tech' ? '&view=technical' : view === 'fund' ? '&view=fundamental' : ''));
+    showPage('stock');
+    run(t, true);
+  }
+  function route() {
+    const sp = new URLSearchParams(location.search);
+    const p = sp.get('p');
+    if (/^#w=/.test(location.hash)) { showPage('watchlist'); return; }
+    if (p && PAGES.includes(p) && p !== 'stock') { showPage(p); return; }
+    showPage('stock');
+    const t = sp.get('t');
+    if (t) {
+      if (current && current.ticker === tickerFromInput(t) && !result.hidden) selectTab(sp.get('view') === 'technical' ? 'tech' : 'fund', false);
+      else run(t, true);
+    } else {
+      result.hidden = true;
+      statusEl.replaceChildren();
+      showHome();
+    }
+  }
+
+  // ------------------------------------------------------------------ home: today's overview
+  const REGIME = {
+    up: ['Rising', 'good', 'The S&P 500 is above its 200-day average, and its 50-day average is above the 200-day.', 'rising'],
+    mixed: ['Mixed', 'warn', 'The S&P 500 is caught between its 50-day and 200-day averages: no clear direction.', 'mixed'],
+    down: ['Falling', 'bad', 'The S&P 500 is below its 200-day average, and its 50-day average is below the 200-day.', 'falling'],
+  };
+  const regimeStats = (bt, regime) => {
+    const g = bt && bt.halal && (bt.halal.byRegime || []).find((x) => x.key === regime);
+    return g && g.n >= 30 ? g : null;
+  };
+  let homeToken = 0;
+  async function showHome() {
+    const el = $('#today');
+    if (!HAS_SITE) { el.hidden = true; return; }
+    const my = ++homeToken;
+    el.hidden = false;
+    if (!el.childElementCount) el.append(loadingBox('Loading today’s overview…'));
+    const [scr, bt] = await Promise.all([loadScreen(), loadBtSummary()]);
+    if (my !== homeToken || !result.hidden || page !== 'stock') return;
+    if (!scr) { el.replaceChildren(); el.hidden = true; return; }
+    el.replaceChildren(marketCard(scr, bt), todayCard(scr), watchTeaser(scr));
+  }
+  function marketCard(scr, bt) {
+    const m = scr.market || {};
+    const R = REGIME[m.regime];
+    const card = h('section', { class: 'card', 'aria-label': 'The market today' },
+      h('div', { class: 'tech-head' }, h('h2', { text: 'The market today' }),
+        R ? h('span', { class: 'badge ' + (R[1] === 'good' ? 'b-active' : R[1] === 'bad' ? 'b-bad' : 'b-watch'), text: R[0] }) : null));
+    if (R) card.append(h('p', { class: 'sub', text: R[2] }));
+    if (m.spy) card.append(h('p', { class: 'note', text: `S&P 500 ETF (SPY) ${price(m.spy.close)} at the close on ${niceDates(m.spy.date)} · past month ${pctS(m.spy.r1m, 1)} · past year ${pctS(m.spy.r12m, 1)}` }));
+    if (m.breadth) {
+      const b = m.breadth;
+      card.append(h('div', { style: 'margin-top:12px' },
+        h('div', { class: 'note', style: 'margin-top:0' }, h('b', { text: pct(b.above50, 0) }), ` of the ${b.n.toLocaleString()} stocks here trade above their 50-day average, `, h('b', { text: pct(b.above200, 0) }), ' above their 200-day.'),
+        h('div', { class: 'mini-bar', role: 'img', 'aria-label': `${pct(b.above50, 0)} of stocks above their 50-day average` }, h('i', { style: `width:${Math.round(b.above50 * 100)}%` })),
+        h('div', { class: 'note', text: `${b.highs.toLocaleString()} near a 52-week high, ${b.lows.toLocaleString()} near a 52-week low.` +
+          (b.above50 < 0.4 && m.regime === 'up' ? ' The index is rising while most stocks are not: a narrow market. Be pickier than usual.'
+            : b.above50 > 0.6 && m.regime !== 'down' ? ' Most stocks are rising with the index: a broad, healthy market.'
+              : b.above50 < 0.3 ? ' Most stocks are in short-term downtrends.' : '') })));
+    }
+    const g = regimeStats(bt, m.regime);
+    if (g && R) {
+      const noEdge = g.avgR < 0.05;
+      card.append(h('div', { class: 'callout', style: noEdge ? 'border-left:4px solid var(--bad)' : null },
+        h('b', { text: 'For swing trades: ' }),
+        `in the 5-year backtest, signals taken in a ${R[3]} market averaged ${fmtR(g.avgR)} per trade (${g.n.toLocaleString()} trades on halal stocks, ${pct(g.winRate, 0)} winners).`,
+        noEdge ? ' That is no real edge after costs: consider sitting out new swing trades, or use half your usual size.' : '',
+        h('br'), h('b', { text: 'For long-term buying: ' }),
+        m.regime === 'up' ? 'the market’s mood matters less than the price you pay. Stick to the buy levels.' : 'weak markets are often the best time to buy good businesses. Buy in small steps.'));
+    }
+    return card;
+  }
+  function todayCard(scr) {
+    const sig = scr.list.filter((r) => r.status === 'active' && TRADED.includes(r.setup) && r.shariah === 'pass');
+    const val = scr.list.filter((r) => ['BUY_STRONG', 'BUY', 'CONTRARIAN'].includes(r.verdict) && r.shariah === 'pass');
+    const strong = sig.filter((r) => (r.rs ?? 0) >= 70 && !WEAK.has(r.verdict)).filter((r) => { const d = earnDays(r, scr); return d == null || d > 10; });
+    const top = [...strong].sort(SORTS[PRESETS.signals.sort][1]).slice(0, 4);
+    const card = h('section', { class: 'card', 'aria-label': 'Ideas today' },
+      h('h2', { text: 'Ideas today' }),
+      h('p', { class: 'sub', text: `From ${scr.list.length.toLocaleString()} US companies worth $2 billion or more, prices as of the close on ${niceDates(scr.priceDate)}. Halal stocks only.` }),
+      h('h3', { text: `Swing buy signals: ${sig.length}` }),
+      h('p', { class: 'sub', text: `${strong.length} on stronger stocks (RS 70+) that are not rated weak, with no earnings in the next 10 days. The strongest:` }));
+    if (top.length) card.append(h('div', { class: 'list' }, top.map((r) => slRow(r, 'signals', scr))));
+    else card.append(h('p', { class: 'empty', text: 'None today.' }));
+    card.append(h('div', { class: 'ai' },
+      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => openShortlist('signals') }, 'See all signals'),
+      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => openShortlist('value') }, `${val.length} quality stocks below fair value`)));
+    return card;
+  }
+  function watchTeaser(scr) {
+    const w = W.load();
+    const card = h('section', { class: 'card', 'aria-label': 'Your watchlist' }, h('h2', { text: 'Your watchlist' }));
+    if (!w.items.length) {
+      card.append(h('p', { class: 'sub', text: 'Tap the star next to a company’s name to follow it. The watchlist flags changes to the verdict and halal status, new buy signals, earnings dates, and your own stop and target levels.' }));
+      return card;
+    }
+    const flagged = w.items.filter((it) => itemAlerts(it, scr.by.get(it.t), scr).length).length;
+    card.append(h('p', { class: 'sub', text: `${w.items.length} compan${w.items.length === 1 ? 'y' : 'ies'}, ${flagged ? `${flagged} with something to look at` : 'nothing urgent'}.` }),
+      h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('watchlist') }, 'Open the watchlist')));
+    return card;
+  }
+
+  // ------------------------------------------------------------------ shortlist
+  const PRESETS = {
+    signals: { label: 'Buy signals', title: 'Swing buy signals today', sub: 'Live swing setups. Each plan (Technical tab) has the exact order for the next session.', swing: true, sort: 'rs', view: 'tech', filter: (r) => r.status === 'active' && TRADED.includes(r.setup) },
+    value: { label: 'Quality on sale', title: 'Quality businesses below fair value', sub: 'Rated a buy candidate or a possible bargain on the fundamentals.', sort: 'upside', view: 'fund', filter: (r) => ['BUY_STRONG', 'BUY', 'CONTRARIAN'].includes(r.verdict) },
+    zone: { label: 'Near buy price', title: 'Good businesses near their buy price', sub: 'Within 10% of the long-term “buy below” price, or under it.', sort: 'zone', view: 'fund', filter: (r) => GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.buyBelow > 0 && r.price <= r.buyBelow * 1.1 },
+    leaders: { label: 'Leaders', title: 'Market leaders in uptrends', sub: 'Relative strength 85 or more (beating at least 85% of stocks over the past year), in an uptrend, with business quality of 50 or more.', swing: true, sort: 'rs', view: 'tech', filter: (r) => r.rs >= 85 && r.trend === 'up' && (r.quality ?? 0) >= 50 },
+    dividends: { label: 'Dividends', title: 'Dividend payers', sub: 'A yield of 1.5% or more, from businesses with quality of 50 or more.', sort: 'yield', view: 'fund', filter: (r) => r.divYield >= 0.015 && (r.quality ?? 0) >= 50 },
+  };
+  const zoneDist = (r) => (isNum(r.buyBelow) && r.buyBelow > 0 ? r.price / r.buyBelow - 1 : 9);
+  const SORTS = {
+    rs: ['Strongest (RS)', (a, b) => (b.rs ?? -1) - (a.rs ?? -1)],
+    upside: ['Most upside', (a, b) => (b.upside ?? -9) - (a.upside ?? -9)],
+    zone: ['Nearest buy price', (a, b) => zoneDist(a) - zoneDist(b)],
+    quality: ['Best quality', (a, b) => (b.quality ?? -1) - (a.quality ?? -1)],
+    yield: ['Highest yield', (a, b) => (b.divYield ?? -1) - (a.divYield ?? -1)],
+    risk: ['Tightest stop', (a, b) => (a.riskPct ?? 9) - (b.riskPct ?? 9)],
+    score: ['Chart score', (a, b) => (b.techScore ?? -1) - (a.techScore ?? -1)],
+    cap: ['Biggest first', (a, b) => (b.capM || 0) - (a.capM || 0)],
+  };
+  const SL_DEFAULT = { preset: 'signals', shariah: 'pass', sector: '', cap: 0, hideEarn: true, strong: true, solid: true, sort: '', q: '' };
+  const WEAK = new Set(['AVOID_WEAK', 'SPECULATIVE']);
+  function openShortlist(preset) {
+    const st = { ...SL_DEFAULT, ...store.get('sl', {}) };
+    st.preset = preset;
+    st.sort = '';
+    store.set('sl', st);
+    navigate('shortlist');
+  }
+  function slRow(r, preset, scr) {
+    const P = PRESETS[preset] || PRESETS.value;
+    const tags = [verdictTag(r.verdict), shariahTag(r.shariah)];
+    if (P.swing) tags.push(setupTag(r.setup, r.status));
+    const ed = earnDays(r, scr);
+    if (ed != null && ed <= 10) tags.push(tagEl(ed <= 1 ? 'Earnings next session' : `Earnings in ${ed} days`, 'warn'));
+    const b = (x) => h('b', { text: x });
+    const det = [];
+    if (preset === 'signals') {
+      if (isNum(r.entry)) det.push(fillOf(r.setup) === 'open' ? ['Buy at the next open'] : ['Buy above ', b(price(r.entry))]);
+      if (isNum(r.riskPct)) det.push(['stop ', b('−' + pct(r.riskPct, 1))]);
+      if (isNum(r.t1) && isNum(r.entry) && r.entry > 0) det.push(['target 1 ', b(pctS(r.t1 / r.entry - 1, 1))]);
+      if (isNum(r.rs)) det.push(['RS ', b(String(r.rs))]);
+    } else if (preset === 'leaders') {
+      if (isNum(r.rs)) det.push(['RS ', b(String(r.rs))]);
+      if (isNum(r.r12m)) det.push(['past year ', b(pctS(r.r12m, 0))]);
+      if (isNum(r.offHigh)) det.push([r.offHigh >= -0.01 ? 'at its 52-week high' : `${pct(-r.offHigh, 0)} below its 52-week high`]);
+    } else if (preset === 'zone') {
+      det.push(['Buy below ', b(price0(r.buyBelow))], [r.price <= r.buyBelow ? 'price is ' : 'price is ', b(pct(Math.abs(r.price / r.buyBelow - 1), 0)), r.price <= r.buyBelow ? ' under it' : ' above it']);
+      if (isNum(r.fair)) det.push(['fair value ', b(price0(r.fair))]);
+    } else if (preset === 'dividends') {
+      det.push(['Yield ', b(pct(r.divYield, 1))]);
+      if (isNum(r.quality)) det.push(['quality ', b(String(r.quality))]);
+      if (isNum(r.upside)) det.push(['fair value ', b(pctS(r.upside, 0))]);
+    } else {
+      if (isNum(r.fair)) det.push(['Fair value ', b(price0(r.fair)), ` (${pctS(r.upside, 0)})`]);
+      if (isNum(r.quality)) det.push(['quality ', b(String(r.quality))]);
+      if (isNum(r.pe)) det.push(['P/E ', b(r.pe.toFixed(0) + 'x')]);
+    }
+    const detEl = h('span', { class: 'det' });
+    det.forEach((parts, i) => { if (i) detEl.append(' · '); detEl.append(...parts); });
+    return h('button', { class: 'srow', type: 'button', onclick: () => openStock(r.ticker, P.view) },
+      h('span', { class: 'top' }, h('span', { class: 'tk', text: r.ticker }), h('span', { class: 'nm', text: r.name || '' }),
+        h('span', { class: 'pr' }, price(r.price), isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
+      h('span', { class: 'tags' }, tags.filter(Boolean)),
+      det.length ? detEl : null);
+  }
+  async function renderShortlist() {
+    const el = $('#page-shortlist');
+    const head = pageHead('Shortlist', 'Every US company worth $2 billion or more, screened every weekday. Pick a list, filter it, and tap a company for the full analysis.');
+    el.replaceChildren(head, loadingBox('Loading today’s list…'));
+    const [scr, bt] = await Promise.all([loadScreen(), loadBtSummary()]);
+    if (page !== 'shortlist') return;
+    if (!scr) { el.replaceChildren(head, errCard('Could not load today’s list. Check your connection and try again.')); return; }
+    const st = { ...SL_DEFAULT, ...store.get('sl', {}) };
+    if (!PRESETS[st.preset]) st.preset = 'signals';
+    const save = () => store.set('sl', st);
+    const presetBar = h('div', { class: 'presets', role: 'group', 'aria-label': 'Lists' });
+    const intro = h('div');
+    const caution = h('div');
+    const count = h('div', { class: 'count', 'aria-live': 'polite' });
+    const list = h('div', { class: 'list' });
+    const moreBtn = h('button', { class: 'btn btn-outline more', type: 'button', hidden: true }, 'Show more');
+    let shown = 40;
+    const sectors = [...new Set(scr.list.map((r) => r.sector).filter(Boolean))].sort();
+    const sel = (label, opts, value, on) => {
+      const s = h('select', { 'aria-label': label });
+      opts.forEach(([v, t]) => s.append(h('option', { value: String(v), selected: String(v) === String(value) ? true : null }, t)));
+      s.addEventListener('change', () => on(s.value));
+      return s;
+    };
+    const shSel = sel('Halal filter', [['pass', 'Halal only'], ['ok', 'Halal + needs checking'], ['all', 'All companies']], st.shariah, (v) => { st.shariah = v; save(); paint(true); });
+    const secSel = sel('Sector', [['', 'All sectors'], ...sectors.map((x) => [x, x])], st.sector, (v) => { st.sector = v; save(); paint(true); });
+    const capSel = sel('Company size', [[0, 'Any size'], [10000, '$10B or more'], [50000, '$50B or more'], [200000, '$200B or more']], st.cap, (v) => { st.cap = Number(v); save(); paint(true); });
+    const sortSel = h('select', { 'aria-label': 'Sort by' });
+    sortSel.addEventListener('change', () => { st.sort = sortSel.value; save(); paint(true); });
+    const earnChk = h('input', { type: 'checkbox' });
+    earnChk.checked = !!st.hideEarn;
+    earnChk.addEventListener('change', () => { st.hideEarn = earnChk.checked; save(); paint(true); });
+    const earnLbl = h('label', { class: 'chk' }, earnChk, 'Hide earnings in the next 10 days');
+    const strongChk = h('input', { type: 'checkbox' });
+    strongChk.checked = st.strong !== false;
+    strongChk.addEventListener('change', () => { st.strong = strongChk.checked; save(); paint(true); });
+    const strongLbl = h('label', { class: 'chk' }, strongChk, 'Stronger stocks only (RS 70+)');
+    const solidChk = h('input', { type: 'checkbox' });
+    solidChk.checked = st.solid !== false;
+    solidChk.addEventListener('change', () => { st.solid = solidChk.checked; save(); paint(true); });
+    const solidLbl = h('label', { class: 'chk' }, solidChk, 'Skip weak businesses (Avoid, Speculative)');
+    const fsum = h('span');
+    const fbox = h('details', { class: 'fbox' }, h('summary', null, fsum, chevron()));
+    const search = h('input', { type: 'search', placeholder: 'Filter by name or ticker', 'aria-label': 'Filter by name or ticker' });
+    search.value = st.q || '';
+    let qTimer = null;
+    search.addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { st.q = search.value.trim(); save(); paint(true); }, 160); });
+    moreBtn.addEventListener('click', () => { shown += 40; paint(false); });
+    const paintPresets = () => presetBar.replaceChildren(...Object.entries(PRESETS).map(([k, P]) =>
+      h('button', { type: 'button', 'aria-pressed': String(k === st.preset), onclick: () => { st.preset = k; st.sort = ''; save(); paintPresets(); paint(true); } }, P.label)));
+    function paint(reset) {
+      if (reset) shown = 40;
+      const P = PRESETS[st.preset];
+      const sortKey = st.sort && SORTS[st.sort] ? st.sort : P.sort;
+      sortSel.replaceChildren(...Object.entries(SORTS).map(([k, [lab]]) => h('option', { value: k, selected: k === sortKey ? true : null }, 'Sort: ' + lab)));
+      earnLbl.hidden = !P.swing;
+      strongLbl.hidden = st.preset !== 'signals';
+      solidLbl.hidden = !P.swing;
+      const active = [{ pass: 'Halal only', ok: 'Halal + needs checking', all: 'All companies' }[st.shariah] || 'Halal only'];
+      if (st.sector) active.push(st.sector);
+      if (st.cap) active.push('$' + Math.round(st.cap / 1000) + 'B+');
+      if (st.preset === 'signals' && st.strong !== false) active.push('RS 70+');
+      if (P.swing && st.solid !== false) active.push('no weak businesses');
+      if (P.swing && st.hideEarn) active.push('no earnings soon');
+      fsum.replaceChildren('Filters: ', h('b', { text: active.join(' · ') }));
+      intro.replaceChildren(h('h2', { style: 'font-size:19px;margin:16px 0 2px;letter-spacing:-0.01em', text: P.title }), h('p', { class: 'sub', text: P.sub }));
+      caution.replaceChildren();
+      const m = scr.market || {};
+      if (P.swing && m.regime === 'down') {
+        const g = regimeStats(bt, 'down');
+        caution.append(h('div', { class: 'callout', style: 'border-left:4px solid var(--bad)' }, h('b', { text: 'The market is falling. ' }),
+          g ? `In the backtest, signals taken in falling markets averaged ${fmtR(g.avgR)} per trade. Consider waiting, or use half your usual size.` : 'Swing signals work less well in falling markets. Consider waiting, or use half your usual size.'));
+      }
+      let rows = scr.list.filter(P.filter);
+      if (st.shariah === 'pass') rows = rows.filter((r) => r.shariah === 'pass');
+      else if (st.shariah === 'ok') rows = rows.filter((r) => r.shariah === 'pass' || r.shariah === 'review');
+      if (st.sector) rows = rows.filter((r) => r.sector === st.sector);
+      if (st.cap) rows = rows.filter((r) => (r.capM || 0) >= st.cap);
+      if (st.preset === 'signals' && st.strong !== false) rows = rows.filter((r) => (r.rs ?? 0) >= 70);
+      if (P.swing && st.solid !== false) rows = rows.filter((r) => !WEAK.has(r.verdict));
+      let hiddenN = 0;
+      if (P.swing && st.hideEarn) {
+        const before = rows.length;
+        rows = rows.filter((r) => { const d = earnDays(r, scr); return d == null || d > 10; });
+        hiddenN = before - rows.length;
+      }
+      if (st.q) { const qq = st.q.toUpperCase(); rows = rows.filter((r) => r.ticker.includes(qq) || String(r.name || '').toUpperCase().includes(qq)); }
+      rows.sort(SORTS[sortKey][1]);
+      count.textContent = `${rows.length.toLocaleString()} compan${rows.length === 1 ? 'y' : 'ies'}` + (hiddenN ? ` (${hiddenN} hidden: earnings within 10 trading days)` : '') + ` · prices as of the close on ${niceDates(scr.priceDate)}`;
+      list.replaceChildren(...rows.slice(0, shown).map((r) => slRow(r, st.preset, scr)));
+      if (!rows.length) list.append(h('p', { class: 'empty', text: 'Nothing matches these filters today.' }));
+      moreBtn.hidden = rows.length <= shown;
+      moreBtn.textContent = `Show more (${(rows.length - shown).toLocaleString()} left)`;
+    }
+    paintPresets();
+    fbox.append(h('div', { class: 'filters' }, shSel, secSel, capSel, strongLbl, solidLbl, earnLbl));
+    if (window.matchMedia && window.matchMedia('(min-width: 800px)').matches) fbox.open = true;
+    el.replaceChildren(head, presetBar, intro, caution, h('div', { class: 'sl-tools' }, sortSel, search), fbox, count, list, moreBtn,
+      h('section', { class: 'card', style: 'margin-top:18px' }, h('h2', { text: 'Using these lists well' }),
+        h('ul', { class: 'clean' },
+          h('li', null, h('span', { text: 'A list is a starting point, not a buy list. Open the company, read both tabs, and confirm halal status on Zoya or Musaffa.' })),
+          h('li', null, h('span', { text: 'Swing signals expire: each plan is for the next session only, and the site refreshes every weekday morning (US time).' })),
+          h('li', null, h('span', null, 'Relative strength (RS) ranks the past year’s price performance against every stock here, recent months weighted most: 99 is the strongest. ', linkBtn('How did signals do by RS?', () => navigate('record')))),
+          h('li', null, h('span', { text: 'Few positions means more risk from any one company. Spread your money and keep each trade’s risk to 1% to 2% of your portfolio.' })))));
+    paint(true);
+  }
+
+  // ------------------------------------------------------------------ watchlist (kept on this device)
+  const W = {
+    load() {
+      const w = store.get('watch', null);
+      return w && Array.isArray(w.items) ? w : { v: 1, items: [], snap: null, prev: null };
+    },
+    save(w) { store.set('watch', w); refreshNavDot(); },
+    has(t) { return this.load().items.some((i) => i.t === t); },
+    get(t) { return this.load().items.find((i) => i.t === t) || null; },
+    toggle(t, px) {
+      const w = this.load();
+      const i = w.items.findIndex((x) => x.t === t);
+      if (i >= 0) w.items.splice(i, 1);
+      else w.items.unshift({ t, added: todayISO(), addPx: isNum(px) ? px : null });
+      this.save(w);
+      return i < 0;
+    },
+    update(t, patch) { const w = this.load(); const it = w.items.find((x) => x.t === t); if (it) Object.assign(it, patch); this.save(w); },
+    remove(t) { const w = this.load(); w.items = w.items.filter((x) => x.t !== t); this.save(w); },
+  };
+  function itemAlerts(it, r, scr) {
+    const a = [];
+    if (!r) { a.push(['warn', 'Not in today’s data (it may have dropped below $2 billion in market value).']); return a; }
+    const held = it.shares > 0;
+    if (r.shariah === 'fail') a.push(['bad', held ? 'Fails the Shariah screen now. Confirm on Zoya or Musaffa, and plan to sell if it still fails.' : 'Fails the Shariah screen now.']);
+    else if (r.shariah === 'review') a.push(['warn', 'Halal status needs checking: close to a limit, or unclear.']);
+    if (held && it.swing) {
+      if (isNum(it.stop) && r.price <= it.stop) a.push(['bad', `At or below your stop (${price(it.stop)}): the plan says sell.`]);
+      else if (isNum(it.t1) && r.price >= it.t1) a.push(['good', `Reached target 1 (${price(it.t1)}): sell half and move your stop up to your entry price.`]);
+    }
+    if (held && !it.swing) {
+      if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) a.push(['bad', `The verdict is now “${VERDICT_SHORT[r.verdict]}”: re-check the business.`]);
+      if (isNum(r.trimAbove) && r.price >= r.trimAbove) a.push(['warn', `Above the trim level (${price(r.trimAbove)}): consider selling part.`]);
+    }
+    if (!held && r.shariah !== 'fail') {
+      if (r.status === 'active' && TRADED.includes(r.setup)) a.push(['good', `Swing buy signal: ${SETUP_NAME[r.setup] || r.setup}.`]);
+      if (GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow) a.push(['good', `In the long-term buy zone (below ${price(r.buyBelow)}).`]);
+    }
+    const ed = earnDays(r, scr);
+    if (ed != null && ed <= 7) a.push(['warn', `Earnings ${ed <= 1 ? 'in the next session' : `in ${ed} trading days`} (${niceDates(r.earnings)}).`]);
+    return a;
+  }
+  const snapRow = (r) => (r ? { v: r.verdict, s: r.shariah, sg: r.status === 'active' && TRADED.includes(r.setup) ? r.setup : '', p: r.price } : null);
+  // keeps the last two data days you have seen, so "what changed" stays visible all day
+  function watchChanges(w, scr) {
+    if (!w.snap || w.snap.date !== scr.priceDate) {
+      w.prev = w.snap || null;
+      w.snap = { date: scr.priceDate, rows: Object.fromEntries(w.items.map((it) => [it.t, snapRow(scr.by.get(it.t))])) };
+      store.set('watch', w);
+    } else {
+      let changed = false;
+      for (const it of w.items) if (!(it.t in w.snap.rows)) { w.snap.rows[it.t] = snapRow(scr.by.get(it.t)); changed = true; }
+      if (changed) store.set('watch', w);
+    }
+    const out = [];
+    if (!w.prev) return out;
+    for (const it of w.items) {
+      const a = w.prev.rows[it.t];
+      const b = w.snap.rows[it.t];
+      if (!a || !b) continue;
+      const lines = [];
+      if (a.v !== b.v) lines.push(`verdict ${VERDICT_SHORT[a.v] || 'none'} → ${VERDICT_SHORT[b.v] || 'none'}`);
+      if (a.s !== b.s) lines.push(`halal screen ${SH_WORD[a.s] || 'n/a'} → ${SH_WORD[b.s] || 'n/a'}`);
+      if (a.sg !== b.sg) lines.push(b.sg ? `new swing buy signal (${SETUP_NAME[b.sg] || b.sg})` : 'swing signal ended');
+      if (isNum(a.p) && isNum(b.p) && a.p > 0 && Math.abs(b.p / a.p - 1) >= 0.05) lines.push(`price ${pctS(b.p / a.p - 1, 1)}`);
+      if (lines.length) out.push([it.t, lines]);
+    }
+    return out;
+  }
+  function refreshNavDot() {
+    const dot = document.querySelector('#nav .dot');
+    if (!dot || !HAS_SITE) return;
+    const w = W.load();
+    if (!w.items.length) { dot.hidden = true; return; }
+    loadScreen().then((scr) => {
+      if (!scr) return;
+      dot.hidden = !w.items.some((it) => itemAlerts(it, scr.by.get(it.t), scr).some((x) => x[0] === 'bad'));
+    });
+  }
+  function b64url(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function fromB64url(s) {
+    const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+    return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+  }
+  async function renderWatchlist() {
+    const el = $('#page-watchlist');
+    const head = pageHead('Watchlist', 'Companies you follow: what changed, what needs your attention, and your positions. Saved on this device only.');
+    el.replaceChildren(head, loadingBox('Loading…'));
+    const scr = await loadScreen();
+    if (page !== 'watchlist') return;
+    const parts = [head];
+    const imp = importCard();
+    if (imp) parts.push(imp);
+    parts.push(addBox());
+    if (!scr) { parts.push(errCard('Could not load today’s data. Check your connection and try again.')); el.replaceChildren(...parts); return; }
+    const w = W.load();
+    if (!w.items.length) {
+      parts.push(h('section', { class: 'card' }, h('h2', { text: 'Nothing here yet' }),
+        h('p', { class: 'sub', text: 'Add a ticker above, or tap the star next to a company’s name on its analysis page.' })));
+      el.replaceChildren(...parts);
+      return;
+    }
+    const changes = watchChanges(w, scr);
+    const att = [];
+    for (const it of w.items) for (const a of itemAlerts(it, scr.by.get(it.t), scr)) att.push([it.t, a[0], a[1]]);
+    const order = { bad: 0, warn: 1, good: 2 };
+    att.sort((x, y) => order[x[1]] - order[y[1]]);
+    parts.push(h('section', { class: 'card', 'aria-label': 'Needs attention' }, h('h2', { text: 'Needs attention' }),
+      att.length
+        ? h('ul', { class: 'alert-list' }, att.map(([t, tone, text]) => h('li', null, toneIcon(tone), h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => openStock(t) }, t), ' ', text))))
+        : h('p', { class: 'empty', text: 'Nothing today.' })));
+    if (changes.length) {
+      parts.push(h('section', { class: 'card', 'aria-label': 'What changed' }, h('h2', { text: `Changed since the close on ${niceDates(w.prev.date)}` }),
+        h('ul', { class: 'alert-list' }, changes.map(([t, lines]) => h('li', null, h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => openStock(t) }, t), ': ', lines.join('; ')))))));
+    }
+    const held = w.items.filter((it) => it.shares > 0);
+    const watching = w.items.filter((it) => !(it.shares > 0));
+    if (held.length) parts.push(h('h2', { class: 'page-sec', text: `Your positions (${held.length})` }), portfolioCard(held, scr), h('div', { class: 'list' }, held.map((it) => wlItem(it, scr))));
+    if (watching.length) parts.push(h('h2', { class: 'page-sec', text: `Watching (${watching.length})` }), h('div', { class: 'list' }, watching.map((it) => wlItem(it, scr))));
+    parts.push(syncCard(w));
+    el.replaceChildren(...parts);
+  }
+  function addBox() {
+    const inp = h('input', { type: 'search', placeholder: 'Add a ticker, e.g. MSFT', 'aria-label': 'Ticker to add', autocapitalize: 'characters', spellcheck: 'false', enterkeyhint: 'done' });
+    const msg = h('div', { class: 'note', hidden: true });
+    const form = h('form', { class: 'filters', style: 'margin-top:14px', autocomplete: 'off' }, inp, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Add'));
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const t = tickerFromInput(inp.value);
+      if (!t) return;
+      const scr = await loadScreen();
+      const r = scr && scr.by.get(t);
+      if (!r) { msg.hidden = false; msg.textContent = `“${t}” is not in today’s list (US companies worth $2 billion or more that file with the SEC).`; return; }
+      if (!W.has(t)) W.toggle(t, r.price);
+      renderWatchlist();
+    });
+    return h('div', null, form, msg);
+  }
+  function wlItem(it, scr) {
+    const r = scr.by.get(it.t);
+    const held = it.shares > 0;
+    const box = h('div', { class: 'wl-item' });
+    box.append(h('button', { class: 'srow', type: 'button', onclick: () => openStock(it.t, it.swing ? 'tech' : null) },
+      h('span', { class: 'top' }, h('span', { class: 'tk', text: it.t }), h('span', { class: 'nm', text: r ? r.name : '' }),
+        h('span', { class: 'pr' }, r ? price(r.price) : 'n/a', r && isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
+      r ? h('span', { class: 'tags' }, [verdictTag(r.verdict), shariahTag(r.shariah), setupTag(r.setup, r.status)].filter(Boolean)) : null));
+    const det = [];
+    if (r && isNum(it.addPx) && it.addPx > 0) det.push(Math.abs(r.price / it.addPx - 1) < 0.0005 ? `Added ${niceDates(it.added)}` : `${pctS(r.price / it.addPx - 1, 1)} since you added it (${niceDates(it.added)})`);
+    if (held && r) {
+      const val = it.shares * r.price;
+      det.push(`${fmtShares(it.shares)} shares worth ${price(val)}`);
+      if (isNum(it.cost) && it.cost > 0) det.push(`gain ${pctS(r.price / it.cost - 1, 1)} (${moneyS(val - it.shares * it.cost)})`);
+      if (it.swing) det.push(`swing trade: stop ${price(it.stop)}, target 1 ${price(it.t1)}`);
+    }
+    if (det.length) box.append(h('div', { class: 'note', text: det.join(' · ') }));
+    const al = itemAlerts(it, r, scr);
+    if (al.length) box.append(h('ul', { class: 'alerts' }, al.map(([tone, text]) => h('li', null, toneIcon(tone), h('span', { text })))));
+    const form = editForm(it, r);
+    form.hidden = true;
+    box.append(h('div', { class: 'row-actions' },
+      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { form.hidden = !form.hidden; } }, held ? 'Edit position' : 'I own it'),
+      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { W.remove(it.t); renderWatchlist(); } }, 'Remove')), form);
+    return box;
+  }
+  function editForm(it, r) {
+    const num = (v) => { const n = Number(String(v).replace(/[$,\s]/g, '')); return Number.isFinite(n) && n > 0 ? n : null; };
+    const inp = (label, val, ph) => {
+      const i = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: ph || '' });
+      if (isNum(val)) i.value = String(val);
+      return [h('label', { class: 'field' }, h('span', { text: label }), i), i];
+    };
+    const [fSh, iSh] = inp('Shares', it.shares);
+    const [fCo, iCo] = inp('Average cost per share ($)', it.cost, r ? String(r.price) : '');
+    const swing = h('input', { type: 'checkbox' });
+    swing.checked = !!it.swing;
+    const [fSt, iSt] = inp('Stop loss ($)', it.stop, r && isNum(r.stop) && r.status === 'active' ? String(r.stop) : '');
+    const [fT1, iT1] = inp('Target 1 ($)', it.t1, r && isNum(r.t1) && r.status === 'active' ? String(r.t1) : '');
+    const swingBox = h('div', { class: 'form-grid' }, fSt, fT1);
+    swingBox.hidden = !swing.checked;
+    swing.addEventListener('change', () => { swingBox.hidden = !swing.checked; });
+    const form = h('form', { class: 'editbox', autocomplete: 'off' },
+      h('div', { class: 'form-grid' }, fSh, fCo),
+      h('label', { class: 'chk' }, swing, 'A swing trade (with a stop and a target)'),
+      swingBox,
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Save'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { form.hidden = true; } }, 'Cancel')),
+      h('p', { class: 'note', text: 'Stays on this device. Long-term holdings get alerts on the verdict, halal status and the trim level; swing trades on your stop and target 1.' }));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      W.update(it.t, { shares: num(iSh.value), cost: num(iCo.value), swing: swing.checked, stop: swing.checked ? num(iSt.value) : null, t1: swing.checked ? num(iT1.value) : null });
+      renderWatchlist();
+    });
+    return form;
+  }
+  function portfolioCard(held, scr) {
+    const rows = held.map((it) => ({ it, r: scr.by.get(it.t) })).filter((x) => x.r && x.r.price > 0);
+    const total = rows.reduce((s, x) => s + x.it.shares * x.r.price, 0);
+    const card = h('section', { class: 'card', 'aria-label': 'Portfolio check' }, h('h2', { text: 'Portfolio check' }));
+    if (!(total > 0)) { card.append(h('p', { class: 'sub', text: 'Add share counts to see the check.' })); return card; }
+    const costKnown = rows.every((x) => isNum(x.it.cost) && x.it.cost > 0);
+    const cost = rows.reduce((s, x) => s + (isNum(x.it.cost) ? x.it.shares * x.it.cost : 0), 0);
+    const weights = rows.map((x) => ({ t: x.it.t, w: (x.it.shares * x.r.price) / total, sector: x.r.sector || 'Other' })).sort((a, b) => b.w - a.w);
+    const bySector = new Map();
+    weights.forEach((x) => bySector.set(x.sector, (bySector.get(x.sector) || 0) + x.w));
+    const sectors = [...bySector.entries()].sort((a, b) => b[1] - a[1]);
+    let pur = 0;
+    let purMissing = 0;
+    let payers = 0;
+    for (const x of rows) {
+      if (!(x.r.divYield > 0)) continue;
+      payers++;
+      if (!isNum(x.r.impure)) { purMissing++; continue; }
+      pur += x.it.shares * x.r.price * x.r.divYield * x.r.impure;
+    }
+    let swingRisk = 0;
+    for (const x of rows) if (x.it.swing && isNum(x.it.stop) && x.r.price > x.it.stop) swingRisk += x.it.shares * (x.r.price - x.it.stop);
+    card.append(h('div', { class: 'stats' },
+      stat('Value', price(total), `${rows.length} position${rows.length === 1 ? '' : 's'}`),
+      costKnown && cost > 0 ? stat('Gain', moneyS(total - cost), pctS(total / cost - 1, 1)) : stat('Gain', 'n/a', 'add your average costs'),
+      stat('Largest', pct(weights[0].w, 0), weights[0].t),
+      !payers ? stat('Purification', '$0', 'no dividends to purify')
+        : purMissing === payers ? stat('Purification', 'n/a', 'not reported: use Zoya or Musaffa')
+          : stat('Purification', price(pur), purMissing ? `a year, estimate (${purMissing} not reported)` : 'a year, on dividends (estimate)')));
+    const checks = [];
+    if (weights[0].w > 0.4 && rows.length > 1) checks.push(['warn', `${weights[0].t} is ${pct(weights[0].w, 0)} of these holdings. One bad surprise there would hurt the whole portfolio.`]);
+    if (sectors[0] && sectors[0][1] > 0.5 && rows.length > 1) checks.push(['warn', `${pct(sectors[0][1], 0)} is in one sector (${sectors[0][0]}). A problem in that industry would hit most of your money at once.`]);
+    const bad = rows.filter((x) => x.r.shariah === 'fail').map((x) => x.it.t);
+    const rev = rows.filter((x) => x.r.shariah === 'review').map((x) => x.it.t);
+    if (bad.length) checks.push(['bad', `Not halal now: ${bad.join(', ')}. Confirm on Zoya or Musaffa.`]);
+    if (rev.length) checks.push(['warn', `Halal status needs checking: ${rev.join(', ')}.`]);
+    if (!bad.length && !rev.length) checks.push(['good', 'Every position passes the halal screen today.']);
+    if (swingRisk > 0) checks.push(['na', `If every swing stop were hit from today’s prices, you would lose about ${price(swingRisk)} (${pct(swingRisk / total, 1)} of these holdings).`]);
+    card.append(h('ul', { class: 'alert-list', style: 'margin-top:12px' }, checks.map(([tone, text]) => h('li', null, toneIcon(tone), h('span', { text })))));
+    card.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+      h('tr', null, h('th', { text: 'Sector' }), h('th', { text: 'Weight' })),
+      sectors.map(([sname, wv]) => h('tr', null, h('td', { text: sname }), h('td', { text: pct(wv, 0) }))))));
+    card.append(h('p', { class: 'note', text: 'Purification is estimated from the last 12 months of dividends and the impure share of each company’s income' + (purMissing ? ` (${purMissing} holding${purMissing === 1 ? '' : 's'} could not be estimated)` : '') + '. Purify based on the dividends you actually receive.' }));
+    return card;
+  }
+  function syncCard(w) {
+    const data = w.items.map((it) => [it.t, it.added || '', isNum(it.addPx) ? it.addPx : 0, it.shares || 0, it.cost || 0, it.swing ? 1 : 0, it.stop || 0, it.t1 || 0]);
+    const link = location.origin + location.pathname + '?p=watchlist#w=' + b64url(JSON.stringify({ v: 1, i: data }));
+    const box = h('textarea', { class: 'promptbox', readonly: true, rows: '3', hidden: true, 'aria-label': 'Sync link' });
+    box.value = link;
+    const ok = h('span', { class: 'copied', hidden: true, text: 'Copied' });
+    return h('section', { class: 'card', 'aria-label': 'Use on another device' }, h('h2', { text: 'Use it on your other devices' }),
+      h('p', { class: 'sub', text: 'Your watchlist lives only in this browser. To copy it to your phone, tablet or laptop, copy this link and open it there. Send it only to yourself: it contains your positions.' }),
+      h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: async () => {
+        try { await navigator.clipboard.writeText(link); ok.hidden = false; setTimeout(() => { ok.hidden = true; }, 2000); }
+        catch { box.hidden = false; box.focus(); box.select(); }
+      } }, 'Copy sync link'), ok), box);
+  }
+  function importCard() {
+    const m = /^#w=([A-Za-z0-9_-]+)$/.exec(location.hash || '');
+    if (!m) return null;
+    const clear = () => history.replaceState(history.state, '', location.pathname + location.search);
+    let data = null;
+    try { data = JSON.parse(fromB64url(m[1])); } catch { data = null; }
+    if (!data || data.v !== 1 || !Array.isArray(data.i)) { clear(); return errCard('That sync link looks damaged, so nothing was imported.'); }
+    const items = data.i.filter((x) => Array.isArray(x) && typeof x[0] === 'string' && x[0]).slice(0, 200).map((x) => ({
+      t: tickerFromInput(x[0]), added: /^\d{4}-\d{2}-\d{2}$/.test(x[1]) ? x[1] : todayISO(), addPx: x[2] > 0 ? Number(x[2]) : null,
+      shares: x[3] > 0 ? Number(x[3]) : null, cost: x[4] > 0 ? Number(x[4]) : null, swing: !!x[5], stop: x[6] > 0 ? Number(x[6]) : null, t1: x[7] > 0 ? Number(x[7]) : null,
+    }));
+    const apply = (mode) => {
+      const w = W.load();
+      if (mode === 'replace') w.items = items;
+      else for (const it of items) if (!w.items.some((x) => x.t === it.t)) w.items.push(it);
+      W.save(w);
+      clear();
+      renderWatchlist();
+    };
+    return h('section', { class: 'card', style: 'border-left:4px solid var(--accent)' },
+      h('h2', { text: `Import ${items.length} compan${items.length === 1 ? 'y' : 'ies'} from a sync link?` }),
+      h('p', { class: 'sub', text: items.map((x) => x.t).join(', ') }),
+      h('div', { class: 'ai' },
+        h('button', { class: 'btn btn-sm', type: 'button', onclick: () => apply('replace') }, 'Replace my list'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => apply('merge') }, 'Add to my list'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { clear(); renderWatchlist(); } }, 'Ignore')));
+  }
+  const STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+  function starButton(d) {
+    if (!HAS_SITE) return null;
+    const b = h('button', { class: 'star', type: 'button' });
+    b.innerHTML = STAR_SVG;
+    const paint = (on) => { b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? 'Remove from watchlist' : 'Add to watchlist'); b.title = on ? 'On your watchlist' : 'Add to watchlist'; };
+    paint(W.has(d.ticker));
+    b.addEventListener('click', () => paint(W.toggle(d.ticker, d.price)));
+    return b;
+  }
+
+  // ------------------------------------------------------------------ stock page: at a glance, dividends, peers
+  function paintGlance() {
+    const t = tech;
+    if (!t || !t.glance) return;
+    const d = t.d;
+    const T = t.data && t.data.ok ? t.data : null;
+    const r = t.row || null;
+    const chip = (tone, ic, text, small, onclick, label) => h('button', { class: 'gchip' + (tone ? ' g-' + tone : ''), type: 'button', onclick, 'aria-label': label || null },
+      ic ? icon(ic) : null, h('span', { text }), small ? h('small', { text: small }) : null);
+    const chips = [];
+    const v = d.verdict && d.verdict.code;
+    const vt = VERDICT_TONE[v];
+    chips.push(chip(vt === 'good' || vt === 'bad' || vt === 'warn' ? vt : '', null, VERDICT_SHORT[v] || 'Verdict', null, () => selectTab('fund', true)));
+    const sh = d.labels && d.labels.shariah && d.labels.shariah.status;
+    if (sh) {
+      chips.push(chip(sh === 'pass' ? 'good' : sh === 'fail' ? 'bad' : 'warn', sh === 'pass' ? 'good' : sh === 'fail' ? 'bad' : 'ok', SHARIAH_TAG[sh] ? SHARIAH_TAG[sh][0] : 'Halal', null, () => {
+        selectTab('fund', true);
+        const s = document.querySelector('#panel-fund details.shariah');
+        if (s) { s.open = true; s.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      }));
+    }
+    if (T) {
+      const st = T.setup.status;
+      chips.push(chip(st === 'active' ? 'good' : st === 'watch' || st === 'wait' ? 'warn' : '', null,
+        st === 'active' ? 'Chart: buy signal' : st === 'wait' ? 'Chart: wait' : st === 'watch' ? 'Chart: watch' : 'Chart: no trade', SETUP_NAME[T.setup.setup] || '', () => selectTab('tech', true)));
+    } else if (!t.data) chips.push(chip('', null, 'Chart…', null, () => selectTab('tech', true)));
+    if (r && isNum(r.rs)) chips.push(chip(r.rs >= 80 ? 'good' : r.rs <= 20 ? 'bad' : '', null, `RS ${r.rs}`, 'of 99', () => selectTab('tech', true), `Relative strength ${r.rs} of 99`));
+    const earn = T && T.earnings ? T.earnings : d.nextEarnings || null;
+    if (earn && earn.date) {
+      const days = isNum(earn.tradingDays) ? earn.tradingDays : null;
+      chips.push(chip(days != null && days <= 10 ? 'warn' : '', null, `Earnings ${shortDate(earn.date)}`, days != null ? `in ${days} days` : '', () => selectTab('tech', true)));
+    }
+    if (d.dividends && d.dividends.pays && isNum(d.dividends.yield)) {
+      chips.push(chip('', null, `Yield ${pct(d.dividends.yield, 1)}`, null, () => {
+        selectTab('fund', true);
+        const c = document.getElementById('divCard');
+        if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }));
+    }
+    t.glance.replaceChildren(...chips);
+  }
+  function dividendsCard(d) {
+    const D = d.dividends;
+    const Pu = d.purification || {};
+    if (!D) return null;
+    const card = h('section', { class: 'card', id: 'divCard', 'aria-label': 'Dividends and purification' }, h('h2', { text: 'Dividends and purification' }));
+    const fail = d.labels && d.labels.shariah && d.labels.shariah.status === 'fail';
+    if (!D.pays) {
+      card.append(h('p', { class: 'sub', text: 'It pays no cash dividend, so there is no dividend income to purify. Some scholars also ask investors to purify part of their gains when they sell; follow the scholar you trust.' }));
+      return card;
+    }
+    card.append(h('p', { class: 'sub', text: 'Cash paid to shareholders over the last 12 months, from the cash flow statement.' }));
+    card.append(h('div', { class: 'fv-grid' },
+      kv('Dividend yield', pct(D.yield, 2)),
+      kv('Per share, 12 months', isNum(D.perShare) ? price(D.perShare) : 'n/a'),
+      kv('Share of profit paid', isNum(D.payoutProfit) ? pct(D.payoutProfit, 0) : 'n/a'),
+      kv('Years paid in a row', D.yearsPaid ? String(D.yearsPaid) + (d.yearsOfData && D.yearsPaid >= d.yearsOfData ? '+' : '') : 'n/a')));
+    const notes = [];
+    if (isNum(D.payoutFcf)) notes.push(`That is ${pct(D.payoutFcf, 0)} of free cash flow.`);
+    if (isNum(D.growth5y)) notes.push(`The dividend per share changed ${pctS(D.growth5y, 1)} a year over the last 5 years.`);
+    if (isNum(D.payoutFcf) && D.payoutFcf > 0.9) notes.push('Paying out almost all its free cash flow leaves little room to raise the dividend or get through a bad year.');
+    if (notes.length) card.append(h('p', { class: 'note', text: notes.join(' ') }));
+    card.append(h('h3', { text: 'Purification calculator' }));
+    if (fail) { card.append(h('div', { class: 'callout', text: 'It fails the Shariah screen. Purifying the dividend does not make holding it permissible; most scholars advise selling.' })); return card; }
+    if (!isNum(Pu.ratio)) { card.append(h('p', { class: 'sub', text: 'Interest income is not reported separately, so the impure share of income cannot be estimated here. Use the purification percentage on Zoya or Musaffa.' })); return card; }
+    card.append(h('p', { class: 'sub' }, 'Impure share of income: about ', h('b', { text: pct(Pu.ratio, 2) }), ` (${Pu.basis}). The usual method: give that share of every dividend you receive to charity.`));
+    const num = (v) => { const n = Number(String(v).replace(/[$,\s]/g, '')); return Number.isFinite(n) && n > 0 ? n : 0; };
+    const sh = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'e.g. 10', 'aria-label': 'Shares you hold' });
+    const got = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'optional', 'aria-label': 'Dividends you received, in dollars' });
+    const mine = HAS_SITE ? W.get(d.ticker) : null;
+    if (mine && mine.shares > 0) sh.value = String(mine.shares);
+    const out = h('div', { class: 'out' });
+    const upd = () => {
+      const s = num(sh.value);
+      const g = num(got.value);
+      const rows = [];
+      if (g) rows.push(h('div', null, 'On ', h('b', { text: price(g) }), ' of dividends received, purify about ', h('b', { text: price(g * Pu.ratio) }), '.'));
+      if (s && isNum(D.perShare)) {
+        const yr = s * D.perShare;
+        rows.push(h('div', null, `${fmtShares(s)} shares pay about `, h('b', { text: price(yr) }), ' a year at the current rate, so about ', h('b', { text: price(yr * Pu.ratio) }), ' a year to purify.'));
+      }
+      if (!rows.length) rows.push(h('div', { class: 'muted', text: 'Enter your shares, or the dividends you received.' }));
+      out.replaceChildren(...rows);
+    };
+    sh.addEventListener('input', upd);
+    got.addEventListener('input', upd);
+    upd();
+    card.append(h('div', { class: 'calc' },
+      h('label', null, h('span', { text: 'Shares you hold' }), sh),
+      h('label', null, h('span', { text: 'Dividends received ($)' }), got),
+      out));
+    card.append(h('p', { class: 'note', text: Pu.note }));
+    return card;
+  }
+  function peersCard(d) {
+    const box = h('section', { class: 'card', 'aria-label': 'Peers', hidden: true });
+    loadScreen().then((scr) => {
+      if (!scr || !box.isConnected) return;
+      const me = scr.by.get(d.ticker);
+      if (!me) return;
+      let pool = scr.list.filter((r) => r.ticker !== d.ticker && me.industry && r.industry === me.industry);
+      let basis = me.industry;
+      if (pool.length < 3) { pool = scr.list.filter((r) => r.ticker !== d.ticker && me.sector && r.sector === me.sector); basis = me.sector; }
+      if (!pool.length) return;
+      const near = (r) => Math.abs(Math.log(Math.max(1, r.capM || 1) / Math.max(1, me.capM || 1)));
+      const peers = [...pool].sort((a, b) => near(a) - near(b)).slice(0, 6);
+      const rows = [me, ...peers].sort((a, b) => (b.capM || 0) - (a.capM || 0));
+      box.append(h('h2', { text: 'Compared with peers' }),
+        h('p', { class: 'sub', text: `Similar-sized companies in ${basis} (Nasdaq’s classification). Tap one to open it.` }),
+        h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+          h('tr', null, ['Company', 'Verdict', 'Halal', 'Quality', 'P/E', 'Fair value', 'RS'].map((x) => h('th', { text: x }))),
+          rows.map((r) => h('tr', { class: r.ticker === d.ticker ? 'me' : 'click', onclick: r.ticker === d.ticker ? null : () => openStock(r.ticker, 'fund') },
+            h('td', { text: r.ticker }),
+            h('td', { text: VERDICT_SHORT[r.verdict] || 'n/a' }),
+            h('td', { text: SHARIAH_TAG[r.shariah] ? (r.shariah === 'pass' ? 'Yes' : r.shariah === 'fail' ? 'No' : 'Check') : 'n/a' }),
+            h('td', { text: isNum(r.quality) ? String(r.quality) : 'n/a' }),
+            h('td', { text: isNum(r.pe) && r.pe > 0 ? r.pe.toFixed(0) + 'x' : 'n/a' }),
+            h('td', { class: isNum(r.upside) ? (r.upside >= 0 ? 'up' : 'down') : 'dim', text: isNum(r.upside) ? pctS(r.upside, 0) : 'n/a' }),
+            h('td', { text: isNum(r.rs) ? String(r.rs) : 'n/a' }))))),
+        h('p', { class: 'note', text: 'Fair value is the upside (+) or downside (−) to each company’s own estimate. RS ranks the past year’s price performance from 1 to 99.' }));
+      box.hidden = false;
+    });
+    return box;
+  }
+  // how the plan's setup has done: across halal stocks (backtest) and on this stock
+  function trackRecordBox(T, d) {
+    const p = T.setup;
+    const wrap = h('div', { style: 'margin-top:4px' }, h('h3', { text: 'How these rules have done' }));
+    if (TRADED.includes(p.setup) && HAS_SITE) {
+      const site = h('p', { class: 'sub' });
+      wrap.append(site);
+      loadBtSummary().then((bt) => {
+        const g = bt && bt.halal && (bt.halal.bySetup || []).find((x) => x.key === p.setup);
+        if (!g || !g.n) return;
+        site.append(`${SETUP_NAME[p.setup]} signals on halal stocks over ${bt.years} years: `,
+          h('b', { text: `${g.n.toLocaleString()} trades, ${pct(g.winRate, 0)} winners, average ${fmtR(g.avgR)}` }),
+          g.ci ? ` (likely range ${fmtR(g.ci[0])} to ${fmtR(g.ci[1])})` : '', `, held ${g.avgDays} trading days on average. `,
+          linkBtn('See the full record', () => navigate('record')));
+      });
+    }
+    const hist = T.history;
+    const s = hist && hist.summary;
+    if (s && s.n) {
+      wrap.append(h('p', { class: 'sub', style: 'margin-top:6px', text: `On ${d.ticker}, the same rules made ${s.n} completed trade${s.n === 1 ? '' : 's'} in 5 years: ${pct(s.winRate, 0)} winners, average ${fmtR(s.avgR)}.${s.n < 20 ? ' That is too few to judge this stock on its own; the record across all stocks says more.' : ''}` }));
+      const recent = (hist.recent || []).slice(-6).reverse();
+      if (recent.length) {
+        const cd = (iso) => { const m2 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '')); return m2 ? `${MONTHS[Number(m2[2]) - 1]} ${Number(m2[3])} ’${m2[1].slice(2)}` : ''; };
+        wrap.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+          h('tr', null, ['Bought', 'Sold', 'Setup', 'Result'].map((x) => h('th', { text: x }))),
+          recent.map((tr) => h('tr', null,
+            h('td', { text: cd(tr.fill) }),
+            h('td', { class: tr.open ? 'dim' : '', text: tr.open ? 'open' : cd(tr.exit) }),
+            h('td', { text: SETUP_NAME[tr.setup] || tr.setup }),
+            h('td', { class: tr.R > 0 ? 'up' : tr.R < 0 ? 'down' : '', text: fmtR(tr.R, 1) }))))));
+      }
+    } else if (hist) {
+      wrap.append(h('p', { class: 'sub', style: 'margin-top:6px', text: `On ${d.ticker}, these rules made no completed trades in the last 5 years.` }));
+    }
+    return wrap;
+  }
+
+  // ------------------------------------------------------------------ track record page
+  const R_EDGES = [-1.25, -0.75, 0, 0.5, 1, 2, 3, Infinity];
+  const R_SHORT = ['< −1R', '−1R', '−0.75 to 0', '0 to 0.5', '0.5 to 1', '1 to 2', '2 to 3', '> 3R'];
+  const netRc = (R, riskPct, cost) => R - cost / Math.max(riskPct, 0.005);
+  function summarizeC(list, cost) {
+    const R = [];
+    let t1 = 0;
+    let days = 0;
+    for (const t of list) { R.push(netRc(t.R, t.riskPct, cost)); if (t.hitT1) t1++; days += t.days; }
+    const n = R.length;
+    if (!n) return { n: 0 };
+    let sum = 0, win = 0, gw = 0, gl = 0;
+    for (const x of R) { sum += x; if (x > 0) { win++; gw += x; } else gl -= x; }
+    const mean = sum / n;
+    const sd = n > 1 ? Math.sqrt(R.reduce((s2, x) => s2 + (x - mean) ** 2, 0) / (n - 1)) : null;
+    const se = isNum(sd) ? sd / Math.sqrt(n) : null;
+    const r3 = (x) => Math.round(x * 1000) / 1000;
+    return {
+      n, winRate: r3(win / n), avgR: r3(mean), ci: isNum(se) && n >= 5 ? [r3(mean - 1.96 * se), r3(mean + 1.96 * se)] : null,
+      pf: gl > 0 ? Math.round((gw / gl) * 100) / 100 : null, avgWin: win ? r3(gw / win) : null, avgLoss: n - win ? r3(-gl / (n - win)) : null,
+      t1Rate: r3(t1 / n), avgDays: Math.round(days / n),
+    };
+  }
+  function histogramChart(counts, labels) {
+    const total = counts.reduce((s2, x) => s2 + x, 0) || 1;
+    const shares = counts.map((x) => x / total);
+    const wrap = h('div', { class: 'chart' }, h('div', { class: 'ct', text: 'How the trades ended' }), h('div', { class: 'cs', text: 'Share of trades by result, after costs. Red: losses; green: gains.' }));
+    const avail = (document.querySelector('.wrap') || document.body).clientWidth - 70;
+    const Wd = Math.round(Math.min(680, Math.max(300, avail)));
+    const Ht = 190, padL = 36, padR = 6, padT = 14, padB = 34;
+    const top = Math.max(0.1, Math.ceil(Math.max(...shares) * 10) / 10);
+    const y = (v) => padT + (1 - v / top) * (Ht - padT - padB);
+    const band = (Wd - padL - padR) / counts.length;
+    const bw = Math.min(30, band * 0.62);
+    const svg = s('svg', { viewBox: `0 0 ${Wd} ${Ht}`, role: 'img', 'aria-label': 'Distribution of trade results' });
+    for (let v = 0; v <= top + 1e-9; v += top / 2) {
+      svg.append(s('line', { class: v === 0 ? 'base' : 'grid', x1: padL, x2: Wd - padR, y1: y(v), y2: y(v) }));
+      svg.append(s('text', { x: padL - 6, y: y(v) + 4, 'text-anchor': 'end' }, Math.round(v * 100) + '%'));
+    }
+    counts.forEach((c, i) => {
+      const cx = padL + band * i + band / 2;
+      const loss = i < 3;
+      const lab = R_SHORT[i] || '';
+      svg.append(s('text', { x: cx, y: Ht - 18, 'text-anchor': 'middle' }, lab.split(' to ')[0] + (lab.includes(' to ') ? ' to' : '')));
+      if (lab.includes(' to ')) svg.append(s('text', { x: cx, y: Ht - 5, 'text-anchor': 'middle' }, lab.split(' to ')[1]));
+      const y1 = y(shares[i]);
+      const y0 = y(0);
+      const hgt = Math.max(1, y0 - y1);
+      const r = Math.min(4, hgt / 2, bw / 2);
+      const x0 = cx - bw / 2;
+      const path = `M${x0},${y0} V${y0 - hgt + r} Q${x0},${y0 - hgt} ${x0 + r},${y0 - hgt} H${x0 + bw - r} Q${x0 + bw},${y0 - hgt} ${x0 + bw},${y0 - hgt + r} V${y0} Z`;
+      const bar = s('path', { d: path, fill: loss ? 'var(--bad)' : 'var(--good)', tabindex: '0', 'aria-label': `${labels[i] || lab}: ${c} trades, ${pct(shares[i], 0)}` });
+      const hit = s('rect', { x: padL + band * i, y: padT, width: band, height: Ht - padT - padB, fill: 'transparent' });
+      const show = (e) => showTip(e, `${pct(shares[i], 0)} of trades`, `${labels[i] || lab}: ${c.toLocaleString()} trades`, bar);
+      [bar, hit].forEach((el2) => { el2.addEventListener('pointermove', show); el2.addEventListener('pointerleave', hideTip); });
+      bar.addEventListener('focus', show);
+      bar.addEventListener('blur', hideTip);
+      svg.append(hit, bar);
+    });
+    wrap.append(svg);
+    return wrap;
+  }
+  function recordInsights(pack) {
+    const out = [];
+    const get = (arr, k) => (arr || []).find((g) => g.key === k && g.n);
+    const up = get(pack.byRegime, 'up');
+    const dn = get(pack.byRegime, 'down');
+    if (up && dn && up.n >= 50 && dn.n >= 50) {
+      out.push(dn.avgR < up.avgR - 0.05
+        ? `Market trend mattered: signals in falling markets averaged ${fmtR(dn.avgR)}, against ${fmtR(up.avgR)} in rising ones. The site warns you when the market is falling.`
+        : `The market’s trend made little difference here (${fmtR(up.avgR)} rising, ${fmtR(dn.avgR)} falling).`);
+    }
+    const lo = get(pack.byRS, 'below 50');
+    const hi = get(pack.byRS, '85+');
+    if (lo && hi && lo.n >= 50 && hi.n >= 50) {
+      out.push(hi.avgR > lo.avgR + 0.04
+        ? `Stronger stocks gave better trades: RS 85+ averaged ${fmtR(hi.avgR)}, against ${fmtR(lo.avgR)} below 50. A modest but steady difference, which is why the shortlist favors RS 70+ and sorts by RS.`
+        : hi.avgR < lo.avgR - 0.04
+          ? `Weaker stocks did better here: RS below 50 averaged ${fmtR(lo.avgR)}, against ${fmtR(hi.avgR)} for RS 85+.`
+          : `Relative strength made little difference (${fmtR(hi.avgR)} for RS 85+, ${fmtR(lo.avgR)} below 50).`);
+    }
+    const s0 = get(pack.byScore, 'below 50');
+    const s3 = get(pack.byScore, '70+');
+    if (s0 && s3 && s0.n >= 50 && s3.n >= 50 && Math.abs(s3.avgR - s0.avgR) < 0.1) out.push('A higher chart score did not mean better trades. Use the score to read the chart, not to pick between signals.');
+    const yrs = (pack.byYear || []).filter((g) => g.n >= 100);
+    const bad = yrs.filter((g) => g.avgR < 0).map((g) => g.key);
+    if (yrs.length >= 3 && bad.length) out.push(`Results swing a lot from year to year: ${bad.join(' and ')} lost money overall. Expect long flat or losing stretches even if the rules have an edge.`);
+    return out;
+  }
+  async function renderRecord() {
+    const el = $('#page-record');
+    const head = pageHead('Track record', 'Does the swing plan make money? The same rules, replayed on five years of prices, and recorded live from the day the site started.');
+    el.replaceChildren(head, loadingBox('Loading the record…'));
+    const [bt, log] = await Promise.all([loadBtSummary(), getJson('data/signals.json')]);
+    if (page !== 'record') return;
+    if (!bt) { el.replaceChildren(head, errCard('Could not load the track record. Check your connection and try again.')); return; }
+    const COSTS = (bt.costs || [bt.cost]).map((c) => [c, `${(c * 100).toFixed(1)}%`]);
+    const UNIS = [['halal', 'Halal'], ['strong', 'Halal + filters'], ['all', 'All']].filter(([k]) => bt[k]);
+    const savedUni = store.get('recUni', 'halal');
+    const savedCost = store.get('recCost', bt.cost);
+    const st = { uni: UNIS.some((u) => u[0] === savedUni) ? savedUni : 'halal', cost: COSTS.some((c) => c[0] === savedCost) ? savedCost : bt.cost };
+    const controls = h('div', { class: 'ctl-row' });
+    const body = h('div');
+    const seg = (items, value, on) => h('div', { class: 'seg', role: 'group' }, items.map(([v, lab]) => h('button', { type: 'button', 'aria-pressed': String(v === value), onclick: () => on(v) }, lab)));
+    const paint = () => {
+      controls.replaceChildren(
+        h('span', null, h('span', { class: 'lbl', text: 'Stocks' }), seg(UNIS, st.uni, (v) => { st.uni = v; store.set('recUni', v); paint(); })),
+        h('span', null, h('span', { class: 'lbl', text: 'Cost per round trip' }), seg(COSTS, st.cost, (v) => { st.cost = v; store.set('recCost', v); paint(); })));
+      const pack = st.cost === bt.cost ? bt[st.uni] : bt.byCost && bt.byCost[String(st.cost)] && bt.byCost[String(st.cost)][st.uni];
+      body.replaceChildren(...(pack ? recordBody(pack, bt, st) : [errCard('That combination is not available.')]));
+    };
+    el.replaceChildren(head,
+      h('div', { class: 'callout' }, h('b', { text: 'How it was tested. ' }),
+        `Every trading day of the past ${bt.years} years, on ${bt.stocks.toLocaleString()} stocks, the rules looked only at prices up to that day, wrote the same plan this site shows, and followed it: the order for the next session, the stop, target 1, and the exit rule. One trade per stock at a time. Results are in R: +1R means you made as much as you risked, −1R means the stop was hit.`),
+      controls, body, liveCard(log, bt), limitsCard(bt));
+    paint();
+  }
+  function recordBody(pack, bt, st) {
+    const o = pack.overall;
+    if (!o || !o.n) return [h('p', { class: 'empty', text: 'No trades to show.' })];
+    const q = 1 - o.winRate;
+    const streak = q > 0 && q < 1 ? Math.max(2, Math.round(Math.log(100 * (1 - q)) / Math.log(1 / q))) : null;
+    const top = h('section', { class: 'card' },
+      h('h2', { text: `${o.n.toLocaleString()} trades since ${niceDates(ymdIso(bt.from))}` }),
+      h('p', { class: 'sub', text: `${st.uni === 'all' ? 'All stocks, halal or not' : st.uni === 'strong' ? 'Halal stocks with relative strength 70+ on the signal day, in a market that was not falling (the shortlist’s defaults)' : 'Halal stocks'}, with ${(st.cost * 100).toFixed(1)}% costs per round trip.` }),
+      h('div', { class: 'stats' },
+        stat('Average result', fmtR(o.avgR), o.ci ? `likely ${fmtR(o.ci[0])} to ${fmtR(o.ci[1])}` : ''),
+        stat('Winners', pct(o.winRate, 0), `${pct(o.t1Rate, 0)} reached target 1`),
+        stat('Win / loss size', `${fmtR(o.avgWin, 1)} / ${fmtR(o.avgLoss, 1)}`, `profit factor ${o.pf ?? 'n/a'}`),
+        stat('Average hold', `${o.avgDays} days`, 'trading days')),
+      h('div', { class: 'callout' }, h('b', { text: 'What it means for you. ' }),
+        o.avgR > 0
+          ? `If you risk 1% of your portfolio on each trade, an average of ${fmtR(o.avgR)} is about ${pctS(o.avgR / 100, 2)} of the portfolio per trade, before taxes and before the biases listed below. `
+          : `On average these trades lost money after costs (${fmtR(o.avgR)} per trade). `,
+        `Only ${pct(o.winRate, 0)} of trades won: the profit comes from winners being bigger than losers, not from winning often.`,
+        streak ? ` Over 100 trades, a run of about ${streak} losses in a row is normal.` : '',
+        ' A 90% win rate is not realistic for rules like these.'),
+      histogramChart(pack.histogram, bt.buckets || R_SHORT));
+    const ins = recordInsights(pack);
+    const insCard = ins.length ? h('section', { class: 'card' }, h('h2', { text: 'What the numbers say' }), h('ul', { class: 'clean' }, ins.map((x) => h('li', null, h('span', { text: x }))))) : null;
+    const table = (title, sub, groups, labelFn) => {
+      const rows = (groups || []).filter((g) => g.n);
+      const card = h('section', { class: 'card' }, h('h2', { text: title }), h('p', { class: 'sub', text: sub }));
+      if (!rows.length) { card.append(h('p', { class: 'empty', text: 'No data.' })); return card; }
+      card.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+        h('tr', null, h('th', { text: '' }), h('th', { text: 'Trades' }), h('th', { text: 'Winners' }), h('th', null, 'Average', h('span', { class: 'sm', text: 'likely range' }))),
+        rows.map((g) => h('tr', null,
+          h('td', null, labelFn(g.key), h('span', { class: 'sm', text: `held ${g.avgDays} days on average` })),
+          h('td', { text: g.n.toLocaleString() }),
+          h('td', { text: pct(g.winRate, 0) }),
+          h('td', null, h('span', { class: g.avgR > 0 ? 'up' : g.avgR < 0 ? 'down' : '', text: fmtR(g.avgR) }),
+            h('span', { class: 'sm', text: g.ci ? `${fmtR(g.ci[0])} to ${fmtR(g.ci[1])}` : 'too few' })))))));
+      return card;
+    };
+    return [top, insCard,
+      table('By setup', 'Which kind of signal worked best.', pack.bySetup, (k) => SETUP_NAME[k] || k),
+      table('By market trend', 'The S&P 500’s trend on the day of the signal.', pack.byRegime, (k) => ({ up: 'Rising market', mixed: 'Mixed market', down: 'Falling market' }[k] || k)),
+      table('By relative strength', 'How the stock had done against all others over the past year, on the day of the signal (99 is the strongest).', pack.byRS, (k) => 'RS ' + k),
+      table('By chart score', 'The chart score on the day of the signal.', pack.byScore, (k) => 'Score ' + k),
+      table('By year', 'Results swing with the market: compare the years.', pack.byYear, (k) => String(k)),
+    ].filter(Boolean);
+  }
+  function liveCard(log, bt) {
+    const card = h('section', { class: 'card', 'aria-label': 'Live record' }, h('h2', { text: 'Live record' }));
+    if (!log || !Array.isArray(log.records) || !Array.isArray(log.fields)) { card.append(h('p', { class: 'sub', text: 'The live record is not available right now.' })); return card; }
+    const F = Object.fromEntries(log.fields.map((k, i) => [k, i]));
+    const recs = log.records.map((r) => ({ t: r[F.ticker], signal: r[F.signal], setup: r[F.setup], status: r[F.status], shariah: r[F.shariah], fill: r[F.fillDate], fillPx: r[F.fillPx], exit: r[F.exitDate], R: r[F.R], riskPct: r[F.riskPct], days: r[F.days], entry: r[F.entry] }))
+      .filter((x) => x.shariah === 'pass');
+    const pending = recs.filter((x) => x.status === 'pending');
+    const open = recs.filter((x) => x.status === 'open');
+    const closed = recs.filter((x) => x.status === 'closed').sort((a, b) => (a.exit < b.exit ? 1 : -1));
+    const cost = bt.cost;
+    card.append(h('p', { class: 'sub', text: `Every buy signal the site shows on a halal stock is written down the day it appears and followed with the same rules, so nothing can be tuned afterwards. Started ${niceDates(log.started)}, updated ${niceDates(log.updated)}.` }));
+    const s2 = summarizeC(closed.filter((x) => isNum(x.R) && isNum(x.riskPct)), cost);
+    card.append(h('div', { class: 'stats' },
+      stat('Closed trades', String(closed.length), s2.n ? `${pct(s2.winRate, 0)} winners` : 'none yet'),
+      stat('Average result', s2.n ? fmtR(s2.avgR) : 'n/a', s2.n ? 'after costs' : ''),
+      stat('Open now', String(open.length), 'filled, not yet closed'),
+      stat('Orders for next session', String(pending.length), 'today’s signals')));
+    if (!closed.length) card.append(h('p', { class: 'note', text: 'No trades have closed yet. A typical trade lasts a few weeks, so give it a few months before reading anything into the live numbers.' }));
+    const tbl = (rows, cols) => h('div', { class: 'tscroll' }, h('table', { class: 'data' }, h('tr', null, cols.map((c) => h('th', { text: c[0] }))), rows.map((x) => h('tr', { class: 'click', onclick: () => openStock(x.t, 'tech') }, cols.map((c) => c[1](x))))));
+    if (open.length) {
+      card.append(h('h3', { text: 'Open trades' }), tbl(open.slice(0, 40), [
+        ['Stock', (x) => h('td', { text: x.t })], ['Setup', (x) => h('td', { text: SETUP_NAME[x.setup] || x.setup })],
+        ['Bought', (x) => h('td', { text: niceDates(x.fill) })], ['So far', (x) => { const v = isNum(x.R) ? netRc(x.R, x.riskPct, cost) : null; return h('td', { class: v > 0 ? 'up' : v < 0 ? 'down' : '', text: fmtR(v, 1) }); }]]));
+    }
+    if (closed.length) {
+      card.append(h('h3', { text: 'Latest closed trades' }), tbl(closed.slice(0, 20), [
+        ['Stock', (x) => h('td', { text: x.t })], ['Setup', (x) => h('td', { text: SETUP_NAME[x.setup] || x.setup })],
+        ['Sold', (x) => h('td', { text: niceDates(x.exit) })], ['Result', (x) => { const v = netRc(x.R, x.riskPct, cost); return h('td', { class: v > 0 ? 'up' : v < 0 ? 'down' : '', text: fmtR(v, 1) }); }]]));
+    }
+    if (isNum(log.lapsed) && log.lapsed > 0) card.append(h('p', { class: 'note', text: `${log.lapsed.toLocaleString()} orders (all stocks) lapsed without filling. That is normal: many signals never trigger.` }));
+    return card;
+  }
+  function limitsCard(bt) {
+    const li = (b, t) => h('li', null, h('span', null, h('b', { text: b + ' ' }), t));
+    return h('section', { class: 'card', 'aria-label': 'Limits of the test' }, h('h2', { text: 'Read this before trusting the numbers' }),
+      h('ul', { class: 'clean' },
+        li('Survivorship.', 'The test only includes companies that are listed and worth $2 billion or more today. Companies that shrank, went bust or were taken over are missing, so the results look better than reality.'),
+        li('Costs.', `Each trade is charged ${(bt.cost * 100).toFixed(1)}% of the position for buying and selling together. Fixed fees weigh more on small trades: $1 each way on a $250 trade is 0.8%.${bt.byCost && bt.byCost['0.008'] ? ` At 0.8%, the average halal trade came to ${fmtR(bt.byCost['0.008'].halal.overall.avgR)}: the edge is gone. Bigger positions (with the same 1% risk) or lower fees matter.` : ''}`),
+        li('Fills.', 'Orders are assumed to fill at the trigger price or the open, and a gap past the stop sells at the open. Real fills can be a little worse.'),
+        li('No dividends.', 'Prices are adjusted for splits, not dividends, which slightly understates long-held trades.'),
+        li('No tuning.', 'The rules were written before this test was run and were not changed to improve these numbers. The one addition made after seeing them is the warning when the market is falling.'),
+        li('The future is not the past.', 'Five years includes the 2022 bear market, but not every kind of market. Treat the averages as a rough guide, and judge your own results over 20 or more trades.')));
+  }
+
   // ------------------------------------------------------------------ nav
   $('#howBtn').addEventListener('click', () => { const how = $('#how'); how.hidden = !how.hidden; if (!how.hidden) how.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('#howClose').addEventListener('click', () => { $('#how').hidden = true; });
-  $('#homeBtn').addEventListener('click', () => { result.hidden = true; statusEl.replaceChildren(); q.value = ''; if (MODE !== 'mcp') history.replaceState(null, '', location.pathname); q.focus(); });
+  $('#homeBtn').addEventListener('click', () => {
+    result.hidden = true;
+    statusEl.replaceChildren();
+    q.value = '';
+    if (HAS_SITE) { history.pushState({ p: 'stock' }, '', location.pathname); showPage('stock'); showHome(); }
+    else if (MODE !== 'mcp') history.replaceState(null, '', location.pathname);
+    if (window.matchMedia && window.matchMedia('(hover: hover)').matches) q.focus();
+  });
 
   renderRecent();
+  if (!HAS_SITE) { const hs = document.getElementById('howSite'); if (hs) hs.hidden = true; }
   if (MODE === 'mcp') {
     $('#hint').textContent = 'Works for US-listed companies that file 10-K reports. Runs through your Composio connection, so the first analysis may ask you to allow it.';
+    // the shortlist, watchlist and track record are built from the daily site files, so they live on the public site
+    $('#hint').after(h('p', { class: 'hint' }, 'The shortlist, watchlist and track record are on the public site: ',
+      h('a', { href: 'https://ayman-sketch97.github.io/stock-checker/', target: '_blank', rel: 'noopener' }, 'open it'), '.'));
+  } else if (HAS_SITE) {
+    document.body.classList.add('has-nav');
+    $('#nav').hidden = false;
+    document.querySelectorAll('#nav button').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.page)));
+    window.addEventListener('popstate', () => route());
+    route();
+    refreshNavDot();
   } else {
     const start = new URLSearchParams(location.search).get('t');
     if (start) run(start);
   }
   if (MODE === 'static') {
-    $('#dataNote').textContent = 'Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq daily closes. Every company worth $2 billion or more is re-analyzed each weekday morning (US time) using the previous session\u2019s closing prices. Your searches and calculator amounts stay on your device. This is an educational tool, not financial advice.';
+    $('#dataNote').textContent = 'Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq daily closes. Earnings dates: Nasdaq\u2019s calendar (often estimates). Every company worth $2 billion or more is re-analyzed each weekday morning (US time) using the previous session\u2019s closing prices. Your searches, watchlist and calculator amounts stay on your device. This is an educational tool, not financial advice.';
     loadIndex().then((idx) => {
       if (!idx) return;
       const when = idx.priceDate
