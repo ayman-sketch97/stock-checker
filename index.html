@@ -1267,6 +1267,21 @@ ol.exits li { margin: 4px 0; }
     if (!t) return Promise.resolve(null);
     if (t.data) return Promise.resolve(t.data);
     if (t.promise) return t.promise;
+    if (MODE === 'mcp') {
+      // the engine saved the chart analysis next to itself, gzipped (long replies get cut off on the way back)
+      t.promise = (async () => {
+        const tk = String(t.d.ticker || '').replace(/[^A-Z0-9.-]/gi, '');
+        const s = String((await bash(`cat ${REMOTE.dir}/tech-${tk}.b64 2>/dev/null || echo __NOTECH__`)) || '').trim();
+        if (!s || s.includes('__NOTECH__')) return { ok: false, reason: 'missing', error: 'There is no daily price history for this company right now, so no technical analysis.' };
+        if (typeof DecompressionStream === 'undefined') return { ok: false, reason: 'browser', error: 'This browser is too old to show the chart analysis. Update it, or open the public site.' };
+        const bin = Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+        const text = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+        return JSON.parse(text);
+      })()
+        .then((j) => { t.data = j; if (t === tech) updateTechTab(); return j; })
+        .catch(() => { t.promise = null; return { ok: false, reason: 'network', error: 'Could not load the technical analysis. Try again in a moment.' }; });
+      return t.promise;
+    }
     if (MODE !== 'static') {
       t.data = { ok: false, reason: 'missing', error: 'There is no price history for this company right now, so no technical analysis.' };
       return Promise.resolve(t.data);
