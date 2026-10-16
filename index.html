@@ -29,6 +29,8 @@
   --accent-ink: #1c5cab;
   --accent-wash: #e3eefc;
   --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-7: #6250d6;
   --good: #0ca30c;
   --good-ink: #006300;
   --good-bg: #e6f4e6;
@@ -58,6 +60,8 @@
     --accent-ink: #86b6ef;
     --accent-wash: #16263b;
     --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-7: #9085e9;
     --good: #0ca30c;
     --good-ink: #3fc23f;
     --good-bg: #13261a;
@@ -86,6 +90,8 @@
   --accent-ink: #86b6ef;
   --accent-wash: #16263b;
   --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-7: #9085e9;
   --good: #0ca30c;
   --good-ink: #3fc23f;
   --good-bg: #13261a;
@@ -289,6 +295,89 @@ footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align:
 .copied { color: var(--good-ink); font-size: 14px; align-self: center; }
 .promptbox { width: 100%; margin-top: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); padding: 10px; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .notice { font-size: 14px; color: var(--ink-2); }
+
+/* tabs */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 16px 0 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; }
+.tab { border: 0; background: transparent; border-radius: 10px; padding: 9px 10px; cursor: pointer; text-align: center; min-width: 0; }
+.tab .tl { display: block; font-weight: 650; font-size: 15px; }
+.tab .ts { display: block; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow), 0 0 0 1px var(--border); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* long-term plan */
+.ladder-wrap { position: relative; margin: 14px 6px 0; padding-top: 24px; }
+.ladder { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; }
+.ladder > div { min-width: 0; }
+.z-sb { background: color-mix(in srgb, var(--good) 75%, transparent); }
+.z-b { background: color-mix(in srgb, var(--good) 38%, transparent); }
+.z-h { background: var(--line); }
+.z-t { background: color-mix(in srgb, var(--warn) 55%, transparent); }
+.ladder-wrap .pmk { position: absolute; top: 18px; width: 3px; height: 22px; background: var(--ink); border-radius: 2px; transform: translateX(-1px); }
+.ladder-wrap .fmk { position: absolute; top: 20px; width: 2px; height: 18px; background: var(--series-1); transform: translateX(-1px); }
+.ladder-wrap .plab { position: absolute; top: 0; font-size: 12px; font-weight: 650; white-space: nowrap; transform: translateX(-50%); }
+.ladder-wrap .plab.al { transform: none; }
+.ladder-wrap .plab.ar { transform: translateX(-100%); }
+.zsw { width: 12px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: 1px; }
+.zsw.fair { width: 2px; height: 12px; border-radius: 1px; background: var(--series-1); margin: 0 9px 0 5px; vertical-align: -1px; }
+.zone-now { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 650; padding: 3px 10px; border-radius: 999px; margin-top: 12px; }
+.zone-strong-buy, .zone-buy { background: var(--good-bg); color: var(--good-ink); }
+.zone-hold { background: var(--neutral-bg); color: var(--ink-2); }
+.zone-trim { background: var(--warn-bg); color: var(--warn-ink); }
+
+/* technical */
+.tech-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.score { display: inline-flex; align-items: baseline; gap: 6px; font-weight: 700; font-size: 15px; padding: 4px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); white-space: nowrap; }
+.score small { font-weight: 500; color: var(--ink-2); font-size: 12px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 10px; border-radius: 999px; }
+.b-active { background: var(--good-bg); color: var(--good-ink); }
+.b-watch, .b-wait { background: var(--warn-bg); color: var(--warn-ink); }
+.b-none { background: var(--neutral-bg); color: var(--ink-2); }
+.plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+@media (min-width: 620px) { .plan-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.pv { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.pv .k { font-size: 12px; color: var(--ink-2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; }
+.pv .val { font-size: 19px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.pv .s { font-size: 12px; color: var(--ink-2); }
+.sw { width: 10px; height: 3px; border-radius: 2px; display: inline-block; flex: none; }
+.sw-entry { background: var(--series-1); }
+.sw-stop { background: var(--bad); }
+.sw-target { background: var(--good); }
+.calc { display: grid; gap: 10px; margin-top: 14px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); }
+.calc label { display: grid; grid-template-columns: minmax(0, 1fr) 128px; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); }
+.calc input { width: 100%; min-width: 0; height: 38px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); padding: 0 10px; font-size: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+.calc input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.calc .out { font-size: 14px; display: grid; gap: 6px; }
+.calc .out b { font-variant-numeric: tabular-nums; }
+ol.exits { margin: 8px 0 0; padding-left: 20px; font-size: 15px; }
+ol.exits li { margin: 4px 0; }
+
+.chart-card { padding-bottom: 12px; }
+.ranges { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 10px; }
+.ranges button { border: 0; background: transparent; border-radius: 8px; padding: 4px 10px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--ink-2); }
+.ranges button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--border); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-top: 10px; font-variant-numeric: tabular-nums; min-height: 18px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.legend .ohlc { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0 8px; color: var(--ink); font-weight: 600; }
+.lw { width: 100%; height: 520px; margin-top: 8px; position: relative; }
+@media (min-width: 620px) { .lw { height: 600px; } }
+.lw-msg { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--ink-2); font-size: 14px; text-align: center; padding: 0 20px; }
+.pane-keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.toggles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.toggles button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.toggles button[aria-pressed="true"] { color: var(--ink); background: var(--surface-2); }
+.toggles button[aria-pressed="false"] .sw { opacity: 0.3; }
+.tv-box { height: 520px; margin-top: 12px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+.lvl { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.lvl th { text-align: left; color: var(--ink-2); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.lvl td { padding: 8px 4px; border-bottom: 1px solid var(--line); }
+.lvl td.r, .lvl th.r { text-align: right; }
+.lvl tr.now td { font-weight: 700; background: var(--surface-2); }
+.ind-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin-top: 10px; }
+@media (min-width: 620px) { .ind-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.ind-grid .k { font-size: 13px; color: var(--ink-2); }
+.ind-grid .val { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ind-grid .s { font-size: 12px; color: var(--muted); }
+.sig-name { font-weight: 650; }
 [hidden] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } details.sec > summary .chev { transition: none; } }
 </style>
@@ -340,6 +429,9 @@ footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align:
     <h3>The fair value, in plain words</h3>
     <p>The tool projects 10 years of owner cash flow. Revenue grows at a blend of the company's track record (the lower of its 5-year and 3-year growth rates, so one unusual year like 2020 can't inflate it) and its recent growth (capped at 20% a year), then slows to 2.5%. Cash margins stay at their typical recent level. Future cash is discounted at 8% for strong, large companies, 9% for typical ones and 10% for weaker or small ones. The bear and bull cases change growth and margins. It also works backwards: what growth does today's price assume? That one number often teaches more than the fair value itself.</p>
     <p>Limits to know: it assumes today's cash margins continue, so companies spending heavily now to grow later can look expensive, and hypergrowth companies are capped at 20% growth.</p>
+    <h3>The Technical tab</h3>
+    <p>A second view of the same stock: the chart. It reads about five years of daily prices and checks the trend (21-day EMA, 50-day and 200-day averages), momentum (RSI, MACD), volume, and support and resistance levels from past swing highs and lows. It then looks for one of a few long-only setups (a pullback to the averages in an uptrend, a breakout on strong volume, an oversold reversal, a bounce at range support) and builds a swing plan: entry trigger, stop loss, two targets and an exit plan. A calculator shows what that means in dollars, and the most you should invest so one loss costs at most 1% of your portfolio.</p>
+    <p>The long-term plan on the Fundamental tab is different: buy and trim levels from the fair value, and "sell if" rules based on the business, with no stop loss. The best entries have both tabs on their side. No set of indicators wins most of the time, so judge any plan over many trades.</p>
     <h3>What it cannot do</h3>
     <ul>
       <li>See the future. Past numbers can't show a new competitor, a technology shift like AI, or a management mistake. The Business check section turns those questions into evidence, and the research button gets Claude to look at the latest news for you.</li>
@@ -703,7 +795,6 @@ footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align:
       statusEl.replaceChildren();
       remember(j.ticker);
       render(j);
-      if (MODE !== 'mcp') history.replaceState(null, '', '?t=' + encodeURIComponent(j.ticker));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       if (err instanceof ToolProblem) showError({ error: problemMessage(err) }, t);
@@ -735,7 +826,14 @@ footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align:
   }
 
   // ------------------------------------------------------------------ render
+  const VERDICT_SHORT = {
+    BUY_STRONG: 'Strong buy candidate', BUY: 'Buy candidate', CONTRARIAN: 'Possible bargain', WATCH: 'Watchlist',
+    LOOK: 'Worth a closer look', PASS: 'Pass', AVOID_WEAK: 'Avoid', AVOID_SHARIAH: 'Avoid: not halal',
+    SPECULATIVE: 'Speculative', NODATA: 'Too little data', FINANCIAL: 'Financial company',
+  };
+  let tech = null; // technical tab state for the company on screen
   function render(d) {
+    destroyChart();
     result.replaceChildren();
     const L = d.labels, f = d.fairValue, v = d.verdict;
 
@@ -748,9 +846,27 @@ footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align:
         h('div', { class: 'p', text: price(d.price) }),
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' }))));
 
+    // tabs: fundamental (the business) and technical (the chart)
+    tech = { d, data: d.technical && d.technical.ok !== undefined ? d.technical : null, promise: null, rendered: false, chart: null, refit: null, rebuild: null };
+    const fund = h('div', { id: 'panel-fund', role: 'tabpanel', 'aria-labelledby': 'tab-fund', tabindex: '-1' });
+    const techPanel = h('div', { id: 'panel-tech', role: 'tabpanel', 'aria-labelledby': 'tab-tech', tabindex: '-1', hidden: true });
+    const tabBtn = (id, label, sub) => h('button', { class: 'tab', id: 'tab-' + id, role: 'tab', type: 'button', 'aria-selected': 'false', 'aria-controls': 'panel-' + id, onclick: () => selectTab(id, true) },
+      h('span', { class: 'tl', text: label }), h('span', { class: 'ts', text: sub }));
+    const tabs = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Analysis' },
+      tabBtn('fund', 'Fundamental', VERDICT_SHORT[v.code] || 'The business'),
+      tabBtn('tech', 'Technical', 'Chart, entry and exit'));
+    tabs.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const next = document.getElementById('tab-fund').getAttribute('aria-selected') === 'true' ? 'tech' : 'fund';
+      selectTab(next, true);
+      document.getElementById('tab-' + next).focus();
+    });
+    result.append(tabs, fund, techPanel);
+
     // verdict
     const toneIcon = v.tone === 'good' ? 'good' : v.tone === 'bad' ? 'bad' : v.tone === 'warn' ? 'ok' : 'na';
-    result.append(h('section', { class: `card verdict tone-${v.tone}`, 'aria-label': 'Verdict' },
+    fund.append(h('section', { class: `card verdict tone-${v.tone}`, 'aria-label': 'Verdict' },
       h('div', { class: 'kicker' }, icon(toneIcon, 'Verdict'), 'Verdict'),
       h('div', { class: 'title', text: v.title }),
       h('p', { text: v.summary }),
@@ -776,37 +892,38 @@ footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align:
       tile('Valuation', vR, L.valuation.label, f ? `Fair value ~${price(f.base)}` : ''),
       tile('Balance sheet', hR, L.health.label, `${L.health.score}/100`),
       tile('Shariah', sR, L.shariah.label, 'Confirm on Zoya/Musaffa'));
-    result.append(tiles);
+    fund.append(tiles);
 
-    // fair value
-    if (f) result.append(fairValueCard(d));
+    // fair value and the long-term entry/exit plan
+    if (f) fund.append(fairValueCard(d));
     else if (!String(L.valuation.label).startsWith('Not measurable (losing')) {
-      result.append(h('section', { class: 'card' }, h('h2', { text: 'Fair value' }),
+      fund.append(h('section', { class: 'card' }, h('h2', { text: 'Fair value' }),
         h('p', { class: 'sub', text: 'Not estimated: the company does not produce steady free cash flow after stock-based pay, so a cash-flow value would be meaningless. The valuation label uses price multiples instead.' })));
     }
+    fund.append(longTermCard(d));
 
     // strengths & risks
     const list = (items, rating) => items && items.length
       ? h('ul', { class: 'clean' }, items.map((t) => h('li', null, icon(rating), h('span', { text: t }))))
       : h('p', { class: 'empty', text: 'None flagged.' });
-    result.append(h('section', { class: 'card' }, h('div', { class: 'two' },
+    fund.append(h('section', { class: 'card' }, h('div', { class: 'two' },
       h('div', null, h('h2', { text: 'Strengths' }), list(d.strengths, 'good')),
       h('div', null, h('h2', { text: 'Risks' }), list(d.risks, 'bad')))));
 
     // business check (qualitative)
-    result.append(businessCard(d));
+    fund.append(businessCard(d));
 
     // details
     const secs = d.sections;
-    result.append(detailSection('Quality', `${L.quality.score}/100 · ${L.quality.label}`, secs.quality, true));
-    result.append(detailSection('Balance sheet', `${L.health.score}/100 · ${L.health.label}`, secs.health, true));
-    result.append(detailSection('Growth', `${L.growth.score}/100 · ${L.growth.label}`, secs.growth, true, historyCharts(d)));
-    result.append(detailSection('Valuation', L.valuation.label, secs.valuation, false, valuationExtras(d)));
-    result.append(shariahSection(d));
+    fund.append(detailSection('Quality', `${L.quality.score}/100 · ${L.quality.label}`, secs.quality, true));
+    fund.append(detailSection('Balance sheet', `${L.health.score}/100 · ${L.health.label}`, secs.health, true));
+    fund.append(detailSection('Growth', `${L.growth.score}/100 · ${L.growth.label}`, secs.growth, true, historyCharts(d)));
+    fund.append(detailSection('Valuation', L.valuation.label, secs.valuation, false, valuationExtras(d)));
+    fund.append(shariahSection(d));
 
     // warnings + data
     if (d.warnings && d.warnings.length) {
-      result.append(h('section', { class: 'card' }, h('h2', { text: 'Data notes' }),
+      fund.append(h('section', { class: 'card' }, h('h2', { text: 'Data notes' }),
         h('ul', { class: 'warnbox' }, d.warnings.map((w) => h('li', { text: w })))));
     }
     const links = h('div', { class: 'links' },
@@ -815,11 +932,29 @@ footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align:
       h('a', { href: d.links.stockanalysis, target: '_blank', rel: 'noopener' }, 'stockanalysis.com'),
       d.links.latestAnnualReport ? h('a', { href: d.links.latestAnnualReport, target: '_blank', rel: 'noopener' }, 'Latest annual report') : null,
       h('a', { href: d.links.secFilings, target: '_blank', rel: 'noopener' }, 'All SEC filings'));
-    result.append(h('section', { class: 'card' }, h('h2', { text: 'Check it yourself' }),
+    fund.append(h('section', { class: 'card' }, h('h2', { text: 'Check it yourself' }),
       h('p', { class: 'sub', text: niceDates(`Annual figures through ${d.asOf.fiscalYearEnd}; latest data covers the ${d.asOf.ttm}. Price ${d.priceSource ? 'from ' + d.priceSource : ''}${d.priceTime ? ' (' + d.priceTime + ')' : ''}.`) }),
       links));
 
     result.hidden = false;
+    const fromUrl = MODE !== 'mcp' && new URLSearchParams(location.search).get('view') === 'technical';
+    selectTab(fromUrl || store.get('tab', 'fund') === 'tech' ? 'tech' : 'fund', false);
+    if (!tech.data) loadTech(); // fetch in the background so the tab opens instantly
+    else updateTechTab();
+  }
+
+  function selectTab(id, byUser) {
+    for (const t of ['fund', 'tech']) {
+      const b = document.getElementById('tab-' + t);
+      const p = document.getElementById('panel-' + t);
+      if (!b || !p) continue;
+      b.setAttribute('aria-selected', String(t === id));
+      b.tabIndex = t === id ? 0 : -1;
+      p.hidden = t !== id;
+    }
+    if (byUser) store.set('tab', id);
+    if (MODE !== 'mcp' && current) history.replaceState(null, '', '?t=' + encodeURIComponent(current.ticker) + (id === 'tech' ? '&view=technical' : ''));
+    if (id === 'tech') showTech();
   }
 
   function titleCase(sx) {
@@ -1067,6 +1202,556 @@ footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align:
   }
   function hideTip() { tip.hidden = true; }
 
+  // ------------------------------------------------------------------ long-term plan (fundamental tab)
+  function longTermCard(d) {
+    const P = d.pricePlan;
+    const code = d.verdict && d.verdict.code;
+    const card = h('section', { class: 'card', 'aria-label': 'Long-term entry and exit' },
+      h('h2', { text: 'Long-term plan: when to buy, when to sell' }),
+      h('p', { class: 'sub', text: 'Price levels from the fair-value estimate, for owning the business for years.' }));
+    if (code === 'AVOID_SHARIAH') {
+      card.append(h('div', { class: 'callout', text: 'It fails the Shariah screen, so there is no entry plan: this one is not for your portfolio.' }));
+      return card;
+    }
+    if (!P) {
+      card.append(h('div', { class: 'callout', text: 'No price levels: without a fair-value estimate there is no sound buy or sell price. Judge it on the business itself, or use the Technical tab for timing.' }));
+      if (d.sellIf && d.sellIf.length) card.append(sellIfList(d));
+      return card;
+    }
+    // zone ladder: strong buy | buy | hold | trim, with today's price
+    const lo = Math.min(P.strongBuyBelow * 0.85, d.price * 0.95);
+    const hi = Math.max(P.trimAbove * 1.12, d.price * 1.05);
+    const X = (x) => Math.max(0, Math.min(100, ((x - lo) / (hi - lo)) * 100));
+    const w = [X(P.strongBuyBelow), X(P.buyBelow) - X(P.strongBuyBelow), X(P.trimAbove) - X(P.buyBelow), 100 - X(P.trimAbove)];
+    const px = X(d.price);
+    const align = px < 12 ? ' al' : px > 88 ? ' ar' : '';
+    card.append(h('div', { class: 'ladder-wrap', role: 'img', 'aria-label': `Price ${price(d.price)}. Strong buy below ${price(P.strongBuyBelow)}, buy below ${price(P.buyBelow)}, trim above ${price(P.trimAbove)}.` },
+      h('div', { class: 'ladder' },
+        h('div', { class: 'z-sb', style: `width:${w[0]}%` }), h('div', { class: 'z-b', style: `width:${w[1]}%` }),
+        h('div', { class: 'z-h', style: `width:${w[2]}%` }), h('div', { class: 'z-t', style: `width:${w[3]}%` })),
+      h('div', { class: 'fmk', style: `left:${X(P.fair)}%` }),
+      h('div', { class: 'pmk', style: `left:${px}%` }),
+      h('div', { class: 'plab' + align, style: `left:${px}%`, text: `Now ${price0(d.price)}` })));
+    const kvz = (cls, k, val) => h('div', null, h('div', { class: 'k' }, h('i', { class: 'zsw ' + cls, 'aria-hidden': 'true' }), k), h('div', { class: 'val', text: val }));
+    card.append(h('div', { class: 'fv-grid' },
+      kvz('z-sb', 'Strong buy below', price(P.strongBuyBelow)),
+      kvz('z-b', 'Buy below', price(P.buyBelow)),
+      kvz('fair', 'Fair value', price(P.fair)),
+      kvz('z-t', 'Trim above', price(P.trimAbove))));
+    const ZONE = {
+      'strong-buy': ['Strong buy zone', 'good', 'The price is at or below the pessimistic (bear-case) value. If the business checks out, this is the best zone to buy. Spread your purchases over a few weeks rather than buying all at once.'],
+      buy: ['Buy zone', 'good', `The price is below the buy level. A sensible approach: buy part of your position now and keep cash to add more if it falls toward ${price(P.strongBuyBelow)}.`],
+      hold: ['Hold zone', 'na', `The price is between the buy level and the trim level. If you own it, keep holding. If you don't, be patient and wait for ${price(P.buyBelow)}, or use the Technical tab for a short-term entry.`],
+      trim: ['Trim zone', 'ok', 'The price is above even the optimistic (bull-case) value. If you own it, consider selling part to lock in gains, and don’t add more here.'],
+    };
+    const z = ZONE[P.zone] || ZONE.hold;
+    card.append(h('div', { class: 'zone-now zone-' + P.zone }, icon(z[1]), z[0]));
+    card.append(h('p', { class: 'sub', style: 'margin-top:8px', text: z[2] }));
+    if (['AVOID_WEAK', 'PASS', 'SPECULATIVE', 'NODATA'].includes(code)) {
+      card.append(h('div', { class: 'callout', text: 'The business itself is rated weak or unclear, so these levels are for reference only: a low price doesn’t make a weak business a good buy.' }));
+    } else if (code === 'LOOK') {
+      card.append(h('div', { class: 'callout', text: 'The picture is mixed, so research the business (Business check below) before using these levels.' }));
+    }
+    if (d.sellIf && d.sellIf.length) card.append(sellIfList(d));
+    card.append(h('p', { class: 'sub', style: 'margin-top:12px', text: 'There is no stop loss in a long-term plan: a falling price alone is not a reason to sell a business that is still strong. For a short-term trade with a stop loss, see the Technical tab.' }));
+    return card;
+  }
+  function sellIfList(d) {
+    return h('div', null, h('h3', { text: 'Sell if the business breaks (not just the price)' }),
+      h('ul', { class: 'clean' }, d.sellIf.map((t) => h('li', null, icon('ok', 'Sell rule'), h('span', { text: t })))));
+  }
+
+  // ------------------------------------------------------------------ technical tab
+  function loadTech() {
+    const t = tech;
+    if (!t) return Promise.resolve(null);
+    if (t.data) return Promise.resolve(t.data);
+    if (t.promise) return t.promise;
+    if (MODE !== 'static') {
+      t.data = { ok: false, reason: 'missing', error: 'There is no price history for this company right now, so no technical analysis.' };
+      return Promise.resolve(t.data);
+    }
+    t.promise = fetch('data/tech/' + encodeURIComponent(t.d.ticker) + '.json', { cache: 'no-cache' })
+      .then((r) => {
+        if (r.status === 404) return { ok: false, reason: 'missing', error: 'Nasdaq had no daily price history for this company in the latest update, so there is no technical analysis today.' };
+        if (!r.ok) throw new Error('http ' + r.status);
+        return r.json();
+      })
+      .then((j) => { t.data = j; if (t === tech) updateTechTab(); return j; })
+      .catch(() => { t.promise = null; return { ok: false, reason: 'network', error: 'Could not load the technical analysis. Check your connection and try again.' }; });
+    return t.promise;
+  }
+  const STATUS = {
+    active: ['b-active', 'Buy signal live'],
+    watch: ['b-watch', 'Watch: not yet'],
+    wait: ['b-wait', 'Wait: don’t chase'],
+    none: ['b-none', 'No trade now'],
+  };
+  const SETUP_NAME = {
+    pullback: 'Quality Pullback', breakout: 'Breakout', reversal: 'Oversold reversal', extended: 'Extended run',
+    trend: 'Uptrend, between entries', range: 'Range', downtrend: 'Downtrend', weakening: 'Weakening trend',
+  };
+  function updateTechTab() {
+    const el = document.querySelector('#tab-tech .ts');
+    const T = tech && tech.data;
+    if (!el || !T) return;
+    el.textContent = T.ok ? `${T.label} · ${T.score}/100` : 'Not available';
+  }
+  async function showTech() {
+    const t = tech;
+    const panel = document.getElementById('panel-tech');
+    if (!t || !panel) return;
+    if (t.rendered) { if (t.refit) t.refit(); return; }
+    if (!t.data) panel.replaceChildren(h('div', { class: 'loading' }, h('div', { class: 'spin', 'aria-hidden': 'true' }), h('div', { text: 'Loading the chart analysis…' })));
+    const T = await loadTech();
+    if (t !== tech || t.rendered) return;
+    if (!T || !T.ok) {
+      const box = h('div', { class: 'card err' }, h('h2', { text: 'No technical analysis' }), h('p', { class: 'sub', text: (T && T.error) || 'Not available for this company.' }));
+      if (T && T.reason === 'network') box.append(h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline', type: 'button', onclick: () => showTech() }, 'Try again')));
+      panel.replaceChildren(box);
+      return;
+    }
+    t.rendered = true;
+    panel.replaceChildren();
+    renderTech(panel, t.d, T);
+  }
+  function renderTech(panel, d, T) {
+    const halalFail = d.labels && d.labels.shariah && d.labels.shariah.status === 'fail';
+    const tone = T.score >= 70 ? 'good' : T.score >= 45 ? 'neutral' : T.score >= 31 ? 'warn' : 'bad';
+    const tIcon = tone === 'good' ? 'good' : tone === 'bad' ? 'bad' : tone === 'warn' ? 'ok' : 'na';
+    panel.append(h('section', { class: `card verdict tone-${tone}`, 'aria-label': 'Technical picture' },
+      h('div', { class: 'tech-head' },
+        h('div', { class: 'kicker' }, icon(tIcon, 'Technical picture'), 'Technical picture'),
+        h('span', { class: 'score' }, T.label, h('small', { text: `${T.score}/100` }))),
+      h('div', { class: 'title', text: T.trendLabel }),
+      h('p', { text: T.guidance }),
+      h('div', { class: 'conf', text: `Daily prices through the close on ${niceDates(T.asOf)}. The score counts how many chart signals point up (100) or down (0). It is not a probability of profit.` })));
+    panel.append(tradePlanCard(d, T, halalFail));
+    panel.append(chartCard(d, T, halalFail));
+    panel.append(signalsCard(T));
+    panel.append(levelsCard(T));
+    panel.append(indicatorsSection(T));
+    panel.append(techHowSection());
+  }
+
+  function tradePlanCard(d, T, halalFail) {
+    const p = T.setup;
+    const [bcls, btxt] = halalFail ? ['b-none', 'Not halal: no plan'] : STATUS[p.status] || STATUS.none;
+    const card = h('section', { class: 'card', 'aria-label': 'Swing trade plan' },
+      h('div', { class: 'tech-head' }, h('h2', { text: 'Swing trade plan' }), h('span', { class: 'badge ' + bcls, text: btxt })),
+      h('p', { class: 'sub', text: `Setup: ${SETUP_NAME[p.setup] || p.setup}. A short-term plan (weeks to a few months), separate from the long-term plan on the Fundamental tab.` }));
+    if (halalFail) {
+      card.append(h('div', { class: 'callout', text: 'This company fails the Shariah screen, so there is no entry or exit plan. The chart is for information only.' }));
+      return card;
+    }
+    const lead = p.status === 'active' ? 'How to enter: ' : p.status === 'none' ? 'What to wait for: ' : 'What has to happen first: ';
+    card.append(h('div', { class: 'callout' }, h('b', { text: lead }), p.trigger));
+    if (!(isNum(p.entry) && isNum(p.stop))) return card;
+    const live = p.status === 'active';
+    const up = (x) => (isNum(x) ? `+${pct(x / p.entry - 1, 1)}` : '');
+    card.append(h('div', { class: 'plan-grid' },
+      planVal('sw-entry', live ? 'Entry' : 'Entry if triggered', price(p.entry),
+        isNum(p.zoneLow) && isNum(p.zoneHigh) && p.setup !== 'breakout' ? `Zone ${price0(p.zoneLow)} to ${price0(p.zoneHigh)}` : live ? 'On a daily close above' : ''),
+      planVal('sw-stop', 'Stop loss', price(p.stop), isNum(p.riskPct) ? `−${pct(p.riskPct, 1)} from entry` : ''),
+      planVal('sw-target', 'Target 1', price(p.target1), `${up(p.target1)} · ${p.rr1}R`),
+      planVal('sw-target', 'Target 2', price(p.target2), `${up(p.target2)} · ${p.rr2}R`)));
+    card.append(h('p', { class: 'sub', style: 'margin-top:10px', text: `R is the reward for each unit of risk: target 1 at ${p.rr1}R means a win there is ${p.rr1} times the loss you would take at the stop.${live ? '' : ' These numbers only apply once the trigger above happens.'}` }));
+    card.append(calcBox(p));
+    card.append(h('h3', { text: 'Exit plan' }), h('ol', { class: 'exits' }, (p.exits || []).map((x) => h('li', { text: x }))));
+    return card;
+  }
+  function planVal(sw, k, val, sub) {
+    return h('div', { class: 'pv' }, h('div', { class: 'k' }, h('i', { class: 'sw ' + sw, 'aria-hidden': 'true' }), k), h('div', { class: 'val', text: val }), sub ? h('div', { class: 's', text: sub }) : null);
+  }
+  function calcBox(p) {
+    const num = (v) => { const n = Number(String(v).replace(/[$,\s]/g, '')); return Number.isFinite(n) && n > 0 ? n : 0; };
+    const inv = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', 'aria-label': 'Amount to invest, in dollars' });
+    const port = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'optional', 'aria-label': 'Your whole portfolio, in dollars' });
+    inv.value = String(store.get('invest', 250));
+    const savedPort = store.get('portfolio', 0);
+    if (savedPort) port.value = String(savedPort);
+    const out = h('div', { class: 'out' });
+    const upd = () => {
+      const a = num(inv.value), P = num(port.value);
+      store.set('invest', a || 250);
+      store.set('portfolio', P || 0);
+      if (!a) { out.replaceChildren(h('div', { class: 'muted', text: 'Enter the amount you would put into this trade.' })); return; }
+      const sh = a / p.entry;
+      const loss = a * (p.entry - p.stop) / p.entry;
+      const g1 = sh * (p.target1 - p.entry), g2 = sh * (p.target2 - p.entry);
+      const shTxt = sh >= 100 ? Math.floor(sh).toLocaleString('en-US') : sh >= 10 ? sh.toFixed(1) : sh.toFixed(2);
+      const rows = [
+        h('div', null, 'That buys about ', h('b', { text: shTxt }), ` share${sh === 1 ? '' : 's'}${sh < 1 ? ' (a fractional share)' : ''}.`),
+        h('div', null, 'If the stop is hit you lose about ', h('b', { text: price(loss) }), '. At target 1 you are up about ', h('b', { text: price(g1) }), ', at target 2 about ', h('b', { text: price(g2) }), ' (before fees).'),
+      ];
+      if (P) {
+        const maxPos = (P * 0.01) / ((p.entry - p.stop) / p.entry);
+        rows.push(h('div', null, 'To risk no more than 1% of your portfolio (', h('b', { text: price(P * 0.01) }), ') on this trade, put in at most ', h('b', { text: price(Math.min(maxPos, P)) }), '.'));
+        if (a > maxPos * 1.05) rows.push(h('div', { style: 'color:var(--bad-ink)', text: 'Your amount is above that limit: one bad trade would cost more than 1% of your portfolio.' }));
+      } else rows.push(h('div', { class: 'muted', text: 'Add your portfolio size to see the most you should put in (so one loss costs at most 1% of it). It stays on this device.' }));
+      out.replaceChildren(...rows);
+    };
+    inv.addEventListener('input', upd);
+    port.addEventListener('input', upd);
+    upd();
+    return h('div', { class: 'calc' },
+      h('label', null, h('span', { text: 'Amount to invest ($)' }), inv),
+      h('label', null, h('span', { text: 'Your whole portfolio ($)' }), port),
+      out);
+  }
+
+  // ---- interactive chart (TradingView Lightweight Charts, loaded only when needed)
+  const LWC_URL = MODE === 'static'
+    ? 'vendor/lightweight-charts.js'
+    : 'https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js';
+  let lwcPromise = null;
+  function loadChartLib() {
+    if (window.LightweightCharts) return Promise.resolve(window.LightweightCharts);
+    if (!lwcPromise) {
+      lwcPromise = new Promise((resolve, reject) => {
+        const sc = document.createElement('script');
+        sc.src = LWC_URL;
+        sc.async = true;
+        sc.onload = () => (window.LightweightCharts ? resolve(window.LightweightCharts) : reject(new Error('library missing')));
+        sc.onerror = () => { lwcPromise = null; sc.remove(); reject(new Error('library failed to load')); };
+        document.head.append(sc);
+      });
+    }
+    return lwcPromise;
+  }
+  function destroyChart() {
+    if (tech && tech.chart) { try { tech.chart.remove(); } catch { /* already gone */ } tech.chart = null; }
+  }
+  const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function chartColors() {
+    return {
+      bg: cssVar('--surface'), text: cssVar('--muted'), grid: cssVar('--line'), axis: cssVar('--axis'),
+      up: cssVar('--good'), down: cssVar('--bad'), ema: cssVar('--series-1'), sma50: cssVar('--series-2'),
+      sma200: cssVar('--ink-2'), rsi: cssVar('--series-7'), accent: cssVar('--series-1'), good: cssVar('--good'), bad: cssVar('--bad'), warn: cssVar('--warn'),
+    };
+  }
+  const alpha = (hex, a) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+  };
+  function chartCard(d, T, halalFail) {
+    const card = h('section', { class: 'card chart-card', 'aria-label': 'Price chart' });
+    const ranges = h('div', { class: 'ranges', role: 'group', 'aria-label': 'Chart range' });
+    const legend = h('div', { class: 'legend' });
+    const box = h('div', { class: 'lw', role: 'img', 'aria-label': `Daily candlestick chart of ${d.ticker} with moving averages, RSI and MACD` }, h('div', { class: 'lw-msg', text: 'Loading chart…' }));
+    const toggles = h('div', { class: 'toggles', role: 'group', 'aria-label': 'Show on chart' });
+    card.append(
+      h('div', { class: 'tech-head' }, h('h2', { text: 'Chart' }), ranges),
+      legend, box,
+      h('div', { class: 'pane-keys' }, h('span', { text: 'Top: price, averages, volume.' }), h('span', { text: 'Middle: RSI (over 70 overbought, under 30 oversold).' }), h('span', { text: 'Bottom: MACD and its signal line.' })),
+      toggles, liveChartBlock(d));
+    const build = () => {
+      loadChartLib()
+        .then((LW) => {
+          if (!tech || tech.d !== d || !box.isConnected) return;
+          destroyChart();
+          box.replaceChildren();
+          buildChart(LW, box, legend, ranges, toggles, T, halalFail);
+        })
+        .catch(() => box.replaceChildren(h('div', { class: 'lw-msg', text: 'The chart could not load. The plan, levels and signals on this page still apply.' })));
+    };
+    tech.rebuild = build;
+    build();
+    return card;
+  }
+  const timeKey = (t) => {
+    if (typeof t === 'string') return t;
+    if (t && typeof t === 'object' && t.year) return `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}`;
+    if (typeof t === 'number') return new Date(t * 1000).toISOString().slice(0, 10);
+    return null;
+  };
+  function buildChart(LW, box, legend, ranges, toggles, T, halalFail) {
+    const C = T.chart, p = T.setup, col = chartColors();
+    const N = C.candles.length;
+    const dp = T.close >= 1 ? 2 : 4;
+    const tm = (i) => C.candles[i][0];
+    const chart = LW.createChart(box, {
+      autoSize: true,
+      layout: {
+        background: { type: LW.ColorType.Solid, color: col.bg }, textColor: col.text, fontSize: 11,
+        fontFamily: getComputedStyle(document.body).fontFamily,
+        panes: { separatorColor: col.grid, separatorHoverColor: col.grid, enableResize: false },
+      },
+      grid: { vertLines: { color: col.grid }, horzLines: { color: col.grid } },
+      rightPriceScale: { borderColor: col.axis },
+      timeScale: { borderColor: col.axis, rightOffset: 3, minBarSpacing: 1.5 },
+      crosshair: { mode: LW.CrosshairMode.Normal },
+      handleScroll: { vertTouchDrag: false },
+      localization: { locale: 'en-US' },
+    });
+    tech.chart = chart;
+    const on = { e21: true, s50: true, s200: true, levels: true, plan: !halalFail, volume: true };
+    const planPrices = !halalFail && isNum(p.entry) && isNum(p.stop) ? [p.entry, p.stop, p.target1, p.target2].filter(isNum) : [];
+    const cs = chart.addSeries(LW.CandlestickSeries, {
+      upColor: col.up, downColor: col.down, borderVisible: false, wickUpColor: col.up, wickDownColor: col.down,
+      priceLineVisible: false, priceFormat: { type: 'price', precision: dp, minMove: 1 / 10 ** dp },
+      // keep the plan lines in view when they are switched on
+      autoscaleInfoProvider: (orig) => {
+        const r = orig();
+        if (!r || !on.plan || !planPrices.length) return r;
+        return { priceRange: { minValue: Math.min(r.priceRange.minValue, ...planPrices), maxValue: Math.max(r.priceRange.maxValue, ...planPrices) }, margins: r.margins };
+      },
+    });
+    cs.setData(C.candles.map((c) => ({ time: c[0], open: c[1], high: c[2], low: c[3], close: c[4] })));
+    cs.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.2 } });
+    const vs = chart.addSeries(LW.HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
+    vs.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    vs.setData(C.candles.map((c, i) => ({ time: c[0], value: c[5], color: alpha(c[4] >= (i ? C.candles[i - 1][4] : c[1]) ? col.up : col.down, 0.35) })));
+    const lineData = (arr) => arr.map((v, i) => (v === null || v === undefined ? { time: tm(i) } : { time: tm(i), value: v }));
+    const lineOpts = (color, extra) => ({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, ...extra });
+    const e21 = chart.addSeries(LW.LineSeries, lineOpts(col.ema));
+    e21.setData(lineData(C.ema21));
+    const s50 = chart.addSeries(LW.LineSeries, lineOpts(col.sma50));
+    s50.setData(lineData(C.sma50));
+    const s200 = chart.addSeries(LW.LineSeries, lineOpts(col.sma200));
+    s200.setData(lineData(C.sma200));
+
+    // RSI pane
+    const rs = chart.addSeries(LW.LineSeries, lineOpts(col.rsi, {
+      lastValueVisible: true, priceFormat: { type: 'price', precision: 0, minMove: 1 },
+      autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+    }), 1);
+    rs.setData(lineData(C.rsi));
+    rs.createPriceLine({ price: 70, color: alpha(col.bad, 0.7), lineWidth: 1, lineStyle: LW.LineStyle.Dashed, axisLabelVisible: false });
+    rs.createPriceLine({ price: 30, color: alpha(col.good, 0.8), lineWidth: 1, lineStyle: LW.LineStyle.Dashed, axisLabelVisible: false });
+
+    // MACD pane
+    const mdp = T.close >= 20 ? 2 : 3;
+    const mh = chart.addSeries(LW.HistogramSeries, { priceLineVisible: false, lastValueVisible: false, priceFormat: { type: 'price', precision: mdp, minMove: 1 / 10 ** mdp } }, 2);
+    mh.setData(C.hist.map((v, i) => (v === null || v === undefined ? { time: tm(i) } : { time: tm(i), value: v, color: alpha(v >= 0 ? col.up : col.down, 0.45) })));
+    const ml = chart.addSeries(LW.LineSeries, lineOpts(col.ema, { priceFormat: { type: 'price', precision: mdp, minMove: 1 / 10 ** mdp } }), 2);
+    ml.setData(lineData(C.macd));
+    const msg = chart.addSeries(LW.LineSeries, lineOpts(col.sma50, { lineWidth: 1, priceFormat: { type: 'price', precision: mdp, minMove: 1 / 10 ** mdp } }), 2);
+    msg.setData(lineData(C.signal));
+    const panes = chart.panes();
+    if (panes.length >= 3) { panes[0].setStretchFactor(3.4); panes[1].setStretchFactor(1); panes[2].setStretchFactor(1); }
+
+    // event markers
+    if (typeof LW.createSeriesMarkers === 'function') {
+      const STY = {
+        golden: ['belowBar', col.good, 'arrowUp', 'Golden cross'],
+        death: ['aboveBar', col.bad, 'arrowDown', 'Death cross'],
+        breakout: ['belowBar', col.accent, 'arrowUp', 'Breakout'],
+        oversold: ['belowBar', col.warn, 'circle', 'Oversold bounce'],
+      };
+      const mk = (C.markers || []).map((m) => {
+        const st = STY[m.kind];
+        return st && C.candles[m.i] ? { time: tm(m.i), position: st[0], color: st[1], shape: st[2], text: st[3] } : null;
+      }).filter(Boolean).sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+      mk.forEach((m, k) => { if (k < mk.length - 3) m.text = ''; }); // label only the latest few, to keep the chart readable
+      if (mk.length) LW.createSeriesMarkers(cs, mk);
+    }
+
+    // support/resistance and the trade plan as horizontal lines
+    const lines = { levels: [], plan: [] };
+    const nearPlan = (pr) => planPrices.some((x) => Math.abs(x / pr - 1) < 0.004);
+    const addLine = (group, pr, color, style, title, width) => {
+      if (!isNum(pr) || (group === 'levels' && nearPlan(pr))) return;
+      lines[group].push({ title, line: cs.createPriceLine({ price: pr, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title }) });
+    };
+    (T.levels.resistances || []).slice(0, 2).forEach((z) => addLine('levels', z.price, alpha(col.bad, 0.75), LW.LineStyle.Dashed, 'Resistance', 1));
+    (T.levels.supports || []).slice(0, 2).forEach((z) => addLine('levels', z.price, alpha(col.good, 0.85), LW.LineStyle.Dashed, 'Support', 1));
+    if (planPrices.length) {
+      addLine('plan', p.entry, col.accent, LW.LineStyle.Solid, 'Entry', 2);
+      addLine('plan', p.stop, col.bad, LW.LineStyle.Solid, 'Stop', 2);
+      addLine('plan', p.target1, col.good, LW.LineStyle.Solid, 'Target 1', 2);
+      addLine('plan', p.target2, col.good, LW.LineStyle.Solid, 'Target 2', 2);
+    }
+    const showGroup = (g, vis) => lines[g].forEach((x) => x.line.applyOptions({ lineVisible: vis, axisLabelVisible: vis, title: vis ? x.title : '' }));
+
+    // legend that follows the crosshair (latest bar otherwise)
+    const fx = (x) => (isNum(x) ? x.toFixed(dp) : 'n/a');
+    const idx = new Map(C.candles.map((c, i) => [c[0], i]));
+    const sw = (color) => h('i', { class: 'sw', style: `background:${color}`, 'aria-hidden': 'true' });
+    const setLegend = (i) => {
+      const c = C.candles[i];
+      if (!c) return;
+      const prev = i > 0 ? C.candles[i - 1][4] : c[1];
+      legend.replaceChildren(
+        h('div', { class: 'ohlc' }, h('span', { text: niceDates(c[0]) }), h('span', { text: `O ${fx(c[1])}` }), h('span', { text: `H ${fx(c[2])}` }),
+          h('span', { text: `L ${fx(c[3])}` }), h('span', { text: `C ${fx(c[4])}` }), h('span', { text: pctS(prev ? c[4] / prev - 1 : 0, 2) })),
+        h('span', null, sw(col.ema), `21 EMA ${fx(C.ema21[i])}`),
+        h('span', null, sw(col.sma50), `50 SMA ${fx(C.sma50[i])}`),
+        h('span', null, sw(col.sma200), `200 SMA ${fx(C.sma200[i])}`),
+        h('span', null, sw(col.rsi), `RSI ${isNum(C.rsi[i]) ? Math.round(C.rsi[i]) : 'n/a'}`));
+    };
+    setLegend(N - 1);
+    chart.subscribeCrosshairMove((param) => {
+      const k = param && param.time !== undefined ? timeKey(param.time) : null;
+      setLegend(k && idx.has(k) ? idx.get(k) : N - 1);
+    });
+
+    // range buttons
+    let bars = store.get('chartRange', 126);
+    if (![63, 126, 260].includes(bars)) bars = 126;
+    const apply = () => {
+      chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, N - bars) - 0.5, to: N - 1 + 3 });
+      [...ranges.children].forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.bars) === bars)));
+    };
+    ranges.replaceChildren(...[['3M', 63], ['6M', 126], ['1Y', 260]].map(([lab, n]) =>
+      h('button', { type: 'button', 'data-bars': String(n), 'aria-pressed': 'false', onclick: () => { bars = n; store.set('chartRange', n); apply(); } }, lab)));
+    apply();
+    tech.refit = () => requestAnimationFrame(apply);
+
+    // show/hide toggles
+    const tog = (key, label, color, fn) => {
+      const b = h('button', { type: 'button', 'aria-pressed': String(on[key]) }, color ? sw(color) : null, label);
+      b.addEventListener('click', () => { on[key] = !on[key]; b.setAttribute('aria-pressed', String(on[key])); fn(on[key]); });
+      return b;
+    };
+    const items = [
+      tog('e21', '21 EMA', col.ema, (v) => e21.applyOptions({ visible: v })),
+      tog('s50', '50 SMA', col.sma50, (v) => s50.applyOptions({ visible: v })),
+      tog('s200', '200 SMA', col.sma200, (v) => s200.applyOptions({ visible: v })),
+      tog('levels', 'Support / resistance', null, (v) => showGroup('levels', v)),
+    ];
+    if (planPrices.length) items.push(tog('plan', 'Entry, stop, targets', null, (v) => { showGroup('plan', v); cs.applyOptions({}); }));
+    items.push(tog('volume', 'Volume', null, (v) => vs.applyOptions({ visible: v })));
+    toggles.replaceChildren(...items);
+  }
+  // follow the device's light/dark setting
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (tech && tech.chart && tech.rebuild) tech.rebuild(); });
+  } catch { /* old browsers */ }
+
+  function tvSymbol(d) {
+    const ex = String(d.exchange || '').toUpperCase();
+    const pre = ex.includes('NASDAQ') ? 'NASDAQ' : ex.includes('ARCA') || ex.includes('AMERICAN') || ex === 'AMEX' ? 'AMEX' : ex.includes('NYSE') ? 'NYSE' : ex.includes('CBOE') ? 'CBOE' : '';
+    const sym = String(d.ticker).replace(/-/g, '.');
+    return pre ? `${pre}:${sym}` : sym;
+  }
+  function liveChartBlock(d) {
+    const sym = tvSymbol(d);
+    const url = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(sym);
+    const box = h('div');
+    const row = h('div', { class: 'ai' },
+      h('a', { class: 'btn btn-outline', href: url, target: '_blank', rel: 'noopener', style: 'display:inline-flex;align-items:center;text-decoration:none' }, 'Open live chart on TradingView'));
+    if (MODE === 'static') {
+      const btn = h('button', { class: 'btn btn-outline', type: 'button' }, 'Show live chart here');
+      btn.addEventListener('click', () => { btn.remove(); box.append(tvWidget(sym, url)); });
+      row.append(btn);
+    }
+    box.append(h('h3', { text: 'Live price' }),
+      h('p', { class: 'sub', text: MODE === 'static'
+        ? 'The chart above uses daily closing prices and updates once a day. For live prices during market hours, open TradingView. It loads from tradingview.com, so it only loads when you tap.'
+        : 'The chart above uses daily closing prices. For live prices during market hours, open TradingView.' }),
+      row);
+    return box;
+  }
+  function tvWidget(sym, url) {
+    const dark = getComputedStyle(document.documentElement).colorScheme === 'dark';
+    const wrap = h('div', { class: 'tv-box tradingview-widget-container' },
+      h('div', { class: 'tradingview-widget-container__widget', style: 'height:100%;width:100%' }));
+    const sc = document.createElement('script');
+    sc.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    sc.async = true;
+    sc.textContent = JSON.stringify({
+      autosize: true, symbol: sym, interval: 'D', timezone: 'America/New_York', theme: dark ? 'dark' : 'light', style: '1',
+      locale: 'en', allow_symbol_change: false, withdateranges: true, studies: ['STD;RSI', 'STD;MACD'], support_host: 'https://www.tradingview.com',
+    });
+    wrap.append(sc);
+    return h('div', null, wrap, h('p', { class: 'sub', style: 'margin-top:6px' }, 'Chart not showing? ', h('a', { href: url, target: '_blank', rel: 'noopener' }, 'Open it on TradingView'), '.'));
+  }
+
+  function signalsCard(T) {
+    const n = { bull: 0, bear: 0, neutral: 0 };
+    T.signals.forEach((x) => n[x.tone]++);
+    const card = h('section', { class: 'card', 'aria-label': 'Signals' },
+      h('h2', { text: 'Signals' }),
+      h('p', { class: 'sub', text: `${n.bull} bullish, ${n.bear} bearish, ${n.neutral} neutral. Each one in plain words:` }));
+    card.append(h('ul', { class: 'clean' }, T.signals.map((x) => h('li', null,
+      icon(x.tone === 'bull' ? 'good' : x.tone === 'bear' ? 'bad' : 'na', x.tone === 'bull' ? 'Bullish' : x.tone === 'bear' ? 'Bearish' : 'Neutral'),
+      h('span', null, h('span', { class: 'sig-name', text: x.name + ': ' }), x.text)))));
+    return card;
+  }
+  function levelsCard(T) {
+    const L = T.levels;
+    const card = h('section', { class: 'card', 'aria-label': 'Support and resistance' },
+      h('h2', { text: 'Support and resistance' }),
+      h('p', { class: 'sub', text: 'Support is a price where buyers stepped in before (past swing lows); resistance is where sellers did (past swing highs). More touches make a level stronger. A broken resistance often becomes support.' }));
+    const row = (name, pr, dist, touches, cls) => h('tr', { class: cls || null },
+      h('td', { text: name }), h('td', { class: 'r', text: price(pr) }), h('td', { class: 'r', text: isNum(dist) ? pctS(dist, 1) : '' }), h('td', { class: 'r', text: touches ? String(touches) : '' }));
+    const rows = [];
+    (L.resistances || []).slice().reverse().forEach((z) => rows.push(row('Resistance', z.price, z.distPct, z.touches)));
+    rows.push(row('Price now', T.close, null, null, 'now'));
+    (L.supports || []).forEach((z) => rows.push(row('Support', z.price, z.distPct, z.touches)));
+    card.append(h('div', { style: 'overflow-x:auto' }, h('table', { class: 'lvl' },
+      h('tr', null, h('th', { text: 'Level' }), h('th', { class: 'r', text: 'Price' }), h('th', { class: 'r', text: 'Distance' }), h('th', { class: 'r', text: 'Touches' })),
+      rows)));
+    card.append(h('p', { class: 'sub', style: 'margin-top:10px', text: `52-week range: ${price(L.low52)} to ${price(L.high52)}.` }));
+    return card;
+  }
+  const TECH_EXPLAIN = {
+    rsi: 'Relative Strength Index (14 days): momentum on a 0 to 100 scale. Above 70 is overbought (stretched), below 30 is oversold. In an uptrend, pullbacks often stop around 40 to 50.',
+    macd: 'MACD compares a fast and a slow average. Above its signal line means momentum is improving; a cross below means it is fading.',
+    atr: 'Average True Range: how much the price typically moves in a day. Stops are set a few ATRs away so normal noise doesn’t knock you out.',
+    ema21: 'The 21-day exponential average: the short-term trend. In healthy uptrends, buyers often step in near it.',
+    sma50: 'The 50-day average: the medium-term trend. Many traders treat a close below it as a warning.',
+    sma200: 'The 200-day average: the long-term trend. Long-term investors prefer stocks above it.',
+    relVolume: 'Today’s volume compared with the 50-day average. Breakouts on 1.3 times normal volume or more are more trustworthy.',
+    upDownVolume: 'Over the last month: volume on up days divided by volume on down days. Above 1.4 suggests buyers are accumulating.',
+    extensionAtr: 'How far the price is from the 21 EMA, in ATRs. More than 2.5 is stretched: a poor spot to start a new position.',
+  };
+  function indicatorsSection(T) {
+    const I = T.indicators;
+    const det = h('details', { class: 'sec' });
+    det.append(h('summary', null, h('span', { class: 'st', text: 'Indicator values' }), h('span', { class: 'sc' }, h('span', { text: `RSI ${I.rsi ?? 'n/a'} · ATR ${pct(I.atrPct, 1)}` }), chevron())));
+    const body = h('div', { class: 'sec-body' });
+    const item = (k, label, val, sub) => {
+      const ex = h('div', { class: 'explain', hidden: true, text: TECH_EXPLAIN[k] });
+      const b = h('button', { class: 'info', type: 'button', 'aria-expanded': 'false' }, 'What is this?');
+      b.addEventListener('click', () => { ex.hidden = !ex.hidden; b.setAttribute('aria-expanded', String(!ex.hidden)); b.textContent = ex.hidden ? 'What is this?' : 'Hide'; });
+      return h('div', { class: 'row' }, h('div', { class: 'row-main' },
+        h('div', { class: 'row-label' }, h('span', { text: label }), sub ? h('div', { class: 'row-note', text: sub }) : null, b),
+        h('div', { class: 'row-val', text: val })), ex);
+    };
+    const vsPrice = (x) => (isNum(x) ? `price ${T.close >= x ? 'above' : 'below'} it by ${pct(Math.abs(T.close / x - 1), 1)}` : '');
+    body.append(
+      item('rsi', 'RSI (14)', isNum(I.rsi) ? String(I.rsi) : 'n/a', I.rsi >= 70 ? 'Overbought' : I.rsi <= 30 ? 'Oversold' : I.rsi >= 55 ? 'Strong' : I.rsi >= 45 ? 'Neutral' : 'Weak'),
+      item('macd', 'MACD vs signal', isNum(I.macd) && isNum(I.macdSignal) ? `${I.macd} / ${I.macdSignal}` : 'n/a', isNum(I.macd) && isNum(I.macdSignal) ? (I.macd >= I.macdSignal ? 'Above its signal line' : 'Below its signal line') : ''),
+      item('atr', 'ATR (14)', price(I.atr), `${pct(I.atrPct, 1)} of the price per day`),
+      item('ema21', '21 EMA', price(I.ema21), vsPrice(I.ema21)),
+      item('sma50', '50 SMA', price(I.sma50), vsPrice(I.sma50)),
+      item('sma200', '200 SMA', price(I.sma200), vsPrice(I.sma200)),
+      item('extensionAtr', 'Distance from 21 EMA', isNum(I.extensionAtr) ? `${I.extensionAtr > 0 ? '+' : ''}${I.extensionAtr} ATR` : 'n/a', ''),
+      item('relVolume', 'Volume vs normal', isNum(I.relVolume) ? `${I.relVolume}×` : 'n/a', ''),
+      item('upDownVolume', 'Up vs down volume', isNum(I.upDownVolume) ? `${I.upDownVolume}×` : 'n/a', 'Last 20 trading days'));
+    det.append(body);
+    return det;
+  }
+  function techHowSection() {
+    const det = h('details', { class: 'sec' });
+    det.append(h('summary', null, h('span', { class: 'st', text: 'How to use the technical tab' }), h('span', { class: 'sc' }, chevron())));
+    const body = h('div', { class: 'sec-body how' });
+    const li = (t) => h('li', { text: t });
+    body.append(
+      h('p', { text: 'The Fundamental tab answers "is this a good business at a fair price?". This tab answers "is now a good moment to buy, and where would I get out?". The best entries usually have both on your side.' }),
+      h('h3', { text: 'The plan statuses' }),
+      h('ul', null,
+        li('Buy signal live: the setup is in place. Enter only if the trigger happens (usually a daily close above a level), and place the stop at the same time.'),
+        li('Watch: not yet. The levels show where a trade would start.'),
+        li('Wait: the price has run too far from its averages. Chasing it means a wide stop or a poor reward for the risk.'),
+        li('No trade now: the trend is down or there is no edge. Doing nothing is a position too.')),
+      h('h3', { text: 'Rules that keep you in the game' }),
+      h('ul', null,
+        li('Risk at most 1% of your portfolio on any one trade (the calculator works this out).'),
+        li('Set the stop when you buy, and never move it lower. Move it up to your entry once target 1 is hit.'),
+        li('Prices can gap past a stop overnight, so a loss can be bigger than planned. Smaller positions make that survivable.'),
+        li('Buying only, no short selling, no margin: in line with halal investing.')),
+      h('h3', { text: 'Honest expectations' }),
+      h('p', { text: 'No indicator or combination of indicators wins 90% of the time. Good swing traders often win only 40 to 55% of trades and still make money, because winners (2R or more) are bigger than losers (1R). Judge the plan over 20 or more trades, not one.' }),
+      h('p', { text: 'Levels and signals are calculated from daily closing prices, refreshed every weekday morning (US time). Educational tool, not financial advice.' }));
+    det.append(body);
+    return det;
+  }
+
   // ------------------------------------------------------------------ nav
   $('#howBtn').addEventListener('click', () => { const how = $('#how'); how.hidden = !how.hidden; if (!how.hidden) how.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('#howClose').addEventListener('click', () => { $('#how').hidden = true; });
@@ -1080,11 +1765,13 @@ footer { color: var(--muted); font-size: 13px; padding: 26px 0 30px; text-align:
     if (start) run(start);
   }
   if (MODE === 'static') {
-    $('#dataNote').textContent = 'Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq. Every company worth $2 billion or more is re-analyzed each weekday after the US market closes. Your searches stay on your device. This is an educational tool, not financial advice.';
+    $('#dataNote').textContent = 'Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq daily closes. Every company worth $2 billion or more is re-analyzed each weekday morning (US time) using the previous session\u2019s closing prices. Your searches and calculator amounts stay on your device. This is an educational tool, not financial advice.';
     loadIndex().then((idx) => {
       if (!idx) return;
-      const when = new Date(idx.asOf).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-      $('#hint').textContent = `Covers ${idx.count.toLocaleString()} US companies worth $2 billion or more. Data as of ${when}, refreshed every weekday after the US market closes.`;
+      const when = idx.priceDate
+        ? `prices as of the close on ${niceDates(idx.priceDate)}`
+        : `data as of ${new Date(idx.asOf).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+      $('#hint').textContent = `Covers ${idx.count.toLocaleString()} US companies worth $2 billion or more, ${when}. Refreshed every weekday morning (US time).`;
     });
   }
 })();

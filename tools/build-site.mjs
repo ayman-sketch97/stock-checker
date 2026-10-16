@@ -1,5 +1,6 @@
 // Builds the public website into site/: the page, one analysis file per company, and a search index.
-// GitHub Actions runs this every weekday after the US market closes (.github/workflows/update-site.yml).
+// GitHub Actions runs this every weekday morning (US time), once the previous session's prices are final
+// (.github/workflows/update-site.yml).
 //
 //   node tools/build-site.mjs                    every US-listed company worth $2B or more
 //   node tools/build-site.mjs --only AAPL,MSFT   just these companies (for testing)
@@ -9,9 +10,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 process.env.STOCKCHECKER_BATCH = '1'; // no caches, polite pacing and retries in lib/data.js
-const { getTickerIndex, getSubmissions, getCompanyFacts, getNasdaqScreener, getNasdaqMonthly, normalizeTicker, batchStats } =
+const { getTickerIndex, getSubmissions, getCompanyFacts, getNasdaqScreener, getNasdaqHistory, normalizeTicker, batchStats } =
   await import('../lib/data.js');
 const { analyze } = await import('../lib/engine.js');
+const { analyzeTechnical, techContextFrom } = await import('../lib/technical.js');
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const args = process.argv.slice(2);
@@ -46,6 +48,12 @@ function buildPage() {
   // unlisted: ask search engines not to index anything
   fs.writeFileSync(path.join(OUT, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
   fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
+  // the chart library is served from this site (no third-party CDN); installed by the workflow
+  const lwc = path.join(root, 'node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.js');
+  if (fs.existsSync(lwc)) {
+    fs.mkdirSync(path.join(OUT, 'vendor'), { recursive: true });
+    fs.copyFileSync(lwc, path.join(OUT, 'vendor/lightweight-charts.js'));
+  } else console.log('note: lightweight-charts not installed; the Technical tab chart will not load from this build');
 }
 
 // ---------------------------------------------------------------- helpers
@@ -71,7 +79,7 @@ if (PAGE_ONLY) {
 const started = new Date();
 const dataDir = path.join(OUT, 'data');
 fs.rmSync(dataDir, { recursive: true, force: true });
-fs.mkdirSync(dataDir, { recursive: true });
+fs.mkdirSync(path.join(dataDir, 'tech'), { recursive: true });
 
 const { byTicker } = await getTickerIndex();
 const screener = await getNasdaqScreener();
@@ -92,48 +100,57 @@ universe.sort((a, b) => b.cap - a.cap);
 if (LIMIT) universe = universe.slice(0, LIMIT);
 console.log(`screener rows ${screener.length}; companies to analyze ${universe.length}`);
 
-const priceTime = fmtTime(started);
 const items = [];
+const priceDates = {};
 const failed = [];
 const counts = {};
 let done = 0;
 
-// Price history only feeds the "past valuation" comparison, so it gets a short timeout, and if Nasdaq
-// keeps failing (e.g. it slows down automated requests) the run carries on without it.
+// Daily history gives the dated closing price, the chart and the past-valuation comparison. It gets a short
+// timeout, and if Nasdaq keeps failing (e.g. it slows down automated requests) the run carries on without it.
 let historyFailsInARow = 0;
 let historyOff = false;
-async function monthlyFor(t) {
-  if (historyOff) return [];
+async function historyFor(t) {
+  if (historyOff) return null;
   try {
-    const m = await getNasdaqMonthly(t, 8000, 1);
+    const h = await getNasdaqHistory(t, 10000, 1);
     historyFailsInARow = 0;
-    return m;
+    return h;
   } catch {
     if (++historyFailsInARow >= 40 && !historyOff) {
       historyOff = true;
-      console.log('Nasdaq price history keeps failing; continuing without past-valuation comparisons.');
+      console.log('Nasdaq price history keeps failing; continuing without charts and past-valuation comparisons.');
     }
-    return [];
+    return null;
   }
 }
 
 async function one(u) {
   const rec = byTicker.get(u.t);
-  const [submissions, facts, monthly] = await Promise.all([getSubmissions(rec.cik), getCompanyFacts(rec.cik), monthlyFor(u.t)]);
+  const [submissions, facts, hist] = await Promise.all([getSubmissions(rec.cik), getCompanyFacts(rec.cik), historyFor(u.t)]);
+  // use the latest daily close (dated) when we have it; the screener price can lag a session
+  const lastBar = hist?.daily?.length ? hist.daily[hist.daily.length - 1] : null;
+  const px = lastBar ? lastBar.c : u.price;
+  if (lastBar) priceDates[lastBar.date] = (priceDates[lastBar.date] || 0) + 1;
   const price = {
     source: 'Nasdaq',
-    price: u.price,
+    price: px,
     currency: 'USD',
-    priceTime,
+    priceTime: lastBar ? `close on ${lastBar.date}` : `${fmtTime(started)}, last sale`,
     high52: null,
     low52: null,
-    marketCapRef: u.cap,
-    monthly,
+    marketCapRef: u.cap * (px / u.price),
+    monthly: hist?.monthly || [],
     splits: [],
     splitsKnown: false,
   };
   const res = analyze({ ticker: u.t, cik: rec.cik, listing: rec, submissions, facts, price, fetchedAt: started.toISOString() });
   fs.writeFileSync(path.join(dataDir, `${u.t}.json`), JSON.stringify(res));
+  let tech = null;
+  if (hist?.daily?.length) {
+    tech = analyzeTechnical(hist.daily, techContextFrom(res));
+    fs.writeFileSync(path.join(dataDir, 'tech', `${u.t}.json`), JSON.stringify(tech));
+  }
   const code = res.ok ? res.verdict.code : 'NA:' + (res.reason || 'error');
   counts[code] = (counts[code] || 0) + 1;
   items.push([
@@ -144,6 +161,8 @@ async function one(u) {
     res.ok ? res.labels.quality.score : null,
     res.ok ? res.labels.valuation.label : '',
     Math.round(u.cap / 1e6),
+    tech?.ok ? tech.setup.setup : '',
+    tech?.ok ? tech.score : null,
   ]);
 }
 
@@ -172,11 +191,13 @@ if (retry.length) {
 failed.push(...retry);
 
 items.sort((a, b) => b[6] - a[6]);
+const priceDate = Object.entries(priceDates).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 const index = {
   asOf: started.toISOString(),
+  priceDate,
   minCap: MIN_CAP,
   count: items.length,
-  fields: ['ticker', 'name', 'verdict', 'shariah', 'quality', 'valuation', 'marketCapMillions'],
+  fields: ['ticker', 'name', 'verdict', 'shariah', 'quality', 'valuation', 'marketCapMillions', 'techSetup', 'techScore'],
   items,
 };
 fs.writeFileSync(path.join(dataDir, 'index.json'), JSON.stringify(index));

@@ -2,6 +2,7 @@
 // node cli.mjs analyze AAPL   |   node cli.mjs search apple
 import { loadCompanyData, searchTickers } from '../lib/data.js';
 import { analyze } from '../lib/engine.js';
+import { analyzeTechnical, techContextFrom } from '../lib/technical.js';
 
 const [cmd, ...rest] = process.argv.slice(2);
 const arg = rest.join(' ');
@@ -12,7 +13,11 @@ try {
   } else if (cmd === 'analyze') {
     const data = await loadCompanyData(arg);
     if (data.error) out({ ok: false, error: data.error, suggestions: data.suggestions || [] });
-    else out(analyze(data));
+    else {
+      const result = analyze(data);
+      if (result.ok && data.price?.daily?.length) result.technical = analyzeTechnical(data.price.daily, techContextFrom(result));
+      out(result);
+    }
   } else {
     out({ ok: false, error: 'Unknown command' });
   }

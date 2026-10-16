@@ -3,7 +3,7 @@ name: Update site
 # Re-analyzes every US company worth $2B+ and publishes the site to GitHub Pages.
 on:
   schedule:
-    - cron: '47 21 * * 1-5' # weekdays 21:47 UTC, after the US market close
+    - cron: '45 10 * * 2-6' # Tue-Sat 10:45 UTC, early morning in New York, once the previous session's prices are final
   workflow_dispatch:
   push:
     branches: [main]
@@ -27,6 +27,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # the Technical tab's chart library (TradingView Lightweight Charts, Apache-2.0), served from this site
+      - name: Install the chart library
+        run: npm install --no-save --no-audit --no-fund lightweight-charts@5.2.1
       - name: Analyze companies and build the site
         run: node tools/build-site.mjs
       - uses: actions/upload-pages-artifact@v3
