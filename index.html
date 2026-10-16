@@ -2691,12 +2691,13 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     card.append(h('p', { class: 'sub', text: 'Cash paid to shareholders over the last 12 months, from the cash flow statement.' }));
     card.append(h('div', { class: 'fv-grid' },
       kv('Dividend yield', pct(D.yield, 2)),
-      kv('Per share, 12 months', isNum(D.perShare) ? price(D.perShare) : 'n/a'),
+      kv(D.special ? 'Usual per share, a year' : 'Per share, 12 months', isNum(D.perShare) ? price(D.perShare) : 'n/a'),
       kv('Share of profit paid', isNum(D.payoutProfit) ? pct(D.payoutProfit, 0) : 'n/a'),
       kv('Years paid in a row', D.yearsPaid ? String(D.yearsPaid) + (d.yearsOfData && D.yearsPaid >= d.yearsOfData ? '+' : '') : 'n/a')));
     const notes = [];
-    if (isNum(D.payoutFcf)) notes.push(`That is ${pct(D.payoutFcf, 0)} of free cash flow.`);
-    if (isNum(D.growth5y)) notes.push(`The dividend per share changed ${pctS(D.growth5y, 1)} a year over the last 5 years.`);
+    if (D.special && isNum(D.paidPerShare)) notes.push(`In the last 12 months it paid ${price(D.paidPerShare)} a share, well above its usual level, which usually means a one-off special or a variable dividend. The yield and payout figures use the usual level, so they do not count on it repeating.`);
+    if (isNum(D.payoutFcf)) notes.push(`${D.special ? 'The usual dividend' : 'That'} is ${pct(D.payoutFcf, 0)} of free cash flow.`);
+    if (isNum(D.growth5y)) notes.push(`The dividend per share ${D.growth5y >= 0 ? 'grew' : 'fell'} about ${pct(Math.abs(D.growth5y), 1)} a year over five years (using 3-year medians, so a one-off special payout does not distort it).`);
     if (isNum(D.payoutFcf) && D.payoutFcf > 0.9) notes.push('Paying out almost all its free cash flow leaves little room to raise the dividend or get through a bad year.');
     if (notes.length) card.append(h('p', { class: 'note', text: notes.join(' ') }));
     card.append(h('h3', { text: 'Purification calculator' }));
