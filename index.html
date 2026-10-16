@@ -1540,6 +1540,24 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         const e = T.earnings;
         card.append(h('div', { class: 'callout', style: 'border-left:4px solid var(--warn)' }, h('b', { text: `Earnings on ${niceDates(e.date)}${e.time ? ', ' + e.time : ''}. ` }),
           `That is ${e.tradingDays <= 1 ? 'the next session' : `in about ${e.tradingDays} trading days`}, so a swing trade would likely be held through the report, and the price can jump past your stop. Consider waiting until after the report, or use half size. The date can be an estimate.`));
+      } else if (T.earnings && isNum(T.earnings.tradingDays) && T.earnings.tradingDays <= 30) {
+        const note = h('p', { class: 'note' }, `Next earnings: ${niceDates(T.earnings.date)}, in about ${T.earnings.tradingDays} trading days. If the trade is still open by then, decide in advance whether you will sell before the report.`);
+        card.append(note);
+        if (HAS_SITE && TRADED.includes(p.setup)) {
+          loadBtSummary().then((bt) => {
+            const g = bt && bt.halal && (bt.halal.bySetup || []).find((x) => x.key === p.setup);
+            if (g && g.avgDays) note.append(` In the backtest, ${SETUP_NAME[p.setup].toLowerCase()} trades were held ${g.avgDays} trading days on average.`);
+          });
+        }
+      } else if (!T.earnings && d.asOf && /^\d{4}-\d{2}-\d{2}$/.test(d.asOf.balanceSheet || '')) {
+        // no date on the calendar yet: reports usually come 2 to 6 weeks after the quarter that follows the last filing ends
+        const q = Date.parse(d.asOf.balanceSheet + 'T00:00:00Z');
+        const iso = (ms) => new Date(ms).toISOString().slice(0, 10);
+        const from = q + (91 + 14) * 864e5;
+        const to = q + (91 + 45) * 864e5;
+        if (to > Date.now()) {
+          card.append(h('p', { class: 'note', text: `${HAS_SITE ? 'No earnings date has been announced yet.' : 'This version does not look up earnings dates.'} The last reported quarter ended ${niceDates(d.asOf.balanceSheet)}, so the next report is likely between ${shortDate(iso(from))} and ${shortDate(iso(to))}. Check the date before buying: a report can move the price past your stop.` }));
+        }
       }
     }
     if (!(isNum(p.entry) && isNum(p.stop))) { card.append(trackRecordBox(T, d)); return card; }
@@ -2788,11 +2806,10 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       if (recent.length) {
         const cd = (iso) => { const m2 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '')); return m2 ? `${MONTHS[Number(m2[2]) - 1]} ${Number(m2[3])} ’${m2[1].slice(2)}` : ''; };
         wrap.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-          h('tr', null, ['Bought', 'Sold', 'Setup', 'Result'].map((x) => h('th', { text: x }))),
+          h('tr', null, ['Bought', 'Sold', 'Result'].map((x) => h('th', { text: x }))),
           recent.map((tr) => h('tr', null,
-            h('td', { text: cd(tr.fill) }),
+            h('td', null, cd(tr.fill), h('span', { class: 'sm', text: SETUP_NAME[tr.setup] || tr.setup })),
             h('td', { class: tr.open ? 'dim' : '', text: tr.open ? 'open' : cd(tr.exit) }),
-            h('td', { text: SETUP_NAME[tr.setup] || tr.setup }),
             h('td', { class: tr.R > 0 ? 'up' : tr.R < 0 ? 'down' : '', text: fmtR(tr.R, 1) }))))));
       }
     } else if (hist) {
