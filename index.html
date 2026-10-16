@@ -2176,7 +2176,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     value: { label: 'Quality on sale', title: 'Quality businesses below fair value', sub: 'Rated a buy candidate or a possible bargain on the fundamentals.', sort: 'upside', view: 'fund', filter: (r) => ['BUY_STRONG', 'BUY', 'CONTRARIAN'].includes(r.verdict) },
     zone: { label: 'Near buy price', title: 'Good businesses near their buy price', sub: 'Within 10% of the long-term “buy below” price, or under it.', sort: 'zone', view: 'fund', filter: (r) => GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.buyBelow > 0 && r.price <= r.buyBelow * 1.1 },
     leaders: { label: 'Leaders', title: 'Market leaders in uptrends', sub: 'Relative strength 85 or more (beating at least 85% of stocks over the past year), in an uptrend, with business quality of 50 or more.', swing: true, sort: 'rs', view: 'tech', filter: (r) => r.rs >= 85 && r.trend === 'up' && (r.quality ?? 0) >= 50 },
-    dividends: { label: 'Dividends', title: 'Dividend payers', sub: 'A yield of 1.5% or more, from businesses with quality of 50 or more.', sort: 'yield', view: 'fund', filter: (r) => r.divYield >= 0.015 && (r.quality ?? 0) >= 50 },
+    dividends: { label: 'Dividends', title: 'Dividend payers', sub: 'A yield of 1.5% or more, paid at least three years in a row and covered by free cash flow, from businesses with quality of 50 or more. One-off special payouts are left out of the yield.', sort: 'yield', view: 'fund', filter: (r) => r.divYield >= 0.015 && (r.quality ?? 0) >= 50 && (r.divYears == null || r.divYears >= 3) && !(r.divFcf > 1) },
   };
   const zoneDist = (r) => (isNum(r.buyBelow) && r.buyBelow > 0 ? r.price / r.buyBelow - 1 : 9);
   const SORTS = {
@@ -2185,6 +2185,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     zone: ['Nearest buy price', (a, b) => zoneDist(a) - zoneDist(b)],
     quality: ['Best quality', (a, b) => (b.quality ?? -1) - (a.quality ?? -1)],
     yield: ['Highest yield', (a, b) => (b.divYield ?? -1) - (a.divYield ?? -1)],
+    cover: ['Safest dividend', (a, b) => (a.divFcf ?? 9) - (b.divFcf ?? 9)],
     risk: ['Tightest stop', (a, b) => (a.riskPct ?? 9) - (b.riskPct ?? 9)],
     score: ['Chart score', (a, b) => (b.techScore ?? -1) - (a.techScore ?? -1)],
     cap: ['Biggest first', (a, b) => (b.capM || 0) - (a.capM || 0)],
@@ -2220,7 +2221,8 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       if (isNum(r.fair)) det.push(['fair value ', b(price0(r.fair))]);
     } else if (preset === 'dividends') {
       det.push(['Yield ', b(pct(r.divYield, 1))]);
-      if (isNum(r.quality)) det.push(['quality ', b(String(r.quality))]);
+      if (isNum(r.divFcf) && r.divFcf < 9) det.push(['uses ', b(pct(r.divFcf, 0)), ' of free cash flow']);
+      if (isNum(r.divGrowth)) det.push(['growth ', b(pctS(r.divGrowth, 0)), ' a year']);
       if (isNum(r.upside)) det.push(['fair value ', b(pctS(r.upside, 0))]);
     } else {
       if (isNum(r.fair)) det.push(['Fair value ', b(price0(r.fair)), ` (${pctS(r.upside, 0)})`]);

@@ -312,6 +312,10 @@ async function one(u) {
     ok && res.labels.shariah.status !== 'fail' ? rd(res.purification?.ratio ?? null, 4) : null,
     ok ? rd(res.pricePlan?.trimAbove ?? null) : null,
     T ? T.indicators.ema21 : null,
+    // dividend safety: years paid in a row, share of free cash flow paid out (9 = free cash flow is negative), growth
+    ok && res.dividends?.pays ? (res.dividends.yearsPaid ?? null) : null,
+    ok && res.dividends?.pays ? (isNum(res.dividends.payoutFcf) ? rd(res.dividends.payoutFcf) : (metricOf(res, 'fcf_margin') ?? 1) <= 0 ? 9 : null) : null,
+    ok && res.dividends?.pays ? rd(res.dividends.growth5y ?? null, 3) : null,
   ];
   counts[code] = (counts[code] || 0) + 1;
   items.push(item);
@@ -336,7 +340,7 @@ const SCREEN_FIELDS = [
   'ticker', 'name', 'sector', 'industry', 'capM', 'price', 'chg', 'verdict', 'shariah', 'quality', 'health', 'growth', 'valuation',
   'fair', 'upside', 'buyBelow', 'pe', 'pfcf', 'roic', 'revGrowth', 'fcfMargin', 'divYield', 'setup', 'status', 'techScore', 'trend',
   'rsi', 'r1m', 'r3m', 'r6m', 'r12m', 'rs', 'offHigh', 'atrPct', 'entry', 'stop', 't1', 'riskPct', 'earnings', 'btN', 'btAvgR', 'impure',
-  'trimAbove', 'ema21',
+  'trimAbove', 'ema21', 'divYears', 'divFcf', 'divGrowth',
 ];
 
 async function attempt(list, n) {
