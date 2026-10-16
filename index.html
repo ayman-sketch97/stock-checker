@@ -1370,6 +1370,10 @@ ol.exits li { margin: 4px 0; }
       planVal('sw-stop', 'Stop loss', price(p.stop), isNum(p.riskPct) ? `−${pct(p.riskPct, 1)} from entry` : ''),
       planVal('sw-target', 'Target 1', price(p.target1), `${up(p.target1)} · ${p.rr1}R`),
       planVal('sw-target', 'Target 2', price(p.target2), `${up(p.target2)} · ${p.rr2}R`)));
+    if (isNum(p.riskPct) && p.riskPct >= 0.1) {
+      card.append(h('div', { class: 'callout', style: 'border-left:4px solid var(--warn)' }, h('b', { text: 'Volatile stock. ' }),
+        `It moves about ${pct(T.indicators.atrPct, 1)} on a normal day, so the stop sits ${pct(p.riskPct, 0)} below the entry. Keep the position small: the calculator below shows how small.`));
+    }
     card.append(h('p', { class: 'sub', style: 'margin-top:10px', text: `R is the reward for each unit of risk: target 1 at ${p.rr1}R means a win there is ${p.rr1} times the loss you would take at the stop.${live ? '' : ' These numbers only apply once the trigger above happens.'}` }));
     card.append(calcBox(p));
     card.append(h('h3', { text: 'Exit plan' }), h('ol', { class: 'exits' }, (p.exits || []).map((x) => h('li', { text: x }))));
