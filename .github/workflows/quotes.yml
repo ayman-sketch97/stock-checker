@@ -1,0 +1,38 @@
+name: Update prices
+
+# Every 15 minutes while the US market is open (plus once after the close), saves the latest price of every
+# company the site covers to quotes.json on the "quotes" branch. The site reads it so prices, plans and alerts
+# stay current between the daily full updates. The branch keeps a single commit, so history does not grow.
+on:
+  schedule:
+    - cron: '*/15 13-20 * * 1-5' # 13:00-20:45 UTC covers 9:30am-4pm New York in summer and winter time
+    - cron: '20 21 * * 1-5' # after the close
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: quotes
+  cancel-in-progress: true
+
+jobs:
+  quotes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch prices
+        run: mkdir -p out && cd out && node ../tools/quotes.mjs
+      - name: Publish to the quotes branch
+        run: |
+          cd out
+          git init -q -b quotes
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add quotes.json
+          git commit -q -m "Prices $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" quotes

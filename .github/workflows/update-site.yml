@@ -3,7 +3,8 @@ name: Update site
 # Re-analyzes every US company worth $2B+ and publishes the site to GitHub Pages.
 on:
   schedule:
-    - cron: '45 10 * * 2-6' # Tue-Sat 10:45 UTC, early morning in New York, once the previous session's prices are final
+    - cron: '15 3 * * 2-6' # Tue-Sat 03:15 UTC (11:15pm New York, 7:15am UAE), once the day's closing prices are published
+    - cron: '45 10 * * 2-6' # Tue-Sat 10:45 UTC, a second pass in case the first ran early or late
   workflow_dispatch:
   push:
     branches: [main]

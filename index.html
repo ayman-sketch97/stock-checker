@@ -170,6 +170,38 @@ header.top {
 .px { text-align: right; flex: none; }
 .px .p { font-size: 22px; font-weight: 650; }
 .px .m { color: var(--ink-2); font-size: 13px; }
+.px .m.up { color: var(--good); } .px .m.down { color: var(--bad); }
+.act { display: grid; gap: 8px; }
+.act-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.act-h h2 { margin: 0; }
+.act-row { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 10px; align-items: start; text-align: left; width: 100%; font: inherit; color: inherit; cursor: pointer;
+  background: var(--surface-2); border: 0; border-left: 4px solid var(--axis); border-radius: 10px; padding: 10px 12px; }
+.act-row .ak { font-size: 12px; font-weight: 650; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
+.act-row .av { display: grid; gap: 2px; min-width: 0; font-size: 14px; color: var(--ink-2); }
+.act-row .av b { font-size: 16px; color: var(--ink); }
+.act-row.a-good { border-left-color: var(--good); } .act-row.a-good .av b { color: var(--good); }
+.act-row.a-warn { border-left-color: var(--warn); }
+.act-row.a-bad { border-left-color: var(--bad); } .act-row.a-bad .av b { color: var(--bad); }
+@media (max-width: 420px) { .act-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+.jr-item { border-top: 1px solid var(--line); padding: 12px 0; min-width: 0; }
+.jr-item:first-of-type { border-top: 0; }
+.jr-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.jr-top .tk { font-weight: 750; font-size: 16px; }
+.jr-top .nm { color: var(--ink-2); font-size: 13px; flex: 1 1 12em; min-width: 0; }
+.jr-top .pl { font-weight: 700; font-variant-numeric: tabular-nums; }
+.jr-item .det { font-size: 14px; color: var(--ink-2); margin-top: 4px; }
+.jr-item .alerts { list-style: none; margin: 6px 0 0; padding: 0; font-size: 14px; }
+.jr-item .alerts li { display: flex; gap: 6px; align-items: flex-start; margin-top: 4px; }
+.up { color: var(--good); } .down { color: var(--bad); }
+.field.left input, .field select, .field textarea { text-align: left; }
+.field textarea, .field select { width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.editbox select { font: inherit; font-size: 15px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; max-width: 100%; }
+.btn-bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+.eq-wrap { margin-top: 14px; }
+.eq { width: 100%; height: auto; display: block; margin-top: 6px; }
+.eq-zero { stroke: var(--axis); stroke-width: 1; stroke-dasharray: 4 4; }
+.eq-line { fill: none; stroke: var(--good); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.eq-line.neg { stroke: var(--bad); }
 
 /* verdict */
 .verdict { border-width: 1px; padding: 20px 18px; }
@@ -526,6 +558,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       <button type="button" data-page="shortlist" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Shortlist</span></button>
       <button type="button" data-page="watchlist" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Watchlist</span><i class="dot" hidden></i></button>
       <button type="button" data-page="record" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3.5-4 3 2.5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Record</span></button>
+      <button type="button" data-page="journal" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h10.5a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6zM6 3.5v17M9.5 8h5M9.5 12h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Journal</span></button>
     </nav>
     <button class="ghost" id="howBtn">How it works</button>
   </header>
@@ -548,6 +581,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   <section id="page-shortlist" aria-label="Shortlist" hidden></section>
   <section id="page-watchlist" aria-label="Watchlist" hidden></section>
   <section id="page-record" aria-label="Track record" hidden></section>
+  <section id="page-journal" aria-label="Trading journal" hidden></section>
 
   <section id="how" class="card how" hidden>
     <h2>How Stock Checker works</h2>
@@ -640,6 +674,13 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     return `${sign}$${a.toFixed(d ?? 2)}`;
   }
   const price = (x) => (isNum(x) ? '$' + x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'n/a');
+  // numbers typed on any keyboard: Arabic-Indic digits, Arabic decimal and thousands marks, $ and spaces
+  const toNum = (v) => {
+    const t = String(v ?? '').replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x660)).replace(/[\u06F0-\u06F9]/g, (c) => String(c.charCodeAt(0) - 0x6F0))
+      .replace(/\u066B/g, '.').replace(/[\u066C,$\s]/g, '');
+    const n = Number(t);
+    return Number.isFinite(n) ? n : NaN;
+  };
   const pct = (x, d = 1) => (isNum(x) ? (x * 100).toFixed(d) + '%' : 'n/a');
   const pctS = (x, d = 0) => (isNum(x) ? (x > 0 ? '+' : '') + (x * 100).toFixed(d) + '%' : 'n/a');
   function fmtMetric(m) {
@@ -998,12 +1039,20 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         h('div', { class: 'co-name' }, h('h1', { text: d.name }), starButton(d)),
         h('div', { class: 'meta', text: [d.ticker, d.exchange, industry(d.industry)].filter(Boolean).join(' · ') })),
       h('div', { class: 'px' },
-        h('div', { class: 'p', text: price(d.price) }),
+        (tech.pxEl = h('div', { class: 'p', text: price(d.price) })),
+        (tech.pxSub = h('div', { class: 'm' })),
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' }))));
     // at a glance: the verdict, halal status, chart signal and dates, each a shortcut to its section
     tech.glance = h('div', { class: 'glance', 'aria-label': 'At a glance' });
     result.append(tech.glance);
+    tech.action = h('section', { class: 'card act', 'aria-label': 'What to do now' });
+    result.append(tech.action);
     paintGlance();
+    {
+      const mine = tech;
+      livePainters.add(() => { if (mine !== tech || !mine.action.isConnected) return false; paintAction(); return true; });
+      loadQuotes().then(() => { if (mine === tech) paintAction(); });
+    }
     if (HAS_SITE) {
       const mine = tech;
       loadScreen().then((scr) => { if (scr && mine === tech) { mine.row = scr.by.get(d.ticker) || null; paintGlance(); } });
@@ -1420,6 +1469,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     }
     if (d.sellIf && d.sellIf.length) card.append(sellIfList(d));
     card.append(h('p', { class: 'sub', style: 'margin-top:12px', text: 'There is no stop loss in a long-term plan: a falling price alone is not a reason to sell a business that is still strong. For a short-term trade with a stop loss, see the Technical tab.' }));
+    if (HAS_SITE) card.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => logTrade(d.ticker, { entry: tech && tech.liveQ ? tech.liveQ.p : d.price, setup: 'longterm' }) }, 'Log a buy in my journal')));
     return card;
   }
   function sellIfList(d) {
@@ -1581,6 +1631,12 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     card.append(h('p', { class: 'sub', style: 'margin-top:10px', text: `R is the reward for each unit of risk: target 1 at ${p.rr1}R means a win there is ${p.rr1} times the loss you would take at the stop.${live ? ' A limit protects you from a big gap: if the price opens above it, the order does not fill, and that is fine.' : ' These numbers only apply once the trigger above happens.'}` }));
     card.append(calcBox(p));
     card.append(h('h3', { text: 'Exit plan' }), h('ol', { class: 'exits' }, (p.exits || []).map((x) => h('li', { text: x }))));
+    if (HAS_SITE) {
+      card.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => {
+        const L = tech && tech.liveQ;
+        logTrade(d.ticker, { entry: L && L.newSession ? L.p : p.entry, stop: p.stop, target: p.target1, setup: p.setup });
+      } }, 'Log this trade in my journal')));
+    }
     card.append(trackRecordBox(T, d));
     return card;
   }
@@ -1588,7 +1644,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     return h('div', { class: 'pv' }, h('div', { class: 'k' }, h('i', { class: 'sw ' + sw, 'aria-hidden': 'true' }), k), h('div', { class: 'val', text: val }), sub ? h('div', { class: 's', text: sub }) : null);
   }
   function calcBox(p) {
-    const num = (v) => { const n = Number(String(v).replace(/[$,\s]/g, '')); return Number.isFinite(n) && n > 0 ? n : 0; };
+    const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n > 0 ? n : 0; };
     const inv = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', 'aria-label': 'Amount to invest, in dollars' });
     const port = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'optional', 'aria-label': 'Your whole portfolio, in dollars' });
     inv.value = String(store.get('invest', 250));
@@ -1677,6 +1733,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
           if (!tech || tech.d !== d || !box.isConnected) return;
           destroyChart();
           box.replaceChildren();
+          T.buyBelow = d.pricePlan && isNum(d.pricePlan.buyBelow) && !halalFail ? d.pricePlan.buyBelow : null;
           buildChart(LW, box, legend, ranges, toggles, T, halalFail);
         })
         .catch(() => box.replaceChildren(h('div', { class: 'lw-msg', text: 'The chart could not load. The plan, levels and signals on this page still apply.' })));
@@ -1711,7 +1768,8 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       localization: { locale: 'en-US' },
     });
     tech.chart = chart;
-    const on = { e21: true, s50: true, s200: true, levels: true, plan: !halalFail, volume: true, trades: true };
+    const on = { e21: true, s50: true, s200: true, levels: true, plan: !halalFail, volume: true, trades: true, value: true };
+    const valuePrices = isNum(T.buyBelow) && T.buyBelow > T.close * 0.7 && T.buyBelow < T.close * 1.3 ? [T.buyBelow] : [];
     const planPrices = !halalFail && isNum(p.entry) && isNum(p.stop) ? [p.entry, p.stop, p.target1, p.target2].filter(isNum) : [];
     const cs = chart.addSeries(LW.CandlestickSeries, {
       upColor: col.up, downColor: col.down, borderVisible: false, wickUpColor: col.up, wickDownColor: col.down,
@@ -1719,12 +1777,27 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       // keep the plan lines in view when they are switched on
       autoscaleInfoProvider: (orig) => {
         const r = orig();
-        if (!r || !on.plan || !planPrices.length) return r;
-        return { priceRange: { minValue: Math.min(r.priceRange.minValue, ...planPrices), maxValue: Math.max(r.priceRange.maxValue, ...planPrices) }, margins: r.margins };
+        const extra = [...(on.plan ? planPrices : []), ...(on.value ? valuePrices : [])];
+        if (!r || !extra.length) return r;
+        return { priceRange: { minValue: Math.min(r.priceRange.minValue, ...extra), maxValue: Math.max(r.priceRange.maxValue, ...extra) }, margins: r.margins };
       },
     });
     cs.setData(C.candles.map((c) => ({ time: c[0], open: c[1], high: c[2], low: c[3], close: c[4] })));
     cs.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.2 } });
+    // the latest price when it is newer than the last daily candle
+    let nowLine = null;
+    const lastTime = tm(N - 1);
+    tech.updateNow = () => {
+      const L = tech && tech.liveQ;
+      if (!L) { if (nowLine) { cs.removePriceLine(nowLine); nowLine = null; } return; }
+      // today's candle so far (open and latest price; the day's high and low are not known until the close)
+      if (L.newSession && L.session > lastTime && isNum(L.o)) {
+        try { cs.update({ time: L.session, open: L.o, high: Math.max(L.o, L.p), low: Math.min(L.o, L.p), close: L.p }); } catch { /* ignore */ }
+      }
+      const opts = { price: L.p, color: col.accent, lineWidth: 1, lineStyle: LW.LineStyle.Dotted, axisLabelVisible: true, title: L.open ? 'Now' : 'Last' };
+      if (nowLine) nowLine.applyOptions(opts); else nowLine = cs.createPriceLine(opts);
+    };
+    tech.updateNow();
     const vs = chart.addSeries(LW.HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
     vs.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
     vs.setData(C.candles.map((c, i) => ({ time: c[0], value: c[5], color: alpha(c[4] >= (i ? C.candles[i - 1][4] : c[1]) ? col.up : col.down, 0.35) })));
@@ -1778,13 +1851,15 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         if (inChart.has(tr.fill)) tradeMk.push({ time: tr.fill, position: 'belowBar', color: col.accent, shape: 'arrowUp', text: 'Buy' });
         if (tr.exit && inChart.has(tr.exit)) tradeMk.push({ time: tr.exit, position: 'aboveBar', color: tr.R > 0 ? col.good : col.bad, shape: 'arrowDown', text: 'Sell ' + fmtR(tr.R, 1) });
       }
-      const all = () => [...eventMk, ...(on.trades && !halalFail ? tradeMk : [])].sort(byTime);
+      // today's signal on the last candle
+      const sigMk = !halalFail && p.status === 'active' && TRADED.includes(p.setup) ? [{ time: tm(N - 1), position: 'belowBar', color: col.good, shape: 'arrowUp', text: 'Buy signal' }] : [];
+      const all = () => [...eventMk, ...(on.trades && !halalFail ? tradeMk.filter((m) => !(sigMk.length && m.time === tm(N - 1))) : []), ...sigMk].sort(byTime);
       const api = LW.createSeriesMarkers(cs, all());
       setMarkers = () => { try { api.setMarkers(all()); } catch { /* older library */ } };
     }
 
     // support/resistance and the trade plan as horizontal lines
-    const lines = { levels: [], plan: [] };
+    const lines = { levels: [], plan: [], value: [] };
     const nearPlan = (pr) => planPrices.some((x) => Math.abs(x / pr - 1) < 0.004);
     const addLine = (group, pr, color, style, title, width) => {
       if (!isNum(pr) || (group === 'levels' && nearPlan(pr))) return;
@@ -1798,6 +1873,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       addLine('plan', p.target1, col.good, LW.LineStyle.Solid, 'Target 1', 2);
       addLine('plan', p.target2, col.good, LW.LineStyle.Solid, 'Target 2', 2);
     }
+    if (isNum(T.buyBelow)) addLine('value', T.buyBelow, alpha(col.good, 0.9), LW.LineStyle.Dotted, 'Long-term buy', 1);
     const showGroup = (g, vis) => lines[g].forEach((x) => x.line.applyOptions({ lineVisible: vis, axisLabelVisible: vis, title: vis ? x.title : '' }));
 
     // legend that follows the crosshair (latest bar otherwise)
@@ -1848,6 +1924,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     ];
     if (planPrices.length) items.push(tog('plan', 'Entry, stop, targets', null, (v) => { showGroup('plan', v); cs.applyOptions({}); }));
     if (tradeMk.length && !halalFail) items.push(tog('trades', 'Past trades by these rules', null, () => setMarkers()));
+    if (lines.value.length) items.push(tog('value', 'Long-term buy price', null, (v) => { showGroup('value', v); cs.applyOptions({}); }));
     items.push(tog('volume', 'Volume', null, (v) => vs.applyOptions({ visible: v })));
     toggles.replaceChildren(...items);
   }
@@ -2010,15 +2087,475 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   function loadScreen() {
     if (!HAS_SITE) return Promise.resolve(null);
     if (!screenPromise) {
-      screenPromise = getJson('data/screen.json').then((j) => {
+      screenPromise = Promise.all([getJson('data/screen.json'), loadQuotes()]).then(([j]) => {
         if (!j || !Array.isArray(j.rows) || !Array.isArray(j.fields)) { screenPromise = null; return null; }
         const list = j.rows.map((r) => { const o = {}; j.fields.forEach((k, i) => { o[k] = r[i]; }); return o; });
-        return { ...j, list, by: new Map(list.map((o) => [o.ticker, o])) };
+        const scr = { ...j, list, by: new Map(list.map((o) => [o.ticker, o])) };
+        overlayQuotes(scr);
+        return scr;
       });
     }
     return screenPromise;
   }
   const loadBtSummary = () => (HAS_SITE ? getJson('data/backtest-summary.json') : Promise.resolve(null));
+
+  // ------------------------------------------------------------------ live prices
+  // Every 15 minutes while the market is open, a GitHub Actions job saves the latest price of every stock to
+  // quotes.json on the "quotes" branch. Prices are Nasdaq's last sale, usually a few minutes delayed.
+  const QUOTES_URL = 'https://raw.githubusercontent.com/ayman-sketch97/stock-checker/quotes/quotes.json';
+  let quotesPromise = null;
+  let QUOTES = null;
+  let quotesAt = 0;
+  const livePainters = new Set();
+  function loadQuotes(force) {
+    if (!HAS_SITE) return Promise.resolve(null);
+    if (!quotesPromise || force) {
+      quotesAt = Date.now();
+      quotesPromise = fetch(QUOTES_URL + '?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (j && j.q && /^\d{4}-\d{2}-\d{2}$/.test(j.session || '')) QUOTES = { ...j, by: new Map(Object.entries(j.q)) };
+          return QUOTES;
+        })
+        .catch(() => QUOTES);
+    }
+    return quotesPromise;
+  }
+  // the latest price for a ticker, when it is newer than the daily data (dated baseDate, closing at `close`)
+  function liveQuote(ticker, baseDate, close) {
+    const Q = QUOTES;
+    if (!Q || !baseDate || Q.session < baseDate) return null;
+    const a = Q.by.get(ticker);
+    if (!a || !isNum(a[0]) || !(a[0] > 0)) return null;
+    if (Q.session === baseDate && isNum(close) && Math.abs(a[0] / close - 1) < 0.0005) return null;
+    return { p: a[0], chg: a[1], o: isNum(a[2]) ? a[2] : null, session: Q.session, open: /open/i.test(Q.status || '') && !/pre|after|closed/i.test(Q.status || ''), time: Q.time || '', newSession: Q.session > baseDate };
+  }
+  function liveLabel(L) {
+    if (!L) return '';
+    const tm = /(\d{1,2}:\d{2}\s*[AP]M)/i.exec(L.time);
+    return L.open ? `Live, a few minutes delayed${tm ? ' (' + tm[1].toLowerCase() + ' New York)' : ''}` : `Last price, ${shortDate(L.session)}`;
+  }
+  function overlayQuotes(scr) {
+    if (!scr || !scr.list) return;
+    for (const r of scr.list) {
+      if (r.close0 === undefined) { r.close0 = r.price; r.chg0 = r.chg; }
+      const L = liveQuote(r.ticker, scr.priceDate, r.close0);
+      if (L) { r.price = L.p; r.chg = L.chg; r.live = true; } else { r.price = r.close0; r.chg = r.chg0; r.live = false; }
+    }
+    scr.live = QUOTES && QUOTES.session >= scr.priceDate ? { session: QUOTES.session, time: QUOTES.time, status: QUOTES.status } : null;
+  }
+  function refreshLive() {
+    return loadQuotes(true).then(() => Promise.resolve(screenPromise)).then((scr) => {
+      overlayQuotes(scr);
+      livePainters.forEach((fn) => { try { if (fn() === false) livePainters.delete(fn); } catch { livePainters.delete(fn); } });
+    });
+  }
+  if (HAS_SITE) {
+    setInterval(() => { if (document.visibilityState === 'visible') refreshLive(); }, 4 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - quotesAt > 2 * 60 * 1000) refreshLive(); });
+  }
+
+  // ------------------------------------------------------------------ what to do now (long term and swing)
+  const firstSentence = (s) => { const m = /^[\s\S]*?[.!?](\s|$)/.exec(String(s || '')); return (m ? m[0] : String(s || '')).trim(); };
+  function longTermNow(d, px) {
+    const P = d.pricePlan;
+    const code = d.verdict && d.verdict.code;
+    if (code === 'AVOID_SHARIAH' || (d.labels && d.labels.shariah && d.labels.shariah.status === 'fail')) return { tone: 'bad', title: 'Don’t buy', text: 'It fails the Shariah screen.' };
+    if (['AVOID_WEAK', 'SPECULATIVE'].includes(code)) return { tone: 'bad', title: 'Not a long-term buy', text: `The business is rated “${VERDICT_SHORT[code]}”, whatever the price.` };
+    if (!P || !isNum(P.buyBelow) || !isNum(px)) return { tone: '', title: 'No buy price', text: 'There is no reliable fair-value estimate, so there is no long-term buy price. Judge the business itself, or use the chart for timing.' };
+    if (isNum(P.strongBuyBelow) && px <= P.strongBuyBelow) return { tone: 'good', title: 'Strong buy price now', text: `${price(px)} is below the strong-buy level of ${price(P.strongBuyBelow)}. Buying in two or three parts lowers the risk of bad timing.` };
+    if (px <= P.buyBelow) return { tone: 'good', title: 'Good price now', text: `${price(px)} is below the buy price of ${price(P.buyBelow)}. Buying in two or three parts lowers the risk of bad timing.` };
+    if (isNum(P.trimAbove) && px >= P.trimAbove) return { tone: 'bad', title: 'Expensive: don’t buy', text: `${price(px)} is above the trim level of ${price(P.trimAbove)}. Owners can consider selling part.` };
+    const gap = 1 - P.buyBelow / px;
+    return { tone: gap <= 0.1 ? 'warn' : '', title: gap <= 0.1 ? 'Close to a good price' : 'Wait for a better price', text: `A good price is ${price(P.buyBelow)} or less, about ${pct(gap, 0)} below ${price(px)}.` };
+  }
+  function swingNow(T, L, halalFail) {
+    if (!T || !T.setup) return null;
+    const p = T.setup;
+    const name = SETUP_NAME[p.setup] || 'Setup';
+    if (halalFail) return { tone: 'bad', title: 'No trade', text: 'It fails the Shariah screen.' };
+    if (p.status !== 'active' || !isNum(p.entry) || !isNum(p.stop)) {
+      if (p.status === 'watch' || p.status === 'wait') return { tone: 'warn', title: 'Wait', text: `${name}, no buy signal yet. ${firstSentence(p.trigger)}` };
+      return { tone: '', title: 'No swing trade', text: 'There is no buy setup on the chart right now.' };
+    }
+    const fill = p.fill || fillOf(p.setup);
+    const max = isNum(p.maxEntry) ? p.maxEntry : p.entry;
+    const extra = [];
+    if (T.earnings && T.earnings.soon) extra.push(`Earnings ${niceDates(T.earnings.date)}: consider waiting or half size.`);
+    if (T.market && T.market.regime === 'down') extra.push('The market is falling: signals have worked less well, consider half size.');
+    const tail = ` Stop ${price(p.stop)}, target 1 ${price(p.target1)}.` + (extra.length ? ' ' + extra.join(' ') : '');
+    const order = fill === 'open' ? `buy at the open with a limit order at ${price(max)}` : `buy-stop order at ${price(p.entry)} with a limit of ${price(max)}`;
+    if (!L || !L.newSession) return { tone: 'good', title: 'Buy signal for the next session', text: `${name}: ${order}.${tail}` };
+    const px = L.p;
+    if (!L.open) return { tone: '', title: 'That session is over', text: `The signal was for ${shortDate(L.session)} (last price ${price(px)}). The plan is rebuilt overnight; check it again tomorrow.` };
+    if (px <= p.stop) return { tone: 'bad', title: 'Signal failed', text: `The price (${price(px)}) is at or below the stop. Skip this one.` };
+    if (px > max) return { tone: 'bad', title: 'Missed: don’t chase', text: `The price (${price(px)}) is above the ${price(max)} limit. Buying higher makes the loss at the stop too big for the targets.` };
+    if (fill !== 'open' && px < p.entry) return { tone: 'warn', title: 'Not triggered yet', text: `Buy only if it rises above ${price(p.entry)} today (limit ${price(max)}). Now ${price(px)}.${tail}` };
+    return { tone: 'good', title: 'Buy zone now', text: `${price(px)} is inside the plan: buy up to ${price(max)}.${tail}` };
+  }
+  function actionRow(label, a, onclick) {
+    return h('button', { class: 'act-row' + (a.tone ? ' a-' + a.tone : ''), type: 'button', onclick },
+      h('span', { class: 'ak', text: label }),
+      h('span', { class: 'av' }, h('b', { text: a.title }), h('span', { text: a.text })));
+  }
+  function stockBase(t) {
+    const T = t.data && t.data.ok ? t.data : null;
+    return { date: (T && T.asOf) || String(t.d.priceTime || '').slice(0, 10), close: T ? T.close : t.d.price };
+  }
+  function paintAction() {
+    const t = tech;
+    if (!t || !t.action || !t.action.isConnected) return;
+    const d = t.d;
+    const T = t.data && t.data.ok ? t.data : null;
+    const b = stockBase(t);
+    const L = liveQuote(d.ticker, b.date, b.close);
+    t.liveQ = L;
+    const px = L ? L.p : d.price;
+    const halalFail = d.labels && d.labels.shariah && d.labels.shariah.status === 'fail';
+    const rows = [actionRow('Long term (years)', longTermNow(d, px), () => selectTab('fund', true))];
+    const sw = T ? swingNow(T, L, halalFail) : null;
+    if (sw) rows.push(actionRow('Swing trade (weeks)', sw, () => selectTab('tech', true)));
+    else if (!T) rows.push(h('div', { class: 'act-row' }, h('span', { class: 'ak', text: 'Swing trade (weeks)' }), h('span', { class: 'av' }, h('span', { text: 'Loading the chart…' }))));
+    t.action.replaceChildren(
+      h('div', { class: 'act-h' }, h('h2', { text: 'What to do now' }), h('span', { class: 'sub', text: L ? liveLabel(L) : b.date ? `Closing price, ${shortDate(b.date)}` : '' })),
+      ...rows,
+      h('p', { class: 'note', text: 'Rules applied to the data, not a guarantee. Size every trade so the stop loses at most 1% of your account.' }));
+    // the price in the header
+    if (t.pxEl) {
+      t.pxEl.textContent = price(px);
+      t.pxSub.textContent = L ? `${isNum(L.chg) ? pctS(L.chg, 1) + ' · ' : ''}${L.open ? 'live, delayed' : shortDate(L.session)}` : b.date ? `Close ${shortDate(b.date)}` : '';
+      t.pxSub.className = 'm' + (L && isNum(L.chg) ? (L.chg >= 0 ? ' up' : ' down') : '');
+    }
+    if (t.updateNow) t.updateNow();
+  }
+
+  // ------------------------------------------------------------------ trading journal (this device only)
+  const JR = {
+    load() {
+      const j = store.get('journal', null);
+      return j && Array.isArray(j.trades) ? j : { v: 1, trades: [], backup: null };
+    },
+    save(j) { store.set('journal', j); },
+  };
+  let journalPrefill = null;
+  const localISO = () => { const n = new Date(); return new Date(n.getTime() - n.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+  const daysApart = (a, b) => (a && b ? Math.round((Date.parse(b) - Date.parse(a)) / 86400000) : null);
+  function tradeCalc(tr, nowPx) {
+    const exit = tr.closed ? tr.exit : nowPx;
+    const risk = isNum(tr.stop) && tr.stop < tr.entry ? tr.entry - tr.stop : null;
+    if (!isNum(exit)) return { pnl: null, pct: null, R: null, risk };
+    const fees = (tr.fees || 0) + (tr.closed ? tr.exitFees || 0 : 0);
+    const pnl = (exit - tr.entry) * tr.shares - fees;
+    const cost = tr.entry * tr.shares;
+    return { pnl, pct: cost > 0 ? pnl / cost : null, R: risk ? pnl / (risk * tr.shares) : null, risk };
+  }
+  function logTrade(t, plan) {
+    journalPrefill = { t, ...plan };
+    navigate('journal');
+  }
+  function journalStats(closed) {
+    const n = closed.length;
+    const c = closed.map((tr) => ({ tr, ...tradeCalc(tr) }));
+    const wins = c.filter((x) => x.pnl > 0);
+    const losses = c.filter((x) => x.pnl < 0);
+    const withR = c.filter((x) => isNum(x.R));
+    const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
+    const gw = sum(wins, (x) => x.pnl);
+    const gl = -sum(losses, (x) => x.pnl);
+    return {
+      n,
+      winRate: n ? wins.length / n : null,
+      pnl: sum(c, (x) => x.pnl),
+      avgR: withR.length ? sum(withR, (x) => x.R) / withR.length : null,
+      nR: withR.length,
+      pf: gl > 0 ? gw / gl : null,
+      avgWin: wins.length ? gw / wins.length : null,
+      avgLoss: losses.length ? -gl / losses.length : null,
+      days: n ? Math.round(sum(c, (x) => daysApart(x.tr.opened, x.tr.closed) || 0) / n) : null,
+      list: c,
+    };
+  }
+  function equityChart(c) {
+    const pts = [...c].sort((a, b) => (a.tr.closed < b.tr.closed ? -1 : 1));
+    if (pts.length < 2) return null;
+    let cum = 0;
+    const ys = [0, ...pts.map((x) => (cum += x.pnl))];
+    const W = 600, H = 150, pad = 6;
+    const lo = Math.min(0, ...ys), hi = Math.max(0, ...ys);
+    const X = (i) => pad + (i / (ys.length - 1)) * (W - 2 * pad);
+    const Y = (v) => (hi === lo ? H / 2 : pad + (1 - (v - lo) / (hi - lo)) * (H - 2 * pad));
+    const path = ys.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('class', 'eq');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `Running profit and loss over ${pts.length} closed trades, now ${money0(cum)}`);
+    const zero = document.createElementNS(ns, 'line');
+    Object.entries({ x1: pad, x2: W - pad, y1: Y(0), y2: Y(0), class: 'eq-zero' }).forEach(([k, v]) => zero.setAttribute(k, v));
+    const line = document.createElementNS(ns, 'path');
+    line.setAttribute('d', path);
+    line.setAttribute('class', 'eq-line' + (cum < 0 ? ' neg' : ''));
+    svg.append(zero, line);
+    return svg;
+  }
+  const money0 = (x) => (isNum(x) ? (x < 0 ? '−$' : '$') + Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'n/a');
+  function journalForm(tr, onDone) {
+    const editing = !!tr;
+    const pre = tr || journalPrefill || {};
+    const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n > 0 ? n : null; };
+    const field = (label, val, opts = {}) => {
+      const i = h('input', { type: opts.type || 'text', inputmode: opts.type ? null : opts.mode || 'decimal', autocomplete: 'off', placeholder: opts.ph || '', autocapitalize: opts.caps ? 'characters' : null });
+      if (val !== undefined && val !== null && val !== '') i.value = String(val);
+      return [h('label', { class: 'field' + (opts.left ? ' left' : '') }, h('span', { text: label }), i), i];
+    };
+    const [fT, iT] = field('Ticker', pre.t || '', { mode: 'text', caps: true, left: true, ph: 'e.g. MSFT' });
+    const [fD, iD] = field('Date bought', pre.opened || localISO(), { type: 'date', left: true });
+    const [fE, iE] = field('Buy price ($)', pre.entry);
+    const [fS, iS] = field('Shares', pre.shares, { ph: 'e.g. 2.5' });
+    const [fSt, iSt] = field('Stop loss ($)', pre.stop);
+    const [fTg, iTg] = field('Target ($)', pre.target);
+    const [fF, iF] = field('Fees ($)', pre.fees, { ph: '0' });
+    const setup = h('select', { 'aria-label': 'Setup' });
+    [['', 'Setup (optional)'], ...Object.entries(SETUP_NAME).filter(([k]) => TRADED.includes(k)), ['longterm', 'Long-term buy'], ['other', 'Other']]
+      .forEach(([k, v]) => setup.append(h('option', { value: k, selected: k === (pre.setup || '') ? true : null }, v)));
+    const notes = h('textarea', { rows: 2, placeholder: 'Why you bought: the signal, the plan, how you felt' });
+    notes.value = pre.notes || '';
+    const msg = h('p', { class: 'note', 'aria-live': 'polite' });
+    const form = h('form', { class: 'editbox', autocomplete: 'off' },
+      h('div', { class: 'form-grid' }, fT, fD, fE, fS, fSt, fTg, fF, h('label', { class: 'field left' }, h('span', { text: 'Setup' }), setup)),
+      h('label', { class: 'field left' }, h('span', { text: 'Notes' }), notes),
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, editing ? 'Save changes' : 'Add to journal'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { journalPrefill = null; onDone(false); } }, 'Cancel')),
+      msg);
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const t = tickerFromInput(iT.value || '');
+      const entry = num(iE.value), shares = num(iS.value);
+      if (!t || !entry || !shares) { msg.textContent = 'Ticker, buy price and shares are needed.'; return; }
+      const stop = num(iSt.value);
+      if (stop && stop >= entry) { msg.textContent = 'The stop should be below the buy price.'; return; }
+      const j = JR.load();
+      const rec = { t, opened: iD.value || localISO(), entry, shares, stop, target: num(iTg.value), fees: num(iF.value) || 0, setup: setup.value || null, notes: notes.value.trim() };
+      if (editing) Object.assign(j.trades.find((x) => x.id === tr.id) || {}, rec);
+      else j.trades.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), closed: null, ...rec });
+      JR.save(j);
+      journalPrefill = null;
+      onDone(true);
+    });
+    return form;
+  }
+  function closeForm(tr, nowPx, onDone) {
+    const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n > 0 ? n : null; };
+    const date = h('input', { type: 'date' });
+    date.value = localISO();
+    const px = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: isNum(nowPx) ? String(nowPx) : '' });
+    const fees = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0' });
+    const followed = h('select', { 'aria-label': 'Did you follow your plan?' },
+      h('option', { value: '' }, 'Did you follow your plan?'), h('option', { value: 'yes' }, 'Yes, I followed it'), h('option', { value: 'no' }, 'No, I broke a rule'));
+    const notes = h('textarea', { rows: 2, placeholder: 'What happened, and the lesson' });
+    const msg = h('p', { class: 'note', 'aria-live': 'polite' });
+    const form = h('form', { class: 'editbox', autocomplete: 'off' },
+      h('div', { class: 'form-grid' },
+        h('label', { class: 'field left' }, h('span', { text: 'Date sold' }), date),
+        h('label', { class: 'field' }, h('span', { text: 'Sell price ($)' }), px),
+        h('label', { class: 'field' }, h('span', { text: 'Fees ($)' }), fees),
+        h('label', { class: 'field left' }, h('span', { text: 'Plan' }), followed)),
+      h('label', { class: 'field left' }, h('span', { text: 'Notes' }), notes),
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Close the trade'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => onDone(false) }, 'Cancel')),
+      msg);
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const exit = num(px.value) || (isNum(nowPx) && !px.value ? nowPx : null);
+      if (!exit) { msg.textContent = 'Enter the sell price.'; return; }
+      const j = JR.load();
+      const x = j.trades.find((y) => y.id === tr.id);
+      if (x) Object.assign(x, { closed: date.value || localISO(), exit, exitFees: num(fees.value) || 0, followed: followed.value === 'yes' ? true : followed.value === 'no' ? false : null, exitNotes: notes.value.trim() });
+      JR.save(j);
+      onDone(true);
+    });
+    return form;
+  }
+  function confirmBox(text, yes, onYes, onNo) {
+    return h('div', { class: 'editbox' }, h('p', { class: 'sub', text }),
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm btn-bad', type: 'button', onclick: onYes }, yes),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: onNo }, 'Keep it')));
+  }
+  function journalCsv(j) {
+    const cols = ['ticker', 'setup', 'opened', 'entry', 'shares', 'stop', 'target', 'fees', 'closed', 'exit', 'exitFees', 'followedPlan', 'pnl', 'R', 'notes', 'exitNotes'];
+    const q = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const lines = [cols.join(',')];
+    for (const tr of j.trades) {
+      const c = tradeCalc(tr);
+      lines.push([tr.t, tr.setup, tr.opened, tr.entry, tr.shares, tr.stop, tr.target, tr.fees, tr.closed, tr.exit, tr.exitFees, tr.followed === null || tr.followed === undefined ? '' : tr.followed ? 'yes' : 'no',
+        tr.closed && isNum(c.pnl) ? c.pnl.toFixed(2) : '', tr.closed && isNum(c.R) ? c.R.toFixed(2) : '', tr.notes, tr.exitNotes].map(q).join(','));
+    }
+    return lines.join('\n');
+  }
+  function saveFile(name, text, type) {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const a = h('a', { href: url, download: name });
+    document.body.append(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+  async function renderJournal() {
+    const el = $('#page-journal');
+    const head = pageHead('Journal', 'Your own trades: what you bought, why, and how it went. Saved on this device only; nothing is sent anywhere.');
+    const [scr, bt] = await Promise.all([loadScreen(), loadBtSummary()]);
+    if (page !== 'journal') return;
+    const j = JR.load();
+    const rerender = () => renderJournal();
+    const nowOf = (t) => { const r = scr && scr.by.get(t); return r && isNum(r.price) ? r.price : null; };
+    const parts = [head];
+
+    // new trade
+    const addCard = h('section', { class: 'card', 'aria-label': 'Log a trade' }, h('h2', { text: 'Log a trade' }));
+    const openForm = () => { addBtn.hidden = true; addCard.append(journalForm(null, (saved) => { if (saved) rerender(); else { journalPrefill = null; rerender(); } })); };
+    const addBtn = h('button', { class: 'btn', type: 'button', onclick: openForm }, 'Add a trade');
+    addCard.append(h('p', { class: 'sub', text: 'Record every buy, with the reason and the stop. Tip: the “Log this trade” button on a stock’s plan fills this in for you.' }), addBtn);
+    parts.push(addCard);
+    if (journalPrefill) openForm();
+
+    // open trades
+    const open = j.trades.filter((tr) => !tr.closed).sort((a, b) => (a.opened < b.opened ? 1 : -1));
+    if (open.length) {
+      const card = h('section', { class: 'card', 'aria-label': 'Open trades' }, h('h2', { text: `Open trades (${open.length})` }));
+      for (const tr of open) {
+        const now = nowOf(tr.t);
+        const c = tradeCalc(tr, now);
+        const box = h('div', { class: 'jr-item' });
+        const r = scr && scr.by.get(tr.t);
+        const flags = [];
+        if (isNum(now) && isNum(tr.stop) && now <= tr.stop) flags.push(['bad', `At or below your stop (${price(tr.stop)}): your plan says sell.`]);
+        else if (isNum(now) && isNum(tr.target) && now >= tr.target) flags.push(['good', `Reached your target (${price(tr.target)}).`]);
+        if (r && r.shariah === 'fail') flags.push(['bad', 'Fails the Shariah screen now.']);
+        const ed = r ? earnDays(r, scr) : null;
+        if (ed != null && ed <= 7) flags.push(['warn', `Earnings in ${ed <= 1 ? 'the next session' : ed + ' trading days'}.`]);
+        const act = h('div', { class: 'row-actions' });
+        const sub = h('div');
+        act.append(
+          h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { sub.replaceChildren(closeForm(tr, now, (s) => (s ? rerender() : sub.replaceChildren()))); } }, 'Close'),
+          h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { sub.replaceChildren(journalForm(tr, (s) => (s ? rerender() : sub.replaceChildren()))); } }, 'Edit'),
+          h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => openStock(tr.t, tr.setup && tr.setup !== 'longterm' ? 'tech' : 'fund') }, 'Analysis'),
+          h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { sub.replaceChildren(confirmBox(`Delete this ${tr.t} trade? This cannot be undone.`, 'Delete', () => { const k = JR.load(); k.trades = k.trades.filter((x) => x.id !== tr.id); JR.save(k); rerender(); }, () => sub.replaceChildren())); } }, 'Delete'));
+        box.append(...[
+          h('div', { class: 'jr-top' }, h('span', { class: 'tk', text: tr.t }), h('span', { class: 'nm', text: `${fmtShares(tr.shares)} at ${price(tr.entry)} · ${shortDate(tr.opened)}${tr.setup ? ' · ' + (SETUP_NAME[tr.setup] || (tr.setup === 'longterm' ? 'Long term' : 'Other')) : ''}` }),
+            h('span', { class: 'pl ' + (c.pnl > 0 ? 'up' : c.pnl < 0 ? 'down' : ''), text: isNum(c.pnl) ? `${c.pnl >= 0 ? '+' : ''}${money0(c.pnl)}` : '' })),
+          h('div', { class: 'det', text: [isNum(now) ? `Now ${price(now)}${r && r.live ? ' (live)' : ''}` : 'No price today', isNum(c.pct) ? pctS(c.pct, 1) : '', isNum(c.R) ? fmtR(c.R, 2) : '', isNum(tr.stop) ? `stop ${price(tr.stop)}` : 'no stop set', isNum(tr.target) ? `target ${price(tr.target)}` : ''].filter(Boolean).join(' · ') }),
+          flags.length ? h('ul', { class: 'alerts' }, flags.map(([tone, txt]) => h('li', null, icon(tone === 'good' ? 'good' : tone === 'bad' ? 'bad' : 'ok'), h('span', { text: txt })))) : null,
+          tr.notes ? h('p', { class: 'note', text: tr.notes }) : null,
+          act, sub].filter(Boolean));
+        card.append(box);
+      }
+      if (open.some((tr) => !isNum(tr.stop))) card.append(h('p', { class: 'note', text: 'A trade without a stop has no defined risk, so its R cannot be measured. Add one with Edit.' }));
+      parts.push(card);
+    }
+
+    // results
+    const closed = j.trades.filter((tr) => tr.closed);
+    const statCard = h('section', { class: 'card', 'aria-label': 'Your results' }, h('h2', { text: 'Your results' }));
+    if (!closed.length) {
+      statCard.append(h('p', { class: 'sub', text: 'Close a trade to see your win rate, average R, profit and loss, and how you do when you follow your plan versus when you don’t.' }));
+    } else {
+      const s = journalStats(closed);
+      statCard.append(h('div', { class: 'stats' },
+        stat('Profit and loss', money0(s.pnl), `${s.n} closed trade${s.n === 1 ? '' : 's'}`),
+        stat('Win rate', pct(s.winRate, 0), s.avgWin !== null || s.avgLoss !== null ? `avg win ${money0(s.avgWin)}, avg loss ${money0(s.avgLoss)}` : ''),
+        stat('Average R', isNum(s.avgR) ? fmtR(s.avgR, 2) : 'n/a', s.nR < s.n ? `${s.nR} trades had a stop` : 'per trade, after fees'),
+        stat('Profit factor', isNum(s.pf) ? s.pf.toFixed(2) : 'n/a', `held ${s.days} days on average`)));
+      const eq = equityChart(s.list);
+      if (eq) statCard.append(h('div', { class: 'eq-wrap' }, h('div', { class: 'sub', text: 'Running profit and loss' }), eq));
+      const notes = [];
+      const fol = s.list.filter((x) => x.tr.followed === true && isNum(x.R));
+      const brk = s.list.filter((x) => x.tr.followed === false && isNum(x.R));
+      const avg = (a) => a.reduce((t, x) => t + x.R, 0) / a.length;
+      if (fol.length && brk.length) notes.push(`When you followed your plan you averaged ${fmtR(avg(fol), 2)} (${fol.length} trades); when you broke a rule, ${fmtR(avg(brk), 2)} (${brk.length}).`);
+      const g = bt && bt.halal && bt.halal.overall;
+      if (g && isNum(s.avgR)) notes.push(`The site’s rules averaged ${fmtR(g.avgR, 2)} per trade in the backtest.${s.n < 20 ? ' With fewer than 20 trades, luck still dominates: keep logging before judging.' : ''}`);
+      if (isNum(s.winRate) && isNum(s.avgR) && s.winRate < 0.5 && s.avgR > 0) notes.push('Losing more often than winning is normal for this style: what matters is that winners are bigger than losers.');
+      if (notes.length) statCard.append(h('p', { class: 'note', text: notes.join(' ') }));
+      const bySetup = new Map();
+      for (const x of s.list) { const k = x.tr.setup || 'none'; if (!bySetup.has(k)) bySetup.set(k, []); bySetup.get(k).push(x); }
+      if (bySetup.size > 1) {
+        statCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+          h('tr', null, ['Setup', 'Trades', 'Win rate', 'Avg R'].map((x) => h('th', { text: x }))),
+          [...bySetup.entries()].map(([k, a]) => {
+            const wr = a.filter((x) => x.pnl > 0).length / a.length;
+            const rr = a.filter((x) => isNum(x.R));
+            return h('tr', null, h('td', { text: SETUP_NAME[k] || (k === 'longterm' ? 'Long-term buy' : k === 'none' ? 'Not set' : 'Other') }), h('td', { text: String(a.length) }), h('td', { text: pct(wr, 0) }), h('td', { text: rr.length ? fmtR(rr.reduce((t, x) => t + x.R, 0) / rr.length, 2) : 'n/a' }));
+          }))));
+      }
+    }
+    parts.push(statCard);
+
+    // closed trades
+    if (closed.length) {
+      const card = h('section', { class: 'card', 'aria-label': 'Closed trades' }, h('h2', { text: `Closed trades (${closed.length})` }));
+      const list = [...closed].sort((a, b) => (a.closed < b.closed ? 1 : -1));
+      let shown = 15;
+      const wrap = h('div');
+      const paint = () => {
+        wrap.replaceChildren(...list.slice(0, shown).map((tr) => {
+          const c = tradeCalc(tr);
+          const sub = h('div');
+          return h('div', { class: 'jr-item' },
+            h('div', { class: 'jr-top' }, h('span', { class: 'tk', text: tr.t }),
+              h('span', { class: 'nm', text: `${shortDate(tr.opened)} to ${shortDate(tr.closed)} · ${price(tr.entry)} → ${price(tr.exit)}` }),
+              h('span', { class: 'pl ' + (c.pnl > 0 ? 'up' : c.pnl < 0 ? 'down' : ''), text: `${c.pnl >= 0 ? '+' : ''}${money0(c.pnl)}` })),
+            h('div', { class: 'det', text: [isNum(c.pct) ? pctS(c.pct, 1) : '', isNum(c.R) ? fmtR(c.R, 2) : '', tr.setup ? SETUP_NAME[tr.setup] || (tr.setup === 'longterm' ? 'Long term' : 'Other') : '', tr.followed === true ? 'followed the plan' : tr.followed === false ? 'broke a rule' : ''].filter(Boolean).join(' · ') }),
+            tr.notes || tr.exitNotes ? h('p', { class: 'note', text: [tr.notes, tr.exitNotes].filter(Boolean).join(' / ') }) : null,
+            h('div', { class: 'row-actions' },
+              h('button', { class: 'linkbtn', type: 'button', onclick: () => { const k = JR.load(); const x = k.trades.find((y) => y.id === tr.id); if (x) { x.closed = null; x.exit = null; x.exitFees = 0; x.followed = null; JR.save(k); } rerender(); } }, 'Reopen'),
+              h('button', { class: 'linkbtn', type: 'button', onclick: () => { sub.replaceChildren(confirmBox(`Delete this ${tr.t} trade? This cannot be undone.`, 'Delete', () => { const k = JR.load(); k.trades = k.trades.filter((x) => x.id !== tr.id); JR.save(k); rerender(); }, () => sub.replaceChildren())); } }, 'Delete')),
+            sub);
+        }));
+        more.hidden = list.length <= shown;
+      };
+      const more = h('button', { class: 'btn btn-outline more', type: 'button', onclick: () => { shown += 30; paint(); } }, 'Show more');
+      paint();
+      card.append(wrap, more);
+      parts.push(card);
+    }
+
+    // backup
+    const bk = h('section', { class: 'card', 'aria-label': 'Backup' }, h('h2', { text: 'Backup and other devices' }));
+    const fileIn = h('input', { type: 'file', accept: '.json,application/json', hidden: true });
+    const bmsg = h('p', { class: 'note', 'aria-live': 'polite' });
+    fileIn.addEventListener('change', () => {
+      const f = fileIn.files && fileIn.files[0];
+      if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => {
+        try {
+          const inc = JSON.parse(String(rd.result));
+          if (!inc || !Array.isArray(inc.trades)) throw new Error('bad');
+          const k = JR.load();
+          const ids = new Set(k.trades.map((x) => x.id));
+          let added = 0;
+          for (const x of inc.trades) if (x && x.id && x.t && isNum(x.entry) && isNum(x.shares) && !ids.has(x.id)) { k.trades.push(x); added++; }
+          JR.save(k);
+          bmsg.textContent = `Added ${added} trade${added === 1 ? '' : 's'} (trades already here were kept as they are).`;
+          setTimeout(rerender, 1200);
+        } catch { bmsg.textContent = 'That file is not a journal backup from this site.'; }
+      };
+      rd.readAsText(f);
+    });
+    const old = !j.backup || daysApart(j.backup, localISO()) > 14;
+    bk.append(...[
+      h('p', { class: 'sub', text: 'The journal lives in this browser only. Save a backup file now and then (on iPhone it goes to Files, where iCloud can keep it), and load it on your iPad or laptop to see the same journal there.' }),
+      j.trades.length && old ? h('div', { class: 'callout', text: j.backup ? `Last backup ${shortDate(j.backup)}. Time for a new one.` : 'No backup yet. If the browser’s data is cleared, the journal goes with it.' }) : null,
+      h('div', { class: 'row-actions' },
+        h('button', { class: 'btn btn-sm', type: 'button', disabled: j.trades.length ? null : true, onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`trading-journal-${localISO()}.json`, JSON.stringify(k, null, 1), 'application/json'); setTimeout(rerender, 800); } }, 'Save backup'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => fileIn.click() }, 'Load a backup'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', disabled: j.trades.length ? null : true, onclick: () => saveFile(`trading-journal-${localISO()}.csv`, journalCsv(JR.load()), 'text/csv') }, 'Export for Excel')),
+      fileIn, bmsg,
+      h('p', { class: 'note', text: 'On iPhone and iPad, add this site to your Home Screen (Share, then Add to Home Screen). Safari can clear the data of websites you have not opened for a week; Home Screen apps keep it.' })].filter(Boolean));
+    parts.push(bk);
+    el.replaceChildren(...parts);
+  }
+
   const todayISO = () => new Date().toISOString().slice(0, 10);
   // weekdays from date a to date b: a rough count of trading days (holidays are ignored)
   function weekdaysBetween(a, b) {
@@ -2060,7 +2597,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   const fillOf = (setup) => (setup === 'breakout' || setup === 'range' ? 'open' : 'stop');
 
   // ------------------------------------------------------------------ pages
-  const PAGES = ['stock', 'shortlist', 'watchlist', 'record'];
+  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal'];
   let page = 'stock';
   function showPage(p) {
     page = p;
@@ -2071,6 +2608,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     if (p === 'shortlist') renderShortlist();
     else if (p === 'watchlist') renderWatchlist();
     else if (p === 'record') renderRecord();
+    else if (p === 'journal') renderJournal();
     window.scrollTo(0, 0);
   }
   function navigate(p) {
@@ -2343,7 +2881,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       }
       if (st.q) { const qq = st.q.toUpperCase(); rows = rows.filter((r) => r.ticker.includes(qq) || String(r.name || '').toUpperCase().includes(qq)); }
       rows.sort(SORTS[sortKey][1]);
-      count.textContent = `${rows.length.toLocaleString()} compan${rows.length === 1 ? 'y' : 'ies'}` + (hiddenN ? ` (${hiddenN} hidden: earnings within 10 trading days)` : '') + ` · prices as of the close on ${niceDates(scr.priceDate)}`;
+      count.textContent = `${rows.length.toLocaleString()} compan${rows.length === 1 ? 'y' : 'ies'}` + (hiddenN ? ` (${hiddenN} hidden: earnings within 10 trading days)` : '') + (scr.live && scr.live.session > scr.priceDate ? ` · ${/open/i.test(scr.live.status || '') ? 'live prices, a few minutes delayed' : 'prices as of ' + niceDates(scr.live.session)}` : ` · prices as of the close on ${niceDates(scr.priceDate)}`);
       list.replaceChildren(...rows.slice(0, shown).map((r) => slRow(r, st.preset, scr)));
       if (!rows.length) list.append(h('p', { class: 'empty', text: 'Nothing matches these filters today.' }));
       moreBtn.hidden = rows.length <= shown;
@@ -2532,7 +3070,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     return box;
   }
   function editForm(it, r) {
-    const num = (v) => { const n = Number(String(v).replace(/[$,\s]/g, '')); return Number.isFinite(n) && n > 0 ? n : null; };
+    const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n > 0 ? n : null; };
     const inp = (label, val, ph) => {
       const i = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: ph || '' });
       if (isNum(val)) i.value = String(val);
@@ -2697,6 +3235,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       }));
     }
     t.glance.replaceChildren(...chips);
+    paintAction();
   }
   function dividendsCard(d) {
     const D = d.dividends;
@@ -2723,8 +3262,8 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     card.append(h('h3', { text: 'Purification calculator' }));
     if (fail) { card.append(h('div', { class: 'callout', text: 'It fails the Shariah screen. Purifying the dividend does not make holding it permissible; most scholars advise selling.' })); return card; }
     if (!isNum(Pu.ratio)) { card.append(h('p', { class: 'sub', text: 'Interest income is not reported separately, so the impure share of income cannot be estimated here. Use the purification percentage on Zoya or Musaffa.' })); return card; }
-    card.append(h('p', { class: 'sub' }, 'Impure share of income: about ', h('b', { text: pct(Pu.ratio, 2) }), ` (${Pu.basis}). The usual method: give that share of every dividend you receive to charity.`));
-    const num = (v) => { const n = Number(String(v).replace(/[$,\s]/g, '')); return Number.isFinite(n) && n > 0 ? n : 0; };
+    card.append(h('p', { class: 'sub' }, Pu.method && Pu.method !== 'reported' ? 'Impure share of income, estimated: about ' : 'Impure share of income: about ', h('b', { text: pct(Pu.ratio, 2) }), ` (${Pu.basis}). The usual method: give that share of every dividend you receive to charity.`));
+    const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n > 0 ? n : 0; };
     const sh = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'e.g. 10', 'aria-label': 'Shares you hold' });
     const got = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'optional', 'aria-label': 'Dividends you received, in dollars' });
     const mine = HAS_SITE ? W.get(d.ticker) : null;
@@ -3055,13 +3594,13 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     if (start) run(start);
   }
   if (MODE === 'static') {
-    $('#dataNote').textContent = 'Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq daily closes. Earnings dates: Nasdaq\u2019s calendar (often estimates). Every company worth $2 billion or more is re-analyzed each weekday morning (US time) using the previous session\u2019s closing prices. Your searches, watchlist and calculator amounts stay on your device. This is an educational tool, not financial advice.';
+    $('#dataNote').textContent = 'Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq daily closes. Earnings dates: Nasdaq\u2019s calendar (often estimates). Every company worth $2 billion or more is re-analyzed every night after the US close; during the session, prices (a few minutes delayed) update every 15 minutes and the buy/wait calls use them. Your searches, watchlist, journal and calculator amounts stay on your device. This is an educational tool, not financial advice.';
     loadIndex().then((idx) => {
       if (!idx) return;
       const when = idx.priceDate
         ? `prices as of the close on ${niceDates(idx.priceDate)}`
         : `data as of ${new Date(idx.asOf).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
-      $('#hint').textContent = `Covers ${idx.count.toLocaleString()} US companies worth $2 billion or more, ${when}. Refreshed every weekday morning (US time).`;
+      $('#hint').textContent = `Covers ${idx.count.toLocaleString()} US companies worth $2 billion or more, ${when}. Full analysis refreshed every night; prices update every 15 minutes while the US market is open.`;
     });
   }
 })();
