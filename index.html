@@ -1124,6 +1124,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
 
     // fair value and the long-term entry/exit plan
     if (f) fund.append(fairValueCard(d));
+    else if (d.fairValueIssues && d.fairValueIssues.length) fund.append(h('section', { class: 'card', 'aria-label': 'Fair value' }, h('h2', { text: 'Price vs. fair value' }), h('p', { class: 'sub', text: `No fair value estimate: ${d.fairValueIssues.join(', ')}. Missing inputs are not filled in with guesses.` })));
     else if (!String(L.valuation.label).startsWith('Not measurable (losing')) {
       fund.append(h('section', { class: 'card' }, h('h2', { text: 'Fair value' }),
         h('p', { class: 'sub', text: 'Not estimated: the company does not produce steady free cash flow after stock-based pay, so a cash-flow value would be meaningless. The valuation label uses price multiples instead.' })));
@@ -1165,7 +1166,8 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       d.links.latestAnnualReport ? h('a', { href: d.links.latestAnnualReport, target: '_blank', rel: 'noopener' }, 'Latest annual report') : null,
       h('a', { href: d.links.secFilings, target: '_blank', rel: 'noopener' }, 'All SEC filings'));
     fund.append(h('section', { class: 'card' }, h('h2', { text: 'Check it yourself' }),
-      h('p', { class: 'sub', text: niceDates(`Annual figures through ${d.asOf.fiscalYearEnd}; latest data covers the ${d.asOf.ttm}. Price ${d.priceSource ? 'from ' + d.priceSource : ''}${d.priceTime ? ' (' + d.priceTime + ')' : ''}.`) }),
+      h('p', { class: 'sub', text: niceDates(`Annual figures through ${d.asOf.fiscalYearEnd}; latest data covers the ${d.asOf.ttm}; balance sheet ${d.asOf.balanceSheet}. Price ${d.priceSource ? 'from ' + d.priceSource : ''}${d.priceTime ? ' (' + d.priceTime + ')' : ''}.`) }),
+      sourcesTable(d),
       links));
 
     result.hidden = false;
@@ -1223,7 +1225,14 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       kv('Price', price(d.price)),
       kv('Fair value (base)', price(f.base)),
       kv('Range (bear to bull)', `${price0(f.bear)} – ${price0(f.bull)}`),
-      kv('Buy below', price(f.buyBelow))));
+      kv('Buy below (15% margin)', price(f.buyBelow)),
+      isNum(f.marginOfSafety) ? kv('Margin of safety now', f.marginOfSafety >= 0 ? pct(f.marginOfSafety, 0) : `none (${pct(-f.marginOfSafety, 0)} above)`) : null,
+      isNum(f.terminalShare) ? kv('Value from after year 10', pct(f.terminalShare, 0)) : null));
+    if (f.inputs) {
+      const I = f.inputs;
+      card.append(h('p', { class: 'note', text: niceDates(`Inputs: revenue ${bigMoney(I.revenue)} (${I.revenuePeriod}); cash and investments ${bigMoney(I.cash)} and debt ${bigMoney(I.debt)} on the ${I.balanceSheetDate} balance sheet; ${(I.shares / 1e6).toLocaleString('en-US', { maximumFractionDigits: 0 })}M shares (${I.sharesSource}). Cash flow is free cash flow after stock-based pay, with after-tax interest added back, then debt is subtracted once.`) }));
+    }
+    if (f.flags && f.flags.length) card.append(h('ul', { class: 'warnbox' }, f.flags.map((t) => h('li', { text: t }))));
     const imp = f.impliedCapped === 'above' ? 'more than 80%' : f.impliedCapped === 'below' ? 'a steep decline' : pct(f.impliedGrowth, 0);
     card.append(h('div', { class: 'callout' },
       h('b', { text: d.price <= f.base ? `Price is about ${pct(1 - d.price / f.base, 0)} below fair value. ` : `Price is about ${pct(d.price / f.base - 1, 0)} above fair value. ` }),
@@ -1234,6 +1243,22 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     const n = parseFloat(x);
     const align = n < 15 ? ' al' : n > 85 ? ' ar' : '';
     return h('div', { class: `lab ${pos}${align}`, style: `left:${n}%`, text });
+  }
+  function bigMoney(x) {
+    if (!isNum(x)) return 'n/a';
+    const a = Math.abs(x), sg = x < 0 ? '-' : '';
+    return a >= 1e12 ? `${sg}$${(a / 1e12).toFixed(2)}T` : a >= 1e9 ? `${sg}$${(a / 1e9).toFixed(1)}B` : a >= 1e6 ? `${sg}$${(a / 1e6).toFixed(0)}M` : `${sg}$${a.toFixed(0)}`;
+  }
+  // where each key number comes from: period, XBRL tag and the filing it was read from
+  function sourcesTable(d) {
+    if (!d.sources || !d.sources.length) return null;
+    const val = (r) => (r.item === 'Shares outstanding' ? (isNum(r.value) ? (r.value / 1e6).toLocaleString('en-US', { maximumFractionDigits: 0 }) + 'M' : 'not reported') : r.item === 'Price' ? price(r.value) : isNum(r.value) ? bigMoney(r.value) : 'not reported');
+    return h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
+      h('tr', null, ['Figure', 'Value'].map((x) => h('th', { text: x }))),
+      d.sources.map((r) => h('tr', null,
+        h('td', null, h('b', { text: r.item }), h('span', { class: 'sm', text: niceDates([r.period, r.tag, r.form ? `${r.form}${r.filed ? ' filed ' + r.filed : ''}` : ''].filter(Boolean).join(' · ')) }),
+          r.url ? h('a', { class: 'sm', href: r.url, target: '_blank', rel: 'noopener', text: 'Open the filing' }) : null),
+        h('td', { text: val(r) })))));
   }
   const kv = (k, val) => h('div', null, h('div', { class: 'k', text: k }), h('div', { class: 'val', text: val }));
 
@@ -1346,6 +1371,11 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       body.append(metricRow({ key: c.key, label: c.label, value: c.value, fmt: c.fmt || 'text', rating, note }));
     });
     body.append(h('div', { class: 'explain', style: 'margin-top:10px' }, h('p', { text: S.note })));
+    if (S.standard) {
+      body.append(h('details', { class: 'std' }, h('summary', { text: `Screening standard: ${S.standard.name}` }),
+        h('ul', { class: 'clean' }, S.standard.rules.map((t) => h('li', null, h('span', { text: t })))),
+        h('p', { class: 'note', text: S.standard.limits + (S.dataDate ? ` Balance sheet used: ${niceDates(S.dataDate)}.` : '') })));
+    }
     body.append(h('div', { class: 'links' },
       h('a', { href: d.links.zoya, target: '_blank', rel: 'noopener' }, 'Confirm on Zoya'),
       h('a', { href: d.links.musaffa, target: '_blank', rel: 'noopener' }, 'Confirm on Musaffa')));
@@ -2186,6 +2216,15 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     const gap = 1 - P.buyBelow / px;
     return { tone: gap <= 0.1 ? 'warn' : '', title: gap <= 0.1 ? 'Close to a good price' : 'Wait for a better price', text: `A good price is ${price(P.buyBelow)} or less, about ${pct(gap, 0)} below ${price(px)}.` };
   }
+  function weekdaysStrictlyBetween(a, b) {
+    if (!a || !b || b <= a) return 0;
+    let n = 0;
+    for (let t = Date.parse(a + 'T12:00:00Z') + 86400000; t < Date.parse(b + 'T12:00:00Z'); t += 86400000) {
+      const wd = new Date(t).getUTCDay();
+      if (wd !== 0 && wd !== 6) n++;
+    }
+    return n;
+  }
   function swingNow(T, L, halalFail) {
     if (!T || !T.setup) return null;
     const p = T.setup;
@@ -2203,6 +2242,8 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     const tail = ` Stop ${price(p.stop)}, target 1 ${price(p.target1)}.` + (extra.length ? ' ' + extra.join(' ') : '');
     const order = fill === 'open' ? `buy at the open with a limit order at ${price(max)}` : `buy-stop order at ${price(p.entry)} with a limit of ${price(max)}`;
     if (!L || !L.newSession) return { tone: 'good', title: 'Buy signal for the next session', text: `${name}: ${order}.${tail}` };
+    // the plan is for the one session after the signal day; if a weekday has passed in between, it has expired
+    if (weekdaysStrictlyBetween(T.asOf, L.session) > 0) return { tone: '', title: 'Plan out of date', text: `This plan was written for the session after ${shortDate(T.asOf)} and has expired. The plan is rebuilt overnight; check again tomorrow.` };
     const px = L.p;
     if (!L.open) return { tone: '', title: 'That session is over', text: `The signal was for ${shortDate(L.session)} (last price ${price(px)}). The plan is rebuilt overnight; check it again tomorrow.` };
     if (px <= p.stop) return { tone: 'bad', title: 'Signal failed', text: `The price (${price(px)}) is at or below the stop. Skip this one.` };

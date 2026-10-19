@@ -4,5 +4,6 @@
   "private": true,
   "type": "module",
   "description": "Beginner-friendly fundamental analysis for US stocks using SEC filings.",
-  "engines": { "node": "22.x" }
+  "engines": { "node": "22.x" },
+  "scripts": { "test": "node --test test/formulas.test.mjs" }
 }

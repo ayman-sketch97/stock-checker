@@ -31,6 +31,9 @@ jobs:
       # the Technical tab's chart library (TradingView Lightweight Charts, Apache-2.0), served from this site
       - name: Install the chart library
         run: npm install --no-save --no-audit --no-fund lightweight-charts@5.2.1
+      # formula checks: a failing test stops the publish, so a broken calculation never reaches the site
+      - name: Test the formulas
+        run: node --test test/formulas.test.mjs
       - name: Analyze companies and build the site
         run: node tools/build-site.mjs
       - uses: actions/upload-pages-artifact@v3
