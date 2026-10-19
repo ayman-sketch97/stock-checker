@@ -211,6 +211,7 @@ header.top {
 .hp-row { border-left: 4px solid var(--axis); background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
 .hp-row p { margin: 6px 0 0; font-size: 14px; }
 .hp-long { border-left-color: var(--series-1); } .hp-mid { border-left-color: var(--series-2); } .hp-short { border-left-color: var(--warn); }
+.fund-px { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .hp-h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .mixkey .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; display: inline-block; }
 
@@ -518,6 +519,9 @@ table.data tr.me td { font-weight: 700; background: var(--surface-2); }
 table.data tr.click { cursor: pointer; }
 table.data tr.click:hover td { background: var(--surface-2); }
 table.data td.dim { color: var(--muted); }
+table.data.wrap1 td:first-child { white-space: normal; }
+table.data.wrap1 td:first-child .sm { font-size: 12px; line-height: 1.4; margin-top: 3px; }
+.askbox { width: 100%; margin-top: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); padding: 10px 12px; font: inherit; font-size: 16px; line-height: 1.45; resize: vertical; }
 .note { font-size: 13px; color: var(--ink-2); margin-top: 8px; }
 .mini-bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin-top: 6px; }
 .mini-bar > i { display: block; height: 100%; background: var(--series-1); border-radius: 4px; }
@@ -2243,12 +2247,106 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   }
 
 
+  // ------------------------------------------------------------------ halal funds, sukuk and trading costs
+  // Fund facts checked against provider pages and fund databases on 19 Oct 2026; prices and returns are live
+  // (Yahoo chart data, refreshed with the price job). y = data symbol, t = what you type at your broker.
+  const FUND_FACTS_DATE = '2026-10-19';
+  const FUNDS = [
+    { y: 'ISDW.L', t: 'ISDW', also: ['ISWD'], kind: 'equity', name: 'iShares MSCI World Islamic UCITS ETF', region: 'World, developed markets', dom: 'IE', ter: 0.003, pol: 'Distributing (twice a year)', holdings: 385, size: '€1.5bn', since: 2007, ex: 'LSE', cur: 'USD', note: 'ISDW is the US-dollar line. ISWD is the same fund traded in pounds: buying it needs a currency conversion each time.' },
+    { y: 'HIWO.L', t: 'HIWO', also: ['HIWS'], kind: 'equity', name: 'HSBC MSCI World Islamic Screened UCITS ETF', region: 'World, developed markets', dom: 'IE', ter: 0.003, pol: 'Accumulating', holdings: 350, size: '€140m', since: 2022, ex: 'LSE', cur: 'USD', note: 'Same cost as ISDW and reinvests dividends, but the fund is ten times smaller.' },
+    { y: 'IGDA.L', t: 'IGDA', also: [], kind: 'equity', name: 'Invesco Dow Jones Islamic Global Developed Markets UCITS ETF', region: 'World, developed markets (broadest)', dom: 'IE', ter: 0.004, pol: 'Accumulating', holdings: 1255, size: '€1.0bn', since: 2022, ex: 'LSE', cur: 'USD', note: 'The widest spread (about 1,250 companies, including smaller ones) for 0.10% a year more.' },
+    { y: 'ISDU.L', t: 'ISDU', also: ['ISUS'], kind: 'equity', name: 'iShares MSCI USA Islamic UCITS ETF', region: 'United States only', dom: 'IE', ter: 0.005, pol: 'Distributing', ex: 'LSE', cur: 'USD', note: 'US companies only: less spread than a world fund.' },
+    { y: 'ISDE.L', t: 'ISDE', also: [], kind: 'equity', name: 'iShares MSCI EM Islamic UCITS ETF', region: 'Emerging markets', dom: 'IE', ter: 0.0085, pol: 'Distributing', ex: 'LSE', cur: 'USD', note: 'Emerging markets only; costly, and not needed for a first portfolio.' },
+    { y: 'HIEM.L', t: 'HIEM', also: [], kind: 'equity', name: 'HSBC MSCI Emerging Markets Islamic Screened Capped UCITS ETF', region: 'Emerging markets', dom: 'IE', ter: 0.006, pol: 'Accumulating', ex: 'LSE', cur: 'USD', note: 'Cheaper emerging-markets option than ISDE.' },
+    { y: 'SPUS', t: 'SPUS', also: [], kind: 'equity', name: 'SP Funds S&P 500 Sharia Industry Exclusions ETF', region: 'United States only', dom: 'US', ter: 0.0045, pol: 'Distributing', holdings: 212, size: '$2.8bn', ex: 'NYSE Arca', cur: 'USD', note: 'US-domiciled: 30% tax taken from dividends for UAE residents, and US estate tax can apply above $60,000.' },
+    { y: 'HLAL', t: 'HLAL', also: [], kind: 'equity', name: 'Wahed FTSE USA Shariah ETF', region: 'United States only', dom: 'US', ter: 0.005, pol: 'Distributing', holdings: 197, size: '$0.9bn', ex: 'Nasdaq', cur: 'USD', note: 'US-domiciled: same tax drawbacks as SPUS.' },
+    { y: 'UMMA', t: 'UMMA', also: [], kind: 'equity', name: 'Wahed Dow Jones Islamic World ETF', region: 'World outside the US', dom: 'US', ter: 0.0065, pol: 'Distributing', ex: 'Nasdaq', cur: 'USD', note: 'Expensive, and US-domiciled.' },
+    { y: 'SKUK.AS', t: 'SKUK', also: [], kind: 'sukuk', name: 'iShares $ Sukuk UCITS ETF', region: 'Global US-dollar sukuk', dom: 'IE', ter: 0.004, pol: 'Distributing (quarterly)', holdings: 223, size: '$0.2bn', since: 2024, ex: 'Euronext Amsterdam', cur: 'USD', ytm: 0.0612, dur: 4.04, note: 'Yield to maturity 6.1%, average duration about 4 years (iShares, 15 Oct 2026).' },
+    { y: 'HBKU.L', t: 'HBKU', also: [], kind: 'sukuk', name: 'HSBC Global Sukuk UCITS ETF', region: 'Global sukuk', dom: 'IE', ter: 0.0038, terRank: 0.0055, terNote: 'Sources differ (0.38% to 0.70%): check the factsheet', pol: 'See factsheet', ex: 'LSE', cur: 'USD', ytm: 0.0518, dur: 4.5, note: 'Yield to worst 5.2%, duration about 4.5 years (end of August 2026).' },
+    { y: 'SPSK', t: 'SPSK', also: [], kind: 'sukuk', name: 'SP Funds Dow Jones Global Sukuk ETF', region: 'Global sukuk', dom: 'US', ter: 0.005, pol: 'Distributing (monthly)', holdings: 169, size: '$0.6bn', ex: 'NYSE Arca', cur: 'USD', note: 'US-domiciled: payouts can be taxed at 30% for UAE residents.' },
+  ];
+  const fundBySym = (s) => {
+    const u = String(s || '').trim().toUpperCase().replace(/\.(L|AS)$/, '');
+    return FUNDS.find((f) => f.t === u || f.also.includes(u)) || null;
+  };
+  // latest price in US dollars for a fund line, from the price job
+  function fundLive(f, sym) {
+    const E = QUOTES && QUOTES.etf;
+    if (!E) return null;
+    const u = String(sym || f.t).toUpperCase().replace(/\.(L|AS)$/, '');
+    const key = f.also.includes(u) ? (u + '.' + f.y.split('.')[1]) : f.y;
+    const e = E[key] || E[f.y];
+    if (!e || !isNum(e.p)) return null;
+    let usd = e.p;
+    const gbp = E['GBPUSD=X'] && E['GBPUSD=X'].p;
+    const eur = E['EURUSD=X'] && E['EURUSD=X'].p;
+    if (e.cur === 'GBp') usd = gbp ? (e.p / 100) * gbp : null;
+    else if (e.cur === 'GBP') usd = gbp ? e.p * gbp : null;
+    else if (e.cur === 'EUR') usd = eur ? e.p * eur : null;
+    return { ...e, usd, local: e.cur === 'GBp' ? `${(e.p / 100).toFixed(2)} GBP` : `${e.p.toFixed(2)} ${e.cur}` };
+  }
+  // ranking for a UAE resident: Irish-domiciled funds avoid the 30% US dividend tax and US estate tax;
+  // then cost, breadth and size. Past returns are shown, never used to rank.
+  function rankFunds(kind) {
+    const sizeBn = (f) => { const m = /([\d.]+)\s*(bn|m)/.exec(f.size || ''); return m ? Number(m[1]) / (m[2] === 'm' ? 1000 : 1) : 0.1; };
+    const score = (f) => -(f.terRank || f.ter) * 100 - (f.dom === 'US' ? 0.6 : 0) + Math.min(sizeBn(f), 1.5) * 0.08 + (/World/.test(f.region) ? 0.15 : 0) + (/only|Emerging/.test(f.region) ? -0.2 : 0);
+    return FUNDS.filter((f) => f.kind === kind).sort((x, y) => score(y) - score(x));
+  }
+  // what one buy costs at Interactive Brokers (rates checked Oct 2026; exchange fees on Tiered add a little)
+  const MARKETS = {
+    US: { label: 'US (NYSE, Nasdaq)', short: 'US', cur: 'USD' },
+    LSE_USD: { label: 'London, in US dollars', short: 'London, USD', cur: 'USD' },
+    LSE_GBP: { label: 'London, in pounds', short: 'London, GBP', cur: 'GBP' },
+    AMS_USD: { label: 'Amsterdam, in US dollars', short: 'Amsterdam, USD', cur: 'USD' },
+    EU_EUR: { label: 'Europe (Xetra, Euronext), in euros', short: 'Europe, EUR', cur: 'EUR' },
+    SIX_USD: { label: 'Switzerland, in US dollars', cur: 'USD' },
+    OTHER: { label: 'Another market', cur: '' },
+  };
+  const marketOfFund = (f, sym) => {
+    if (f.dom === 'US') return 'US';
+    const u = String(sym || '').toUpperCase();
+    if (u === 'ISWD' || u === 'HIWS' || u === 'ISUS') return 'LSE_GBP';
+    return f.ex === 'Euronext Amsterdam' ? 'AMS_USD' : 'LSE_USD';
+  };
+  function tradeCost(market, amount, plan, price) {
+    if (!(amount > 0)) return null;
+    const shares = isNum(price) && price > 0 ? amount / price : amount / 100;
+    let c = null;
+    let fx = 0;
+    let note = '';
+    if (market === 'US') c = plan === 'fixed' ? Math.min(Math.max(1, 0.005 * shares), amount * 0.01) : Math.max(0.35, 0.0035 * shares) + 0.1;
+    else if (market === 'LSE_USD' || market === 'AMS_USD' || market === 'SIX_USD') c = plan === 'fixed' ? Math.max(4, amount * 0.0005) : Math.min(Math.max(1.7, amount * 0.0005), 39) + 0.3;
+    else if (market === 'LSE_GBP') { c = (plan === 'fixed' ? Math.max(3, amount * 0.0005) : Math.max(1, amount * 0.0005) + 0.3) * 1.3; fx = 2; note = 'Needs dollars changed to pounds (about $2 per conversion at IBKR), and UK company shares (not ETFs) also pay 0.5% stamp duty.'; }
+    else if (market === 'EU_EUR') { c = (plan === 'fixed' ? Math.max(3, amount * 0.0005) : Math.min(Math.max(1.25, amount * 0.0005), 29) + 0.3) * 1.08; fx = 2; note = 'Needs dollars changed to euros (about $2 per conversion at IBKR).'; }
+    else return { usd: null, pct: null, note: 'Check your broker’s price list for this market.' };
+    const usd = c + fx;
+    return { usd, pct: usd / amount, note };
+  }
+  // how often to buy so each purchase costs at most 0.25%
+  function batchAdvice(market, monthly, plan, price) {
+    for (const m of [1, 2, 3, 4, 6]) { const t = tradeCost(market, monthly * m, plan, price); if (t && isNum(t.pct) && t.pct <= 0.0025) return m; }
+    return 6;
+  }
+  function fundAsOf() {
+    const E = QUOTES && QUOTES.etf;
+    if (!E) return 'unavailable right now';
+    const ts = Object.entries(E).filter(([k, e]) => !k.includes('=') && isNum(e.t)).map(([, e]) => e.t);
+    if (!ts.length) return 'from the latest update';
+    return 'as of ' + new Date(Math.max(...ts) * 1000).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' your time (may lag up to 15 minutes)';
+  }
   // ------------------------------------------------------------------ portfolio advisor (this device only)
   const AED_PER_USD = 3.6725; // the dirham is pegged to the dollar
   const ADV = {
     load() {
       const a = store.get('advisor', null);
-      return a && a.v === 1 ? { hp: {}, ...a } : { v: 1, profile: null, coreName: 'ISWD', core: null, safe: null, hp: {} };
+      const b = a && a.v === 1 ? { hp: {}, ...a } : { v: 1, profile: null, coreName: 'ISDW', core: null, safe: null, hp: {} };
+      // older versions kept one fund value and one sukuk/cash value: move them into the holdings list
+      if (!Array.isArray(b.other)) {
+        b.other = [];
+        if (isNum(b.core) && b.core > 0) b.other.push({ id: 'o1', sym: (b.coreName || 'ISWD').toUpperCase(), kind: 'fund', market: '', shares: null, value: b.core });
+        if (isNum(b.safe) && b.safe > 0) b.other.push({ id: 'o2', sym: 'CASH', kind: 'cash', market: '', shares: null, value: b.safe });
+      }
+      return b;
     },
     save(a) { store.set('advisor', a); },
   };
@@ -2256,9 +2354,10 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     ['horizon', 'When will you need this money?', [['short', 'Within 3 years'], ['mid', 'In 3 to 10 years'], ['long', 'In 10 years or more']]],
     ['drop', 'If your portfolio fell 30% in a year, you would…', [['sell', 'Sell to stop the losses'], ['hold', 'Hold and wait'], ['buy', 'Buy more at lower prices']]],
     ['time', 'How much time can you give to following stocks each week?', [['low', 'Under 1 hour'], ['mid', '1 to 3 hours'], ['high', 'More than 3 hours']]],
-    ['focus', 'How much of your portfolio do you want in individual stocks?', [['fund', 'A small part (mostly the index fund)'], ['half', 'About half'], ['stocks', 'Most of it']]],
+    ['focus', 'Funds (ETFs) or individual stocks?', [['fund', 'Mostly halal funds, a few stocks'], ['half', 'About half funds, half stocks'], ['stocks', 'Mostly stocks, a fund as the base'], ['only', 'Only stocks, no funds']]],
     ['hold', 'How long do you want to hold each stock?', [['auto', 'Let the plan decide from my horizon'], ['short', 'Months (3 to 12)'], ['mid', '1 to 3 years'], ['long', '3 years or more'], ['mix', 'A mix of all three']]],
     ['swing', 'Do you want to swing trade as well?', [['no', 'No'], ['yes', 'Yes, a small part']]],
+    ['broker', 'Which price plan do you use at Interactive Brokers?', [['tiered', 'IBKR Tiered'], ['fixed', 'IBKR Fixed'], ['unsure', 'Not sure (assume Fixed)'], ['other', 'I use another broker']]],
   ];
   // holding periods for stocks, each with its own buying rule and exit rule
   const HP = {
@@ -2285,8 +2384,18 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     if (pf.horizon === 'short') why.push('Money needed within 3 years should mostly not be in shares: a 30% fall could come right when you need it. A large safe part (sukuk or cash) protects it.');
     else if (pf.horizon === 'mid') why.push('With 3 to 10 years, a small safe part (sukuk or cash) softens bad years.');
     else why.push('With 10 years or more, almost everything can be in shares: there is time to recover from bad years.');
-    if (pf.focus === 'stocks') why.push('You want most of it in stocks. The plan keeps at least 20% in the index fund anyway: it is your safety net if your picks underperform, and most stock pickers do over time.');
+    if (pf.focus === 'only') why.push('Stocks only, as you chose. Be clear about the trade-off: with no fund underneath, all the risk of picking is yours. Over 10 years most stock pickers trail a world index fund, and nothing here offsets a bad pick. It also matters for tax: US shares count toward US estate tax above $60,000 for non-US residents; an Irish-domiciled fund such as ISDW does not.');
+    else if (pf.focus === 'stocks') why.push('You want most of it in stocks. The plan keeps at least 20% in the index fund anyway: it is your safety net if your picks underperform, and most stock pickers do over time.');
     else if (pf.focus === 'half') why.push('About half in stocks, half in the index fund: your picks can make a real difference, while the fund keeps you diversified.');
+    if (pf.focus === 'only') {
+      if (pf.drop === 'sell') { safe = Math.max(safe, 0.2); swing = Math.min(swing, 0.05); why.push('You said you would sell after a big fall, so 20% stays in a safe part (cash) to make holding on easier.'); }
+      if (pf.horizon === 'short') swing = Math.min(swing, 0.05);
+      if (pf.time === 'low') why.push('Warning: under an hour a week is not enough to follow 10 or more stocks properly. Consider “Mostly stocks, a fund as the base”.');
+      if (swing) why.push('Swing trading is capped at 10% (5% with a short horizon): the backtest edge is small.');
+      let st = Math.max(0, 1 - safe - swing);
+      if (pf.horizon === 'short' && st > 0.4) { st = 0.4; safe = 1 - st - swing; why.push('Money needed within 3 years: the stock part is capped at 40%, the rest stays safe.'); }
+      return { core: 0, safe, stocks: st, swing, why, maxStocks: Math.max(pf.time === 'low' ? 10 : pf.time === 'mid' ? 15 : 20, 12), minStocks: 12, split: holdSplit(pf) };
+    }
     if (pf.time === 'low' && stocks > 0.35) { stocks = 0.35; why.push('With under an hour a week, the stock part is capped at 35%: every stock you own needs its results checked each quarter.'); }
     if (pf.drop === 'sell') { safe = Math.max(safe, 0.2); stocks = Math.min(stocks, 0.35); swing = Math.min(swing, 0.05); why.push('You said you would sell after a big fall. Individual stocks fall further than the market, so the stock part is smaller to make holding on easier.'); }
     if (pf.horizon === 'short') { stocks = Math.min(stocks, 0.4); swing = Math.min(swing, 0.05); }
@@ -2398,24 +2507,29 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         const k = ADV.load(); k.profile = np; ADV.save(k);
         rerender();
       });
-      profCard.replaceChildren(h('h2', { text: 'About you' }), h('p', { class: 'sub', text: 'Seven questions decide the mix and how long you hold each stock. Answer for how you would really act, not how you would like to.' }), form);
+      profCard.replaceChildren(h('h2', { text: 'About you' }), h('p', { class: 'sub', text: 'Eight questions decide the mix and how long you hold each stock. Answer for how you would really act, not how you would like to.' }), form);
     };
     // older saved answers lack the newer questions: ask again
     if (!a.profile || PROFILE_Q.some(([k]) => !a.profile[k])) { showForm(); parts.push(profCard); el.replaceChildren(...parts); return; }
     const pf = a.profile;
     const answer = (key) => { const q = PROFILE_Q.find((x) => x[0] === key); const o = q[2].find((x) => x[0] === pf[key]); return o ? o[1] : ''; };
-    profCard.append(h('p', { class: 'sub', text: `${answer('horizon')} · after a 30% fall: ${answer('drop').toLowerCase()} · ${answer('time').toLowerCase()} a week · stocks: ${answer('focus').toLowerCase()} · holding: ${answer('hold').toLowerCase()} · ${pf.swing === 'yes' ? 'some swing trading' : 'no swing trading'} · AED ${(pf.monthlyAed || 0).toLocaleString('en-US')} a month` }),
+    profCard.append(h('p', { class: 'sub', text: `${answer('horizon')} · after a 30% fall: ${answer('drop').toLowerCase()} · ${answer('time').toLowerCase()} a week · stocks: ${answer('focus').toLowerCase()} · holding: ${answer('hold').toLowerCase()} · ${pf.swing === 'yes' ? 'some swing trading' : 'no swing trading'} · ${answer('broker')} · AED ${(pf.monthlyAed || 0).toLocaleString('en-US')} a month` }),
       h('div', { class: 'row-actions' }, h('button', { class: 'linkbtn', type: 'button', onclick: showForm }, 'Change answers')));
     parts.push(profCard);
 
     // 2. target mix
     const T = targetMix(pf);
+    const plan = pf.broker === 'tiered' ? 'tiered' : 'fixed';
+    const EQ = rankFunds('equity')[0];
+    const SK = rankFunds('sukuk')[0];
+    const focusOnly = pf.focus === 'only';
+    const nRange = T.minStocks === T.maxStocks ? String(T.minStocks) : `${T.minStocks} to ${T.maxStocks}`;
     const mixParts = ['core', 'stocks', 'swing', 'safe'].map((k) => ({ key: k, label: MIX_LABEL[k], w: T[k] }));
     const splitTxt = HP_ORDER.filter((k) => T.split[k]).map((k) => `${HP[k].label.toLowerCase()} ${pct(T.split[k], 0)}`).join(', ');
     const mixCard = h('section', { class: 'card', 'aria-label': 'Your target mix' }, h('h2', { text: 'Your target mix' }), mixBar(mixParts),
       h('ul', { class: 'mixkey' }, mixParts.filter((p) => p.w > 0).map((p) => h('li', null, h('i', { class: 'sw mx-' + p.key, 'aria-hidden': 'true' }), h('span', { text: p.key === 'stocks' ? `${p.label} (${splitTxt})` : p.label }), h('b', { text: pct(p.w, 0) })))),
       h('ul', { class: 'clean' }, T.why.map((t) => h('li', null, h('span', { text: t })))),
-      h('p', { class: 'note', text: `Index fund: ${a.coreName || 'ISWD'} (iShares MSCI World Islamic) spreads your money over hundreds of Shariah-screened companies, with no stock picking. Stocks: ${T.minStocks === T.maxStocks ? T.minStocks : `${T.minStocks} to ${T.maxStocks}`} companies is manageable for the time you have.` }));
+      h('p', { class: 'note', text: T.core > 0 ? `Index fund: ${EQ.t} (${EQ.name}) spreads your money over hundreds of Shariah-screened companies, with no stock picking. See “Best halal funds for you” below. Stocks: ${nRange} companies is manageable for the time you have.` : `Stocks: aim for ${nRange} companies across at least 6 sectors.` }));
     parts.push(mixCard);
 
     // 3. holding periods explained
@@ -2426,7 +2540,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         h('p', { text: HP[k].rule }), h('p', { class: 'note', text: HP[k].check }))),
       pf.time === 'low' && T.split.short ? h('p', { class: 'note', text: 'Short-term holds need a weekly look. With under an hour a week, keep them to 2 or 3 at a time.' }) : null));
 
-    // 4. holdings now
+    // 4. holdings now: US stocks from the Watchlist and Journal, everything else from the list below
     const w = W.load();
     const jr = JR.load();
     const priceOf = (t) => { const r = scr.by.get(t); return r && isNum(r.price) ? r.price : null; };
@@ -2443,28 +2557,26 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     for (const it of w.items) if (it.shares > 0 && it.swing && !sw.some((x) => x.t === it.t)) sw.push({ t: it.t, shares: it.shares });
     lt.forEach((x) => { x.hp = HP[a.hp[x.t]] ? a.hp[x.t] : defaultHp; });
     const val = (x) => { const p = priceOf(x.t); return isNum(p) ? p * x.shares : isNum(x.cost) ? x.cost * x.shares : 0; };
-    const ltVal = lt.reduce((s, x) => s + val(x), 0);
+    const other = (a.other || []).map((o) => {
+      const f = o.kind === 'stock' || o.kind === 'cash' ? null : fundBySym(o.sym);
+      const kind = f ? f.kind : o.kind === 'fund' ? 'equity' : o.kind; // equity | sukuk | cash | stock
+      const live = f ? fundLive(f, o.sym) : null;
+      const liveVal = !!(live && isNum(live.usd) && isNum(o.shares) && o.shares > 0);
+      return { ...o, f, kind, live, liveVal, value: liveVal ? live.usd * o.shares : isNum(o.value) ? o.value : 0 };
+    });
+    const sumOf = (k) => other.filter((o) => (Array.isArray(k) ? k.includes(o.kind) : o.kind === k)).reduce((s, o) => s + o.value, 0);
+    const usVal = lt.reduce((s, x) => s + val(x), 0);
+    const extVal = sumOf('stock');
+    const ltVal = usVal + extVal;
     const swVal = sw.reduce((s, x) => s + val(x), 0);
-    const coreVal = isNum(a.core) ? a.core : 0;
-    const safeVal = isNum(a.safe) ? a.safe : 0;
+    const coreVal = sumOf('equity');
+    const safeVal = sumOf(['sukuk', 'cash']);
     const total = coreVal + ltVal + swVal + safeVal;
+    const wOf = (v) => (total > 0 ? v / total : 0);
     const nowCard = h('section', { class: 'card', 'aria-label': 'Your portfolio now' }, h('h2', { text: 'Your portfolio now' }));
-    const coreIn = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0' });
-    if (isNum(a.core)) coreIn.value = String(a.core);
-    const safeIn = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0' });
-    if (isNum(a.safe)) safeIn.value = String(a.safe);
-    const nameIn = h('input', { type: 'text', autocomplete: 'off', value: a.coreName || 'ISWD', autocapitalize: 'characters' });
-    const saveVals = h('form', { class: 'editbox', autocomplete: 'off' },
-      h('div', { class: 'form-grid' },
-        h('label', { class: 'field left' }, h('span', { text: 'Index fund you hold' }), nameIn),
-        h('label', { class: 'field' }, h('span', { text: 'Its value now ($)' }), coreIn),
-        h('label', { class: 'field' }, h('span', { text: 'Sukuk and cash ($)' }), safeIn)),
-      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Update')),
-      h('p', { class: 'note', text: 'Type the fund’s value from your broker app (this site has no price for funds listed in London). Stocks are counted from your Watchlist (“I own it”) and swing trades from your Journal, at today’s prices.' }));
-    saveVals.addEventListener('submit', (e) => { e.preventDefault(); const k = ADV.load(); k.core = num(coreIn.value); k.safe = num(safeIn.value); k.coreName = (nameIn.value || 'ISWD').trim().toUpperCase().slice(0, 12); ADV.save(k); rerender(); });
     if (total > 0) {
       const cur = { core: coreVal / total, stocks: ltVal / total, swing: swVal / total, safe: safeVal / total };
-      nowCard.append(h('div', { class: 'stats' }, stat('Total', money0(total), `about AED ${Math.round(total * AED_PER_USD).toLocaleString('en-US')}`), stat('Stocks held', String(lt.length), `target ${T.minStocks === T.maxStocks ? T.minStocks : `${T.minStocks} to ${T.maxStocks}`}${sw.length ? ` · ${sw.length} swing` : ''}`)));
+      nowCard.append(h('div', { class: 'stats' }, stat('Total', money0(total), `about AED ${Math.round(total * AED_PER_USD).toLocaleString('en-US')}`), stat('Stocks held', String(lt.length + other.filter((o) => o.kind === 'stock').length), `target ${nRange}${sw.length ? ` · ${sw.length} swing` : ''}`)));
       nowCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
         h('tr', null, ['Part', 'Now', 'Target'].map((x) => h('th', { text: x }))),
         ['core', 'stocks', 'swing', 'safe'].filter((k) => T[k] > 0 || cur[k] > 0).map((k) => {
@@ -2475,24 +2587,178 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         }))));
     } else nowCard.append(h('p', { class: 'sub', text: 'Starting from zero? That is fine: the monthly plan below builds the whole portfolio step by step.' }));
     if (lt.length) {
-      nowCard.append(h('h3', { text: 'Your stocks and how long you plan to hold each' }));
+      nowCard.append(h('h3', { text: 'Your US stocks and how long you plan to hold each' }));
       nowCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
         h('tr', null, ['Stock', 'Value', 'Hold'].map((x) => h('th', { text: x }))),
         lt.map((x) => {
           const s = h('select', { 'aria-label': `Holding period for ${x.t}` });
           HP_ORDER.forEach((k) => s.append(h('option', { value: k, selected: x.hp === k ? true : null }, HP[k].label)));
           s.addEventListener('change', () => { const k = ADV.load(); k.hp[x.t] = s.value; ADV.save(k); rerender(); });
-          return h('tr', null, h('td', null, h('b', { text: x.t }), h('span', { class: 'sm', text: total > 0 ? `${pct(val(x) / total, 1)} of everything` : '' })), h('td', { text: money0(val(x)) }), h('td', null, s));
+          return h('tr', null, h('td', null, h('b', { text: x.t }), h('span', { class: 'sm', text: total > 0 ? `${pct(wOf(val(x)), 1)} of everything` : '' })), h('td', { text: money0(val(x)) }), h('td', null, s));
         }))));
     }
-    nowCard.append(saveVals);
+    nowCard.append(h('p', { class: 'note', text: 'US stocks come from your Watchlist (“I own it”) and swing trades from your Journal, at the latest prices.' }));
+    // funds, sukuk, cash and stocks outside the US
+    nowCard.append(h('h3', { text: 'Funds, sukuk, cash and stocks outside the US' }));
+    const KIND_LABEL = { fund: 'Fund (ETF)', sukuk: 'Sukuk fund', cash: 'Cash', stock: 'Stock outside the US' };
+    if (other.length) {
+      nowCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
+        h('tr', null, ['Holding', 'Value', ''].map((x) => h('th', { text: x }))),
+        other.map((o) => h('tr', null,
+          h('td', null, h('b', { text: o.kind === 'cash' ? 'Cash' : o.sym }), h('span', { class: 'sm', text: [o.f ? o.f.name : KIND_LABEL[o.kind === 'equity' ? 'fund' : o.kind], o.kind === 'stock' && MARKETS[o.market] ? MARKETS[o.market].label : '', o.liveVal ? `${fmtShares(o.shares)} units at ${o.live.local}` : ''].filter(Boolean).join(' · ') })),
+          h('td', null, money0(o.value), h('span', { class: 'sm', text: o.liveVal ? 'live' : 'as you typed it' })),
+          h('td', null, h('button', { class: 'linkbtn', type: 'button', onclick: () => editOther(o) }, 'Edit'), ' ', h('button', { class: 'linkbtn', type: 'button', onclick: () => { const k = ADV.load(); k.other = (k.other || []).filter((y) => y.id !== o.id); ADV.save(k); rerender(); } }, 'Remove')))))));
+    }
+    const oKind = h('select', { 'aria-label': 'Type' }, Object.entries(KIND_LABEL).map(([v, t]) => h('option', { value: v }, t)));
+    const oSym = h('input', { type: 'text', autocomplete: 'off', autocapitalize: 'characters', placeholder: 'e.g. ISDW' });
+    const oMarket = h('select', { 'aria-label': 'Market' }, Object.entries(MARKETS).filter(([k]) => k !== 'US').map(([v, m]) => h('option', { value: v }, m.label)));
+    const oShares = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'units' });
+    const oValue = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '$' });
+    const symField = h('label', { class: 'field left' }, h('span', { text: 'Symbol' }), oSym);
+    const marketField = h('label', { class: 'field left' }, h('span', { text: 'Market' }), oMarket);
+    const sharesField = h('label', { class: 'field' }, h('span', { text: 'Units held' }), oShares);
+    const oMsg = h('p', { class: 'note', 'aria-live': 'polite' });
+    let editingId = null;
+    const syncKind = () => {
+      const k = oKind.value;
+      symField.hidden = k === 'cash';
+      marketField.hidden = k !== 'stock';
+      sharesField.hidden = k === 'cash' || k === 'stock';
+    };
+    oKind.addEventListener('change', syncKind);
+    const oForm = h('form', { class: 'editbox', autocomplete: 'off' },
+      h('div', { class: 'form-grid' }, h('label', { class: 'field left' }, h('span', { text: 'Type' }), oKind), symField, marketField, sharesField,
+        h('label', { class: 'field' }, h('span', { text: 'Value now ($)' }), oValue)),
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Save holding')), oMsg,
+      h('p', { class: 'note', text: `For the funds this site follows (${FUNDS.map((f) => f.t).join(', ')} and their other lines), type the units: the value then follows the live price. For anything else, type its value in dollars from your broker app.` }));
+    function editOther(o) {
+      editingId = o.id;
+      oKind.value = o.kind === 'equity' ? 'fund' : o.kind;
+      oSym.value = o.sym || '';
+      if (o.market) oMarket.value = o.market;
+      oShares.value = isNum(o.shares) ? String(o.shares) : '';
+      oValue.value = isNum(o.value) && !o.liveVal ? String(Math.round(o.value * 100) / 100) : '';
+      syncKind();
+      oForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    oForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const kind = oKind.value;
+      const sym = kind === 'cash' ? 'CASH' : (oSym.value || '').trim().toUpperCase().replace(/\s+/g, '').slice(0, 14);
+      const shares = num(oShares.value);
+      const value = num(oValue.value);
+      if (kind !== 'cash' && !sym) { oMsg.textContent = 'Type the symbol.'; return; }
+      const f = kind === 'fund' || kind === 'sukuk' ? fundBySym(sym) : null;
+      const canLive = f && fundLive(f, sym) && isNum(fundLive(f, sym).usd);
+      if (!(shares > 0 && canLive) && !(value > 0)) { oMsg.textContent = canLive ? 'Type the units you hold.' : 'Type its value in dollars.'; return; }
+      const k = ADV.load();
+      const row = { id: editingId || 'o' + Date.now().toString(36), sym, kind, market: kind === 'stock' ? oMarket.value : '', shares: kind === 'cash' || kind === 'stock' ? null : shares, value };
+      k.other = (k.other || []).filter((y) => y.id !== row.id).concat(row);
+      ADV.save(k);
+      rerender();
+    });
+    syncKind();
+    nowCard.append(oForm);
     parts.push(nowCard);
 
-    // 5. this month's plan: new money goes where the portfolio is furthest below target, so you rarely need to sell
+    // 5. advice on each holding
+    const advRows = [];
+    const sinceTxt = (x) => { const p = priceOf(x.t); return isNum(x.cost) && x.cost > 0 && isNum(p) ? `${pctS(p / x.cost - 1, 1)} since you bought` : ''; };
+    for (const x of lt) {
+      const r = scr.by.get(x.t);
+      const wgt = wOf(val(x));
+      let act = 'Hold';
+      let tone = 'neutral';
+      const why = [];
+      if (!r) { act = 'Review'; tone = 'warn'; why.push('Not in today’s data. Check it yourself.'); }
+      else if (r.shariah === 'fail') { act = 'Sell'; tone = 'bad'; why.push('Fails the Shariah screen now. Confirm on Zoya or Musaffa; if it still fails, sell it and purify any gain as your scholar advises.'); }
+      else if (x.hp === 'short' && ['down', 'weakening'].includes(r.trend)) { act = 'Sell'; tone = 'bad'; why.push('Short-term hold and the uptrend has broken: your rule says sell.'); }
+      else if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) { act = 'Review'; tone = 'bad'; why.push(`Now rated “${VERDICT_SHORT[r.verdict]}”: the business has weakened. Re-read its analysis and do not add.`); }
+      else if (x.hp === 'mid' && isNum(r.fair) && r.price >= r.fair) { act = 'Take profit'; tone = 'good'; why.push(`Reached its fair value (${price0(r.fair)}): your medium-term rule says sell, unless you move it to long term because the business is excellent.`); }
+      else if (isNum(r.trimAbove) && r.price >= r.trimAbove) { act = 'Trim'; tone = 'warn'; why.push(`Above its trim price (${price(r.trimAbove)}): sell part and stop adding.`); }
+      else if (wgt > 0.15) { act = 'Trim'; tone = 'warn'; why.push(`${pct(wgt, 0)} of everything you own: above 15% in one company, one bad report hurts the whole portfolio.`); }
+      else if (['BUY_STRONG', 'BUY'].includes(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow && wgt < 0.08 && !(x.hp === 'short' && r.trend !== 'up')) { act = 'Add'; tone = 'good'; why.push(`Below its buy price (${price(r.buyBelow)}) and rated “${VERDICT_SHORT[r.verdict]}”: a good place for new stock money.`); }
+      else {
+        why.push('Passes the halal screen and its holding rule.');
+        if (isNum(r.buyBelow) && r.buyBelow > 0) why.push(r.price <= r.buyBelow ? 'Below its buy price, but already a full position.' : `Add only below ${price(r.buyBelow)} (now ${price(r.price)}).`);
+      }
+      if (r && r.shariah === 'review' && act !== 'Sell') why.push('Halal status is close to a limit: check it before adding.');
+      if (x.hp === 'short' && x.since && daysApart(x.since, localISO()) > 365) why.push('Held over 12 months as a short-term position: review it.');
+      const st = sinceTxt(x);
+      advRows.push({ name: x.t, sub: [HP[x.hp].label, r ? price(r.price) : ''].filter(Boolean).join(' · '), act, tone, why: (st ? st[0].toUpperCase() + st.slice(1) + '. ' : '') + why.join(' '), open: r ? x.t : null });
+    }
+    const coreGap = T.core * total - coreVal;
+    const safeGap = T.safe * total - safeVal;
+    for (const o of other) {
+      let act = 'Hold';
+      let tone = 'neutral';
+      let why = '';
+      if (o.kind === 'cash') {
+        const tgt = T.safe * total;
+        if (total > 0 && safeVal > tgt * 1.2 + 500) { act = 'Invest the extra'; tone = 'warn'; why = `Your safe part is ${money0(safeVal)}, above its ${money0(tgt)} target. Move the extra into the plan over the next few months (keep your emergency fund outside this portfolio).`; }
+        else why = 'Part of your safe money. Keep it in a halal savings account that pays profit, not interest.';
+      } else if (o.kind === 'stock') {
+        act = 'Review'; tone = 'warn';
+        const c = tradeCost(o.market, 300, plan);
+        why = `Not analysed here: this site covers companies that report to the SEC in the US. Check halal status on Zoya or Musaffa and its results yourself.${c && isNum(c.pct) && pf.broker !== 'other' ? ` A $300 buy on ${MARKETS[o.market].label} costs about ${money0(c.usd)} (${pct(c.pct, 1)})${c.pct > 0.005 ? ': too costly for small top-ups, so add in larger amounts or not at all.' : '.'}` : ''}${c && c.note ? ' ' + c.note : ''}`;
+      } else if (!o.f) {
+        act = 'Review'; tone = 'warn';
+        why = 'Not in this site’s list of halal funds. Check that it is Shariah-screened, Irish-domiciled (so you avoid the 30% US dividend tax and US estate tax) and what yearly fee it charges.';
+      } else {
+        const best = o.kind === 'sukuk' ? SK : EQ;
+        const u = String(o.sym).toUpperCase().replace(/\.(L|AS)$/, '');
+        const gap = o.kind === 'sukuk' ? safeGap : coreGap;
+        if (focusOnly && o.kind === 'equity') { act = 'Your call'; tone = 'warn'; why = `Your plan is stocks only, but this fund is ${pct(wOf(o.value), 0)} of everything. Selling it to buy stocks costs only commissions, but you would lose the spread it gives you. Usually better: keep it as a base and change your answer to “Mostly stocks, a fund as the base”.${o.f.dom === 'US' ? ` If you keep one, make it ${EQ.t}: ${o.f.t} is US-domiciled (30% dividend tax, US estate tax).` : o.f.also.includes(u) ? ` If you add to it, buy ${o.f.t}, the US-dollar line.` : ''}`; }
+        else if (o.f.dom === 'US') { act = 'Switch new money'; tone = 'warn'; why = `${o.f.t} is US-domiciled: 30% of its dividends are taxed away for UAE residents, and US estate tax can apply above $60,000. Put new money into ${best.t} instead. Switching what you hold costs only the commissions (no tax on gains in the UAE), so it is worth doing once the holding is a few thousand dollars.`; }
+        else if (o.f.also.includes(u)) { act = 'Buy the USD line'; tone = 'warn'; why = `${u} is the same fund as ${o.f.t} but traded in pounds. Keep what you have; buy ${o.f.t} (US dollars) from now on so you skip a currency conversion on every buy.`; }
+        else if (o.f === best) { act = focusOnly ? 'Hold' : gap > 50 ? 'Add' : 'Hold'; tone = 'good'; why = focusOnly ? 'The best fund of its kind for you, though your plan is stocks only.' : `The recommended ${o.kind === 'sukuk' ? 'sukuk' : 'core'} fund. ${gap > 50 ? `About ${money0(gap)} below its target: the monthly plan keeps adding to it.` : 'Near its target: keep buying with the monthly plan.'}`; }
+        else if (/Emerging|only/.test(o.f.region)) { why = `${o.f.region}: fine as a small extra, but the base of the portfolio should be a world fund (${best.t}).`; }
+        else { tone = 'good'; why = `A good halal fund (fee ${pct(o.f.ter, 2)} a year). No need to sell it: switching costs commissions for little gain. New money can go here or into ${best.t}.`; }
+      }
+      const live = o.live && isNum(o.live.chg) ? `${o.live.local} · ${pctS(o.live.chg, 1)} today` : '';
+      advRows.push({ name: o.kind === 'cash' ? 'Cash' : o.sym, sub: [money0(o.value), live].filter(Boolean).join(' · '), act, tone, why });
+    }
+    // portfolio-level checks
+    const checks = [];
+    const bySector = new Map();
+    for (const x of lt) { const r = scr.by.get(x.t); const k = (r && r.sector) || 'Other'; bySector.set(k, (bySector.get(k) || 0) + val(x)); }
+    for (const [k, v] of bySector) if (usVal > 0 && lt.length >= 3 && v / usVal > 0.4) checks.push(['warn', `${pct(v / usVal, 0)} of your US stocks are in ${k}. Spread new buys to other sectors.`]);
+    const nStocks = lt.length + other.filter((o) => o.kind === 'stock').length;
+    if (nStocks > T.maxStocks) checks.push(['warn', `You hold ${nStocks} stocks, more than the ${T.maxStocks} you have time to follow. Let the weakest go rather than adding more.`]);
     const monthlyUsd = (pf.monthlyAed || 0) / AED_PER_USD;
+    if (total > 0) {
+      const cur = { core: coreVal / total, stocks: ltVal / total, safe: safeVal / total };
+      for (const k of ['core', 'stocks', 'safe']) if (Math.abs(cur[k] - T[k]) > 0.1 && total > monthlyUsd * 12) checks.push(['warn', `${MIX_LABEL[k]} is ${pct(Math.abs(cur[k] - T[k]), 0)} ${cur[k] > T[k] ? 'over' : 'under'} target. New money alone will be slow to fix this: once a year, sell some of what is over and buy what is under.`]);
+    }
+    const usSitus = usVal + swVal + other.filter((o) => o.f && o.f.dom === 'US').reduce((s, o) => s + o.value, 0);
+    if (usSitus > 60000) checks.push(['bad', `You hold about ${money0(usSitus)} of US-based assets (US shares and US-domiciled funds). For non-US residents, US estate tax can apply above $60,000. Irish-domiciled funds such as ${EQ.t} are not US assets; consider taking advice on this.`]);
+    else if (usSitus > 40000) checks.push(['warn', `US-based assets are about ${money0(usSitus)}. Above $60,000, US estate tax can apply to non-US residents; Irish-domiciled funds such as ${EQ.t} do not count.`]);
+    const advCard = h('section', { class: 'card', 'aria-label': 'Advice on what you hold' }, h('h2', { text: 'Advice on what you hold' }));
+    if (advRows.length) {
+      advCard.append(h('div', { class: 'list' }, advRows.map((x) => h(x.open ? 'button' : 'div', x.open ? { class: 'srow', type: 'button', onclick: () => openStock(x.open, 'fund') } : { class: 'srow' },
+        h('span', { class: 'top' }, h('span', { class: 'tk', text: x.name }), h('span', { class: 'nm', text: x.sub }), h('span', { class: 'pr' }, tagEl(x.act, x.tone))),
+        h('span', { class: 'det', text: x.why })))));
+    } else advCard.append(h('p', { class: 'sub', text: 'Nothing recorded yet. Mark the US stocks you own with “I own it” on the Watchlist, and add funds, sukuk and cash above.' }));
+    if (checks.length) advCard.append(h('h3', { text: 'The portfolio as a whole' }), h('ul', { class: 'alert-list' }, checks.map(([tone, t]) => h('li', null, icon(tone === 'bad' ? 'bad' : 'ok'), h('span', { text: t })))));
+    else if (advRows.length) advCard.append(h('p', { class: 'note', text: 'The portfolio as a whole: no concentration, tax or balance problems found.' }));
+    advCard.append(h('p', { class: 'note', text: 'Based on the latest prices and today’s analysis of each company. A rule-based check, not a forecast.' }));
+    parts.push(advCard);
+
+    // 6. this month's plan: new money goes where the portfolio is furthest below target, so you rarely need to sell
     const heldSet = new Set([...lt.map((x) => x.t), ...sw.map((x) => x.t)]);
     const ideas = stockIdeasByHold(scr, heldSet, 6, T.split);
     const planCard = h('section', { class: 'card', 'aria-label': 'This month' }, h('h2', { text: 'This month’s plan' }));
+    const planLines = [];
+    const costTxt = (market, amt, px) => {
+      if (pf.broker === 'other') return 'Check your broker’s commission for this market.';
+      const c = tradeCost(market, amt, plan, px);
+      if (!c || !isNum(c.pct)) return '';
+      let m = batchAdvice(market, amt, plan, px);
+      if (isNum(px) && px > amt * m && market !== 'US') m = Math.ceil(px / amt);
+      let t = `Commission about ${money0(c.usd)} (${pct(c.pct, 2)}).`;
+      if (m > 1) { const c2 = tradeCost(market, amt * m, plan, px); t += ` Cheaper: set it aside and buy once every ${m} months (about ${pct(c2.pct, 2)} per buy).`; }
+      return t;
+    };
     if (monthlyUsd > 0) {
       const after = total + monthlyUsd;
       const deficit = {};
@@ -2505,10 +2771,20 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       const alloc = {};
       for (const k of ['core', 'stocks', 'safe']) alloc[k] = sumDef > 0 ? (monthlyUsd * deficit[k]) / sumDef : monthlyUsd * (T[k] / (T.core + T.stocks + T.safe || 1));
       let movedSmall = false;
-      if (alloc.stocks > 0 && alloc.stocks < 100) { alloc.core += alloc.stocks; alloc.stocks = 0; movedSmall = true; }
-      const lines = [];
-      if (alloc.core > 1) lines.push([`${a.coreName || 'ISWD'} (index fund)`, alloc.core, 'Buy it every month, whatever the market is doing.']);
-      if (alloc.safe > 1) lines.push(['Sukuk fund or cash', alloc.safe, 'For example a sukuk ETF, or a savings account that pays profit instead of interest.']);
+      if (!focusOnly && alloc.stocks > 0 && alloc.stocks < 100) { alloc.core += alloc.stocks; alloc.stocks = 0; movedSmall = true; }
+      if (alloc.core > 1) {
+        const L = fundLive(EQ);
+        const px = L && L.usd;
+        planLines.push([`${EQ.t} (halal world fund)`, alloc.core, `${isNum(px) ? `${px > alloc.core ? `One unit is ${price(px)}, more than this amount: save up for it.` : `About ${Math.floor(alloc.core / px)} units at ${price(px)}.`} ` : ''}${costTxt(marketOfFund(EQ), alloc.core, px)}`]);
+      }
+      if (alloc.safe > 1) {
+        if (focusOnly) planLines.push(['Cash (safe part)', alloc.safe, 'A halal savings account that pays profit instead of interest.']);
+        else {
+          const L = fundLive(SK);
+          const px = L && L.usd;
+          planLines.push([`${SK.t} (sukuk fund) or cash`, alloc.safe, `${isNum(px) ? `About ${Math.floor(alloc.safe / px) || 'less than 1'} units at ${price(px)}. ` : ''}${costTxt(marketOfFund(SK), alloc.safe, px)} Or keep it in a halal savings account.`]);
+        }
+      }
       if (alloc.stocks > 1) {
         // which holding period is furthest behind, then start a new stock there or top up the smallest one
         const stockTarget = T.stocks * after;
@@ -2528,56 +2804,123 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         else if (pool.length) target = { t: pool[0].ticker, why: `Your ${HP[hpPick].label.toLowerCase()} stocks are near their share; this is the best new idea.` };
         if (target) {
           const p = priceOf(target.t);
-          lines.push([target.t, alloc.stocks, `${target.why}${isNum(p) ? ` About ${fmtShares(alloc.stocks / p)} shares at ${price(p)}.` : ''}`]);
-        } else lines.push(['Stocks', alloc.stocks, 'No stock fits right now: add it to the index fund instead.']);
+          planLines.push([target.t, alloc.stocks, `${target.why}${isNum(p) ? ` About ${fmtShares(alloc.stocks / p)} shares at ${price(p)}.` : ''} ${costTxt('US', alloc.stocks, p)}`]);
+        } else planLines.push(['Stocks', alloc.stocks, focusOnly ? 'No stock fits right now: keep it in cash until one does.' : 'No stock fits right now: add it to the index fund instead.']);
       }
       planCard.append(h('p', { class: 'sub', text: `AED ${pf.monthlyAed.toLocaleString('en-US')} is about ${money0(monthlyUsd)}. It goes where your portfolio is furthest below its target mix, so you rarely have to sell anything.` }),
-        h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+        h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
           h('tr', null, ['Buy', 'Amount'].map((x) => h('th', { text: x }))),
-          lines.map(([what, amt, note]) => h('tr', null, h('td', null, h('b', { text: what }), h('span', { class: 'sm', text: note })), h('td', { text: money0(amt) }))))));
+          planLines.map(([what, amt, note]) => h('tr', null, h('td', null, h('b', { text: what }), h('span', { class: 'sm', text: note })), h('td', { text: money0(amt) }))))));
       if (movedSmall) planCard.append(h('p', { class: 'note', text: 'This month’s share for stocks is under $100, too small to be worth a separate buy, so it goes to the index fund. The plan starts a stock once the stock part falls further behind.' }));
       if (T.swing > 0) {
         const swTarget = T.swing * after;
-        planCard.append(h('p', { class: 'note', text: swVal > swTarget * 1.2 ? `Swing trades are ${money0(swVal)}, above your ${pct(T.swing, 0)} limit (${money0(swTarget)}): no new swing trades until some close.` : `Swing trades: keep them to about ${money0(swTarget)} in total (${pct(T.swing, 0)}), and size each so its stop loses at most 1% of the whole portfolio (${money0(after * 0.01)}).` }));
+        planCard.append(h('p', { class: 'note', text: swVal > swTarget * 1.2 ? `Swing trades are ${money0(swVal)}, above your ${pct(T.swing, 0)} limit (${money0(swTarget)}): no new swing trades until some close.` : `Swing trades: keep them to about ${money0(swTarget)} in total (${pct(T.swing, 0)}), only in US stocks, and size each so its stop loses at most 1% of the whole portfolio (${money0(after * 0.01)}).` }));
       }
+      planCard.append(h('p', { class: 'note', text: `Fund prices ${fundAsOf()}. Stock prices ${scr.live ? `live (${scr.live.time || scr.live.session})` : `from the ${shortDate(scr.priceDate)} close`}. Check the price in your broker app before you buy.` }));
     } else planCard.append(h('p', { class: 'sub', text: 'Add a monthly amount in “About you” to get a buying plan.' }));
     parts.push(planCard);
 
-    // 6. checks on what you hold, by holding period
-    const checks = [];
+    // 7. ask the advisor (opens Claude with the question and a summary of this page)
+    const answerOf = (key) => { const q = PROFILE_Q.find((x) => x[0] === key); const o = q[2].find((x) => x[0] === pf[key]); return o ? o[1] : ''; };
+    const ctxLines = [];
+    ctxLines.push(`Data as of ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC. Stock prices ${scr.live ? 'live, ' + (scr.live.time || scr.live.session) : 'from the ' + scr.priceDate + ' close'}. Fund prices ${fundAsOf()}.`);
+    ctxLines.push(`Me: need the money ${answerOf('horizon').toLowerCase()}; after a 30% fall I would ${answerOf('drop').toLowerCase()}; ${answerOf('time').toLowerCase()} a week; ${answerOf('focus').toLowerCase()}; holding: ${answerOf('hold').toLowerCase()}; swing trading: ${pf.swing}; broker: ${answerOf('broker')}; invest AED ${pf.monthlyAed || 0} a month.`);
+    ctxLines.push(`Target mix: ${['core', 'stocks', 'swing', 'safe'].filter((k) => T[k] > 0).map((k) => `${MIX_LABEL[k]} ${pct(T[k], 0)}`).join(', ')}. Stocks by holding period: ${splitTxt}.`);
+    if (total > 0) ctxLines.push(`Now: total ${money0(total)}; fund ${pct(coreVal / total, 0)}, stocks ${pct(ltVal / total, 0)}, swing ${pct(swVal / total, 0)}, safe ${pct(safeVal / total, 0)}.`);
     for (const x of lt) {
       const r = scr.by.get(x.t);
-      const v = val(x);
-      if (!r) { checks.push(['warn', `${x.t}: not in today’s data. Check it yourself.`]); continue; }
-      if (r.shariah === 'fail') checks.push(['bad', `${x.t} fails the Shariah screen now. Confirm on Zoya or Musaffa; if it still fails, sell it and purify any gain as your scholar advises.`]);
-      else if (r.shariah === 'review') checks.push(['warn', `${x.t}: halal status needs checking (close to a limit).`]);
-      if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) checks.push(['bad', `${x.t} is now rated “${VERDICT_SHORT[r.verdict]}”: the business has weakened. Re-read its analysis before adding more.`]);
-      if (x.hp === 'short') {
-        if (['down', 'weakening'].includes(r.trend)) checks.push(['bad', `${x.t} (short term): the uptrend has broken. Your short-term rule says sell.`]);
-        const days = x.since ? daysApart(x.since, localISO()) : null;
-        if (days != null && days > 365) checks.push(['warn', `${x.t} (short term): held over 12 months. Review it: sell, or move it to medium or long term only if it meets those rules.`]);
-      } else if (x.hp === 'mid') {
-        if (isNum(r.fair) && r.price >= r.fair) checks.push(['good', `${x.t} (medium term) has reached its fair value (${price0(r.fair)}). Your medium-term rule says take the profit, unless you move it to long term because the business is excellent.`]);
-        else if (isNum(r.trimAbove) && r.price >= r.trimAbove) checks.push(['warn', `${x.t} is above its trim price (${price(r.trimAbove)}): consider selling part.`]);
-      } else if (isNum(r.trimAbove) && r.price >= r.trimAbove) checks.push(['warn', `${x.t} is above its trim price (${price(r.trimAbove)}): stop adding, and consider selling part.`]);
-      if (total > 0 && v / total > 0.15) checks.push(['warn', `${x.t} is ${pct(v / total, 0)} of everything you own. Above 15% in one company, one bad report can hurt the whole portfolio.`]);
+      const ad = advRows.find((y) => y.name === x.t);
+      ctxLines.push(`- ${x.t}: ${fmtShares(x.shares)} shares, value ${money0(val(x))}${isNum(x.cost) ? `, cost ${price(x.cost)}` : ''}, ${HP[x.hp].label.toLowerCase()}${r ? `, price ${price(r.price)}, verdict ${VERDICT_SHORT[r.verdict] || r.verdict}, halal ${r.shariah}${isNum(r.fair) ? `, fair ${price0(r.fair)}` : ''}${isNum(r.buyBelow) ? `, buy below ${price0(r.buyBelow)}` : ''}${isNum(r.trimAbove) ? `, trim above ${price0(r.trimAbove)}` : ''}, trend ${r.trend || 'n/a'}, sector ${r.sector || 'n/a'}` : ''}. Site says: ${ad ? ad.act : 'n/a'}.`);
     }
-    const bySector = new Map();
-    for (const x of lt) { const r = scr.by.get(x.t); const k = (r && r.sector) || 'Other'; bySector.set(k, (bySector.get(k) || 0) + val(x)); }
-    for (const [k, v] of bySector) if (ltVal > 0 && lt.length >= 3 && v / ltVal > 0.4) checks.push(['warn', `${pct(v / ltVal, 0)} of your stocks are in ${k}. Spread new buys to other sectors.`]);
-    if (lt.length > T.maxStocks) checks.push(['warn', `You hold ${lt.length} stocks, more than the ${T.maxStocks} you have time to follow. Let the weakest go rather than adding more.`]);
-    if (total > 0) {
-      const cur = { core: coreVal / total, stocks: ltVal / total, safe: safeVal / total };
-      for (const k of ['core', 'stocks', 'safe']) if (Math.abs(cur[k] - T[k]) > 0.1 && total > monthlyUsd * 12) checks.push(['warn', `${MIX_LABEL[k]} is ${pct(Math.abs(cur[k] - T[k]), 0)} ${cur[k] > T[k] ? 'over' : 'under'} target. New money alone will be slow to fix this: once a year, sell some of what is over and buy what is under.`]);
-    }
-    const chkCard = h('section', { class: 'card', 'aria-label': 'Checks' }, h('h2', { text: 'Checks on what you hold' }));
-    chkCard.append(checks.length ? h('ul', { class: 'alert-list' }, checks.map(([tone, t]) => h('li', null, icon(tone === 'bad' ? 'bad' : tone === 'good' ? 'good' : 'ok'), h('span', { text: t }))))
-      : h('p', { class: 'sub', text: lt.length ? 'Nothing needs attention: every stock passes the halal screen, the businesses still look sound, and nothing breaks its holding rule.' : 'No stocks recorded yet. Mark the ones you own with “I own it” on the Watchlist.' }));
-    parts.push(chkCard);
+    for (const o of other) { const ad = advRows.find((y) => y.name === (o.kind === 'cash' ? 'Cash' : o.sym)); ctxLines.push(`- ${o.kind === 'cash' ? 'Cash' : o.sym} (${o.kind === 'equity' ? 'fund' : o.kind}${o.kind === 'stock' && MARKETS[o.market] ? ', ' + MARKETS[o.market].label : ''}): ${money0(o.value)}. Site says: ${ad ? ad.act : 'n/a'}.`); }
+    for (const x of sw) ctxLines.push(`- Swing trade ${x.t}: ${fmtShares(x.shares)} shares, ${money0(val(x))}.`);
+    if (planLines.length) ctxLines.push(`This month's plan: ${planLines.map(([wh, amt]) => `${wh} ${money0(amt)}`).join('; ')}.`);
+    if (!focusOnly) { const Le = fundLive(EQ); const Ls = fundLive(SK); ctxLines.push(`Site's fund picks: ${EQ.t} (${EQ.name}, fee ${pct(EQ.ter, 2)}${Le && isNum(Le.usd) ? `, ${price(Le.usd)}` : ''}); sukuk ${SK.t} (fee ${pct(SK.ter, 2)}${Ls && isNum(Ls.usd) ? `, ${price(Ls.usd)}` : ''}).`); }
+    const ideaTxt = HP_ORDER.filter((k) => (ideas[k] || []).length).map((k) => `${HP[k].label.toLowerCase()}: ${ideas[k].slice(0, 5).map((r) => r.ticker).join(', ')}`).join('; ');
+    if (ideaTxt) ctxLines.push(`Stock ideas from the site: ${ideaTxt}.`);
+    if (checks.length) ctxLines.push(`Warnings: ${checks.map(([, t]) => t).join(' ')}`);
+    const ctx = ctxLines.join('\n');
+    const promptFor = (q, full) => {
+      const head0 = 'You are my halal portfolio advisor. I live in the UAE (not a US person, no US tax treaty) and invest through Interactive Brokers. I only hold Shariah-compliant investments. My goal is the best long-term return for the risk I can take. Below is my portfolio from my stock checker. Before answering, check today\'s prices and recent news for anything you mention, and tell me if any number below looks out of date. Be direct: give a clear recommendation, explain why, and point out risks or blind spots I may be missing. Do not just agree with me.';
+      const body = `${head0}\n\nMy question: ${q || 'Review my portfolio and tell me the three most important things to do now.'}\n\nMy data:\n`;
+      if (full || encodeURIComponent(body + ctx).length <= 4500) return body + ctx;
+      const lines = ctx.split('\n');
+      while (lines.length > 3 && encodeURIComponent(body + lines.join('\n')).length > 4300) lines.pop();
+      return body + lines.join('\n') + '\n[Cut short to fit the link. Ask me for the rest if you need it.]';
+    };
+    const askCard = h('section', { class: 'card', id: 'ask-advisor', 'aria-label': 'Ask the advisor' }, h('h2', { text: 'Ask the advisor' }),
+      h('p', { class: 'sub', text: 'Ask anything about your portfolio. It opens a new Claude chat with your question and a summary of this page (your answers, holdings, plan and the site’s advice), and Claude checks live prices and news before it answers. You can keep chatting there.' }));
+    const qBox = h('textarea', { class: 'askbox', rows: '3', 'aria-label': 'Your question', placeholder: 'e.g. Should I sell anything before results season?' });
+    const askLink = h('a', { class: 'btn btn-accent', target: '_blank', rel: 'noopener', style: 'display:inline-flex;align-items:center;text-decoration:none' }, 'Ask Claude');
+    const setHref = () => { askLink.href = 'https://claude.ai/new?q=' + encodeURIComponent(promptFor(qBox.value.trim())); };
+    qBox.addEventListener('input', setHref);
+    setHref();
+    const SUGGEST = ['Which of my holdings would you sell or trim, and why?', 'Where should this month’s money go?', `Is ${EQ.t} the right core fund for me, or ${rankFunds('equity')[1].t}?`, 'Is my portfolio too risky for my horizon?', 'Which stock idea on the list fits me best?', 'Should I add a sukuk fund, and how much?'];
+    const chips = h('div', { class: 'chips' }, SUGGEST.map((s) => h('button', { class: 'chip', type: 'button', onclick: () => { qBox.value = s; setHref(); qBox.focus(); } }, s)));
+    const copied = h('span', { class: 'copied', hidden: true, text: 'Copied' });
+    const fullBox = h('textarea', { class: 'promptbox', readonly: true, hidden: true, rows: '6', 'aria-label': 'Full question with your data' });
+    askCard.append(qBox, chips,
+      h('div', { class: 'ai' }, askLink,
+        h('button', { class: 'btn btn-outline', type: 'button', onclick: async () => {
+          const t = promptFor(qBox.value.trim(), true);
+          try { await navigator.clipboard.writeText(t); copied.hidden = false; setTimeout(() => (copied.hidden = true), 2000); }
+          catch { fullBox.value = t; fullBox.hidden = false; fullBox.focus(); fullBox.select(); }
+        } }, 'Copy with full details'), copied),
+      fullBox,
+      h('p', { class: 'note', text: 'Privacy: nothing leaves this device until you tap. Then the summary goes to Claude in your own account: amounts and tickers, never your name or account numbers. If the link cuts the summary short (large portfolios), use “Copy with full details” and paste it into the chat. Claude can be wrong too: check before you trade.' }));
+    parts.push(askCard);
 
-    // 7. ideas by holding period
+    // 8. best halal funds and sukuk
+    const fundCard = h('section', { class: 'card', 'aria-label': 'Best halal funds for you' }, h('h2', { text: focusOnly ? 'Halal funds, if you change your mind' : 'Best halal funds for you' }));
+    const fundRow = (f, tag, tone) => {
+      const L = fundLive(f);
+      const ret = L ? [isNum(L.r1) ? `1 year ${pctS(L.r1, 1)}` : null, isNum(L.r3) ? `3 years ${pctS(L.r3, 1)} a year` : null, isNum(L.r5) ? `5 years ${pctS(L.r5, 1)} a year` : null].filter(Boolean).join(' · ') : '';
+      return h('div', { class: 'hp-row' },
+        h('div', { class: 'hp-h' }, h('b', { text: f.t }), tag ? tagEl(tag, tone || 'good') : null, h('span', { class: 'fund-px', text: L && isNum(L.usd) ? `${price(L.usd)}${isNum(L.chg) ? ' ' + pctS(L.chg, 1) : ''}` : 'price n/a' })),
+        h('p', { text: f.name }),
+        h('p', { class: 'note', text: [`Fee ${pct(f.ter, 2)} a year${f.terNote ? ` (${f.terNote})` : ''}`, f.dom === 'IE' ? 'Ireland-domiciled' : 'US-domiciled', f.pol, f.holdings ? `${f.holdings.toLocaleString('en-US')} holdings` : null, f.size || null, `buy on ${f.ex} in ${f.cur}`].filter(Boolean).join(' · ') }),
+        ret ? h('p', { class: 'note', text: `Past returns (price data in ${L.cur === 'GBp' ? 'GBP' : L.cur}): ${ret}` }) : null,
+        h('p', { class: 'note', text: f.note }));
+    };
+    const eqs = rankFunds('equity');
+    const sks = rankFunds('sukuk');
+    if (focusOnly) {
+      fundCard.append(h('p', { class: 'sub', text: `You chose stocks only, so funds are left out of your plan. If you ever want a base under your stocks, the best halal world fund for a UAE resident is ${EQ.t}, and for a safe part, ${SK.t}.` }), fundRow(EQ, 'Best for you'), fundRow(SK, 'Best sukuk'));
+    } else {
+      fundCard.append(h('p', { class: 'sub', text: 'Ranked for a UAE resident: Irish-domiciled funds come first (dividends taxed 15% inside the fund instead of 30%, and no US estate tax), then the yearly fee, then how widely it spreads your money and its size. Past returns are shown but not used to rank: funds following similar halal indexes end up close, and fees and tax are what you can control.' }),
+        h('h3', { text: 'Core: halal world shares' }), fundRow(eqs[0], 'Best for you'), fundRow(eqs[1], 'Good alternative', 'accent'), fundRow(eqs[2], 'Good alternative', 'accent'),
+        h('h3', { text: 'Safe part: sukuk' }), fundRow(sks[0], 'Best for you'), fundRow(sks[1], 'Alternative', 'accent'),
+        h('p', { class: 'note', text: 'Sukuk funds hold Islamic bonds. They move much less than shares but are not risk-free: prices fall when profit rates rise, and most issuers are in the Gulf.' }));
+    }
+    const avoid = FUNDS.filter((f) => f.dom === 'US');
+    fundCard.append(h('h3', { text: 'Avoid for a UAE resident' }), h('ul', { class: 'clean' },
+      h('li', null, icon('bad'), h('span', { text: `${avoid.map((f) => f.t).join(', ')}: US-domiciled. 30% of dividends go to US tax, and US estate tax can apply above $60,000. The Irish funds above hold similar companies without these costs.` })),
+      h('li', null, icon('bad'), h('span', { text: 'ISWD, HIWS and ISUS: the pound lines of the funds above. Same fund, but every buy needs a currency conversion. Use ISDW, HIWO and ISDU instead.' }))));
+    fundCard.append(h('p', { class: 'note', text: `Live prices and returns ${fundAsOf()}, converted to US dollars where the line trades in pounds or euros. Fees, sizes and yields from the fund providers, checked ${shortDate(FUND_FACTS_DATE)}. Confirm halal status with the fund’s Shariah board report before buying.` }));
+    parts.push(fundCard);
+
+    // 9. what buying costs, by market
+    const costCard = h('section', { class: 'card', 'aria-label': 'What buying costs you' }, h('h2', { text: 'What buying costs you, by market' }));
+    if (pf.broker === 'other') costCard.append(h('p', { class: 'sub', text: 'The figures below are Interactive Brokers prices (Fixed plan) for comparison. Check your own broker’s price list: some charge nothing on US shares but a lot on other markets or currency conversion.' }));
+    else costCard.append(h('p', { class: 'sub', text: `Commission for one buy on your plan (IBKR ${plan === 'tiered' ? 'Tiered' : 'Fixed'}), including currency conversion where needed. Shown as a share of the amount you buy. Under 0.25% is cheap; over 0.5% eats into your return.` }));
+    const mkts = ['US', 'LSE_USD', 'AMS_USD', 'LSE_GBP', 'EU_EUR'];
+    const cell = (m, amt) => { const c = tradeCost(m, amt, plan, 60); const tone = c.pct <= 0.0025 ? 'good' : c.pct <= 0.005 ? 'warn' : 'bad'; const t = tagEl(pct(c.pct, 2), tone); t.title = money0(c.usd); return h('td', null, t); };
+    costCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+      h('tr', null, ['Market', '$300', '$1,000', '$3,000'].map((x) => h('th', { text: x }))),
+      mkts.map((m) => h('tr', null, h('td', { text: MARKETS[m].short }), cell(m, 300), cell(m, 1000), cell(m, 3000))))));
+    const rt = tradeCost('LSE_USD', 300, plan, 60);
+    costCard.append(h('ul', { class: 'clean' },
+      h('li', null, icon('good'), h('span', { text: 'US shares are the cheapest to buy at IBKR: even small buys cost very little.' })),
+      h('li', null, icon('ok'), h('span', { text: `London and Amsterdam in US dollars: fine for funds if each buy is large enough. Batch small monthly amounts into one buy every 2 or 3 months (the plan above tells you when).` })),
+      h('li', null, icon('bad'), h('span', { text: 'Avoid buying in pounds or euros unless you already hold that currency: each conversion adds about $2. UK company shares (not ETFs) also pay 0.5% stamp duty on every buy.' })),
+      h('li', null, icon('bad'), h('span', { text: `Do not swing trade outside the US: a $300 trade in London costs about ${money0(rt.usd * 2)} to buy and sell, ${pct((rt.usd * 2) / 300, 1)} of the position, which is more than the whole average edge of the backtested signals.` })),
+      h('li', null, icon('ok'), h('span', { text: 'Dividends: US shares lose 30% of each dividend to US tax (the UAE has no tax treaty with the US). Other countries also take tax on dividends at their own rates: check before buying a foreign dividend stock.' }))));
+    costCard.append(h('p', { class: 'note', text: `IBKR commission rates as published, checked ${shortDate(FUND_FACTS_DATE)}. Tiered adds small exchange fees; the gap between buy and sell prices (the spread) is extra, so use limit orders.` }));
+    parts.push(costCard);
+
+    // 10. ideas by holding period
     const ideaCard = h('section', { class: 'card', 'aria-label': 'Stocks that fit you' }, h('h2', { text: 'Stocks that fit you' }),
-      h('p', { class: 'sub', text: 'Halal companies only, at most two per sector, none you already own. Each list uses the rule of its holding period. Read each analysis before buying.' }));
+      h('p', { class: 'sub', text: 'Halal US companies only, at most two per sector, none you already own. Each list uses the rule of its holding period. Read each analysis before buying.' }));
     const FILTER_TXT = { long: 'Quality 70+, growing, sound balance sheet, not expensive.', mid: 'Good businesses 10% or more below fair value, near their buy price, not in a downtrend.', short: 'Market leaders (RS 80+) in an uptrend, quality 50+, no earnings in the next 10 trading days.' };
     for (const k of HP_ORDER) {
       if (!T.split[k]) continue;
@@ -2592,17 +2935,17 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     }
     parts.push(ideaCard);
 
-    // 8. how to build it
+    // 11. how to build it
     parts.push(h('section', { class: 'card', 'aria-label': 'How to build it' }, h('h2', { text: 'How to build the whole portfolio' }),
       h('ol', { class: 'exits' },
         h('li', { text: 'First, an emergency fund: 3 to 6 months of expenses in cash, outside this portfolio, so you never have to sell in a bad month.' }),
-        h('li', { text: 'Every month on the same day, invest the plan above. The habit matters more than any single pick.' }),
-        h('li', { text: `Add stocks one at a time, only after reading the analysis, toward ${T.minStocks === T.maxStocks ? T.minStocks : `${T.minStocks} to ${T.maxStocks}`} companies. Keep each to about 5 to 8% of everything (up to 10% for your best long-term holdings).` }),
+        h('li', { text: focusOnly ? 'Every month on the same day, invest the plan above. The habit matters more than any single pick.' : `Every month, invest the plan above. Buy ${EQ.t} in US dollars on the London Stock Exchange with a limit order, batching small amounts as the plan says.` }),
+        h('li', { text: `Add stocks one at a time, only after reading the analysis, toward ${nRange} companies. Keep each to about 5 to 8% of everything (up to 10% for your best long-term holdings).` }),
         h('li', { text: 'When you buy, choose its holding period here and note your exit rule in the Journal. Then follow that rule, not your mood.' }),
         h('li', { text: 'Long-term holdings: never sell just because the price fell. Medium term: sell at fair value. Short term: sell when the trend breaks.' }),
         h('li', { text: 'Once a year, rebalance: if a part is more than 10 points away from its target, sell some of what is over and buy what is under.' }),
         h('li', { text: 'Purify dividends with the calculator on each stock page, and confirm halal status on Zoya or Musaffa before buying.' })),
-      h('p', { class: 'note', text: 'This is a rules-based guide built from public data, not personal financial advice. Check fees and taxes with your broker.' })));
+      h('p', { class: 'note', text: 'This is a rules-based guide built from public data, not personal financial advice. No tool can promise a profit: it can only keep your costs low, your risk matched to you, and your decisions consistent.' })));
     el.replaceChildren(...parts);
   }
 

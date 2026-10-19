@@ -88,6 +88,50 @@ else {
   }
 }
 if (!session) throw new Error('could not tell which session the prices belong to');
-const out = { v: 1, asOf: new Date().toISOString(), session, time, status, n: Object.keys(q).length, q };
+// halal funds and sukuk listed outside the US (and a few US-listed ones), plus currency rates, from Yahoo's
+// public chart data: latest price, day change and 1/3/5-year returns from monthly adjusted closes
+const FUNDS = ['ISDW.L', 'ISWD.L', 'HIWO.L', 'IGDA.L', 'ISDU.L', 'ISUS.L', 'ISDE.L', 'HIEM.L', 'SKUK.AS', 'HBKU.L', 'SPUS', 'HLAL', 'UMMA', 'SPSK', 'GBPUSD=X', 'EURUSD=X'];
+const etf = {};
+// keep the last good value of any fund Yahoo refuses this time (its timestamp shows how old it is)
+let prevEtf = {};
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+async function yahoo(path) {
+  let last;
+  for (const host of ['query1', 'query2', 'query1']) {
+    try {
+      const r = await fetch(`https://${host}.finance.yahoo.com${path}`, { headers: { 'User-Agent': BROWSER_UA, Accept: 'application/json' }, signal: AbortSignal.timeout(30000) });
+      if (r.ok) return await r.json();
+      last = new Error('HTTP ' + r.status);
+    } catch (e) { last = e; }
+    await new Promise((res) => setTimeout(res, 2500));
+  }
+  throw last;
+}
+try { prevEtf = (await getJson('https://raw.githubusercontent.com/ayman-sketch97/stock-checker/quotes/quotes.json', 1)).etf || {}; } catch {}
+for (const sym of FUNDS) {
+  try {
+    // one daily series gives the latest price, the day change and the 1/3/5-year returns
+    const j = await yahoo(`/v8/finance/chart/${encodeURIComponent(sym)}?range=5y&interval=1d`);
+    const r = j?.chart?.result?.[0];
+    const m = r?.meta || {};
+    const ts = r?.timestamp || [];
+    const raw = r?.indicators?.adjclose?.[0]?.adjclose || r?.indicators?.quote?.[0]?.close || [];
+    const pts = ts.map((t, i) => [t, raw[i]]).filter(([, v]) => v > 0);
+    const p = m.regularMarketPrice;
+    if (!(p > 0) || pts.length < 2) throw new Error('no price');
+    const last = pts[pts.length - 1];
+    const back = (years) => { const cut = last[0] - years * 365.25 * 86400; const k = pts.findIndex(([t]) => t >= cut); return k > 0 || (k === 0 && pts[0][0] <= cut + 10 * 86400) ? pts[k][1] : null; };
+    const ret = (years) => { const b0 = back(years); return b0 ? Math.round((Math.pow(last[1] / b0, 1 / years) - 1) * 10000) / 10000 : null; };
+    const closes = r?.indicators?.quote?.[0]?.close || [];
+    const cl = ts.map((t, i) => closes[i]).filter((v) => v > 0);
+    const prevClose = cl.length >= 2 ? cl[cl.length - 2] : m.chartPreviousClose;
+    etf[sym] = { p, cur: m.currency || '', chg: prevClose > 0 ? Math.round((p / prevClose - 1) * 10000) / 10000 : null, r1: ret(1), r3: ret(3), r5: ret(5), t: m.regularMarketTime || null };
+  } catch (e) {
+    console.log('fund price unavailable:', sym, e.message);
+    if (prevEtf[sym]) etf[sym] = prevEtf[sym];
+  }
+  await new Promise((res) => setTimeout(res, 1200));
+}
+const out = { v: 1, asOf: new Date().toISOString(), session, time, status, n: Object.keys(q).length, q, etf };
 fs.writeFileSync('quotes.json', JSON.stringify(out));
-console.log(`quotes: ${out.n} stocks, session ${session}, ${status}, ${time}`);
+console.log(`quotes: ${out.n} stocks, ${Object.keys(etf).length} funds and rates, session ${session}, ${status}, ${time}`);

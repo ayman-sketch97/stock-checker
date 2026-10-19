@@ -7,6 +7,7 @@ on:
   schedule:
     - cron: '*/15 13-20 * * 1-5' # 13:00-20:45 UTC covers 9:30am-4pm New York in summer and winter time
     - cron: '20 21 * * 1-5' # after the close
+    - cron: '5,35 7-12 * * 1-5' # London hours before New York opens, so fund and sukuk prices stay current
   workflow_dispatch:
 
 permissions:
@@ -19,7 +20,7 @@ concurrency:
 jobs:
   quotes:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
