@@ -202,6 +202,13 @@ header.top {
 .eq-zero { stroke: var(--axis); stroke-width: 1; stroke-dasharray: 4 4; }
 .eq-line { fill: none; stroke: var(--good); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .eq-line.neg { stroke: var(--bad); }
+.mixbar { display: flex; height: 18px; border-radius: 9px; overflow: hidden; gap: 2px; margin-top: 12px; background: var(--surface); }
+.mixbar span { display: block; height: 100%; min-width: 3px; }
+.mx-core { background: var(--series-1); } .mx-stocks { background: var(--series-2); } .mx-swing { background: var(--warn); } .mx-safe { background: var(--axis); }
+.mixkey { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; font-size: 14px; }
+.mixkey li { display: flex; align-items: center; gap: 8px; }
+.mixkey li b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.mixkey .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; display: inline-block; }
 
 /* verdict */
 .verdict { border-width: 1px; padding: 20px 18px; }
@@ -559,6 +566,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       <button type="button" data-page="watchlist" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Watchlist</span><i class="dot" hidden></i></button>
       <button type="button" data-page="record" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3.5-4 3 2.5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Record</span></button>
       <button type="button" data-page="journal" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h10.5a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6zM6 3.5v17M9.5 8h5M9.5 12h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Journal</span></button>
+      <button type="button" data-page="advisor" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5H12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 3.9A8.5 8.5 0 0 1 20.1 9H15z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Portfolio</span></button>
     </nav>
     <button class="ghost" id="howBtn">How it works</button>
   </header>
@@ -582,6 +590,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   <section id="page-watchlist" aria-label="Watchlist" hidden></section>
   <section id="page-record" aria-label="Track record" hidden></section>
   <section id="page-journal" aria-label="Trading journal" hidden></section>
+  <section id="page-advisor" aria-label="Portfolio advisor" hidden></section>
 
   <section id="how" class="card how" hidden>
     <h2>How Stock Checker works</h2>
@@ -2229,6 +2238,280 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     if (t.updateNow) t.updateNow();
   }
 
+
+  // ------------------------------------------------------------------ portfolio advisor (this device only)
+  const AED_PER_USD = 3.6725; // the dirham is pegged to the dollar
+  const ADV = {
+    load() {
+      const a = store.get('advisor', null);
+      return a && a.v === 1 ? a : { v: 1, profile: null, coreName: 'ISWD', core: null, safe: null };
+    },
+    save(a) { store.set('advisor', a); },
+  };
+  const PROFILE_Q = [
+    ['horizon', 'When will you need this money?', [['short', 'Within 3 years'], ['mid', 'In 3 to 10 years'], ['long', 'In 10 years or more']]],
+    ['drop', 'If your portfolio fell 30% in a year, you would…', [['sell', 'Sell to stop the losses'], ['hold', 'Hold and wait'], ['buy', 'Buy more at lower prices']]],
+    ['time', 'How much time can you give to following stocks each week?', [['low', 'Under 1 hour'], ['mid', '1 to 3 hours'], ['high', 'More than 3 hours']]],
+    ['swing', 'Do you want to swing trade as well?', [['no', 'No, long term only'], ['yes', 'Yes, a small part']]],
+  ];
+  // target mix from the answers: a halal index fund as the core, a few stocks around it, a small swing part
+  function targetMix(pf) {
+    let safe = 0;
+    let stocks = pf.time === 'low' ? 0.1 : pf.time === 'mid' ? 0.2 : 0.3;
+    let swing = pf.swing === 'yes' ? 0.1 : 0;
+    const why = [];
+    if (pf.horizon === 'short') { safe = 0.5; stocks = Math.min(stocks, 0.1); swing = Math.min(swing, 0.05); why.push('Money needed within 3 years should mostly not be in shares: a 30% fall could come right when you need it. Half goes to the safe part (sukuk or cash).'); }
+    else if (pf.horizon === 'mid') { safe = 0.15; why.push('With 3 to 10 years, a smaller safe part (sukuk or cash) softens bad years.'); }
+    else why.push('With 10 years or more, almost everything can be in shares: there is time to recover from bad years.');
+    if (pf.drop === 'sell') { safe = Math.max(safe, 0.25); stocks = Math.min(stocks, 0.1); swing = Math.min(swing, 0.05); why.push('You said you would sell after a big fall. Selling at the bottom is the most expensive mistake in investing, so the mix is gentler to make holding on easier.'); }
+    if (pf.drop === 'buy' && pf.horizon === 'long') why.push('Buying more after falls is exactly what works with a long horizon.');
+    why.push(pf.time === 'low' ? 'With under an hour a week, individual stocks get only a small share: each one needs its results checked every quarter.' : pf.time === 'mid' ? 'With 1 to 3 hours a week you can follow 5 to 8 stocks properly.' : 'With more time you can follow up to 10 to 12 stocks; more than that adds work, not safety.');
+    if (swing) why.push('Swing trading is capped at 10%: the backtest edge is small, and it should never put the core at risk.');
+    const core = Math.max(0, 1 - safe - stocks - swing);
+    return { core, safe, stocks, swing, why, maxStocks: pf.time === 'low' ? 4 : pf.time === 'mid' ? 8 : 12 };
+  }
+  // stock ideas: halal, strong businesses that are growing, at sensible prices, spread across sectors
+  function adviceScore(r) {
+    let s = (r.quality ?? 0) * 0.4 + (r.growth ?? 0) * 0.35 + (r.health ?? 0) * 0.1;
+    if (isNum(r.buyBelow) && r.buyBelow > 0) s += r.price <= r.buyBelow ? 15 : r.price <= r.buyBelow * 1.1 ? 8 : 0;
+    if (isNum(r.trimAbove) && r.price >= r.trimAbove) s -= 25;
+    if (r.verdict === 'BUY_STRONG') s += 6;
+    return s;
+  }
+  function stockIdeas(scr, heldSet, n) {
+    const pool = scr.list.filter((r) => r.shariah === 'pass' && ['BUY_STRONG', 'BUY', 'WATCH'].includes(r.verdict)
+      && (r.quality ?? 0) >= 70 && (r.growth ?? 0) >= 50 && (r.health ?? 0) >= 50 && isNum(r.price) && r.price > 0
+      && !(isNum(r.trimAbove) && r.price >= r.trimAbove) && !heldSet.has(r.ticker));
+    pool.sort((a, b) => adviceScore(b) - adviceScore(a));
+    const out = [];
+    const perSector = new Map();
+    for (const r of pool) {
+      const k = r.sector || 'Other';
+      if ((perSector.get(k) || 0) >= 2) continue;
+      perSector.set(k, (perSector.get(k) || 0) + 1);
+      out.push(r);
+      if (out.length >= n) break;
+    }
+    return out;
+  }
+  function ideaReason(r) {
+    const bits = [`quality ${r.quality}`, `growth ${r.growth}`];
+    if (isNum(r.revGrowth)) bits.push(`sales ${pctS(r.revGrowth, 0)} a year`);
+    if (isNum(r.buyBelow) && r.buyBelow > 0) bits.push(r.price <= r.buyBelow ? `below its buy price (${price0(r.buyBelow)})` : `buy below ${price0(r.buyBelow)} (${pct(r.price / r.buyBelow - 1, 0)} above)`);
+    return bits.join(' · ');
+  }
+  function mixBar(parts) {
+    const bar = h('div', { class: 'mixbar', role: 'img', 'aria-label': parts.map((p) => `${p.label} ${pct(p.w, 0)}`).join(', ') });
+    for (const p of parts) if (p.w > 0) bar.append(h('span', { class: 'mx-' + p.key, style: `width:${(p.w * 100).toFixed(2)}%`, title: `${p.label} ${pct(p.w, 0)}` }));
+    return bar;
+  }
+  const MIX_LABEL = { core: 'Halal index fund (core)', stocks: 'Your stocks', swing: 'Swing trades', safe: 'Safe part (sukuk or cash)' };
+  async function renderAdvisor() {
+    const el = $('#page-advisor');
+    const head = pageHead('Portfolio', 'A plan for your whole portfolio: what mix suits you, which stocks fit, and where each month’s money should go. Saved on this device only.');
+    el.replaceChildren(head, loadingBox('Loading today’s data…'));
+    const scr = await loadScreen();
+    if (page !== 'advisor') return;
+    if (!scr) { el.replaceChildren(head, errCard('Could not load today’s data. Check your connection and try again.')); return; }
+    const a = ADV.load();
+    const rerender = () => renderAdvisor();
+    const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n >= 0 ? n : null; };
+    const parts = [head];
+
+    // 1. profile
+    const profCard = h('section', { class: 'card', 'aria-label': 'About you' }, h('h2', { text: 'About you' }));
+    const editProfile = !a.profile;
+    const showForm = () => {
+      const pf = a.profile || {};
+      const form = h('form', { class: 'editbox', autocomplete: 'off' });
+      const sel = {};
+      for (const [key, q, opts] of PROFILE_Q) {
+        const s = h('select', { 'aria-label': q });
+        s.append(h('option', { value: '' }, 'Choose…'));
+        opts.forEach(([v, t]) => s.append(h('option', { value: v, selected: pf[key] === v ? true : null }, t)));
+        sel[key] = s;
+        form.append(h('label', { class: 'field left' }, h('span', { text: q }), s));
+      }
+      const monthly = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'e.g. 1000' });
+      if (isNum(pf.monthlyAed)) monthly.value = String(pf.monthlyAed);
+      form.append(h('label', { class: 'field left' }, h('span', { text: 'How much can you invest each month (AED)?' }), monthly));
+      const msg = h('p', { class: 'note', 'aria-live': 'polite' });
+      form.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Save'),
+        a.profile ? h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: rerender }, 'Cancel') : null), msg);
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const np = {};
+        for (const [key] of PROFILE_Q) { if (!sel[key].value) { msg.textContent = 'Please answer every question.'; return; } np[key] = sel[key].value; }
+        np.monthlyAed = num(monthly.value) || 0;
+        const k = ADV.load(); k.profile = np; ADV.save(k);
+        rerender();
+      });
+      profCard.replaceChildren(h('h2', { text: 'About you' }), h('p', { class: 'sub', text: 'Five questions decide the mix. Answer for how you would really act, not how you would like to.' }), form);
+    };
+    if (editProfile) { showForm(); parts.push(profCard); el.replaceChildren(...parts); return; }
+    const pf = a.profile;
+    const answer = (key) => { const q = PROFILE_Q.find((x) => x[0] === key); const o = q[2].find((x) => x[0] === pf[key]); return o ? o[1] : ''; };
+    profCard.append(h('p', { class: 'sub', text: `${answer('horizon')} · after a 30% fall: ${answer('drop').toLowerCase()} · ${answer('time').toLowerCase()} a week · ${pf.swing === 'yes' ? 'some swing trading' : 'no swing trading'} · ${isNum(pf.monthlyAed) ? `AED ${pf.monthlyAed.toLocaleString('en-US')} a month` : ''}` }),
+      h('div', { class: 'row-actions' }, h('button', { class: 'linkbtn', type: 'button', onclick: showForm }, 'Change answers')));
+    parts.push(profCard);
+
+    // 2. target mix
+    const T = targetMix(pf);
+    const mixParts = ['core', 'stocks', 'swing', 'safe'].map((k) => ({ key: k, label: MIX_LABEL[k], w: T[k] }));
+    const mixCard = h('section', { class: 'card', 'aria-label': 'Your target mix' }, h('h2', { text: 'Your target mix' }), mixBar(mixParts),
+      h('ul', { class: 'mixkey' }, mixParts.filter((p) => p.w > 0).map((p) => h('li', null, h('i', { class: 'sw mx-' + p.key, 'aria-hidden': 'true' }), h('span', { text: p.label }), h('b', { text: pct(p.w, 0) })))),
+      h('ul', { class: 'clean' }, T.why.map((t) => h('li', null, h('span', { text: t })))),
+      h('p', { class: 'note', text: `Core: one halal world index fund (you hold ${a.coreName || 'ISWD'}, iShares MSCI World Islamic) spreads your money over hundreds of Shariah-screened companies. It is the part that should do most of the work. Stocks are optional extras, and the swing part is for learning and small gains, not for building wealth.` }));
+    parts.push(mixCard);
+
+    // 3. holdings now
+    const w = W.load();
+    const jr = JR.load();
+    const priceOf = (t) => { const r = scr.by.get(t); return r && isNum(r.price) ? r.price : null; };
+    const lt = [];
+    const ltSet = new Set();
+    for (const it of w.items) if (it.shares > 0 && !it.swing) { lt.push({ t: it.t, shares: it.shares, cost: it.cost, src: 'watchlist' }); ltSet.add(it.t); }
+    const sw = [];
+    for (const tr of jr.trades) {
+      if (tr.closed) continue;
+      if (tr.setup === 'longterm') { if (!ltSet.has(tr.t)) { lt.push({ t: tr.t, shares: tr.shares, cost: tr.entry, src: 'journal' }); ltSet.add(tr.t); } }
+      else sw.push({ t: tr.t, shares: tr.shares });
+    }
+    for (const it of w.items) if (it.shares > 0 && it.swing && !sw.some((x) => x.t === it.t)) sw.push({ t: it.t, shares: it.shares });
+    const val = (x) => { const p = priceOf(x.t); return isNum(p) ? p * x.shares : isNum(x.cost) ? x.cost * x.shares : 0; };
+    const ltVal = lt.reduce((s, x) => s + val(x), 0);
+    const swVal = sw.reduce((s, x) => s + val(x), 0);
+    const coreVal = isNum(a.core) ? a.core : 0;
+    const safeVal = isNum(a.safe) ? a.safe : 0;
+    const total = coreVal + ltVal + swVal + safeVal;
+    const nowCard = h('section', { class: 'card', 'aria-label': 'Your portfolio now' }, h('h2', { text: 'Your portfolio now' }));
+    const coreIn = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0' });
+    if (isNum(a.core)) coreIn.value = String(a.core);
+    const safeIn = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0' });
+    if (isNum(a.safe)) safeIn.value = String(a.safe);
+    const nameIn = h('input', { type: 'text', autocomplete: 'off', value: a.coreName || 'ISWD', autocapitalize: 'characters' });
+    const saveVals = h('form', { class: 'editbox', autocomplete: 'off' },
+      h('div', { class: 'form-grid' },
+        h('label', { class: 'field left' }, h('span', { text: 'Index fund you hold' }), nameIn),
+        h('label', { class: 'field' }, h('span', { text: 'Its value now ($)' }), coreIn),
+        h('label', { class: 'field' }, h('span', { text: 'Sukuk and cash ($)' }), safeIn)),
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Update')),
+      h('p', { class: 'note', text: 'Type the fund’s value from your broker app (this site has no price for funds listed in London). Stocks are counted from your Watchlist (“I own it”) and swing trades from your Journal, at today’s prices.' }));
+    saveVals.addEventListener('submit', (e) => { e.preventDefault(); const k = ADV.load(); k.core = num(coreIn.value); k.safe = num(safeIn.value); k.coreName = (nameIn.value || 'ISWD').trim().toUpperCase().slice(0, 12); ADV.save(k); rerender(); });
+    if (total > 0) {
+      const cur = { core: coreVal / total, stocks: ltVal / total, swing: swVal / total, safe: safeVal / total };
+      nowCard.append(h('div', { class: 'stats' }, stat('Total', money0(total), `about AED ${Math.round(total * AED_PER_USD).toLocaleString('en-US')}`), stat('Stocks held', String(lt.length), lt.length ? `+ ${sw.length} swing trade${sw.length === 1 ? '' : 's'}` : 'none yet')));
+      nowCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+        h('tr', null, ['Part', 'Now', 'Target'].map((x) => h('th', { text: x }))),
+        ['core', 'stocks', 'swing', 'safe'].filter((k) => T[k] > 0 || cur[k] > 0).map((k) => {
+          const d = cur[k] - T[k];
+          return h('tr', null, h('td', { text: MIX_LABEL[k] }),
+            h('td', null, pct(cur[k], 0), h('span', { class: 'sm ' + (Math.abs(d) > 0.05 ? (d > 0 ? 'down' : 'up') : ''), text: Math.abs(d) <= 0.05 ? 'on target' : d > 0 ? `${pct(d, 0)} over` : `${pct(-d, 0)} under` })),
+            h('td', { text: pct(T[k], 0) }));
+        }))));
+    } else nowCard.append(h('p', { class: 'sub', text: 'Starting from zero? That is fine: the monthly plan below builds the whole portfolio step by step.' }));
+    nowCard.append(saveVals);
+    parts.push(nowCard);
+
+    // 4. this month's plan: new money goes where the portfolio is furthest below target, so you rarely need to sell
+    const monthlyUsd = (pf.monthlyAed || 0) / AED_PER_USD;
+    const planCard = h('section', { class: 'card', 'aria-label': 'This month' }, h('h2', { text: 'This month’s plan' }));
+    const heldSet = new Set([...lt.map((x) => x.t), ...sw.map((x) => x.t)]);
+    const ideas = stockIdeas(scr, heldSet, 10);
+    if (monthlyUsd > 0) {
+      const after = total + monthlyUsd;
+      const deficit = {};
+      let sumDef = 0;
+      for (const k of ['core', 'stocks', 'safe']) {
+        const curV = k === 'core' ? coreVal : k === 'stocks' ? ltVal : safeVal;
+        deficit[k] = Math.max(0, T[k] * after - curV);
+        sumDef += deficit[k];
+      }
+      const alloc = {};
+      for (const k of ['core', 'stocks', 'safe']) alloc[k] = sumDef > 0 ? (monthlyUsd * deficit[k]) / sumDef : monthlyUsd * (T[k] / (T.core + T.stocks + T.safe || 1));
+      // small stock amounts are not worth splitting: below $100 this month's stock money goes to the core instead
+      let movedSmall = false;
+      if (alloc.stocks > 0 && alloc.stocks < 100) { alloc.core += alloc.stocks; alloc.stocks = 0; movedSmall = true; }
+      const lines = [];
+      if (alloc.core > 1) lines.push([`${a.coreName || 'ISWD'} (core fund)`, alloc.core, 'Buy it every month, whatever the market is doing.']);
+      if (alloc.safe > 1) lines.push(['Sukuk fund or cash', alloc.safe, 'For example a sukuk ETF, or a savings account that pays profit instead of interest.']);
+      if (alloc.stocks > 1) {
+        // fill up stocks that are below their equal share, else start the best new idea
+        const nTarget = Math.max(3, Math.min(T.maxStocks, Math.floor((T.stocks * after) / 400) || 3));
+        const each = (T.stocks * after) / Math.max(nTarget, lt.length || 1);
+        const under = lt.map((x) => ({ x, v: val(x), r: scr.by.get(x.t) }))
+          .filter((o) => o.r && o.r.shariah !== 'fail' && !['AVOID_WEAK', 'SPECULATIVE'].includes(o.r.verdict) && !(isNum(o.r.trimAbove) && o.r.price >= o.r.trimAbove) && o.v < each * 0.8)
+          .sort((p, q) => p.v - q.v);
+        let target = null;
+        if (lt.length < nTarget && ideas.length) target = { t: ideas[0].ticker, why: `New position: ${ideas[0].name || ideas[0].ticker}, the best fit in the list below.` };
+        else if (under.length) target = { t: under[0].x.t, why: `Top up ${under[0].x.t}: it is the furthest below its equal share.` };
+        else if (ideas.length) target = { t: ideas[0].ticker, why: 'All your stocks are near their share; this is the best new idea.' };
+        if (target) {
+          const p = priceOf(target.t);
+          lines.push([target.t, alloc.stocks, `${target.why}${isNum(p) ? ` About ${fmtShares(alloc.stocks / p)} shares at ${price(p)}.` : ''}`]);
+        } else lines.push(['Stocks', alloc.stocks, 'No stock fits right now: add it to the core fund instead.']);
+      }
+      planCard.append(h('p', { class: 'sub', text: `AED ${pf.monthlyAed.toLocaleString('en-US')} is about ${money0(monthlyUsd)}. It goes where your portfolio is furthest below its target mix, so you rarely have to sell anything.` }),
+        h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+          h('tr', null, ['Buy', 'Amount'].map((x) => h('th', { text: x }))),
+          lines.map(([what, amt, note]) => h('tr', null, h('td', null, h('b', { text: what }), h('span', { class: 'sm', text: note })), h('td', { text: money0(amt) }))))));
+      if (movedSmall) planCard.append(h('p', { class: 'note', text: 'This month’s share for stocks is under $100, too small to be worth a separate buy, so it goes to the core fund. The plan starts a stock once the stock part falls further behind.' }));
+      if (T.swing > 0) {
+        const swTarget = T.swing * after;
+        planCard.append(h('p', { class: 'note', text: swVal > swTarget * 1.2 ? `Swing trades are ${money0(swVal)}, above your ${pct(T.swing, 0)} limit (${money0(swTarget)}): no new swing trades until some close.` : `Swing trades: keep them to about ${money0(swTarget)} in total (${pct(T.swing, 0)}), from money you already have, and size each so its stop loses at most 1% of the whole portfolio (${money0(after * 0.01)}).` }));
+      }
+    } else planCard.append(h('p', { class: 'sub', text: 'Add a monthly amount in “About you” to get a buying plan.' }));
+    parts.push(planCard);
+
+    // 5. checks on what you hold
+    const checks = [];
+    for (const x of lt) {
+      const r = scr.by.get(x.t);
+      const v = val(x);
+      if (!r) { checks.push(['warn', `${x.t}: not in today’s data. Check it yourself.`]); continue; }
+      if (r.shariah === 'fail') checks.push(['bad', `${x.t} fails the Shariah screen now. Confirm on Zoya or Musaffa; if it still fails, sell it and purify any gain as your scholar advises.`]);
+      else if (r.shariah === 'review') checks.push(['warn', `${x.t}: halal status needs checking (close to a limit).`]);
+      if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) checks.push(['bad', `${x.t} is now rated “${VERDICT_SHORT[r.verdict]}”: the business has weakened. Re-read its analysis before adding more.`]);
+      if (isNum(r.trimAbove) && r.price >= r.trimAbove) checks.push(['warn', `${x.t} is above its trim level (${price(r.trimAbove)}): stop adding, and consider selling part.`]);
+      if (total > 0 && v / total > 0.15) checks.push(['warn', `${x.t} is ${pct(v / total, 0)} of everything you own. Above 15% in one company, one bad report can hurt the whole portfolio.`]);
+    }
+    const bySector = new Map();
+    for (const x of lt) { const r = scr.by.get(x.t); const k = (r && r.sector) || 'Other'; bySector.set(k, (bySector.get(k) || 0) + val(x)); }
+    for (const [k, v] of bySector) if (ltVal > 0 && lt.length >= 3 && v / ltVal > 0.4) checks.push(['warn', `${pct(v / ltVal, 0)} of your stocks are in ${k}. Spread new buys to other sectors.`]);
+    if (total > 0) {
+      const cur = { core: coreVal / total, stocks: ltVal / total, safe: safeVal / total };
+      for (const k of ['core', 'stocks', 'safe']) if (Math.abs(cur[k] - T[k]) > 0.1 && total > monthlyUsd * 12) checks.push(['warn', `${MIX_LABEL[k]} is ${pct(Math.abs(cur[k] - T[k]), 0)} ${cur[k] > T[k] ? 'over' : 'under'} target. New money alone will be slow to fix this: once a year, sell some of what is over and buy what is under.`]);
+    }
+    const chkCard = h('section', { class: 'card', 'aria-label': 'Checks' }, h('h2', { text: 'Checks on what you hold' }));
+    chkCard.append(checks.length ? h('ul', { class: 'alert-list' }, checks.map(([tone, t]) => h('li', null, icon(tone === 'bad' ? 'bad' : 'ok'), h('span', { text: t }))))
+      : h('p', { class: 'sub', text: lt.length ? 'Nothing needs attention: every stock passes the halal screen, the businesses still look sound, and nothing is too big.' : 'No stocks recorded yet. Mark the ones you own with “I own it” on the Watchlist.' }));
+    parts.push(chkCard);
+
+    // 6. ideas
+    const ideaCard = h('section', { class: 'card', 'aria-label': 'Stocks that fit you' }, h('h2', { text: 'Stocks that fit you' }),
+      h('p', { class: 'sub', text: 'Halal, high-quality businesses that are growing, with a healthy balance sheet, not expensive, at most two per sector, and not ones you already own. Ranked by quality, growth and price. Read each analysis before buying.' }));
+    if (!ideas.length) ideaCard.append(h('p', { class: 'sub', text: 'No company passes all the filters today.' }));
+    ideaCard.append(h('div', { class: 'list' }, ideas.map((r) => h('button', { class: 'srow', type: 'button', onclick: () => openStock(r.ticker, 'fund') },
+      h('span', { class: 'top' }, h('span', { class: 'tk', text: r.ticker }), h('span', { class: 'nm', text: r.name || '' }),
+        h('span', { class: 'pr' }, price(r.price), isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
+      h('span', { class: 'tags' }, [verdictTag(r.verdict), tagEl(r.sector || 'Other', 'neutral')].filter(Boolean)),
+      h('span', { class: 'det', text: ideaReason(r) })))));
+    parts.push(ideaCard);
+
+    // 7. how to build it
+    parts.push(h('section', { class: 'card', 'aria-label': 'How to build it' }, h('h2', { text: 'How to build the whole portfolio' }),
+      h('ol', { class: 'exits' },
+        h('li', { text: 'First, an emergency fund: 3 to 6 months of expenses in cash, outside this portfolio, so you never have to sell shares in a bad month.' }),
+        h('li', { text: `Every month on the same day, invest the plan above. Most of it goes to ${a.coreName || 'ISWD'}; that habit matters more than picking stocks.` }),
+        h('li', { text: `Add stocks slowly: one new company at a time, only after reading its analysis, up to about ${T.maxStocks} in total. Each one should be no more than about 5 to 10% of everything.` }),
+        h('li', { text: 'Do not sell a good business because its price fell. Sell when it fails the halal screen, when the business itself weakens (the verdict drops), or when it becomes very expensive (the trim level).' }),
+        h('li', { text: 'Once a year, rebalance: if a part is more than 10 points away from its target, sell some of what is over and buy what is under.' }),
+        h('li', { text: 'Purify dividends with the calculator on each stock page, and confirm halal status on Zoya or Musaffa before buying.' }),
+        h('li', { text: 'Keep swing trading inside its limit, and log every trade in the Journal: after 20 trades it will tell you whether it is adding anything.' })),
+      h('p', { class: 'note', text: 'This is a rules-based guide built from public data, not personal financial advice. Check fees and taxes with your broker.' })));
+    el.replaceChildren(...parts);
+  }
+
   // ------------------------------------------------------------------ trading journal (this device only)
   const JR = {
     load() {
@@ -2597,7 +2880,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   const fillOf = (setup) => (setup === 'breakout' || setup === 'range' ? 'open' : 'stop');
 
   // ------------------------------------------------------------------ pages
-  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal'];
+  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor'];
   let page = 'stock';
   function showPage(p) {
     page = p;
@@ -2609,6 +2892,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     else if (p === 'watchlist') renderWatchlist();
     else if (p === 'record') renderRecord();
     else if (p === 'journal') renderJournal();
+    else if (p === 'advisor') renderAdvisor();
     window.scrollTo(0, 0);
   }
   function navigate(p) {
