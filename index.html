@@ -1724,18 +1724,19 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       store.set('invest', a || 250);
       store.set('portfolio', P || 0);
       if (!a) { out.replaceChildren(h('div', { class: 'muted', text: 'Enter the amount you would put into this trade.' })); return; }
-      const sh = a / p.entry;
-      const loss = a * (p.entry - p.stop) / p.entry;
+      const z = sizePosition(p.entry, p.stop, a, P);
+      if (!z) { out.replaceChildren(h('div', { class: 'muted', text: 'This plan has no stop below the entry, so the size cannot be worked out.' })); return; }
+      const sh = z.shares;
+      const loss = z.loss;
       const g1 = sh * (p.target1 - p.entry), g2 = sh * (p.target2 - p.entry);
       const shTxt = sh >= 100 ? Math.floor(sh).toLocaleString('en-US') : sh >= 10 ? sh.toFixed(1) : sh.toFixed(2);
       const rows = [
         h('div', null, 'That buys about ', h('b', { text: shTxt }), ` share${sh === 1 ? '' : 's'}${sh < 1 ? ' (a fractional share)' : ''}.`),
-        h('div', null, 'If the stop is hit you lose about ', h('b', { text: price(loss) }), '. At target 1 you are up about ', h('b', { text: price(g1) }), ', at target 2 about ', h('b', { text: price(g2) }), ' (before fees).'),
+        h('div', null, 'If the stop is hit you lose about ', h('b', { text: price(loss) }), ' (more if the price gaps below the stop overnight). At target 1 you are up about ', h('b', { text: price(g1) }), ', at target 2 about ', h('b', { text: price(g2) }), ' (before fees).'),
       ];
       if (P) {
-        const maxPos = (P * 0.01) / ((p.entry - p.stop) / p.entry);
-        rows.push(h('div', null, 'To risk no more than 1% of your portfolio (', h('b', { text: price(P * 0.01) }), ') on this trade, put in at most ', h('b', { text: price(Math.min(maxPos, P)) }), '.'));
-        if (a > maxPos * 1.05) rows.push(h('div', { style: 'color:var(--bad-ink)', text: 'Your amount is above that limit: one bad trade would cost more than 1% of your portfolio.' }));
+        rows.push(h('div', null, 'To risk no more than 1% of your portfolio (', h('b', { text: price(P * 0.01) }), ') on this trade, put in at most ', h('b', { text: price(z.maxPos) }), '.'));
+        if (z.overLimit) rows.push(h('div', { style: 'color:var(--bad-ink)', text: 'Your amount is above that limit: one bad trade would cost more than 1% of your portfolio.' }));
       } else rows.push(h('div', { class: 'muted', text: 'Add your portfolio size to see the most you should put in (so one loss costs at most 1% of it). It stays on this device.' }));
       out.replaceChildren(...rows);
     };
@@ -2608,16 +2609,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     const jr = JR.load();
     const priceOf = (t) => { const r = scr.by.get(t); return r && isNum(r.price) ? r.price : null; };
     const defaultHp = HP_ORDER.slice().sort((x, y) => (T.split[y] || 0) - (T.split[x] || 0))[0];
-    const lt = [];
-    const ltSet = new Set();
-    for (const it of w.items) if (it.shares > 0 && !it.swing) { lt.push({ t: it.t, shares: it.shares, cost: it.cost, since: it.added }); ltSet.add(it.t); }
-    const sw = [];
-    for (const tr of jr.trades) {
-      if (tr.closed) continue;
-      if (tr.setup === 'longterm') { if (!ltSet.has(tr.t)) { lt.push({ t: tr.t, shares: tr.shares, cost: tr.entry, since: tr.opened }); ltSet.add(tr.t); } }
-      else sw.push({ t: tr.t, shares: tr.shares });
-    }
-    for (const it of w.items) if (it.shares > 0 && it.swing && !sw.some((x) => x.t === it.t)) sw.push({ t: it.t, shares: it.shares });
+    const { lt, sw } = holdingsFrom(w.items, jr.trades);
     lt.forEach((x) => { x.hp = HP[a.hp[x.t]] ? a.hp[x.t] : defaultHp; });
     // a holding without a current price is valued at what it cost, and the page says so (never silently)
     const unpriced = new Map();
@@ -2676,7 +2668,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
           return h('tr', null, h('td', null, h('b', { text: x.t }), h('span', { class: 'sm', text: total > 0 ? `${pct(wOf(val(x)), 1)} of everything` : '' })), h('td', { text: money0(val(x)) }), h('td', null, s));
         }))));
     }
-    nowCard.append(h('p', { class: 'note', text: 'US stocks come from your Watchlist (“I own it”) and swing trades from your Journal, at the latest prices.' }));
+    nowCard.append(h('p', { class: 'note', text: 'US stocks come from your Watchlist (“I own it”) and your Journal (open long-term buys of the same stock added together, at their average cost with fees; swing trades listed separately), at the latest prices. A stock on both uses the Watchlist figures.' }));
     // funds, sukuk, cash and stocks outside the US
     nowCard.append(h('h3', { text: 'Funds, sukuk, cash and stocks outside the US' }));
     const KIND_LABEL = { fund: 'Fund (ETF)', sukuk: 'Sukuk fund', cash: 'Cash', stock: 'Stock outside the US' };
@@ -3039,6 +3031,37 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   let journalPrefill = null;
   const localISO = () => { const n = new Date(); return new Date(n.getTime() - n.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
   const daysApart = (a, b) => (a && b ? Math.round((Date.parse(b) - Date.parse(a)) / 86400000) : null);
+  // Holdings for the Portfolio page. Long-term: the Watchlist (shares and average cost you entered) wins; stocks
+  // that are only in the Journal are built from its open long-term buys, added together per stock, with the average
+  // cost per share including the buying fees. Swing: open swing trades, plus Watchlist stocks marked as swing.
+  function holdingsFrom(watchItems, trades) {
+    const lt = [];
+    const ltSet = new Set();
+    for (const it of watchItems || []) if (it.shares > 0 && !it.swing) { lt.push({ t: it.t, shares: it.shares, cost: it.cost, since: it.added }); ltSet.add(it.t); }
+    const fromJournal = new Map();
+    const sw = [];
+    for (const tr of trades || []) {
+      if (tr.closed || !(tr.shares > 0)) continue;
+      if (tr.setup === 'longterm') {
+        if (ltSet.has(tr.t)) continue;
+        const x = fromJournal.get(tr.t) || { t: tr.t, shares: 0, paid: 0, since: tr.opened };
+        x.shares += tr.shares;
+        x.paid += tr.entry * tr.shares + (tr.fees || 0);
+        if (tr.opened && (!x.since || tr.opened < x.since)) x.since = tr.opened;
+        fromJournal.set(tr.t, x);
+      } else sw.push({ t: tr.t, shares: tr.shares });
+    }
+    for (const x of fromJournal.values()) lt.push({ t: x.t, shares: x.shares, cost: x.paid / x.shares, since: x.since });
+    for (const it of watchItems || []) if (it.shares > 0 && it.swing && !sw.some((x) => x.t === it.t)) sw.push({ t: it.t, shares: it.shares });
+    return { lt, sw };
+  }
+  // trade size: shares bought, the loss if the stop is hit, and the largest position that risks 1% of the portfolio
+  function sizePosition(entry, stop, amount, portfolio) {
+    if (!(entry > 0) || !(stop < entry) || !(amount > 0)) return null;
+    const stopPct = (entry - stop) / entry;
+    const maxPos = portfolio > 0 ? Math.min((portfolio * 0.01) / stopPct, portfolio) : null;
+    return { shares: amount / entry, loss: amount * stopPct, maxPos, overLimit: isNum(maxPos) && amount > maxPos * 1.05 };
+  }
   function tradeCalc(tr, nowPx) {
     const exit = tr.closed ? tr.exit : nowPx;
     const risk = isNum(tr.stop) && tr.stop < tr.entry ? tr.entry - tr.stop : null;
@@ -3925,8 +3948,10 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   }
   function portfolioCard(held, scr) {
     const rows = held.map((it) => ({ it, r: scr.by.get(it.t) })).filter((x) => x.r && x.r.price > 0);
+    const noPrice = held.filter((it) => !rows.some((x) => x.it === it)).map((it) => it.t);
     const total = rows.reduce((s, x) => s + x.it.shares * x.r.price, 0);
     const card = h('section', { class: 'card', 'aria-label': 'Portfolio check' }, h('h2', { text: 'Portfolio check' }));
+    if (noPrice.length) card.append(h('ul', { class: 'warnbox' }, h('li', { text: `No current price for ${noPrice.join(', ')}, so ${noPrice.length === 1 ? 'it is' : 'they are'} left out of the value, gain and checks below.` })));
     if (!(total > 0)) { card.append(h('p', { class: 'sub', text: 'Add share counts to see the check.' })); return card; }
     const costKnown = rows.every((x) => isNum(x.it.cost) && x.it.cost > 0);
     const cost = rows.reduce((s, x) => s + (isNum(x.it.cost) ? x.it.shares * x.it.cost : 0), 0);
@@ -4335,7 +4360,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
             h('span', { class: 'sm', text: g.ci ? `${fmtR(g.ci[0])} to ${fmtR(g.ci[1])}` : 'too few' })))))));
       return card;
     };
-    return [top, benchCard(bt, st), insCard,
+    return [top, benchCard(bt, st), recordPortfolioCard(bt, st), insCard,
       table('By setup', 'Which kind of signal worked best.', pack.bySetup, (k) => SETUP_NAME[k] || k),
       table('By market trend', 'The S&P 500’s trend on the day of the signal.', pack.byRegime, (k) => ({ up: 'Rising market', mixed: 'Mixed market', down: 'Falling market' }[k] || k)),
       table('By relative strength', 'How the stock had done against all others over the past year, on the day of the signal (99 is the strongest).', pack.byRS, (k) => 'RS ' + k),
@@ -4373,6 +4398,28 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         b.market && b.market.n ? row('S&P 500 (SPY)', 'bought on a random day in the test, held as long, no costs, no dividends', b.market.mean, range(b.market, 0)) : null)),
       h('div', { class: 'callout' }, h('b', { text: 'What it means. ' }), verdict,
         ' A percent per trade is not a yearly return: positions overlap and money waits between trades.'));
+  }
+  // the same trades as a portfolio with stated rules: growth per year and worst fall, against holding SPY
+  function recordPortfolioCard(bt, st) {
+    const P = bt.portfolio;
+    const r = P && P[st.uni] && P[st.uni][String(st.cost)];
+    if (!r || !r.taken) return null;
+    const spy = P.spy && (P.spy.total || P.spy.price);
+    const R = P.rules || { risk: 0.01, maxPositions: 10, maxWeight: 0.2 };
+    const tr = (label, sub, cagr, dd) => h('tr', null, h('td', null, label, h('span', { class: 'sm', text: sub })),
+      h('td', null, h('span', { class: cagr > 0 ? 'up' : cagr < 0 ? 'down' : '', text: pctS(cagr, 1) })), h('td', { text: pct(dd, 0) }));
+    const beat = spy && isNum(spy.cagr) ? (r.cagr > spy.cagr ? 'grew faster than' : 'grew more slowly than') : null;
+    return h('section', { class: 'card', 'aria-label': 'As a portfolio' },
+      h('h2', { text: 'If you had followed these trades' }),
+      h('p', { class: 'sub', text: `Each trade risks ${pct(R.risk, 0)} of the account (the stop sets the size), at most ${R.maxPositions} trades open, no position above ${pct(R.maxWeight, 0)}, no borrowing, ${(st.cost * 100).toFixed(1)}% cost per round trip. Signals that came when the money was already in use were skipped.` }),
+      h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
+        h('tr', null, h('th', { text: '' }), h('th', { text: 'Per year' }), h('th', { text: 'Worst fall' })),
+        tr('These trades', `${r.taken.toLocaleString()} trades taken, ${r.skipped.toLocaleString()} skipped; money invested ${pct(r.avgExposure, 0)} of the time`, r.cagr, r.maxDrawdown),
+        spy ? tr('S&P 500 (SPY), bought and held', P.spy.total ? 'dividends reinvested' : 'price only, like the trades', spy.cagr, spy.maxDrawdown) : null)),
+      h('div', { class: 'callout' }, h('b', { text: 'What it means. ' }),
+        beat ? `Over the same period, this way of trading ${beat} simply holding the S&P 500${r.maxDrawdown > spy.maxDrawdown ? ', with a deeper worst fall' : ''}. ` : '',
+        P.spy && !P.spy.total ? 'Dividends are counted on neither side; with them, SPY returned about 1.5 points a year more from October 2021 to October 2026 (checked separately). ' : '',
+        'The worst fall counts trades at their entry price until they close, so falls inside open trades would make it deeper.'));
   }
   function liveCard(log, bt) {
     const card = h('section', { class: 'card', 'aria-label': 'Live record' }, h('h2', { text: 'Live record' }));
@@ -4415,6 +4462,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         li('Fills.', 'Orders are assumed to fill at the trigger price or the open, and a gap past the stop sells at the open. Real fills can be a little worse.'),
         li('No dividends.', 'Prices are adjusted for splits, not dividends, which slightly understates long-held trades.'),
         li('No tuning.', 'The rules were written before this test was run and were not changed to improve these numbers. The one addition made after seeing them is the warning when the market is falling.'),
+        li('Out of sample.', 'A separate check (October 2026) replayed the same rules on 2017 to 2021, years never used when the rules were written, for 400 of these stocks. Halal trades averaged about +0.3R after 0.2% costs there, but random entries in the same stocks still earned more per trade, and the relative strength 70+ filter did not help. Details are in VALIDATION.md.'),
         li('The future is not the past.', 'Five years includes the 2022 bear market, but not every kind of market. Treat the averages as a rough guide, and judge your own results over 20 or more trades.')));
   }
 
@@ -4462,7 +4510,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     });
   }
   // test hook for the automated page tests (test/page.test.py); inert unless the page is opened with ?selftest=1
-  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, tradeCost, batchAdvice, weekdaysStrictlyBetween };
+  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition };
 })();
 </script>
 </body>

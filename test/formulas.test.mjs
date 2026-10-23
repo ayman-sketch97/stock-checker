@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sma, ema, rsi, atr, macd, prepare, evaluate, simulateTrade } from '../lib/technical.js';
 import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen, FAIR_MAX_RATIO } from '../lib/engine.js';
-import { netR, benchmarkTrades } from '../lib/backtest.js';
+import { netR, benchmarkTrades, portfolioSim, buyHold } from '../lib/backtest.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -158,7 +158,12 @@ function company(opts = {}) {
   years.forEach((y, i) => {
     const rev = 1000e6 * 1.1 ** i;
     const fy = { start: `${y}-01-01`, end: `${y}-12-31`, form: '10-K', filed: `${y + 1}-02-15` };
-    add('Revenues', 'USD', { ...fy, val: rev });
+    if (opts.revenueSubset) {
+      // contract revenue (a subset) for every year, the total only for the last three years
+      add('RevenueFromContractWithCustomerExcludingAssessedTax', 'USD', { ...fy, val: rev * 0.7 });
+      if (y >= 2022) add('Revenues', 'USD', { ...fy, val: rev });
+    } else add('Revenues', 'USD', { ...fy, val: rev });
+    if (opts.htm) add('DebtSecuritiesHeldToMaturityAmortizedCostAfterAllowanceForCreditLossCurrent', 'USD', { end: `${y}-12-31`, form: '10-K', filed: `${y + 1}-02-15`, val: opts.htm });
     add('OperatingIncomeLoss', 'USD', { ...fy, val: rev * 0.25 });
     add('NetIncomeLoss', 'USD', { ...fy, val: rev * 0.2 });
     add('IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest', 'USD', { ...fy, val: rev * 0.25 });
@@ -178,7 +183,7 @@ function company(opts = {}) {
     if (!(opts.noCashLatest && y === 2024)) add('CashAndCashEquivalentsAtCarryingValue', 'USD', { ...inst, val: opts.cash ?? 200e6 });
     if (opts.nci) add('MinorityInterest', 'USD', { ...inst, val: opts.nci });
     if (opts.loans) add('NotesReceivableNet', 'USD', { ...inst, val: rev * 2 * opts.loans });
-    if (!(opts.noDebtLatest && y >= 2024)) add(opts.debtTag || 'LongTermDebt', 'USD', { ...inst, val: opts.debt ?? 400e6 });
+    if (!opts.noDebtEver && !(opts.noDebtLatest && y >= 2024)) add(opts.debtTag || 'LongTermDebt', 'USD', { ...inst, val: opts.debt ?? 400e6 });
     if (opts.combinedLine) add('CashCashEquivalentsAndShortTermInvestments', 'USD', { ...inst, val: 260e6 });
   });
   const sub = { name: 'TEST CO', sic: opts.sic === undefined ? 3571 : opts.sic, recentForms: ['10-K'], latest10K: { form: '10-K' } };
@@ -484,4 +489,72 @@ test('company: statements more than 9 months old withhold the verdict', () => {
   assert.equal(r.dataQuality.level, 'insufficient');
   assert.ok(r.dataQuality.reasons.some((t) => /statements are more than 9 months old/.test(t)));
   assert.equal(r.verdict.code, 'UNRELIABLE');
+});
+
+test('company: total revenues lead over a smaller contract-revenue subset with a longer history', () => {
+  const r = company({ revenueSubset: true });
+  const last = r.history[r.history.length - 1];
+  close(last.revenue, 1000e6 * 1.1 ** 5, 1); // the total, not 70% of it
+});
+
+test('company: held-to-maturity debt securities count as short-term investments', () => {
+  const a = company();
+  const b = company({ htm: 300e6 });
+  close(b.keyNumbers.cash - a.keyNumbers.cash, 300e6, 1);
+});
+
+// ---------------------------------------------------------------- portfolio replay: growth and drawdown (round 3)
+test('portfolio replay: size from the stop, cost per round trip, booked at the exit', () => {
+  const dates = Array.from({ length: 20 }, (_, k) => 20240101 + k);
+  const win = { signal: String(dates[1]), days: 3, R: 2, riskPct: 0.05, score: 60 };
+  const r = portfolioSim([win], dates, { risk: 0.01, maxPositions: 10, maxWeight: 0.2, cost: 0.002 });
+  // 1% risk with a 5% stop = 20% of equity; +10% on the position minus 0.2% cost
+  close(r.endValue, 1 + 0.2 * (0.1 - 0.002), 1e-4);
+  assert.equal(r.taken, 1);
+  assert.equal(r.maxDrawdown, 0);
+  close(r.cagr, (1 + 0.2 * 0.098) ** (252 / 18) - 1, 1e-4); // 18 trading days from the fill to the last date
+  const loss = portfolioSim([{ ...win, R: -1 }], dates, { cost: 0.002 });
+  close(loss.maxDrawdown, 0.2 * (0.05 + 0.002), 1e-4);
+});
+
+test('portfolio replay: position limits and no borrowing', () => {
+  const dates = Array.from({ length: 30 }, (_, k) => 20240101 + k);
+  const six = Array.from({ length: 6 }, (_, j) => ({ signal: String(dates[2]), days: 5, R: 1, riskPct: 0.05, score: 50 + j }));
+  const a = portfolioSim(six, dates, { maxPositions: 10 });
+  assert.equal(a.taken, 5); // 5 x 20% uses all the cash; the sixth does not fit
+  assert.equal(a.skipped, 1);
+  const b = portfolioSim(six, dates, { maxPositions: 3 });
+  assert.equal(b.taken, 3);
+  // a trade that exits on its fill day is booked at once
+  const c = portfolioSim([{ signal: String(dates[2]), days: 0, R: 1, riskPct: 0.05 }], dates, { cost: 0 });
+  close(c.endValue, 1 + 0.2 * 0.05, 1e-6);
+});
+
+test('buy and hold: growth, worst fall and reinvested dividends', () => {
+  const d = [1, 2, 3, 4];
+  const c = [100, 110, 99, 120];
+  const p = buyHold(d, c, 1);
+  close(p.endValue, 1.2, 1e-9);
+  close(p.maxDrawdown, 1 - 99 / 110, 1e-4);
+  const t = buyHold(d, c, 1, [{ date: 3, amount: 2 }]);
+  close(t.endValue, (0.01 + (0.01 * 2) / 99) * 120, 1e-4);
+});
+
+test('benchmark: random windows can be kept inside a period', () => {
+  // rises 1% a day for 150 days, then falls 1% a day
+  const d = Array.from({ length: 300 }, (_, k) => 20200101 + k);
+  const c = d.map((_, k) => (k < 150 ? 100 * 1.01 ** k : 100 * 1.01 ** 149 * 0.99 ** (k - 149)));
+  const list = Array.from({ length: 40 }, (_, j) => ({ stock: 0, signal: String(d[10 + j]), days: 4, R: 1, riskPct: 0.05 }));
+  const b = benchmarkTrades(list, [{ d, c }], null, d[0], 3, d[149]);
+  close(b.random.mean, 1.01 ** 5 - 1, 1e-6); // every window ends by day 149, so all are rising windows
+});
+
+test('company: no debt tags with real interest expense means unknown debt, not zero', () => {
+  const quiet = company({ noDebtEver: true, interest: 1e6 }); // little interest: no debt is the likely truth
+  assert.equal(quiet.keyNumbers.debt, 0);
+  assert.notEqual(quiet.dataQuality.level, 'insufficient');
+  const r = company({ noDebtEver: true, interest: 30e6 }); // 30M of interest with no debt tagged
+  assert.equal(r.keyNumbers.debt, null);
+  assert.equal(r.dataQuality.level, 'insufficient');
+  assert.ok(r.warnings.some((w) => /no borrowings are tagged/.test(w)));
 });

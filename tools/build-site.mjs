@@ -474,6 +474,10 @@ fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: start
   // benchmark: the same stocks bought on a random day and held as long, and the S&P 500 over each trade's days
   const mkt = M ? { d: Int32Array.from(M.dates, (x) => Number(x.replace(/-/g, ''))), c: Float64Array.from(M.C) } : null;
   const bench = (list) => BT.benchmarkTrades(list, rsData, mkt, firstSignal, 20211015);
+  // portfolio replay (growth per year and worst fall) under stated rules, against SPY bought at the first fill.
+  // Prices only on both sides: the trades' prices are not dividend-adjusted, and neither is SPY here.
+  const RULES = { risk: 0.01, maxPositions: 10, maxWeight: 0.2 };
+  const port = (list) => (mkt ? Object.fromEntries([BT.DEFAULT_COST, 0.005, 0.008].map((c) => [String(c), BT.portfolioSim(list, Array.from(mkt.d), { ...RULES, cost: c })])) : null);
   const summary = {
     version: BT.BT_VERSION,
     asOf: priceDate,
@@ -487,6 +491,12 @@ fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: start
     strong: pack(strong),
     costs: COSTS,
     benchmark: { all: bench(all), halal: bench(halal), strong: bench(strong) },
+    portfolio: (() => {
+      const p = { rules: RULES, all: port(all), halal: port(halal), strong: port(strong) };
+      const from = p.halal && p.halal[String(BT.DEFAULT_COST)] ? p.halal[String(BT.DEFAULT_COST)].from : null;
+      p.spy = mkt && from ? { price: BT.buyHold(Array.from(mkt.d), Array.from(mkt.c), from), total: null } : null;
+      return p;
+    })(),
     byCost: Object.fromEntries(COSTS.slice(1).map((c) => [String(c), { all: pack(all, c), halal: pack(halal, c), strong: pack(strong, c) }])),
   };
   fs.writeFileSync(path.join(dataDir, 'backtest-summary.json'), JSON.stringify(summary));

@@ -93,6 +93,30 @@ async def main():
             {entry: 50, shares: 20, stop: 48, fees: 1, closed: '2026-02-10', opened: '2026-02-01', exit: 47, exitFees: 1}])""")
         check(near(s['pnl'], 100 - 62) and near(s['winRate'], 0.5) and near(s['pf'], 100 / 62) and s['days'] == 9, f"journal totals: pnl {s['pnl']}, win {s['winRate']}, pf {s['pf']}, days {s['days']}")
 
+        # ---- holdings: repeated long-term buys of one stock are added together, at a weighted average cost with fees
+        hd = await pg.evaluate("""__sc.holdingsFrom(
+            [{t: 'MSFT', shares: 4, cost: 400, added: '2026-01-01'}, {t: 'NVDA', shares: 3, swing: true}],
+            [{t: 'AAPL', setup: 'longterm', entry: 100, shares: 10, fees: 2, opened: '2026-03-01'},
+             {t: 'AAPL', setup: 'longterm', entry: 130, shares: 5, fees: 1, opened: '2026-02-01'},
+             {t: 'AAPL', setup: 'longterm', entry: 90, shares: 7, opened: '2026-01-15', closed: '2026-02-20', exit: 95},
+             {t: 'MSFT', setup: 'longterm', entry: 300, shares: 1, opened: '2026-01-05'},
+             {t: 'NVDA', setup: 'pullback', entry: 120, shares: 2, opened: '2026-03-02'},
+             {t: 'KO', setup: 'breakout', entry: 60, shares: 5, opened: '2026-03-03'}])""")
+        aapl = next((x for x in hd['lt'] if x['t'] == 'AAPL'), None)
+        check(aapl is not None and aapl['shares'] == 15 and near(aapl['cost'], (1002 + 651) / 15) and aapl['since'] == '2026-02-01', f'two open long-term buys: shares added, average cost with fees, earliest date: {aapl}')
+        msft = [x for x in hd['lt'] if x['t'] == 'MSFT']
+        check(len(msft) == 1 and msft[0]['shares'] == 4 and msft[0]['cost'] == 400, 'the Watchlist position wins over a Journal buy of the same stock (no double count)')
+        check(sorted((x['t'], x['shares']) for x in hd['sw']) == [('KO', 5), ('NVDA', 2)], f"swing positions: open swing trades, closed trades left out: {hd['sw']}")
+
+        # ---- trade size: loss at the stop, and the 1% risk limit
+        z = await pg.evaluate("__sc.sizePosition(100, 95, 1000, 10000)")
+        check(near(z['shares'], 10) and near(z['loss'], 50) and near(z['maxPos'], 2000) and not z['overLimit'], f'$1,000 at 100 with a stop at 95: 10 shares, $50 at risk, at most $2,000: {z}')
+        z = await pg.evaluate("__sc.sizePosition(100, 95, 3000, 10000)")
+        check(z['overLimit'], 'a position above the 1% risk size is flagged')
+        z = await pg.evaluate("__sc.sizePosition(100, 99.5, 1000, 5000)")
+        check(near(z['maxPos'], 5000), 'a very tight stop never suggests more than the whole portfolio')
+        check(await pg.evaluate("__sc.sizePosition(100, 100, 1000, 10000)") is None, 'a stop that is not below the entry gives no size')
+
         # ---- trading costs used by the Portfolio page
         c = await pg.evaluate("__sc.tradeCost('LSE_USD', 300, 'fixed', 60)")
         check(near(c['usd'], 4) and near(c['pct'], 4 / 300), f'IBKR fixed, London in USD, $300: {c}')
@@ -152,6 +176,16 @@ async def main():
         check(not errs, f'no page errors on the Portfolio page {errs}')
         await pg.close()
 
+        # ---- watchlist portfolio check: a position without a price is named, not silently dropped
+        storage = {'watch': {'v': 1, 'items': [{'t': 'ZZZZ', 'added': '2026-01-01', 'shares': 5, 'cost': 10}, {'t': 'AAPL', 'added': '2026-01-01', 'shares': 2, 'cost': 150}], 'snap': None, 'prev': None}}
+        pg, errs = await page_with(ctx, base, fresh, storage, '#')
+        await pg.click('#nav button:has-text("Watchlist")')
+        await pg.wait_for_timeout(1200)
+        txt = await pg.inner_text('section[aria-label="Portfolio check"]')
+        check('No current price for ZZZZ' in txt and 'left out' in txt and '$684' in txt, f'watchlist check names the unpriced holding and values the rest: {txt[:160]!r}')
+        check(not errs, f'no page errors on the Watchlist page {errs}')
+        await pg.close()
+
         # ---- track record: the setups are compared with random entries and the S&P 500, after the same costs
         pg, errs = await page_with(ctx, base, fresh)
         await pg.click('#nav button:has-text("Record")')
@@ -159,6 +193,8 @@ async def main():
         txt = await pg.inner_text('section[aria-label="Against simple alternatives"]')
         check('+0.56%' in txt and '+1.51%' in txt and '+1.42%' in txt, 'benchmark card shows trades and random entries net of 0.2% and SPY')
         check('made less than buying the same stocks on a random day' in txt, 'benchmark card says plainly when the setups lose to random entries')
+        txt = await pg.inner_text('section[aria-label="As a portfolio"]')
+        check('+1.8%' in txt and '+11.3%' in txt and 'price only, like the trades' in txt and 'counted on neither side' in txt and 'grew more slowly than' in txt, 'portfolio card: growth and worst fall against SPY, prices only on both sides, and says so')
         check(not errs, f'no page errors on the Record page {errs}')
         await pg.close()
 
