@@ -475,7 +475,8 @@ shares divide it by 1.1. The model is sound but sensitive: 5 points of growth ei
 
 ### Data quality status on the live site
 
-Build of 23 October 2026 (before the 15% rule): 2,021 rows, of which 533 high, 877 limited, 153 insufficient and
+Build of 23 October 2026 (before the 15% rule; after it and the 5% refinement: 530 high, 877 limited, 156
+insufficient, 55 shown as "No verdict (data)"): 2,021 rows, of which 533 high, 877 limited, 153 insufficient and
 458 not analysed (foreign filers, funds, too little history). Of the 153, 56 show "No verdict (data)"; the others
 fail the Shariah screen (86), have no usable figures (7) or are financial firms (4), which are shown first. No fair
 value is 3 times the price or more and none is negative; 110 are below a third of the price.
@@ -507,7 +508,7 @@ Portfolio replay with stated rules (1% of the account at risk per trade, at most
 |---|---|---|---|
 | Nov 2017 to Oct 2021, sample | +3.8% a year, worst fall 30% | +6.0%, worst fall 37% | +14.8%, worst fall 34% |
 | Oct 2021 to Oct 2026, sample | +8.9%, worst fall 25% | +5.1%, worst fall 22% | +11.3%, worst fall 25% |
-| Oct 2021 to Oct 2026, all of the site's stocks (Record page) | +0.8%, worst fall 32% | +5.1%, worst fall 33% | +11.3%, worst fall 25% |
+| Oct 2021 to Oct 2026, all of the site's stocks (Record page, two builds the same day) | +0.8% and -0.6%, worst fall 32% to 34% | +5.1%, worst fall 33% | +11.3%, worst fall 25% |
 
 An earlier run the same day drew a different sample of 400 (the stock list order changed between builds; the script
 now sorts it first): the halal portfolio made +16.3% a year in 2017 to 2021 (SPY with dividends +16.9%) and +1.8% in
