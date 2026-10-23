@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sma, ema, rsi, atr, macd, prepare, evaluate, simulateTrade } from '../lib/technical.js';
 import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen } from '../lib/engine.js';
+import { netR, benchmarkTrades } from '../lib/backtest.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -166,6 +167,7 @@ function company(opts = {}) {
     if (!opts.noCapex) add('PaymentsToAcquirePropertyPlantAndEquipment', 'USD', { ...fy, val: rev * 0.05 });
     add('InterestExpense', 'USD', { ...fy, val: opts.interest ?? 20e6 });
     if (opts.interestIncome) add('InvestmentIncomeInterest', 'USD', { ...fy, val: rev * opts.interestIncome });
+    if (opts.sbc) add('ShareBasedCompensation', 'USD', { ...fy, val: rev * opts.sbc });
     add('WeightedAverageNumberOfDilutedSharesOutstanding', 'shares', { ...fy, val: 100e6 });
     add('EarningsPerShareDiluted', 'USD/shares', { ...fy, val: (rev * 0.2) / 100e6 });
     const inst = { end: `${y}-12-31`, form: '10-K', filed: `${y + 1}-02-15` };
@@ -178,8 +180,8 @@ function company(opts = {}) {
   const sub = { name: 'TEST CO', sic: opts.sic === undefined ? 3571 : opts.sic, recentForms: ['10-K'], latest10K: { form: '10-K' } };
   return analyze({
     ticker: 'TST', cik: 1, listing: { exchange: 'Nasdaq' }, submissions: sub, facts,
-    price: { price: 50, monthly: [], splits: [], splitsKnown: true, source: 'test', priceTime: 'close on 2025-06-30' },
-    fetchedAt: '2025-06-30T00:00:00Z',
+    price: { price: 50, monthly: [], splits: [], splitsKnown: true, source: 'test', priceTime: 'close on 2025-03-14' },
+    fetchedAt: opts.fetchedAt || '2025-03-15T00:00:00Z', // 74 days after the last balance sheet, 1 day after the price
   });
 }
 
@@ -253,4 +255,125 @@ test('company: debt tagged as long-term debt including current maturities is rea
 test('company: "cash and short-term investments" line adds the investments once', () => {
   const r = company({ combinedLine: true });
   assert.equal(r.keyNumbers.cash, 260e6); // 200M cash + 60M short-term investments
+});
+
+// ---------------------------------------------------------------- stock splits and share counts
+function splitCompany({ ratio = 1.5, priceSplits = null } = {}) {
+  // a 3-for-2 split in mid-2023: the 2023 10-K restates 2021 and 2022 share counts; 2019-2020 only exist pre-split
+  const facts = { 'us-gaap': {}, dei: {} };
+  const add = (tag, unit, f) => {
+    facts['us-gaap'][tag] ??= { units: {} };
+    (facts['us-gaap'][tag].units[unit] ??= []).push({ accn: '0000000000-24-000001', ...f });
+  };
+  for (const [i, y] of [2019, 2020, 2021, 2022, 2023, 2024].entries()) {
+    const rev = 1000e6 * 1.05 ** i;
+    const fy = { start: `${y}-01-01`, end: `${y}-12-31`, form: '10-K', filed: `${y + 1}-02-15` };
+    for (const [tag, v] of [['Revenues', rev], ['NetIncomeLoss', rev * 0.2], ['NetCashProvidedByUsedInOperatingActivities', rev * 0.25], ['PaymentsToAcquirePropertyPlantAndEquipment', rev * 0.05], ['OperatingIncomeLoss', rev * 0.25]]) add(tag, 'USD', { ...fy, val: v });
+    const post = y >= 2023; // filings from Feb 2024 on show post-split counts
+    const sh = 100e6 * (post ? ratio : 1);
+    add('WeightedAverageNumberOfDilutedSharesOutstanding', 'shares', { ...fy, val: sh });
+    add('EarningsPerShareDiluted', 'USD/shares', { ...fy, val: (rev * 0.2) / sh });
+    // the 10-K filed in Feb 2024 restates the two prior years
+    if (y === 2023) for (const py of [2021, 2022]) {
+      const prev = { start: `${py}-01-01`, end: `${py}-12-31`, form: '10-K', filed: '2024-02-15' };
+      add('WeightedAverageNumberOfDilutedSharesOutstanding', 'shares', { ...prev, val: 100e6 * ratio });
+      add('EarningsPerShareDiluted', 'USD/shares', { ...prev, val: (1000e6 * 1.05 ** (py - 2019) * 0.2) / (100e6 * ratio) });
+    }
+    const inst = { end: `${y}-12-31`, form: '10-K', filed: `${y + 1}-02-15` };
+    add('Assets', 'USD', { ...inst, val: rev * 2 });
+    add('StockholdersEquity', 'USD', { ...inst, val: rev });
+    add('CashAndCashEquivalentsAtCarryingValue', 'USD', { ...inst, val: 100e6 });
+    add('LongTermDebt', 'USD', { ...inst, val: 0 });
+  }
+  return analyze({
+    ticker: 'SPL', cik: 1, listing: {}, submissions: { name: 'SPLIT CO', sic: 3571, latest10K: { form: '10-K' } }, facts,
+    price: { price: 20, monthly: [], splits: priceSplits || [], splitsKnown: !!priceSplits, source: 'test' },
+    fetchedAt: '2025-06-30T00:00:00Z',
+  });
+}
+
+test('splits: a 3-for-2 split is read from restated filings and applied to older years', () => {
+  const r = splitCompany();
+  const shares = r.history.map((h) => h.shares);
+  shares.forEach((v) => close(v, 150e6, 1, 'every year on the post-split basis'));
+  const eps2019 = r.history.find((h) => h.year === 2019).eps;
+  close(eps2019, (1000e6 * 0.2) / 150e6, 0.001, 'EPS divided by the same ratio');
+  const dil = r.sections.quality.find((m) => m.key === 'dilution');
+  close(dil.value, 0, 1e-6, 'no fake dilution from the split');
+});
+
+test('splits: a 2-for-1 split is also handled, and price-data splits take precedence when known', () => {
+  splitCompany({ ratio: 2 }).history.forEach((h) => close(h.shares, 200e6, 1));
+  // when the price feed lists the split, its date decides (same answer)
+  splitCompany({ ratio: 2, priceSplits: [{ date: '2023-07-01', ratio: 2 }] }).history.forEach((h) => close(h.shares, 200e6, 1));
+});
+
+test('splits: no restatement means no adjustment', () => {
+  splitCompany({ ratio: 1 }).history.forEach((h) => close(h.shares, 100e6, 1));
+});
+
+test('company: stock-based pay is a cost: it lowers owner cash flow and fair value', () => {
+  const a = company();
+  const b = company({ sbc: 0.05 });
+  close(b.fairValue.ownerMargin, a.fairValue.ownerMargin - 0.05, 1e-4);
+  assert.ok(b.fairValue.base < a.fairValue.base);
+  assert.ok(b.fairValue.inputs.sbc > 0);
+});
+
+test('company: banks, insurers and brokers get no fair value and no valuation call', () => {
+  const r = company({ sic: 6282 });
+  assert.equal(r.verdict.code, 'FINANCIAL');
+  assert.equal(r.fairValue, null);
+  assert.equal(r.pricePlan, null);
+  assert.equal(r.labels.valuation.label, 'Not rated (financial firm)');
+  assert.ok(r.fairValueIssues[0].startsWith('financial company'));
+});
+
+test('company: old statements and old prices are flagged', () => {
+  const r = company({ fetchedAt: '2025-09-30T00:00:00Z' });
+  assert.ok(r.freshness.stale.includes('statements'));
+  assert.ok(r.freshness.stale.includes('price'));
+  assert.ok(r.warnings.some((w) => /latest balance sheet/.test(w)));
+  assert.equal(company().freshness.stale.length, 0);
+});
+
+test('no look-ahead: the picture and plan on day i are the same with or without later data', () => {
+  const daily = series(600, (i) => 60 + i * 0.05 + 6 * Math.sin(i / 9) + 2 * Math.sin(i / 2.3));
+  const full = prepare(daily);
+  let compared = 0;
+  for (let i = 250; i < 590; i += 7) {
+    const a = evaluate(full, i);
+    const b = evaluate(prepare(daily.slice(0, i + 1)), i);
+    const pick = (e) => JSON.stringify({ trend: e.trend, score: e.score, setup: { ...e.setup, trigger: undefined, exits: undefined }, sup: e.supports, res: e.resistances, R: e.R, A: e.A });
+    assert.equal(pick(a), pick(b), `day ${i}`);
+    compared++;
+  }
+  assert.ok(compared > 40);
+});
+
+// ---------------------------------------------------------------- backtest costs and benchmark
+test('costs: a round-trip cost is charged against the risk, so it weighs more on tight stops', () => {
+  close(netR(1, 0.05, 0.002), 1 - 0.04, 1e-12); // 0.2% cost on a 5% stop = 0.04R
+  close(netR(1, 0.02, 0.008), 1 - 0.4, 1e-12); // 0.8% cost on a 2% stop = 0.4R
+  close(netR(1, 0.001, 0.002), 1 - 0.4, 1e-12); // risk floored at 0.5% so a near-zero stop cannot blow up the cost
+});
+
+test('benchmark: trade return is R x risk; random entry and market use the same span', () => {
+  // a stock that rises exactly 1% per trading day and a flat market
+  const d = Array.from({ length: 300 }, (_, k) => 20200101 + k);
+  const series = [{ d, c: d.map((_, k) => 100 * 1.01 ** k) }];
+  const market = { d, c: d.map(() => 50) };
+  const list = [
+    { stock: 0, signal: String(d[100]), days: 4, R: 2, riskPct: 0.05 }, // +10% on the position
+    { stock: 0, signal: String(d[150]), days: 9, R: -1, riskPct: 0.04 }, // -4%
+  ];
+  const b = benchmarkTrades(list, series, market, d[0], 7);
+  close(b.trade.mean, (0.1 - 0.04) / 2, 1e-9);
+  close(b.random.mean, (1.01 ** 5 - 1 + 1.01 ** 10 - 1) / 2, 1e-5); // 5 and 10 closes: days + 1, whatever day is drawn
+  close(b.market.mean, 0, 1e-12);
+  assert.equal(b.avgDays, 7);
+  // same seed, same answer
+  assert.deepEqual(benchmarkTrades(list, series, market, d[0], 7), b);
+  // a trade on a stock with no price series is left out, not counted as zero
+  assert.equal(benchmarkTrades([...list, { stock: 5, signal: String(d[10]), days: 3, R: 1, riskPct: 0.1 }], series, market, d[0], 7).trade.n, 2);
 });

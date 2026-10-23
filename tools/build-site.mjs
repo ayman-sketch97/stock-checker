@@ -469,6 +469,9 @@ fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: start
   });
   const COSTS = [BT.DEFAULT_COST, 0.005, 0.008];
   const firstSignal = btTrades.reduce((m, t) => Math.min(m, t[2]), 99999999);
+  // benchmark: the same stocks bought on a random day and held as long, and the S&P 500 over each trade's days
+  const mkt = M ? { d: Int32Array.from(M.dates, (x) => Number(x.replace(/-/g, ''))), c: Float64Array.from(M.C) } : null;
+  const bench = (list) => BT.benchmarkTrades(list, rsData, mkt, firstSignal, 20211015);
   const summary = {
     version: BT.BT_VERSION,
     asOf: priceDate,
@@ -481,6 +484,7 @@ fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: start
     halal: pack(halal),
     strong: pack(strong),
     costs: COSTS,
+    benchmark: { all: bench(all), halal: bench(halal), strong: bench(strong) },
     byCost: Object.fromEntries(COSTS.slice(1).map((c) => [String(c), { all: pack(all, c), halal: pack(halal, c), strong: pack(strong, c) }])),
   };
   fs.writeFileSync(path.join(dataDir, 'backtest-summary.json'), JSON.stringify(summary));

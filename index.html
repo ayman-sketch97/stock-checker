@@ -155,6 +155,7 @@ header.top {
 .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 14px; cursor: pointer; }
 .chip:hover { background: var(--surface-2); }
 .hint { color: var(--ink-2); font-size: 14px; margin: 10px 0 0; }
+.hint.stale { color: var(--bad-ink); font-weight: 600; }
 
 /* cards */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin: 14px 0; }
@@ -2469,7 +2470,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   }
   function stockIdeasByHold(scr, heldSet, n, wanted) {
     const skip = new Set(heldSet);
-    const base = scr.list.filter((r) => r.shariah === 'pass' && isNum(r.price) && r.price > 0 && !['AVOID_WEAK', 'SPECULATIVE', 'AVOID_SHARIAH'].includes(r.verdict));
+    const base = scr.list.filter((r) => r.shariah === 'pass' && isNum(r.price) && r.price > 0 && !['AVOID_WEAK', 'SPECULATIVE', 'AVOID_SHARIAH', 'FINANCIAL', 'NODATA'].includes(r.verdict));
     const cheapBonus = (r) => (isNum(r.buyBelow) && r.buyBelow > 0 ? (r.price <= r.buyBelow ? 15 : r.price <= r.buyBelow * 1.1 ? 8 : 0) : 0);
     const out = {};
     if (wanted.long) {
@@ -2597,12 +2598,21 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     }
     for (const it of w.items) if (it.shares > 0 && it.swing && !sw.some((x) => x.t === it.t)) sw.push({ t: it.t, shares: it.shares });
     lt.forEach((x) => { x.hp = HP[a.hp[x.t]] ? a.hp[x.t] : defaultHp; });
-    const val = (x) => { const p = priceOf(x.t); return isNum(p) ? p * x.shares : isNum(x.cost) ? x.cost * x.shares : 0; };
+    // a holding without a current price is valued at what it cost, and the page says so (never silently)
+    const unpriced = new Map();
+    const val = (x) => {
+      const p = priceOf(x.t);
+      if (isNum(p)) return p * x.shares;
+      unpriced.set(x.t, isNum(x.cost) ? 'at cost' : 'no value');
+      return isNum(x.cost) ? x.cost * x.shares : 0;
+    };
+    const both = lt.filter((x) => sw.some((y) => y.t === x.t)).map((x) => x.t);
     const other = (a.other || []).map((o) => {
       const f = o.kind === 'stock' || o.kind === 'cash' ? null : fundBySym(o.sym);
       const kind = f ? f.kind : o.kind === 'fund' ? 'equity' : o.kind; // equity | sukuk | cash | stock
       const live = f ? fundLive(f, o.sym) : null;
       const liveVal = !!(live && isNum(live.usd) && isNum(o.shares) && o.shares > 0);
+      if (!liveVal && !isNum(o.value)) unpriced.set(o.kind === 'cash' ? 'Cash' : o.sym, 'no value');
       return { ...o, f, kind, live, liveVal, value: liveVal ? live.usd * o.shares : isNum(o.value) ? o.value : 0 };
     });
     const sumOf = (k) => other.filter((o) => (Array.isArray(k) ? k.includes(o.kind) : o.kind === k)).reduce((s, o) => s + o.value, 0);
@@ -2615,6 +2625,13 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     const total = coreVal + ltVal + swVal + safeVal;
     const wOf = (v) => (total > 0 ? v / total : 0);
     const nowCard = h('section', { class: 'card', 'aria-label': 'Your portfolio now' }, h('h2', { text: 'Your portfolio now' }));
+    const valueNotes = [];
+    const atCost = [...unpriced].filter(([, k]) => k === 'at cost').map(([t]) => t);
+    const noValue = [...unpriced].filter(([, k]) => k === 'no value').map(([t]) => t);
+    if (atCost.length) valueNotes.push(`No current price for ${atCost.join(', ')}: valued at what you paid, so the total and the mix may be off.`);
+    if (noValue.length) valueNotes.push(`No price and no value for ${noValue.join(', ')}: counted as $0. Add the value in the list below.`);
+    if (both.length) valueNotes.push(`${both.join(', ')} ${both.length > 1 ? 'are' : 'is'} both marked “I own it” on the Watchlist and an open swing trade in the Journal, so it is counted twice if these are the same shares.`);
+    if (valueNotes.length) nowCard.append(h('ul', { class: 'warnbox' }, valueNotes.map((t) => h('li', { text: t }))));
     if (total > 0) {
       const cur = { core: coreVal / total, stocks: ltVal / total, swing: swVal / total, safe: safeVal / total };
       nowCard.append(h('div', { class: 'stats' }, stat('Total', money0(total), `about AED ${Math.round(total * AED_PER_USD).toLocaleString('en-US')}`), stat('Stocks held', String(lt.length + other.filter((o) => o.kind === 'stock').length), `target ${nRange}${sw.length ? ` · ${sw.length} swing` : ''}`)));
@@ -3010,6 +3027,31 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     const cost = tr.entry * tr.shares;
     return { pnl, pct: cost > 0 ? pnl / cost : null, R: risk ? pnl / (risk * tr.shares) : null, risk };
   }
+  // one backup file holds the journal, the watchlist (with the shares you own) and the Portfolio page
+  function backupOf(journal) {
+    return { ...journal, extra: { watch: W.load(), advisor: ADV.load() } };
+  }
+  // merge a backup into what is on this device: nothing local is overwritten, missing records are added
+  function mergeBackup(local, inc) {
+    const journal = { ...local.journal, trades: [...local.journal.trades] };
+    const watch = { ...local.watch, items: [...local.watch.items] };
+    const advisor = { ...local.advisor, other: [...(local.advisor.other || [])], hp: { ...(local.advisor.hp || {}) } };
+    const added = { trades: 0, watch: 0, holdings: 0 };
+    const ids = new Set(journal.trades.map((x) => x.id));
+    for (const x of inc.trades || []) if (x && x.id && x.t && isNum(x.entry) && isNum(x.shares) && x.shares > 0 && !ids.has(x.id)) { journal.trades.push(x); ids.add(x.id); added.trades++; }
+    const ex = inc.extra || {};
+    if (ex.watch && Array.isArray(ex.watch.items)) {
+      const have = new Set(watch.items.map((i) => i.t));
+      for (const i of ex.watch.items) if (i && i.t && !have.has(i.t)) { watch.items.push(i); have.add(i.t); added.watch++; }
+    }
+    if (ex.advisor) {
+      if (!advisor.profile && ex.advisor.profile) advisor.profile = ex.advisor.profile;
+      const have = new Set(advisor.other.map((o) => o.id));
+      for (const o of ex.advisor.other || []) if (o && o.id && !have.has(o.id)) { advisor.other.push(o); have.add(o.id); added.holdings++; }
+      for (const [t, v] of Object.entries(ex.advisor.hp || {})) if (!advisor.hp[t]) advisor.hp[t] = v;
+    }
+    return { journal, watch, advisor, added };
+  }
   function logTrade(t, plan) {
     journalPrefill = { t, ...plan };
     navigate('journal');
@@ -3292,12 +3334,11 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         try {
           const inc = JSON.parse(String(rd.result));
           if (!inc || !Array.isArray(inc.trades)) throw new Error('bad');
-          const k = JR.load();
-          const ids = new Set(k.trades.map((x) => x.id));
-          let added = 0;
-          for (const x of inc.trades) if (x && x.id && x.t && isNum(x.entry) && isNum(x.shares) && !ids.has(x.id)) { k.trades.push(x); added++; }
-          JR.save(k);
-          bmsg.textContent = `Added ${added} trade${added === 1 ? '' : 's'} (trades already here were kept as they are).`;
+          const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load() }, inc);
+          JR.save(m.journal);
+          W.save(m.watch);
+          ADV.save(m.advisor);
+          bmsg.textContent = `Added ${m.added.trades} trade${m.added.trades === 1 ? '' : 's'}, ${m.added.watch} watchlist stock${m.added.watch === 1 ? '' : 's'} and ${m.added.holdings} portfolio holding${m.added.holdings === 1 ? '' : 's'}. Anything already on this device was kept as it is.`;
           setTimeout(rerender, 1200);
         } catch { bmsg.textContent = 'That file is not a journal backup from this site.'; }
       };
@@ -3305,10 +3346,10 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     });
     const old = !j.backup || daysApart(j.backup, localISO()) > 14;
     bk.append(...[
-      h('p', { class: 'sub', text: 'The journal lives in this browser only. Save a backup file now and then (on iPhone it goes to Files, where iCloud can keep it), and load it on your iPad or laptop to see the same journal there.' }),
+      h('p', { class: 'sub', text: 'The journal, your watchlist (with the shares you own) and the Portfolio page live in this browser only. Save a backup file now and then (on iPhone it goes to Files, where iCloud can keep it), and load it on your iPad or laptop to see the same data there.' }),
       j.trades.length && old ? h('div', { class: 'callout', text: j.backup ? `Last backup ${shortDate(j.backup)}. Time for a new one.` : 'No backup yet. If the browser’s data is cleared, the journal goes with it.' }) : null,
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn btn-sm', type: 'button', disabled: j.trades.length ? null : true, onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`trading-journal-${localISO()}.json`, JSON.stringify(k, null, 1), 'application/json'); setTimeout(rerender, 800); } }, 'Save backup'),
+        h('button', { class: 'btn btn-sm', type: 'button', disabled: j.trades.length || W.load().items.length || ADV.load().profile ? null : true, onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`stock-checker-backup-${localISO()}.json`, JSON.stringify(backupOf(k), null, 1), 'application/json'); setTimeout(rerender, 800); } }, 'Save backup'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => fileIn.click() }, 'Load a backup'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', disabled: j.trades.length ? null : true, onclick: () => saveFile(`trading-journal-${localISO()}.csv`, journalCsv(JR.load()), 'text/csv') }, 'Export for Excel')),
       fileIn, bmsg,
@@ -4273,13 +4314,44 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
             h('span', { class: 'sm', text: g.ci ? `${fmtR(g.ci[0])} to ${fmtR(g.ci[1])}` : 'too few' })))))));
       return card;
     };
-    return [top, insCard,
+    return [top, benchCard(bt, st), insCard,
       table('By setup', 'Which kind of signal worked best.', pack.bySetup, (k) => SETUP_NAME[k] || k),
       table('By market trend', 'The S&P 500’s trend on the day of the signal.', pack.byRegime, (k) => ({ up: 'Rising market', mixed: 'Mixed market', down: 'Falling market' }[k] || k)),
       table('By relative strength', 'How the stock had done against all others over the past year, on the day of the signal (99 is the strongest).', pack.byRS, (k) => 'RS ' + k),
       table('By chart score', 'The chart score on the day of the signal.', pack.byScore, (k) => 'Score ' + k),
       table('By year', 'Results swing with the market: compare the years.', pack.byYear, (k) => String(k)),
     ].filter(Boolean);
+  }
+  // the same trades against doing nothing clever: same stocks on a random day held as long, and the S&P 500
+  function benchCard(bt, st) {
+    const b = bt.benchmark && bt.benchmark[st.uni];
+    if (!b || !b.trade || !b.trade.n || !b.random || !b.random.n) return null;
+    const c = st.cost;
+    const net = (x) => (isNum(x) ? x - c : null);
+    const tr = net(b.trade.mean);
+    const rn = net(b.random.mean);
+    const range = (x, cost) => (x.ci ? `likely ${pctS(x.ci[0] - cost, 2)} to ${pctS(x.ci[1] - cost, 2)}` : '');
+    const row = (label, sub, v, ci) => h('tr', null, h('td', null, label, h('span', { class: 'sm', text: sub })),
+      h('td', null, h('span', { class: v > 0 ? 'up' : v < 0 ? 'down' : '', text: pctS(v, 2) }), h('span', { class: 'sm', text: ci })));
+    const worse = isNum(tr) && isNum(rn) && b.trade.ci && b.random.ci && b.trade.ci[1] < b.random.ci[0];
+    const better = isNum(tr) && isNum(rn) && b.trade.ci && b.random.ci && b.trade.ci[0] > b.random.ci[1];
+    const verdict = worse
+      ? 'These trades made less than buying the same stocks on a random day and holding just as long. The gains above come from the market rising, not from the timing of the setups.'
+      : better
+        ? 'These trades made more than random entries in the same stocks held just as long, by more than chance would explain.'
+        : tr < rn
+          ? 'These trades made no more than random entries in the same stocks held just as long (the gap is within chance). The test does not show an edge from the setups\u2019 timing.'
+          : 'These trades made about the same as random entries in the same stocks held just as long (the gap is within chance). The test does not show a clear edge from the setups\u2019 timing.';
+    return h('section', { class: 'card', 'aria-label': 'Against simple alternatives' },
+      h('h2', { text: 'Against simple alternatives' }),
+      h('p', { class: 'sub', text: `Average return on the money in each trade, over the same ${b.avgDays} trading days or so. Trades and random entries are charged the same ${(c * 100).toFixed(1)}% round trip.` }),
+      h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
+        h('tr', null, h('th', { text: '' }), h('th', null, 'Per trade', h('span', { class: 'sm', text: 'likely range' }))),
+        row('These trades', `${b.trade.n.toLocaleString()} trades, after costs`, tr, range(b.trade, c)),
+        row('Same stocks, random day', 'bought on a random day in the test, held as long, after costs', rn, range(b.random, c)),
+        b.market && b.market.n ? row('S&P 500 (SPY)', 'over each trade\u2019s own days, no costs, no dividends', b.market.mean, range(b.market, 0)) : null)),
+      h('div', { class: 'callout' }, h('b', { text: 'What it means. ' }), verdict,
+        ' A percent per trade is not a yearly return: positions overlap and money waits between trades.'));
   }
   function liveCard(log, bt) {
     const card = h('section', { class: 'card', 'aria-label': 'Live record' }, h('h2', { text: 'Live record' }));
@@ -4356,15 +4428,20 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     if (start) run(start);
   }
   if (MODE === 'static') {
-    $('#dataNote').textContent = 'Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq daily closes. Earnings dates: Nasdaq\u2019s calendar (often estimates). Every company worth $2 billion or more is re-analyzed every night after the US close; during the session, prices (a few minutes delayed) update every 15 minutes and the buy/wait calls use them. Your searches, watchlist, journal and calculator amounts stay on your device. This is an educational tool, not financial advice.';
+    $('#dataNote').textContent = 'Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq daily closes. Earnings dates: Nasdaq\u2019s calendar (often estimates). Every company worth $2 billion or more is meant to be re-analyzed every night after the US close, and prices (a few minutes delayed) every 15 minutes during the session; the page warns when an update is late. Your searches, watchlist, journal and calculator amounts stay on your device. This is an educational tool, not financial advice.';
     loadIndex().then((idx) => {
       if (!idx) return;
       const when = idx.priceDate
         ? `prices as of the close on ${niceDates(idx.priceDate)}`
         : `data as of ${new Date(idx.asOf).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
-      $('#hint').textContent = `Covers ${idx.count.toLocaleString()} US companies worth $2 billion or more, ${when}. Full analysis refreshed every night; prices update every 15 minutes while the US market is open.`;
+      $('#hint').textContent = `Covers ${idx.count.toLocaleString()} US companies worth $2 billion or more, ${when}. The full analysis is meant to refresh every night and prices every 15 minutes while the US market is open.`;
+      // GitHub sometimes delays or skips scheduled runs: say so when the data is more than one session old
+      const missed = idx.priceDate ? weekdaysStrictlyBetween(idx.priceDate, localISO()) : 0;
+      if (missed >= 2) $('#hint').after(h('p', { class: 'hint stale', text: `Warning: the nightly update has not run for ${missed} trading days (last prices from ${niceDates(idx.priceDate)}). Analyses and buy signals may be out of date.` }));
     });
   }
+  // test hook for the automated page tests (test/page.test.py); inert unless the page is opened with ?selftest=1
+  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, tradeCost, batchAdvice, weekdaysStrictlyBetween };
 })();
 </script>
 </body>

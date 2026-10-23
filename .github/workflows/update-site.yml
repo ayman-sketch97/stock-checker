@@ -54,6 +54,20 @@ jobs:
             git push
           fi
 
+  page-tests:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright
+        run: pip install playwright==1.48.0 && python -m playwright install --with-deps chromium
+      - name: Run the page tests
+        run: python test/page.test.py
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
