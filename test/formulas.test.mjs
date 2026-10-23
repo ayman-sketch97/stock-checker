@@ -256,6 +256,16 @@ test('company: debt too small for the interest paid is treated as unknown', () =
   assert.ok(r.dataGaps.some((t) => /too small/.test(t)));
 });
 
+test('company: interest above 15% of the reported debt means part of the debt is unreadable (red data quality)', () => {
+  const r = company({ debt: 1000e6, interest: 170e6 }); // 17% a year: no normal loan costs that much
+  assert.equal(r.keyNumbers.debt, null);
+  assert.equal(r.dataQuality.level, 'insufficient');
+  assert.equal(r.verdict.code, 'UNRELIABLE');
+  const ok = company({ debt: 1000e6, interest: 90e6 }); // 9%: plausible, the debt is kept
+  assert.equal(ok.keyNumbers.debt, 1000e6);
+  assert.ok(!ok.dataGaps.some((t) => /too small/.test(t)));
+});
+
 test('company: debt tagged as long-term debt including current maturities is read', () => {
   const r = company({ debtTag: 'LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities', debt: 900e6 });
   assert.equal(r.keyNumbers.debt, 900e6);

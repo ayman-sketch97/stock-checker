@@ -20,7 +20,7 @@ const SITE = 'https://ayman-sketch97.github.io/stock-checker/';
 let s = SEED >>> 0 || 1;
 const rnd = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
 const bt = await (await fetch(SITE + 'data/backtest.json')).json();
-const pool = bt.stocks.map(([t, sh]) => ({ t, sh }));
+const pool = bt.stocks.map(([t, sh]) => ({ t, sh })).sort((a, b) => (a.t < b.t ? -1 : 1)); // fixed order, so the seed decides the sample
 for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
 const sample = pool.slice(0, N);
 

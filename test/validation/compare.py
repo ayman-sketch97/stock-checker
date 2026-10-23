@@ -7,7 +7,25 @@ OV = {  # values read by hand from the filing statements where the label parser 
  'CVX': {'k': {'netIncome': 12299e6, 'cash': 6293e6, 'securities': 0, 'debt': (977+39781)*1e6, 'equity': 186450e6, 'eps': 6.63},
          'q': {'cash': 8527e6, 'securities': 0, 'debt': (401+36674)*1e6, 'equity': 189883e6, 'netIncome': 14282e6, 'netIncome_prior': 5990e6}},
  'NVDA': {'k': {'capex': -6042e6}},
+ # third round (October 2026): read by hand from the statements and the debt notes (rows.py, notes.py)
+ 'MSFT': {'k': {'shares': 7453e6, 'eps': 17.95, 'ocf': 182935e6}},
+ 'GOOGL': {'k': {'debt': (46547 + 1996) * 1e6}, 'q': {'debt': (98165 + 1999) * 1e6}},  # carrying value incl. current portion
+ 'META': {'q': {'debt': (80922 + 2747) * 1e6}},
+ 'AMZN': {'k': {'debt': (65648 + 2748) * 1e6}, 'q': {'debt': (128894 + 3330 + 325) * 1e6}},
+ 'HIMS': {'k': {'revenue': 2347637e3, 'netIncome': 128365e3, 'eps': 0.51, 'shares': 258230547, 'equity': 540928e3, 'debt': 972580e3,
+                'securities': (348876 + 351263) * 1e3},
+          'q': {'debt': 1365299e3, 'equity': 324072e3, 'securities': 231237e3}},
+ 'VRT': {'k': {'shares': 390652824, 'equity': 3941.3e6}, 'q': {'equity': 4757.6e6}},
+ 'MELI': {'k': {'revenue': 28893e6, 'shares': 50697320, 'capex': -1343e6, 'equity': 6748e6, 'debt': (4623 + 4570) * 1e6},
+          'q': {'debt': (6482 + 4144) * 1e6, 'equity': 7834e6}},
+ 'KO': {'k': {'revenue': 47941e6, 'netIncome': 13107e6, 'equity': 32169e6, 'debt': (1551 + 1822 + 42119) * 1e6, 'securities': (3602 + 1934) * 1e6}},
+ 'BKNG': {'k': {'ocf': 9409e6, 'capex': -322e6, 'equity': -5578e6, 'debt': 18736e6, 'cash': 17203e6, 'securities': 0},
+          'q': {'equity': -10783e6, 'debt': 20180e6, 'cash': 17214e6, 'securities': 0}},
+ 'DE': {'k': {'revenue': 45684e6, 'netIncome': 5027e6, 'capex': -1360e6, 'debt': (13796 + 6596 + 43544) * 1e6, 'securities': 1411e6},
+        'q': {'debt': (17115 + 6095 + 40626) * 1e6, 'securities': 1350e6}},
 }
+# 12-month figures printed directly in the 10-Q (Amazon shows a trailing-twelve-month column)
+OVT = {'AMZN': {'ocf': 161403e6, 'capex': 173028e6}}
 def days(a, b): return abs((dt.date.fromisoformat(a) - dt.date.fromisoformat(b)).days)
 rows = []
 def cmp(t, period, item, off, eng, tol=0.005):
@@ -40,7 +58,9 @@ for t, e in E.items():
                 cmp(t, Q, item + ' (12 months)', off, s['value'] if s['period'] and qd in s['period'] else None)
         for item, name in [('ocf', 'Operating cash flow'), ('capex', 'Capital spending')]:
             s = e['src'][name]
-            if None not in (k.get(item), q.get(item), q.get(item + '_prior')):
+            if item in OVT.get(t, {}):
+                cmp(t, Q, item + ' (12 months)', OVT[t][item], s['value'] if s['period'] and qd in s['period'] else None)
+            elif None not in (k.get(item), q.get(item), q.get(item + '_prior')):
                 off = abs(k[item] + q[item] - q[item + '_prior'])
                 cmp(t, Q, item + ' (12 months)', off, s['value'] if s['period'] and qd in s['period'] else None)
         if e['bs'] == qd:
