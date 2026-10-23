@@ -23,7 +23,8 @@ Reference values are worked out by hand or from published definitions, not from 
 - Data quality: a clean company is "high"; incomplete capital spending, missing cash or debt, statements more than
   9 months old, a cash-flow estimate at 3 times the price or more, or debt and other claims larger than the business
   give "insufficient", which withholds the verdict, the price levels and the Portfolio picks.
-- Interest above 15% of the reported debt (and over $50M a year) means part of the debt is unreadable: debt unknown.
+- Interest above 15% of the reported debt (and over $50M a year) means part of the debt is unreadable: debt unknown,
+  unless the debt it implies at 6% is under 5% of the market value (then kept, with a note).
 - The fair value moves the right way, by the right amount, when growth, margin, discount rate, cash, debt, minority
   interests or the share count change.
 - Portfolio replay: position size from the stop (1% risk), at most 10 positions and 20% in one, exits booked before
@@ -422,9 +423,9 @@ Remaining differences:
 
 - **DE debt (-78%).** Deere reports its long-term borrowings ($43.5B) and most securitization borrowings under its
   own tags, so only short-term borrowings ($13.8B) are read. On the latest balance sheet the interest check now
-  catches this: $3.2B of yearly interest is more than 15% of the $17.1B read, so debt is shown as unknown and the
-  verdict is withheld. Before this round the check needed 20%, Deere was at 18.5%, and the page showed "High
-  confidence in the data" with $47B of debt missing. The yearly history (ROIC) still uses the understated figure.
+  catches this: $2.9B of interest in the last 12 months is 17% of the $17.1B read, so debt is shown as unknown and
+  the verdict is withheld. Before this round the check needed 20%, and the page showed "High confidence in the
+  data" with $47B of debt missing. The yearly history (ROIC) still uses the understated figure.
 - **DE capital spending (+111%).** The engine takes the larger capital-spending tag, which for Deere is equipment
   bought for its leasing business ($2.87B), not property and equipment ($1.36B). Both are cash spent; neither alone
   is a clean figure for a company with a finance arm.
@@ -445,9 +446,11 @@ Amazon's 10-Q prints trailing-12-month columns (read directly: operating cash fl
 $173.028B, both exact), Vertiv's share count is in units under a "millions" header, Microsoft's EPS and share-count
 rows carry the same label, Booking's statements have an extra empty column.
 
-Universe check of the 15% rule (SEC frames data with an estimated debt figure, companies with $50M or more of
-interest): moving from 20% to 15% adds Deere, Caesars and Insmed, whose interest expense includes financing that is
-not in their tagged debt (Deere's borrowings above, Caesars' lease financing, Insmed's royalty financing).
+Effect of the 15% rule on the live site: six companies moved to insufficient data (Deere, TechnipFMC, PENN
+Entertainment, TeraWulf, Goldman Sachs and Flagstar; the last four already failed the Shariah screen). TechnipFMC was
+a false alarm: the debt its interest implies at 6% is under 3% of its market value, too small to matter. The rule now
+applies only when that implied debt is more than 5% of the market value; below that the figure is used with a note
+(yellow).
 
 ### Fair value: the 10 stocks named for review
 

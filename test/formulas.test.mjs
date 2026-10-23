@@ -264,6 +264,11 @@ test('company: interest above 15% of the reported debt means part of the debt is
   const ok = company({ debt: 1000e6, interest: 90e6 }); // 9%: plausible, the debt is kept
   assert.equal(ok.keyNumbers.debt, 1000e6);
   assert.ok(!ok.dataGaps.some((t) => /too small/.test(t)));
+  // high interest, but whatever debt it implies (60M / 6% = 1B) is under 5% of a $50B market value: kept, with a note
+  const small = company({ debt: 100e6, interest: 60e6, price: 500 });
+  assert.equal(small.keyNumbers.debt, 100e6);
+  assert.ok(small.dataGaps.some((t) => /small next to the market value/.test(t)));
+  assert.notEqual(small.dataQuality.level, 'insufficient');
 });
 
 test('company: debt tagged as long-term debt including current maturities is read', () => {
