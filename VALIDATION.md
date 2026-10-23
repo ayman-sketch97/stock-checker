@@ -220,12 +220,14 @@ Benchmark, return on the money in each trade over the same span (signal-day clos
 | | Before costs | After 0.2% |
 |---|---|---|
 | Halal trades, all 17,787 (site build) | +1.04% | +0.84% |
-| Same stocks bought on a random day, held as long (site build) | +2.36% | +2.16% |
+| Same stocks bought on a random day, held as long (site build) | +2.21% | +2.01% |
+| SPY bought on a random day, held as long (site build) | +1.23% | no cost charged |
 | Sample of 156 stocks, 4,254 trades: setups | +0.76% | +0.56% |
 | Same sample, random day, held as long | +1.56% | +1.36% |
 | SPY bought on a random day, held as long (sample) | +1.11% | no cost charged |
 
-The setups have not beaten random entries in the same stocks held for the same time. The gains come from the
+Random-entry figures move by a few tenths of a percent between builds because the random days differ (95% range
+about 0.4 points either side). The setups have not beaten random entries in the same stocks held for the same time. The gains come from the
 market rising. The Record page shows this comparison, recomputed by every build. Not modelled: delisted
 companies (survivorship bias, results look better than reality), dividends (prices are not dividend-adjusted),
 and overlapping positions competing for the same money.
