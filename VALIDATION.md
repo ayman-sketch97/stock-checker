@@ -1,11 +1,11 @@
-# Validation report (19 October 2026)
+# Validation report (19 October 2026, second round 23 October 2026)
 
 What was checked, how, and what is still wrong. Nothing here claims the tool is error-free: it records the
 evidence for the six companies tested and the limits that remain.
 
 ## 1. Automated formula tests
 
-`node --test test/formulas.test.mjs` (23 tests, all passing; also run by the daily build before publishing).
+`node --test test/formulas.test.mjs` (32 tests, all passing; run by every build before publishing).
 Reference values are worked out by hand or from published definitions, not from the code under test:
 
 - SMA, EMA (SMA-seeded, k = 2/(n+1)), Wilder RSI (StockCharts example closes), Wilder ATR, MACD (12/26/9).
@@ -14,6 +14,16 @@ Reference values are worked out by hand or from published definitions, not from 
 - DCF: zero growth equals the perpetuity value; constant growth equals the Gordon value; net cash and shares applied once.
 - Missing cash, missing debt, missing capital spending and implausibly small debt give "unknown", never zero.
 - Shariah: unknown industry and missing data give REVIEW; reported interest income at 5% or more fails.
+- Stock splits read from share counts restated in later filings (3:2 and 2:1, with and without split data from prices).
+- Stock-based pay lowers owner cash flow and the fair value; banks, insurers and brokers get no fair value.
+- Statements more than 135 days old and prices more than 4 days old are flagged.
+- No look-ahead: the setup and plan on day i are the same whether or not later prices exist.
+- Backtest costs are charged against the risk (risk floored at 0.5%); the benchmark uses R x risk for trades and
+  the same span for random entries in the stock and in SPY.
+
+`python3 test/page.test.py` (Playwright, run on every push): journal P/L with fees, trading costs, backup save,
+wipe and restore round trip and merge rules, Portfolio warnings for missing prices and for a stock counted twice,
+the stale-data banner, and the benchmark card on the Record page.
 
 ## 2. Financial figures against the filings
 
@@ -144,9 +154,99 @@ Result: 87 figures compared, 82 within tolerance, 5 differences (explained below
   last 300 sessions: maximum difference 1e-12 or smaller for all six stocks (`test/validation/techcheck.py`).
 - Plan arithmetic for the latest bar checked by hand for NVDA and AAPL (risk, R-multiples, limit price, stop rule).
 
-## 4. What is not validated
+## 4. Second round (23 October 2026)
+
+### Fair value recomputed independently
+
+`test/validation/dcfcheck.py` recomputes bear, base and bull per share from the inputs shown on the page, with
+code written separately from the engine (run `test/validation/eng.mjs` first).
+
+| Company | Largest difference of 3 scenarios |
+|---|---|
+| AAPL | 0.019% |
+| MSFT | 0.026% |
+| NVDA | 0.005% |
+| JNJ | 0.011% |
+| KO | 0.020% |
+| CAT | 0.006% |
+| CVX | 0.030% |
+| AVGO | 0.008% |
+| JPM | no fair value (financial company), as intended |
+
+The differences come from growth and margin being shown rounded to 4 decimals. Net cash equals cash minus debt in
+every case, and the share count is the cover-page count of the latest filing.
+
+### Stock splits
+
+The price provider (Nasdaq) reports no split events, so splits come from the filings
+(`test/validation/splitcheck.mjs`):
+
+| Stock | Actual split | Found in the filings |
+|---|---|---|
+| NVDA | 4:1 July 2021, 10:1 June 2024 | 3.998x (10-K of March 2022), 10.000x (10-K of February 2025) |
+| AVGO | 10:1 July 2024 | 10.005x (10-K of December 2024) |
+| CMG | 50:1 June 2024 | 50.000x (10-K of February 2025) |
+| WMT | 3:1 February 2024 | 3.000x (10-K of March 2024) |
+| AAPL | 7:1 June 2014, 4:1 August 2020 | 7.000x (October 2014), 4.000x (October 2020) |
+| GOOGL | 20:1 July 2022 | not found, but the share history is consistent across years (14.1 to 12.2 billion) |
+
+A split is found only once an annual report restates the earlier share counts. Until then, the market-value
+cross-check (Nasdaq market value divided by price) corrects the share count and per-share history and shows a
+warning.
+
+### Backtest: costs, periods and benchmark
+
+`test/validation/btbench.py` on the published backtest (51,927 trades on 2,017 stocks, October 2021 to October
+2026). Average result per trade in R:
+
+| | 0.2% cost | 0.5% cost | 0.8% cost |
+|---|---|---|---|
+| Pullback | -0.002 | -0.056 | -0.110 |
+| Breakout | +0.009 | -0.054 | -0.118 |
+| Reversal | +0.082 | +0.051 | +0.021 |
+| Range | +0.071 | -0.005 | -0.080 |
+| All stocks | +0.036 | -0.023 | -0.081 |
+| Halal | +0.086 | +0.031 | -0.025 |
+| Halal, RS 70+, market not falling | +0.141 | +0.090 | +0.039 (range -0.005 to +0.084) |
+
+Period split with the rules unchanged (0.2% cost): October 2021 to 2023, -0.077R per trade; 2024 to October
+2026, +0.120R. By year at 0.5% cost: 2021 -0.34R, 2022 -0.28R, 2023 +0.07R, 2024 +0.12R, 2025 +0.12R, 2026
+-0.10R. Results follow the market. The rules have no fitted parameters, so a walk-forward re-fit does not apply;
+the period split is the out-of-sample check. The RS 70+ and market filters were set with the whole period
+visible, so their extra edge is not tested out of sample.
+
+Benchmark, return on the money in each trade over the same span (signal-day close to exit-day close):
+
+| | Before costs | After 0.2% |
+|---|---|---|
+| Halal trades, all 17,787 (site build) | +1.04% | +0.84% |
+| Same stocks bought on a random day, held as long (site build) | +2.36% | +2.16% |
+| Sample of 156 stocks, 4,254 trades: setups | +0.76% | +0.56% |
+| Same sample, random day, held as long | +1.56% | +1.36% |
+| SPY bought on a random day, held as long (sample) | +1.11% | no cost charged |
+
+The setups have not beaten random entries in the same stocks held for the same time. The gains come from the
+market rising. The Record page shows this comparison, recomputed by every build. Not modelled: delisted
+companies (survivorship bias, results look better than reality), dividends (prices are not dividend-adjusted),
+and overlapping positions competing for the same money.
+
+### Data freshness and unsupported companies
+
+- Each analysis records the price date, balance-sheet date and fiscal year end, and the stock page shows a warning
+  when the balance sheet is more than 135 days old or the price more than 4 days old (live AAPL: balance sheet 118
+  days old, price 1 day old, no warning). The home page warns when the site's data is 2 or more weekdays late.
+- Banks, insurers and brokers (industry codes 6000 to 6799) get no fair value and are labelled "Not rated
+  (financial firm)" (live JPM).
+- Stock-based pay is subtracted before valuation and shown next to the inputs (live AAPL: $13.7B a year, 10% of
+  free cash flow).
+
+## 5. What is not validated
 
 - Companies outside the six tested; foreign filers (20-F/40-F), REITs, banks and insurers are not analysed.
 - Company-specific XBRL tags are not read; the tool states which figure is missing or carried forward.
-- The Shariah screen cannot see impermissible revenue inside business segments; confirm on Zoya or Musaffa.
+- The Shariah screen cannot see impermissible revenue inside business segments; confirm on Zoya or Musaffa. The
+  screen was not compared with an external screener; use Zoya for Shariah decisions.
+- Survivorship bias, dividends and overlapping positions in the backtest (see section 4).
+- Portfolio: there is no ledger for deposits, withdrawals, dividends received or currency conversion, so total
+  return and realized P/L across cash movements are not tracked; trade P/L includes the fees you enter.
 - The fair value is a model with stated assumptions, not a measured fact.

@@ -358,11 +358,11 @@ test('costs: a round-trip cost is charged against the risk, so it weighs more on
   close(netR(1, 0.001, 0.002), 1 - 0.4, 1e-12); // risk floored at 0.5% so a near-zero stop cannot blow up the cost
 });
 
-test('benchmark: trade return is R x risk; random entry and market use the same span', () => {
-  // a stock that rises exactly 1% per trading day and a flat market
+test('benchmark: trade return is R x risk; random entries in the stock and in SPY use the same span', () => {
+  // a stock that rises exactly 1% per trading day and a market that rises 0.5% per day
   const d = Array.from({ length: 300 }, (_, k) => 20200101 + k);
   const series = [{ d, c: d.map((_, k) => 100 * 1.01 ** k) }];
-  const market = { d, c: d.map(() => 50) };
+  const market = { d, c: d.map((_, k) => 50 * 1.005 ** k) };
   const list = [
     { stock: 0, signal: String(d[100]), days: 4, R: 2, riskPct: 0.05 }, // +10% on the position
     { stock: 0, signal: String(d[150]), days: 9, R: -1, riskPct: 0.04 }, // -4%
@@ -370,7 +370,7 @@ test('benchmark: trade return is R x risk; random entry and market use the same 
   const b = benchmarkTrades(list, series, market, d[0], 7);
   close(b.trade.mean, (0.1 - 0.04) / 2, 1e-9);
   close(b.random.mean, (1.01 ** 5 - 1 + 1.01 ** 10 - 1) / 2, 1e-5); // 5 and 10 closes: days + 1, whatever day is drawn
-  close(b.market.mean, 0, 1e-12);
+  close(b.market.mean, (1.005 ** 5 - 1 + 1.005 ** 10 - 1) / 2, 1e-5); // SPY on a random day, same span (stored to 5 decimals)
   assert.equal(b.avgDays, 7);
   // same seed, same answer
   assert.deepEqual(benchmarkTrades(list, series, market, d[0], 7), b);

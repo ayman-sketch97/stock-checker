@@ -1231,7 +1231,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       isNum(f.terminalShare) ? kv('Value from after year 10', pct(f.terminalShare, 0)) : null));
     if (f.inputs) {
       const I = f.inputs;
-      card.append(h('p', { class: 'note', text: niceDates(`Inputs: revenue ${bigMoney(I.revenue)} (${I.revenuePeriod}); cash and investments ${bigMoney(I.cash)} and debt ${bigMoney(I.debt)} on the ${I.balanceSheetDate} balance sheet; ${(I.shares / 1e6).toLocaleString('en-US', { maximumFractionDigits: 0 })}M shares (${I.sharesSource}). Cash flow is free cash flow after stock-based pay, with after-tax interest added back, then debt is subtracted once.`) }));
+      card.append(h('p', { class: 'note', text: niceDates(`Inputs: revenue ${bigMoney(I.revenue)} (${I.revenuePeriod}); cash and investments ${bigMoney(I.cash)} and debt ${bigMoney(I.debt)} on the ${I.balanceSheetDate} balance sheet; ${(I.shares / 1e6).toLocaleString('en-US', { maximumFractionDigits: 0 })}M shares (${I.sharesSource}). Cash flow is free cash flow after stock-based pay${isNum(I.sbc) ? ` (stock-based pay ${bigMoney(I.sbc)} a year${isNum(I.sbcShareOfFcf) ? `, ${pct(I.sbcShareOfFcf, 0)} of free cash flow` : ''})` : ''}, with after-tax interest added back, then debt is subtracted once.`) }));
     }
     if (f.flags && f.flags.length) card.append(h('ul', { class: 'warnbox' }, f.flags.map((t) => h('li', { text: t }))));
     const imp = f.impliedCapped === 'above' ? 'more than 80%' : f.impliedCapped === 'below' ? 'a steep decline' : pct(f.impliedGrowth, 0);
@@ -4349,7 +4349,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
         h('tr', null, h('th', { text: '' }), h('th', null, 'Per trade', h('span', { class: 'sm', text: 'likely range' }))),
         row('These trades', `${b.trade.n.toLocaleString()} trades, after costs`, tr, range(b.trade, c)),
         row('Same stocks, random day', 'bought on a random day in the test, held as long, after costs', rn, range(b.random, c)),
-        b.market && b.market.n ? row('S&P 500 (SPY)', 'over each trade\u2019s own days, no costs, no dividends', b.market.mean, range(b.market, 0)) : null)),
+        b.market && b.market.n ? row('S&P 500 (SPY)', 'bought on a random day in the test, held as long, no costs, no dividends', b.market.mean, range(b.market, 0)) : null)),
       h('div', { class: 'callout' }, h('b', { text: 'What it means. ' }), verdict,
         ' A percent per trade is not a yearly return: positions overlap and money waits between trades.'));
   }
