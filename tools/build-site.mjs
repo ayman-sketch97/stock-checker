@@ -316,6 +316,8 @@ async function one(u) {
     ok && res.dividends?.pays ? (res.dividends.yearsPaid ?? null) : null,
     ok && res.dividends?.pays ? (isNum(res.dividends.payoutFcf) ? rd(res.dividends.payoutFcf) : (metricOf(res, 'fcf_margin') ?? 1) <= 0 ? 9 : null) : null,
     ok && res.dividends?.pays ? rd(res.dividends.growth5y ?? null, 3) : null,
+    // data quality: high, limited or insufficient (insufficient means the verdict is withheld)
+    ok ? res.dataQuality?.level || null : null,
   ];
   counts[code] = (counts[code] || 0) + 1;
   items.push(item);
@@ -340,7 +342,7 @@ const SCREEN_FIELDS = [
   'ticker', 'name', 'sector', 'industry', 'capM', 'price', 'chg', 'verdict', 'shariah', 'quality', 'health', 'growth', 'valuation',
   'fair', 'upside', 'buyBelow', 'pe', 'pfcf', 'roic', 'revGrowth', 'fcfMargin', 'divYield', 'setup', 'status', 'techScore', 'trend',
   'rsi', 'r1m', 'r3m', 'r6m', 'r12m', 'rs', 'offHigh', 'atrPct', 'entry', 'stop', 't1', 'riskPct', 'earnings', 'btN', 'btAvgR', 'impure',
-  'trimAbove', 'ema21', 'divYears', 'divFcf', 'divGrowth',
+  'trimAbove', 'ema21', 'divYears', 'divFcf', 'divGrowth', 'dq',
 ];
 
 async function attempt(list, n) {

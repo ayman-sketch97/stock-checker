@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sma, ema, rsi, atr, macd, prepare, evaluate, simulateTrade } from '../lib/technical.js';
-import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen } from '../lib/engine.js';
+import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen, FAIR_MAX_RATIO } from '../lib/engine.js';
 import { netR, benchmarkTrades } from '../lib/backtest.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
@@ -164,23 +164,27 @@ function company(opts = {}) {
     add('IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest', 'USD', { ...fy, val: rev * 0.25 });
     add('IncomeTaxExpenseBenefit', 'USD', { ...fy, val: rev * 0.05 });
     add('NetCashProvidedByUsedInOperatingActivities', 'USD', { ...fy, val: rev * 0.25 });
-    if (!opts.noCapex) add('PaymentsToAcquirePropertyPlantAndEquipment', 'USD', { ...fy, val: rev * 0.05 });
+    if (!opts.noCapex && !(opts.noCapexRecent && y >= 2023)) add(opts.capexTag || 'PaymentsToAcquirePropertyPlantAndEquipment', 'USD', { ...fy, val: rev * (opts.capex ?? 0.05) });
+    if (opts.da) add('DepreciationDepletionAndAmortization', 'USD', { ...fy, val: rev * opts.da });
+    if (opts.amort) add('AmortizationOfIntangibleAssets', 'USD', { ...fy, val: rev * opts.amort });
     add('InterestExpense', 'USD', { ...fy, val: opts.interest ?? 20e6 });
     if (opts.interestIncome) add('InvestmentIncomeInterest', 'USD', { ...fy, val: rev * opts.interestIncome });
     if (opts.sbc) add('ShareBasedCompensation', 'USD', { ...fy, val: rev * opts.sbc });
-    add('WeightedAverageNumberOfDilutedSharesOutstanding', 'shares', { ...fy, val: 100e6 });
-    add('EarningsPerShareDiluted', 'USD/shares', { ...fy, val: (rev * 0.2) / 100e6 });
+    add('WeightedAverageNumberOfDilutedSharesOutstanding', 'shares', { ...fy, val: opts.shares ?? 100e6 });
+    add('EarningsPerShareDiluted', 'USD/shares', { ...fy, val: (rev * 0.2) / (opts.shares ?? 100e6) });
     const inst = { end: `${y}-12-31`, form: '10-K', filed: `${y + 1}-02-15` };
     add('Assets', 'USD', { ...inst, val: rev * 2 });
     add('StockholdersEquity', 'USD', { ...inst, val: rev });
-    if (!(opts.noCashLatest && y === 2024)) add('CashAndCashEquivalentsAtCarryingValue', 'USD', { ...inst, val: 200e6 });
+    if (!(opts.noCashLatest && y === 2024)) add('CashAndCashEquivalentsAtCarryingValue', 'USD', { ...inst, val: opts.cash ?? 200e6 });
+    if (opts.nci) add('MinorityInterest', 'USD', { ...inst, val: opts.nci });
+    if (opts.loans) add('NotesReceivableNet', 'USD', { ...inst, val: rev * 2 * opts.loans });
     if (!(opts.noDebtLatest && y >= 2024)) add(opts.debtTag || 'LongTermDebt', 'USD', { ...inst, val: opts.debt ?? 400e6 });
     if (opts.combinedLine) add('CashCashEquivalentsAndShortTermInvestments', 'USD', { ...inst, val: 260e6 });
   });
   const sub = { name: 'TEST CO', sic: opts.sic === undefined ? 3571 : opts.sic, recentForms: ['10-K'], latest10K: { form: '10-K' } };
   return analyze({
     ticker: 'TST', cik: 1, listing: { exchange: 'Nasdaq' }, submissions: sub, facts,
-    price: { price: 50, monthly: [], splits: [], splitsKnown: true, source: 'test', priceTime: 'close on 2025-03-14' },
+    price: { price: opts.price ?? 50, monthly: [], splits: [], splitsKnown: true, source: 'test', priceTime: 'close on 2025-03-14' },
     fetchedAt: opts.fetchedAt || '2025-03-15T00:00:00Z', // 74 days after the last balance sheet, 1 day after the price
   });
 }
@@ -376,4 +380,108 @@ test('benchmark: trade return is R x risk; random entries in the stock and in SP
   assert.deepEqual(benchmarkTrades(list, series, market, d[0], 7), b);
   // a trade on a stock with no price series is left out, not counted as zero
   assert.equal(benchmarkTrades([...list, { stock: 5, signal: String(d[10]), days: 3, R: 1, riskPct: 0.1 }], series, market, d[0], 7).trade.n, 2);
+});
+
+// ---------------------------------------------------------------- fair value: sensitivity and plausibility (round 3)
+test('fair value moves the right way with growth, margin, discount rate, cash, debt and share count', () => {
+  const p = { revenue0: 1000, margin: 0.2, g1: 0.08, r: 0.09, gT: 0.025, netCash: 0, shares: 10 };
+  const v = (o) => dcf({ ...p, ...o }).perShare;
+  const b = v({});
+  close(v({ netCash: 500 }) - b, 50, 1e-9); // 500 more cash over 10 shares: 50 more a share
+  close(v({ netCash: -500 }) - b, -50, 1e-9); // 500 more debt: 50 less a share
+  close(v({ shares: 20 }), b / 2, 1e-9); // twice the shares (dilution): half the value per share
+  assert.ok(v({ r: 0.1 }) < b && v({ r: 0.08 }) > b, 'a higher discount rate lowers the value');
+  // strictly rising, with no jumps, as growth and margin rise
+  let prev = -Infinity;
+  for (let g = -0.05; g <= 0.2001; g += 0.01) {
+    const x = v({ g1: g });
+    assert.ok(x > prev, `growth ${g.toFixed(2)}`);
+    prev = x;
+  }
+  prev = -Infinity;
+  for (let m = 0.02; m <= 0.4001; m += 0.02) {
+    const x = v({ margin: m });
+    assert.ok(x > prev, `margin ${m.toFixed(2)}`);
+    prev = x;
+  }
+  // value is proportional to margin (cash flow scales, cash does not)
+  close(v({ margin: 0.4 }), 2 * b, 1e-9);
+});
+
+test('company: cash, debt, outside shareholders and share count change the fair value by the right amount', () => {
+  const a = company();
+  close(a.fairValue.base - company({ debt: 600e6 }).fairValue.base, 200e6 / 100e6, 0.011); // 200M more debt
+  close(company({ cash: 400e6 }).fairValue.base - a.fairValue.base, 200e6 / 100e6, 0.011); // 200M more cash
+  const n = company({ nci: 300e6 });
+  close(a.fairValue.base - n.fairValue.base, 300e6 / 100e6, 0.011); // 300M of noncontrolling interests
+  assert.equal(n.fairValue.inputs.nci, 300e6);
+  close(company({ shares: 200e6 }).fairValue.base, a.fairValue.base / 2, 0.011); // twice the shares
+});
+
+test('company: a clean company has high data quality', () => {
+  const r = company();
+  assert.equal(r.dataQuality.level, 'high');
+  assert.deepEqual(r.dataQuality.reasons, []);
+});
+
+test('company: capital spending far below depreciation withholds the fair value and the verdict', () => {
+  const r = company({ da: 0.1, capex: 0.01 });
+  assert.equal(r.fairValue, null);
+  assert.ok(r.fairValueIssues.some((t) => /capital spending looks incomplete/.test(t)));
+  assert.equal(r.dataQuality.level, 'insufficient');
+  assert.equal(r.verdict.code, 'UNRELIABLE');
+  assert.equal(r.pricePlan, null);
+  // normal spending against the same depreciation is fine
+  assert.equal(company({ da: 0.1, capex: 0.05 }).dataQuality.level, 'high');
+  // amortization of acquired intangibles is not wear on equipment: no flag when depreciation alone is small
+  assert.ok(company({ da: 0.1, amort: 0.09, capex: 0.01 }).fairValue);
+});
+
+test('company: oil and gas drilling and rental fleets count as capital spending', () => {
+  for (const tag of ['PaymentsToExploreAndDevelopOilAndGasProperties', 'PaymentsToAcquireOilAndGasPropertyAndEquipment', 'PaymentsToAcquireEquipmentOnLease']) {
+    const r = company({ capexTag: tag });
+    close(r.fairValue.base, company().fairValue.base, 0.011);
+  }
+});
+
+test('company: no free cash flow in the latest year means no fair value from older years', () => {
+  const r = company({ noCapexRecent: true });
+  assert.equal(r.fairValue, null);
+  assert.ok(r.fairValueIssues.some((t) => /no free cash flow for the latest year/.test(t)));
+});
+
+test('company: an estimate 3x the price or more is rejected and the verdict withheld', () => {
+  const base = company().fairValue.base; // about 80 at a price of 50
+  const r = company({ price: base / (FAIR_MAX_RATIO + 0.5) });
+  assert.equal(r.fairValue, null);
+  assert.ok(r.fairValueRejected && r.fairValueRejected.ratio >= FAIR_MAX_RATIO);
+  assert.equal(r.verdict.code, 'UNRELIABLE');
+  assert.equal(r.pricePlan, null);
+  assert.ok(company({ price: base / (FAIR_MAX_RATIO - 0.5) }).fairValue, 'just under the limit is kept');
+});
+
+test('company: debt larger than the value of the cash flows gives no fair value (never a negative one)', () => {
+  const r = company({ debt: 9e9 });
+  assert.equal(r.fairValue, null);
+  assert.ok(r.fairValueIssues.some((t) => /larger than the value of the cash flows/.test(t)));
+});
+
+test('company: regulated utilities get no cash-flow valuation', () => {
+  const r = company({ sic: 4911 });
+  assert.equal(r.fairValue, null);
+  assert.equal(r.labels.valuation.label, 'Not rated (utility)');
+  assert.equal(r.dataQuality.level, 'limited');
+});
+
+test('company: a large lending book is a data-quality limit', () => {
+  const r = company({ loans: 0.3 });
+  assert.equal(r.dataQuality.level, 'limited');
+  assert.ok(r.dataQuality.reasons.some((t) => /lending business/.test(t)));
+});
+
+test('company: statements more than 9 months old withhold the verdict', () => {
+  const r = company({ fetchedAt: '2025-10-15T00:00:00Z' });
+  assert.equal(r.dataQuality.level, 'insufficient');
+  assert.ok(r.dataQuality.reasons.some((t) => /statements are more than 9 months old/.test(t)));
+  assert.equal(r.verdict.code, 'UNRELIABLE');
 });

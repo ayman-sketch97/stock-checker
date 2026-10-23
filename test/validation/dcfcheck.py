@@ -1,5 +1,6 @@
 # Independent check of the fair value (DCF) figures. Recomputes bear, base and bull per share from the inputs the
-# page shows (revenue, owner margin, growth, discount rate, terminal growth, cash minus debt, shares) with code
+# page shows (revenue, owner margin, growth, discount rate, terminal growth, cash minus debt and minority interests,
+# shares) with code
 # written separately from lib/engine.js. Run test/validation/eng.mjs first; it writes <TICKER>.v3.json files here.
 # Usage: python3 test/validation/dcfcheck.py AAPL MSFT NVDA ...
 import json, sys
@@ -27,7 +28,8 @@ for t in sys.argv[1:]:
     assert abs(i['netCash'] - (i['cash'] - i['debt'])) < 1, f'{t}: net cash is not cash minus debt'
     for sc in ('bear', 'base', 'bull'):
         s = f['scenarios'][sc]
-        v = per_share(i['revenue'], s['margin'], s['growth'], f['discountRate'], f['terminalGrowth'], i['netCash'], i['shares'])
+        # value for common shareholders: cash minus debt, minus outside shareholders' part of subsidiaries (book)
+        v = per_share(i['revenue'], s['margin'], s['growth'], f['discountRate'], f['terminalGrowth'], i['netCash'] - (i.get('nci') or 0), i['shares'])
         d = v / f[sc] - 1
         worst = max(worst, abs(d))
         print(f'{t:5} {sc:4} independent {v:9.2f}   page {f[sc]:9.2f}   difference {d * 100:+.3f}%')

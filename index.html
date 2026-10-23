@@ -156,6 +156,10 @@ header.top {
 .chip:hover { background: var(--surface-2); }
 .hint { color: var(--ink-2); font-size: 14px; margin: 10px 0 0; }
 .hint.stale { color: var(--bad-ink); font-weight: 600; }
+.dq { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; }
+.dq > span { flex: 1 1 0; min-width: 0; }
+.dq-why { flex-basis: 100%; margin: 4px 0 0; padding-left: 22px; font-size: 13px; color: var(--ink-2); }
+.dq-insufficient > span b { color: var(--bad-ink); }
 
 /* cards */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin: 14px 0; }
@@ -1042,8 +1046,18 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   const VERDICT_SHORT = {
     BUY_STRONG: 'Strong buy candidate', BUY: 'Buy candidate', CONTRARIAN: 'Possible bargain', WATCH: 'Watchlist',
     LOOK: 'Worth a closer look', PASS: 'Pass', AVOID_WEAK: 'Avoid', AVOID_SHARIAH: 'Avoid: not halal',
-    SPECULATIVE: 'Speculative', NODATA: 'Too little data', FINANCIAL: 'Financial company',
+    SPECULATIVE: 'Speculative', NODATA: 'Too little data', FINANCIAL: 'Financial company', UNRELIABLE: 'No verdict (data)',
   };
+  // data quality: how far the numbers behind the verdict can be trusted (red withholds the verdict)
+  const DQ = { high: ['good', 'High confidence in the data'], limited: ['ok', 'Some data limitations'], insufficient: ['bad', 'Insufficient data: do not use the verdict'] };
+  function dataQualityLine(q) {
+    if (!q || !DQ[q.level]) return null;
+    const [ic, label] = DQ[q.level];
+    const wrap = h('div', { class: 'dq dq-' + q.level }, icon(ic, 'Data quality'), h('span', null, 'Data quality: ', h('b', { text: label })));
+    // for insufficient data the reasons are already in the verdict text above
+    if (q.level === 'limited' && q.reasons && q.reasons.length) wrap.append(h('ul', { class: 'dq-why' }, q.reasons.map((t) => h('li', { text: t.charAt(0).toUpperCase() + t.slice(1) + '.' }))));
+    return wrap;
+  }
   let tech = null; // technical tab state for the company on screen
   function render(d) {
     destroyChart();
@@ -1099,8 +1113,9 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       h('div', { class: 'kicker' }, icon(toneIcon, 'Verdict'), 'Verdict'),
       h('div', { class: 'title', text: v.title }),
       h('p', { text: v.summary }),
-      h('div', { class: 'conf' }, 'Confidence: ', h('b', { text: v.confidence }),
-        v.confidenceReasons && v.confidenceReasons.length ? ` (${v.confidenceReasons.join('; ')})` : '')));
+      v.code === 'UNRELIABLE' ? null : h('div', { class: 'conf' }, 'Confidence: ', h('b', { text: v.confidence }),
+        v.confidenceReasons && v.confidenceReasons.length ? ` (${v.confidenceReasons.join('; ')})` : ''),
+      dataQualityLine(d.dataQuality)));
 
     // tiles
     const tiles = h('div', { class: 'tiles' });
@@ -1474,6 +1489,11 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
       h('p', { class: 'sub', text: 'Price levels from the fair-value estimate, for owning the business for years.' }));
     if (code === 'AVOID_SHARIAH') {
       card.append(h('div', { class: 'callout', text: 'It fails the Shariah screen, so there is no entry plan: this one is not for your portfolio.' }));
+      return card;
+    }
+    if (code === 'UNRELIABLE') {
+      card.append(h('div', { class: 'callout', text: 'No price levels: the data for this company is not reliable enough to set a buy or sell price (see Data quality in the verdict). Check the latest annual report yourself first.' }));
+      if (d.sellIf && d.sellIf.length) card.append(sellIfList(d));
       return card;
     }
     if (!P) {
@@ -2117,7 +2137,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   const HAS_SITE = MODE === 'static';
   const TRADED = ['pullback', 'breakout', 'reversal', 'range'];
   const GOOD_VERDICTS = new Set(['BUY_STRONG', 'BUY', 'CONTRARIAN', 'WATCH']);
-  const VERDICT_TONE = { BUY_STRONG: 'good', BUY: 'good', CONTRARIAN: 'warn', WATCH: 'accent', LOOK: 'neutral', PASS: 'neutral', AVOID_WEAK: 'bad', AVOID_SHARIAH: 'bad', SPECULATIVE: 'bad', NODATA: 'neutral', FINANCIAL: 'neutral' };
+  const VERDICT_TONE = { BUY_STRONG: 'good', BUY: 'good', CONTRARIAN: 'warn', WATCH: 'accent', LOOK: 'neutral', PASS: 'neutral', AVOID_WEAK: 'bad', AVOID_SHARIAH: 'bad', SPECULATIVE: 'bad', NODATA: 'neutral', FINANCIAL: 'neutral', UNRELIABLE: 'neutral' };
   const SHARIAH_TAG = { pass: ['Halal', 'good'], review: ['Halal: check', 'warn'], fail: ['Not halal', 'bad'] };
   const SH_WORD = { pass: 'passes', review: 'needs checking', fail: 'fails' };
   const jsonCache = new Map();
@@ -2210,6 +2230,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     const code = d.verdict && d.verdict.code;
     if (code === 'AVOID_SHARIAH' || (d.labels && d.labels.shariah && d.labels.shariah.status === 'fail')) return { tone: 'bad', title: 'Don’t buy', text: 'It fails the Shariah screen.' };
     if (['AVOID_WEAK', 'SPECULATIVE'].includes(code)) return { tone: 'bad', title: 'Not a long-term buy', text: `The business is rated “${VERDICT_SHORT[code]}”, whatever the price.` };
+    if (code === 'UNRELIABLE') return { tone: 'warn', title: 'No verdict', text: 'The data for this company is not reliable enough to judge it or set a buy price. Check the filings yourself first.' };
     if (!P || !isNum(P.buyBelow) || !isNum(px)) return { tone: '', title: 'No buy price', text: 'There is no reliable fair-value estimate, so there is no long-term buy price. Judge the business itself, or use the chart for timing.' };
     if (isNum(P.strongBuyBelow) && px <= P.strongBuyBelow) return { tone: 'good', title: 'Strong buy price now', text: `${price(px)} is below the strong-buy level of ${price(P.strongBuyBelow)}. Buying in two or three parts lowers the risk of bad timing.` };
     if (px <= P.buyBelow) return { tone: 'good', title: 'Good price now', text: `${price(px)} is below the buy price of ${price(P.buyBelow)}. Buying in two or three parts lowers the risk of bad timing.` };
@@ -2470,7 +2491,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
   }
   function stockIdeasByHold(scr, heldSet, n, wanted) {
     const skip = new Set(heldSet);
-    const base = scr.list.filter((r) => r.shariah === 'pass' && isNum(r.price) && r.price > 0 && !['AVOID_WEAK', 'SPECULATIVE', 'AVOID_SHARIAH', 'FINANCIAL', 'NODATA'].includes(r.verdict));
+    const base = scr.list.filter((r) => r.shariah === 'pass' && isNum(r.price) && r.price > 0 && !['AVOID_WEAK', 'SPECULATIVE', 'AVOID_SHARIAH', 'FINANCIAL', 'NODATA', 'UNRELIABLE'].includes(r.verdict) && r.dq !== 'insufficient');
     const cheapBonus = (r) => (isNum(r.buyBelow) && r.buyBelow > 0 ? (r.price <= r.buyBelow ? 15 : r.price <= r.buyBelow * 1.1 ? 8 : 0) : 0);
     const out = {};
     if (wanted.long) {
@@ -3550,7 +3571,7 @@ td .sm, th .sm { display: block; font-size: 11px; font-weight: 500; color: var(-
     cap: ['Biggest first', (a, b) => (b.capM || 0) - (a.capM || 0)],
   };
   const SL_DEFAULT = { preset: 'signals', shariah: 'pass', sector: '', cap: 0, hideEarn: true, strong: true, solid: true, sort: '', q: '' };
-  const WEAK = new Set(['AVOID_WEAK', 'SPECULATIVE']);
+  const WEAK = new Set(['AVOID_WEAK', 'SPECULATIVE', 'UNRELIABLE']);
   function openShortlist(preset) {
     const st = { ...SL_DEFAULT, ...store.get('sl', {}) };
     st.preset = preset;

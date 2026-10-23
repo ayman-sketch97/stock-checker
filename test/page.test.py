@@ -41,7 +41,7 @@ def weekday_back(n):
     return d.isoformat()
 
 
-async def page_with(ctx, base, price_date, storage=None, path=''):
+async def page_with(ctx, base, price_date, storage=None, path='', stock=None):
     screen = json.load(open(os.path.join(FIX, 'screen.json')))
     index = json.load(open(os.path.join(FIX, 'index.json')))
     screen['priceDate'] = index['priceDate'] = price_date
@@ -50,6 +50,8 @@ async def page_with(ctx, base, price_date, storage=None, path=''):
         u = r.request.url
         if u.endswith('data/screen.json') or 'data/screen.json?' in u:
             await r.fulfill(status=200, body=json.dumps(screen), headers={'content-type': 'application/json'})
+        elif stock and re.search(r'/data/KO\.json', u):
+            await r.fulfill(status=200, body=open(os.path.join(FIX, stock + '.json')).read(), headers={'content-type': 'application/json'})
         elif 'data/backtest-summary.json' in u:
             await r.fulfill(status=200, body=open(os.path.join(FIX, 'backtest-summary.json')).read(), headers={'content-type': 'application/json'})
         elif 'data/index.json' in u:
@@ -158,6 +160,24 @@ async def main():
         check('+0.56%' in txt and '+1.51%' in txt and '+1.42%' in txt, 'benchmark card shows trades and random entries net of 0.2% and SPY')
         check('made less than buying the same stocks on a random day' in txt, 'benchmark card says plainly when the setups lose to random entries')
         check(not errs, f'no page errors on the Record page {errs}')
+        await pg.close()
+
+        # ---- stock page: the data-quality line, and a withheld verdict when the data is not reliable
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-unreliable')
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1500)
+        txt = await pg.inner_text('section[aria-label="Verdict"]')
+        check('No verdict' in txt and 'Insufficient data' in txt and 'capital spending looks incomplete' in txt.lower(), 'unreliable data: verdict withheld and the reason shown')
+        lt = await pg.inner_text('section[aria-label="Long-term entry and exit"]')
+        check('No price levels' in lt, 'unreliable data: no buy or sell price levels')
+        check(not errs, f'no page errors on an unreliable stock page {errs}')
+        await pg.close()
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok')
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1500)
+        txt = await pg.inner_text('section[aria-label="Verdict"]')
+        check('High confidence in the data' in txt and 'Strong buy candidate' in txt, 'clean data: verdict kept, data quality high')
+        check(not errs, f'no page errors on a normal stock page {errs}')
         await pg.close()
 
         # ---- stale data warning on the home page
