@@ -4,8 +4,8 @@
   "description": "Fundamental analysis and a halal screen for US stocks, explained in plain words.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f6f5f2",
-  "theme_color": "#f6f5f2",
+  "background_color": "#f3f6fb",
+  "theme_color": "#f3f6fb",
   "icons": [
     {
       "src": "icon-192.png",

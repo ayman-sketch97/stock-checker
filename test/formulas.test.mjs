@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { sma, ema, rsi, atr, macd, prepare, evaluate, simulateTrade } from '../lib/technical.js';
 import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen, FAIR_MAX_RATIO } from '../lib/engine.js';
 import { netR, benchmarkTrades, portfolioSim, buyHold } from '../lib/backtest.js';
+import { liveProof, LOG_FIELDS } from '../lib/signals.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -572,4 +573,34 @@ test('company: no debt tags with real interest expense means unknown debt, not z
   assert.equal(r.keyNumbers.debt, null);
   assert.equal(r.dataQuality.level, 'insufficient');
   assert.ok(r.warnings.some((w) => /no borrowings are tagged/.test(w)));
+});
+
+test('live record gate: swing signals count as proven only after enough trades that beat SPY after costs', () => {
+  // SPY rises 0.1% a day; each trade lasts 10 trading days (SPY +1.0% over them)
+  const dates = Array.from({ length: 400 }, (_, i) => new Date(Date.UTC(2026, 0, 1) + i * 86400000).toISOString().slice(0, 10));
+  const C = dates.map((_, i) => 100 * 1.001 ** i);
+  const mk = (i, R, riskPct, shariah = 'pass', status = 'closed') => {
+    const r = Array(LOG_FIELDS.length).fill(null);
+    const set = (k, v) => { r[LOG_FIELDS.indexOf(k)] = v; };
+    set('ticker', 'T' + i); set('signal', dates[i]); set('exitDate', dates[i + 10]); set('status', status); set('shariah', shariah);
+    set('R', R); set('riskPct', riskPct);
+    return r;
+  };
+  const spyOver10 = C[10] / C[0] - 1;
+  // 120 trades, alternating +1R and +0.5R on 5% risk: +3.75% average before costs, far above SPY's 1% over the same days
+  const strong = { started: dates[0], records: Array.from({ length: 120 }, (_, i) => mk(i, i % 2 ? 1 : 0.5, 0.05)) };
+  const p = liveProof(strong, { dates, C }, { need: 100, cost: 0.002 });
+  assert.equal(p.n, 120);
+  assert.ok(Math.abs(p.avgTrade - (0.0375 - 0.002)) < 1e-4, `average trade after costs ${p.avgTrade}`);
+  assert.ok(Math.abs(p.avgSpy - spyOver10) < 1e-4);
+  assert.ok(p.ciLow > 0 && p.proven, 'beats SPY on 120 trades: proven');
+  // the same edge on only 60 trades is not enough
+  assert.equal(liveProof({ records: strong.records.slice(0, 60) }, { dates, C }, { need: 100 }).proven, false);
+  // trades that lose to SPY are never proven, however many; open, failed-Shariah and unmatched records are ignored
+  const weak = { records: [...Array.from({ length: 150 }, (_, i) => mk(i, i % 2 ? 0.3 : -0.2, 0.05)), mk(1, 5, 0.05, 'fail'), mk(2, 5, 0.05, 'pass', 'open')] };
+  const q = liveProof(weak, { dates, C }, { need: 100 });
+  assert.equal(q.n, 150);
+  assert.ok(q.avgDiff < 0 && !q.proven, 'loses to SPY: not proven');
+  // no market data: nothing can be proven
+  assert.equal(liveProof(strong, null).proven, false);
 });

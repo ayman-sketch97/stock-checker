@@ -51,6 +51,9 @@ function buildPage() {
     html = html.replace(a, b);
   }
   fs.writeFileSync(path.join(OUT, 'index.html'), html);
+  // self-hosted font (no font service sees who visits) and its licence
+  fs.mkdirSync(path.join(OUT, 'fonts'), { recursive: true });
+  for (const f of ['inter-var-latin.woff2', 'OFL.txt']) fs.copyFileSync(path.join(root, 'fonts', f), path.join(OUT, 'fonts', f));
   for (const f of ['favicon.svg', 'manifest.json', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png']) {
     fs.copyFileSync(path.join(root, f), path.join(OUT, f));
   }
@@ -523,7 +526,17 @@ fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: start
   log.updated = priceDate;
   SG.trimLog(log, priceDate || started.toISOString().slice(0, 10));
   log.records.sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : a[0] < b[0] ? -1 : 1));
+  // the gate for real money: has the live record beaten SPY over the same days, after costs, on enough trades?
+  log.proof = SG.liveProof(log, M ? { dates: M.dates, C: M.C } : null);
   fs.writeFileSync(path.join(dataDir, 'signals.json'), JSON.stringify(log));
+  // the stock, shortlist and portfolio pages read the gate from the backtest summary (written earlier in this run)
+  const sp = path.join(dataDir, 'backtest-summary.json');
+  if (fs.existsSync(sp)) {
+    const s = JSON.parse(fs.readFileSync(sp, 'utf8'));
+    s.liveProof = log.proof;
+    fs.writeFileSync(sp, JSON.stringify(s));
+  }
+  console.log(`live record vs SPY: ${JSON.stringify(log.proof)}`);
   const st = SG.LOG_FIELDS.indexOf('status');
   const c = { pending: 0, open: 0, closed: 0 };
   for (const r of log.records) c[r[st]] = (c[r[st]] || 0) + 1;

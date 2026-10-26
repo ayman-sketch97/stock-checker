@@ -107,6 +107,20 @@ async def main():
         msft = [x for x in hd['lt'] if x['t'] == 'MSFT']
         check(len(msft) == 1 and msft[0]['shares'] == 4 and msft[0]['cost'] == 400, 'the Watchlist position wins over a Journal buy of the same stock (no double count)')
         check(sorted((x['t'], x['shares']) for x in hd['sw']) == [('KO', 5), ('NVDA', 2)], f"swing positions: open swing trades, closed trades left out: {hd['sw']}")
+        hp = await pg.evaluate("""__sc.holdingsFrom([], [{t: 'AMD', setup: 'pullback', entry: 100, shares: 3, opened: '2026-03-01', paper: true},
+            {t: 'AAPL', setup: 'longterm', entry: 100, shares: 2, opened: '2026-03-01', paper: true}])""")
+        check(not hp['lt'] and not hp['sw'], f'paper trades are practice: kept out of the portfolio: {hp}')
+
+        # ---- the live-record gate: until it beats the S&P 500, swing signals are paper trades
+        await pg.wait_for_timeout(300)
+        check(await pg.evaluate("__sc.swingProven()") is False, 'live record not proven in the fixture (44 of 100 trades, behind the index)')
+        sn = await pg.evaluate("""__sc.swingNow({ setup: { setup: 'pullback', status: 'active', entry: 100, stop: 95, target1: 110, maxEntry: 101, fill: 'stop' }, asOf: '2026-10-26', market: { regime: 'up' } }, null, false)""")
+        check(sn['title'].startswith('Paper trade only') and sn['tone'] == 'warn', f'a live buy signal is shown as a paper trade: {sn}')
+        rc = await pg.evaluate("__sc.roundTripCost(250, 100)")
+        check(near(rc['usd'], 0.9) and near(rc['pct'], 0.0036) and rc['plan'] == 'tiered', f'$250 at IBKR Tiered: about $0.90 to buy and sell: {rc}')
+        tm = await pg.evaluate("[__sc.targetMix({horizon: 'long', drop: 'hold', time: 'mid', focus: 'half', hold: 'auto', swing: 'yes'}, false), __sc.targetMix({horizon: 'long', drop: 'hold', time: 'mid', focus: 'half', hold: 'auto', swing: 'yes'}, true)]")
+        check(tm[0]['swing'] == 0 and near(tm[0]['core'] + tm[0]['stocks'] + tm[0]['safe'], 1) and any('paper trades only' in w for w in tm[0]['why']), f"not proven: no real money for swing trades: {tm[0]['swing']}, core {tm[0]['core']}")
+        check(near(tm[1]['swing'], 0.1), 'proven: the usual 10% swing share')
 
         # ---- trade size: loss at the stop, and the 1% risk limit
         z = await pg.evaluate("__sc.sizePosition(100, 95, 1000, 10000)")
@@ -169,6 +183,10 @@ async def main():
         pg, errs = await page_with(ctx, base, fresh, storage, '#')
         await pg.click('#nav button:has-text("Portfolio")')
         await pg.wait_for_timeout(1500)
+        labels = await pg.evaluate("[...document.querySelectorAll('#page-advisor > section.card')].map((x) => x.getAttribute('aria-label')).slice(0, 4)")
+        check(labels == ['About you', 'Your target mix', 'Best halal funds for you', 'This month'], f'core first on the Portfolio page: {labels}')
+        mix = await pg.inner_text('section[aria-label="Your target mix"]')
+        check('Swing trades' not in mix.split('With ')[0] and 'paper trades only' in mix, 'no swing share while the live record is unproven, and the page says why')
         txt = await pg.inner_text('section[aria-label="Your portfolio now"]')
         check('No current price for ZZZZ' in txt, 'holding without a price is flagged as valued at cost')
         check('No price and no value for XYZ' in txt, 'holding with no price and no value is flagged as $0')
@@ -195,6 +213,8 @@ async def main():
         check('made less than buying the same stocks on a random day' in txt, 'benchmark card says plainly when the setups lose to random entries')
         txt = await pg.inner_text('section[aria-label="As a portfolio"]')
         check('+1.8%' in txt and '+11.3%' in txt and 'price only, like the trades' in txt and 'counted on neither side' in txt and 'grew more slowly than' in txt, 'portfolio card: growth and worst fall against SPY, prices only on both sides, and says so')
+        live = await pg.inner_text('section[aria-label="Live record"]')
+        check('Real money: not yet' in live and '44 closed trades' in live, 'the live record says swing signals are not yet for real money, with the numbers')
         check(not errs, f'no page errors on the Record page {errs}')
         await pg.close()
 
@@ -214,6 +234,41 @@ async def main():
         txt = await pg.inner_text('section[aria-label="Verdict"]')
         check('High confidence in the data' in txt and 'Strong buy candidate' in txt, 'clean data: verdict kept, data quality high')
         check(not errs, f'no page errors on a normal stock page {errs}')
+        await pg.close()
+
+        # ---- journal: a paper trade is saved as practice and labelled
+        pg, errs = await page_with(ctx, base, fresh, {'journal': {'v': 1, 'trades': [], 'backup': None}}, '#')
+        await pg.click('#nav button:has-text("Journal")')
+        await pg.wait_for_timeout(700)
+        await pg.click('button:has-text("Add a trade")')
+        f = pg.locator('#page-journal form.editbox')
+        await f.locator('input').nth(0).fill('AMD')
+        await f.locator('input').nth(2).fill('150')
+        await f.locator('input').nth(3).fill('2')
+        await f.locator('input').nth(4).fill('140')
+        await f.locator('label.chk input[type=checkbox]').check()
+        await f.locator('button[type=submit]').click()
+        await pg.wait_for_timeout(600)
+        saved = await pg.evaluate("JSON.parse(localStorage.getItem('journal')).trades")
+        check(len(saved) == 1 and saved[0].get('paper') is True, f'paper trade saved as practice: {saved}')
+        opent = await pg.inner_text('section[aria-label="Open trades"]')
+        check('Paper' in opent, 'open paper trade is labelled')
+        check(not errs, f'no page errors in the journal {errs}')
+        await pg.close()
+
+        # ---- home and shortlist: long-term ideas first, swing signals marked as paper trades
+        pg, errs = await page_with(ctx, base, fresh)
+        await pg.wait_for_timeout(600)
+        ideas = await pg.inner_text('section[aria-label="Ideas today"]')
+        check(ideas.find('Long term:') >= 0 and ideas.find('Long term:') < ideas.find('Swing signals:'), 'home: long-term ideas come first, swing signals after them')
+        await pg.click('#nav button:has-text("Shortlist")')
+        await pg.wait_for_timeout(900)
+        first = await pg.inner_text('#page-shortlist .presets button[aria-pressed="true"]')
+        check(first.strip() == 'Quality on sale', f'shortlist opens on the long-term list: {first!r}')
+        await pg.click('#page-shortlist .presets button:has-text("Swing signals")')
+        await pg.wait_for_timeout(400)
+        check(await pg.locator('#page-shortlist .paper-note').count() == 1, 'the swing list explains that its signals are paper trades')
+        check(not errs, f'no page errors on home and shortlist {errs}')
         await pg.close()
 
         # ---- stale data warning on the home page
