@@ -526,7 +526,8 @@ fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: start
   log.updated = priceDate;
   SG.trimLog(log, priceDate || started.toISOString().slice(0, 10));
   log.records.sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : a[0] < b[0] ? -1 : 1));
-  // the gate for real money: has the live record beaten SPY over the same days, after costs, on enough trades?
+  // the gate for real money: have live trades, each followed for SG.PROOF_H trading days, beaten SPY over the same
+  // days after costs, for enough months? (lib/signals.js, liveProof)
   log.proof = SG.liveProof(log, M ? { dates: M.dates, C: M.C } : null);
   fs.writeFileSync(path.join(dataDir, 'signals.json'), JSON.stringify(log));
   // the stock, shortlist and portfolio pages read the gate from the backtest summary (written earlier in this run)

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { sma, ema, rsi, atr, macd, prepare, evaluate, simulateTrade } from '../lib/technical.js';
 import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen, FAIR_MAX_RATIO } from '../lib/engine.js';
 import { netR, benchmarkTrades, portfolioSim, buyHold } from '../lib/backtest.js';
-import { liveProof, LOG_FIELDS } from '../lib/signals.js';
+import { liveProof, LOG_FIELDS, PROOF_H, updateStock } from '../lib/signals.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -575,32 +575,75 @@ test('company: no debt tags with real interest expense means unknown debt, not z
   assert.ok(r.warnings.some((w) => /no borrowings are tagged/.test(w)));
 });
 
-test('live record gate: swing signals count as proven only after enough trades that beat SPY after costs', () => {
-  // SPY rises 0.1% a day; each trade lasts 10 trading days (SPY +1.0% over them)
+test('live record gate: each trade followed for 20 trading days, months as the results, proven only after enough months beat SPY', () => {
+  // 400 days, SPY up 0.1% a day. A record's fill day is index f; SPY is measured from the close before it (f - 1).
   const dates = Array.from({ length: 400 }, (_, i) => new Date(Date.UTC(2026, 0, 1) + i * 86400000).toISOString().slice(0, 10));
   const C = dates.map((_, i) => 100 * 1.001 ** i);
-  const mk = (i, R, riskPct, shariah = 'pass', status = 'closed') => {
+  const spy = { dates, C };
+  const mk = ({ f, status = 'closed', R = null, days = 10, hR = null, riskPct = 0.05, shariah = 'pass' }) => {
     const r = Array(LOG_FIELDS.length).fill(null);
     const set = (k, v) => { r[LOG_FIELDS.indexOf(k)] = v; };
-    set('ticker', 'T' + i); set('signal', dates[i]); set('exitDate', dates[i + 10]); set('status', status); set('shariah', shariah);
-    set('R', R); set('riskPct', riskPct);
+    set('ticker', 'T' + f); set('signal', dates[f - 1]); set('fillDate', status === 'pending' ? null : dates[f]); set('status', status);
+    set('shariah', shariah); set('R', R); set('riskPct', riskPct); set('days', status === 'closed' ? days : null); set('hR', hR);
+    set('exitDate', status === 'closed' ? dates[f + days] : null);
     return r;
   };
-  const spyOver10 = C[10] / C[0] - 1;
-  // 120 trades, alternating +1R and +0.5R on 5% risk: +3.75% average before costs, far above SPY's 1% over the same days
-  const strong = { started: dates[0], records: Array.from({ length: 120 }, (_, i) => mk(i, i % 2 ? 1 : 0.5, 0.05)) };
-  const p = liveProof(strong, { dates, C }, { need: 100, cost: 0.002 });
-  assert.equal(p.n, 120);
-  assert.ok(Math.abs(p.avgTrade - (0.0375 - 0.002)) < 1e-4, `average trade after costs ${p.avgTrade}`);
-  assert.ok(Math.abs(p.avgSpy - spyOver10) < 1e-4);
-  assert.ok(p.ciLow > 0 && p.proven, 'beats SPY on 120 trades: proven');
-  // the same edge on only 60 trades is not enough
-  assert.equal(liveProof({ records: strong.records.slice(0, 60) }, { dates, C }, { need: 100 }).proven, false);
-  // trades that lose to SPY are never proven, however many; open, failed-Shariah and unmatched records are ignored
-  const weak = { records: [...Array.from({ length: 150 }, (_, i) => mk(i, i % 2 ? 0.3 : -0.2, 0.05)), mk(1, 5, 0.05, 'fail'), mk(2, 5, 0.05, 'pass', 'open')] };
-  const q = liveProof(weak, { dates, C }, { need: 100 });
-  assert.equal(q.n, 150);
-  assert.ok(q.avgDiff < 0 && !q.proven, 'loses to SPY: not proven');
+  const spy11 = 1.001 ** 11 - 1; // a 10-day trade: SPY from the close before the fill to the exit
+  // 8 months of trades (a fill every other day, January to August), alternating +1R and +0.5R on 5% risk:
+  // +3.75% a trade before costs, far above SPY's 1.1% over the same days
+  const strong = { started: dates[0], records: Array.from({ length: 121 }, (_, k) => mk({ f: 1 + 2 * k, R: k % 2 ? 1 : 0.5 })) };
+  const p = liveProof(strong, spy, { cost: 0.002 });
+  assert.equal(p.months, 8);
+  assert.equal(p.n, 121);
+  assert.equal(p.horizon, PROOF_H);
+  assert.ok(Math.abs(p.avgTrade - (0.0375 - 0.002)) < 0.002, `average trade after costs ${p.avgTrade}`);
+  assert.ok(Math.abs(p.avgSpy - spy11) < 1e-4, `SPY over the same days ${p.avgSpy}`);
+  assert.ok(p.ciLow > 0 && p.proven, 'beats SPY in 8 months: proven');
+  // the same edge over 4 months is not enough
+  const four = liveProof({ records: strong.records.filter((r) => r[LOG_FIELDS.indexOf('fillDate')] < '2026-05-01') }, spy);
+  assert.equal(four.months, 4);
+  assert.equal(four.proven, false);
+  // trades that lose to SPY are never proven, however many months
+  const weak = liveProof({ records: Array.from({ length: 121 }, (_, k) => mk({ f: 1 + 2 * k, R: k % 2 ? 0.3 : -0.2 })) }, spy);
+  assert.ok(weak.months === 8 && weak.avgDiff < 0 && !weak.proven, 'loses to SPY: not proven');
+  // early exits do not count early: trades filled less than 20 days ago wait, even the ones already stopped out
+  const young = liveProof({ records: Array.from({ length: 50 }, (_, k) => mk({ f: 385 + (k % 10), R: -1, days: 1 })) }, spy);
+  assert.ok(young.n === 0 && young.months === 0 && young.waiting === 50 && !young.proven, `young stop-outs wait: ${JSON.stringify(young)}`);
+  // which trades count, and how: one month of mature trades (minTrades 1 so the single month counts)
+  const mixed = { records: [
+    mk({ f: 300, status: 'open', R: 0.9, hR: 0.5, riskPct: 0.04 }), // still open after 20 days: its 20-day result hR
+    mk({ f: 300, R: -1, days: 5, riskPct: 0.04 }), // closed inside the 20 days: the trade itself
+    mk({ f: 300, R: 2, days: 30, hR: 0.8, riskPct: 0.04 }), // closed after 30 days: still its 20-day result
+    mk({ f: 300, R: 2, days: 30, riskPct: 0.04 }), // older record without hR: cannot be measured, left out
+    mk({ f: 390, R: -1, days: 1 }), mk({ f: 395, status: 'open', R: 0.2 }), // filled under 20 days ago: waiting
+    mk({ f: 300, R: 3, days: 5, shariah: 'fail' }), mk({ f: 300, status: 'pending' }), // not halal, not filled: ignored
+  ] };
+  const m = liveProof(mixed, spy, { minTrades: 1, cost: 0.002 });
+  assert.ok(m.n === 3 && m.months === 1 && m.waiting === 2, `counted ${JSON.stringify(m)}`);
+  close(m.avgTrade, (0.5 * 0.04 - 1 * 0.04 + 0.8 * 0.04) / 3 - 0.002, 1e-4, 'average of the three 20-day results after costs');
+  close(m.avgSpy, (2 * (C[320] / C[299] - 1) + (C[305] / C[299] - 1)) / 3, 1e-4, 'SPY to day 20, or to the exit');
+  assert.ok(m.ciLow === null && !m.proven, 'one month: no range, not proven');
   // no market data: nothing can be proven
   assert.equal(liveProof(strong, null).proven, false);
+});
+
+test('signal log: each filled trade also gets its result cut off 20 trading days after the fill (hR)', () => {
+  const daily = series(300, () => 100); // flat: stop and target are never touched
+  const P = prepare(daily);
+  const mkRec = (i) => {
+    const r = Array(LOG_FIELDS.length).fill(null);
+    const set = (k, v) => { r[LOG_FIELDS.indexOf(k)] = v; };
+    set('ticker', 'FLAT'); set('signal', P.dates[i]); set('setup', 'pullback'); set('fill', 'stop');
+    set('entry', 100.5); set('maxEntry', 103.25); set('stop', 95); set('t1', 120); set('t2', 130); set('shariah', 'pass'); set('status', 'pending');
+    return r;
+  };
+  const F = Object.fromEntries(LOG_FIELDS.map((k, j) => [k, j]));
+  const { records } = updateStock([mkRec(260), mkRec(290)], P, null, {});
+  const [a, b] = records;
+  // signal at 260: filled at 100.5 on bar 261, still open at the end (bar 299), but 20 bars after the fill it was at 100
+  assert.equal(a[F.status], 'open');
+  close(a[F.hR], (100 - 100.5) / (100.5 - 95), 0.001, 'R at the close 20 trading days after the fill');
+  // signal at 290: fewer than 20 bars since the fill, so no 20-day result yet
+  assert.equal(b[F.status], 'open');
+  assert.equal(b[F.hR], null);
 });

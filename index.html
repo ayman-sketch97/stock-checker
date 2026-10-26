@@ -764,7 +764,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     <h3>The Technical tab</h3>
     <p>A second view of the same stock: the chart. It reads about five years of daily prices and checks the trend (21-day EMA, 50-day and 200-day averages), momentum (RSI, MACD), volume, and support and resistance levels from past swing highs and lows. It then looks for one of a few long-only setups (a pullback to the averages in an uptrend, a breakout on strong volume, an oversold reversal, a bounce at range support) and builds a swing plan: entry trigger, stop loss, two targets and an exit plan. A calculator shows what that means in dollars, and the most you should invest so one loss costs at most 1% of your portfolio.</p>
     <p>The long-term plan on the Fundamental tab is different: buy and trim levels from the fair value, and "sell if" rules based on the business, with no stop loss. The best entries have both tabs on their side. No set of indicators wins most of the time, so judge any plan over many trades.</p>
-    <p>Real money or practice: every swing signal is recorded the day it appears and compared with the S&amp;P 500 over the same days, after costs. Until that live record beats the index on at least 100 trades by more than luck can explain, signals are shown as paper trades, the Portfolio plan gives them no money, and the Journal can keep them apart as practice.</p>
+    <p>Real money or practice: every swing signal is recorded the day it appears and followed with the same rules. Each trade is then compared with the S&amp;P 500 over the same 20 trading days after it was bought, after costs, whether it has closed or not, so quick stop-outs or quick wins cannot skew the result. Until at least 6 months of these trades beat the index by more than luck can explain, signals are shown as paper trades, the Portfolio plan gives them no money, and the Journal can keep them apart as practice.</p>
     <div id="howSite">
       <h3>Shortlist, watchlist and track record</h3>
       <p>The Shortlist screens every company each morning: swing buy signals, quality businesses below fair value, stocks near their buy price, market leaders and dividend payers, with halal, sector, size and earnings filters. The Watchlist follows the companies you star (saved on your device only) and flags what changed: the verdict, halal status, new signals, earnings dates, and your own stop and target levels. The Record shows how the exact swing rules did on five years of prices, and a live log of every signal since the site started.</p>
@@ -2323,9 +2323,10 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     return screenPromise;
   }
   const loadBtSummary = () => (HAS_SITE ? getJson('data/backtest-summary.json') : Promise.resolve(null));
-  // Real money or practice? The daily build compares every closed live signal with the S&P 500 over the same days,
-  // after costs (lib/signals.js, liveProof). Until that record beats the index on enough trades, every swing signal
-  // is shown as a paper trade. Missing or unreadable data counts as not proven.
+  // Real money or practice? The daily build follows every filled live signal for 20 trading days and compares it with
+  // the S&P 500 over the same days, after costs, month by month (lib/signals.js, liveProof). Until enough months beat
+  // the index by more than luck can explain, every swing signal is shown as a paper trade. Missing, old-format or
+  // unreadable data counts as not proven.
   let SWING_PROOF = null;
   let swingProofP = null;
   let swingProofDone = false;
@@ -2333,14 +2334,17 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     if (!swingProofP) swingProofP = loadBtSummary().then((bt) => { SWING_PROOF = (bt && bt.liveProof) || null; }).catch(() => {}).then(() => { swingProofDone = true; return SWING_PROOF; });
     return swingProofP;
   };
-  const swingProven = () => !!(SWING_PROOF && SWING_PROOF.proven === true);
+  const proofOf = (P) => (P && typeof P === 'object' && isNum(P.months) && isNum(P.n) ? P : null);
+  const swingProven = () => { const P = proofOf(SWING_PROOF); return !!(P && P.proven === true); };
   function paperWhy() {
-    const P = SWING_PROOF;
-    const need = (P && P.need) || 100;
-    if (!P || !P.n) return `Real money only after the live record beats the S&P 500 after costs on ${need} closed trades; it has none yet.`;
-    const vs = isNum(P.avgDiff) ? `${P.avgDiff >= 0 ? 'ahead of' : 'behind'} the S&P 500 by ${pct(Math.abs(P.avgDiff), 1)} a trade` : '';
-    if (P.n < need) return `Real money only after the live record beats the S&P 500 after costs on ${need} closed trades; it has ${P.n}${vs ? `, so far ${vs}` : ''}.`;
-    return `The live record has ${P.n} closed trades${vs ? `, ${vs}` : ''}, which is not enough to rule out luck.`;
+    const P = proofOf(SWING_PROOF);
+    const needM = (P && P.needMonths) || 6;
+    const H = (P && P.horizon) || 20;
+    const rule = `Real money only after at least ${needM} months of live signals, each followed for ${H} trading days, beat the S&P 500 after costs by more than luck can explain.`;
+    if (!P || !P.n) return `${rule} No trade has been followed that long yet.`;
+    const lead = isNum(P.avgDiff) && P.avgDiff > 0;
+    const vs = isNum(P.avgDiff) ? `, ${lead ? 'ahead of' : 'behind'} the S&P 500 by ${pct(Math.abs(P.avgDiff), 1)} a trade` : '';
+    return `${rule} So far ${P.n} trades over ${P.months} month${P.months === 1 ? '' : 's'}${vs}${lead && P.months >= needM ? ', but not by enough to rule out luck' : ''}.`;
   }
   const paperNote = (extra) => h('div', { class: 'paper-note' }, icon('ok'), h('span', null, h('b', { text: 'Paper trade only. ' }),
     `${paperWhy()} In nine years of tests, these signals did not beat buying the same stocks on a random day.${extra ? ' ' + extra : ''}`));
@@ -4634,12 +4638,16 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
   }
   function liveCard(log, bt) {
     const card = h('section', { class: 'card', 'aria-label': 'Live record' }, h('h2', { text: 'Live record' }));
-    const P = (log && log.proof && typeof log.proof === 'object') ? log.proof : bt.liveProof;
-    const need = (P && P.need) || 100;
+    const P = proofOf(log && log.proof) || proofOf(bt.liveProof);
+    const needM = (P && P.needMonths) || 6;
+    const H = (P && P.horizon) || 20;
+    const mo = (n) => `${n} month${n === 1 ? '' : 's'}`;
     card.append(h('div', { class: P && P.proven ? 'callout' : 'paper-note' }, P && P.proven ? icon('good') : icon('ok'),
       h('span', null, h('b', { text: P && P.proven ? 'Real money: allowed. ' : 'Real money: not yet. ' }),
-        P && P.n ? `${P.n} closed trades compared with the S&P 500 over the same days, after ${pct(P.cost || bt.cost, 1)} costs: ${pctS(P.avgTrade, 1)} a trade against ${pctS(P.avgSpy, 1)} for the index${isNum(P.ciLow) ? ` (the difference is likely between ${pctS(P.ciLow, 1)} and ${pctS(P.ciHigh, 1)})` : ''}. ` : 'No closed trades to compare with the S&P 500 yet. ',
-        P && P.proven ? 'The signals have beaten the index on enough trades; still size every trade so its stop loses at most 1% of your account.' : `Swing signals stay paper trades until the live record beats the index on at least ${need} trades by more than luck can explain.`)));
+        P && P.n ? `${P.n} trades over ${mo(P.months)} have each been followed for ${H} trading days and compared with the S&P 500 over the same days, after ${pct(P.cost || bt.cost, 1)} costs: ${pctS(P.avgTrade, 1)} a trade against ${pctS(P.avgSpy, 1)} for the index${isNum(P.ciLow) ? ` (the difference is likely between ${pctS(P.ciLow, 1)} and ${pctS(P.ciHigh, 1)})` : ''}. `
+          : `No trade has been followed for ${H} trading days yet${P && P.waiting ? ` (${P.waiting.toLocaleString()} are on the way)` : ''}. `,
+        P && P.proven ? 'The signals have beaten the index for long enough; still size every trade so its stop loses at most 1% of your account.'
+          : `Swing signals stay paper trades until at least ${mo(needM)} of trades, each followed for ${H} trading days whether it closed or not, beat the index after costs by more than luck can explain.`)));
     if (!log || !Array.isArray(log.records) || !Array.isArray(log.fields)) { card.append(h('p', { class: 'sub', text: 'The live record is not available right now.' })); return card; }
     const F = Object.fromEntries(log.fields.map((k, i) => [k, i]));
     const recs = log.records.map((r) => ({ t: r[F.ticker], signal: r[F.signal], setup: r[F.setup], status: r[F.status], shariah: r[F.shariah], fill: r[F.fillDate], fillPx: r[F.fillPx], exit: r[F.exitDate], R: r[F.R], riskPct: r[F.riskPct], days: r[F.days], entry: r[F.entry] }))
@@ -4656,6 +4664,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       stat('Open now', String(open.length), 'filled, not yet closed'),
       stat('Orders for next session', String(pending.length), 'today’s signals')));
     if (!closed.length) card.append(h('p', { class: 'note', text: 'No trades have closed yet. A typical trade lasts a few weeks, so give it a few months before reading anything into the live numbers.' }));
+    else if (open.length > closed.length) card.append(h('p', { class: 'note', text: `Read the closed trades with care: a stop sits closer than a target, so losing trades tend to finish first, and ${open.length.toLocaleString()} trades are still open. The real-money test above follows every trade for the same ${H} trading days, so it does not have this problem.` }));
     const tbl = (rows, cols) => h('div', { class: 'tscroll' }, h('table', { class: 'data' }, h('tr', null, cols.map((c) => h('th', { text: c[0] }))), rows.map((x) => h('tr', { class: 'click', onclick: () => openStock(x.t, 'tech') }, cols.map((c) => c[1](x))))));
     if (open.length) {
       card.append(h('h3', { text: 'Open trades' }), tbl(open.slice(0, 40), [

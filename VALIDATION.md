@@ -1,11 +1,11 @@
-# Validation report (19 October 2026, second and third rounds 23 October 2026)
+# Validation report (19 October 2026, second and third rounds 23 October 2026, fourth round 27 October 2026)
 
 What was checked, how, and what is still wrong. Nothing here claims the tool is error-free: it records the
 evidence for the 16 companies tested against their filings and the limits that remain.
 
 ## 1. Automated formula tests
 
-`node --test test/formulas.test.mjs` (51 tests, all passing; run by every build before publishing).
+`node --test test/formulas.test.mjs` (53 tests, all passing; run by every build before publishing).
 Reference values are worked out by hand or from published definitions, not from the code under test:
 
 - SMA, EMA (SMA-seeded, k = 2/(n+1)), Wilder RSI (StockCharts example closes), Wilder ATR, MACD (12/26/9).
@@ -539,7 +539,42 @@ entry price.
 - Not built, so not tested: deposits and withdrawals, dividends received, currency conversion and realized P/L
   across cash movements. The broker statement remains the record for those.
 
-## 6. What is not validated
+## 6. Fourth round (27 October 2026)
+
+### The real-money test for swing signals
+
+- What it controls: until the live record passes the test below, swing signals are labelled paper trades on every
+  page (stock, Technical tab, home, Shortlist, Watchlist alerts), the Portfolio plan gives swing trading no money,
+  and the Journal keeps paper trades out of holdings and results. Missing or unreadable test data counts as failed.
+- First version (8cbf59e, same day): each closed live trade on a halal stock compared with SPY over the same days,
+  passing at 100 trades with a 95% lower bound above zero. Checked against the live log that evening (304 signals
+  since 15 October 2026): the 58 closed trades were nearly all stop-outs (52 at exactly -1R), -6.9% a trade
+  against -0.7% for SPY, while 213 trades were still open. A stop sits closer than a target, so losing trades
+  tend to finish first; a closed-trade test judges whichever kind finishes first, and in a market where quick
+  winners come first it could pass on luck. Trades opened the same week also move together, and the log adds 35
+  to 40 signals a day, so 100 closed trades could arrive within a week. That version was replaced.
+- Now: every filled halal trade is followed for 20 trading days after its fill (or to its exit, if sooner) with
+  the same rules, and counts once those days are over, whether it closed or not, so which trades count depends
+  only on the calendar. Trades are grouped by the month of their fill and each month (10 or more trades) is one
+  result. Passing needs at least 6 months and a 95% lower bound (Student t on the monthly averages) above zero for
+  the trade's return minus SPY's, after 0.2% costs. SPY is measured from the close before the fill. The 20-day
+  result is stored in the log (hR); the trades that closed before this change all closed within 20 days, so their
+  result is their 20-day result.
+- When it can pass: the first trades reach 20 trading days in mid-November 2026, so six months of results exist
+  in early April 2027 at the earliest. Until then the page shows how many trades are on the way.
+- Tests: an 8-month edge passes, the same edge over 4 months fails, losing trades fail however many months, young
+  stop-outs wait, and each counting rule (still open, closed inside and after the 20 days, older records without
+  hR, not halal, not filled); hR on a flat price series; the Record page with and without measured trades.
+- Limits: trades bought at the end of a month are measured into the next one, so neighbouring months overlap a
+  little; six months is a minimum, not proof that an edge will last; SPY is compared on prices only.
+
+### Design
+
+- New look checked with the page tests and with screenshots at 360, 400, 768, 1024 and 1280 px in light and dark
+  modes: no page scrolls sideways; body, muted and status text and the buttons meet WCAG AA contrast (4.5:1 or
+  more) in both modes; the font is served from the site itself (no third-party requests).
+
+## 7. What is not validated
 
 - Companies outside the 16 tested; foreign filers (20-F/40-F), REITs, banks and insurers are not analysed.
 - Companies with a finance or lending arm (DE, CAT, MELI): debt and cash flow mix two businesses. DE is now withheld,

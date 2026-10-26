@@ -113,7 +113,7 @@ async def main():
 
         # ---- the live-record gate: until it beats the S&P 500, swing signals are paper trades
         await pg.wait_for_timeout(300)
-        check(await pg.evaluate("__sc.swingProven()") is False, 'live record not proven in the fixture (44 of 100 trades, behind the index)')
+        check(await pg.evaluate("__sc.swingProven()") is False, 'live record not proven in the fixture (2 of 6 months, behind the index)')
         sn = await pg.evaluate("""__sc.swingNow({ setup: { setup: 'pullback', status: 'active', entry: 100, stop: 95, target1: 110, maxEntry: 101, fill: 'stop' }, asOf: '2026-10-26', market: { regime: 'up' } }, null, false)""")
         check(sn['title'].startswith('Paper trade only') and sn['tone'] == 'warn', f'a live buy signal is shown as a paper trade: {sn}')
         rc = await pg.evaluate("__sc.roundTripCost(250, 100)")
@@ -214,8 +214,34 @@ async def main():
         txt = await pg.inner_text('section[aria-label="As a portfolio"]')
         check('+1.8%' in txt and '+11.3%' in txt and 'price only, like the trades' in txt and 'counted on neither side' in txt and 'grew more slowly than' in txt, 'portfolio card: growth and worst fall against SPY, prices only on both sides, and says so')
         live = await pg.inner_text('section[aria-label="Live record"]')
-        check('Real money: not yet' in live and '44 closed trades' in live, 'the live record says swing signals are not yet for real money, with the numbers')
+        check('Real money: not yet' in live and '320 trades over 2 months have each been followed for 20 trading days' in live, f'the live record says swing signals are not yet for real money, with the numbers: {live[:240]!r}')
         check(not errs, f'no page errors on the Record page {errs}')
+        await pg.close()
+
+        # ---- live record with a young log: nothing followed for 20 days yet, and early closes lean towards losses
+        pg, errs = await page_with(ctx, base, fresh)
+        LF = ['ticker', 'signal', 'setup', 'score', 'entry', 'maxEntry', 'stop', 't1', 't2', 'fill', 'verdict', 'shariah', 'regime', 'version',
+              'status', 'fillDate', 'fillPx', 'exitDate', 'exitPx', 'R', 'riskPct', 'hitT1', 'days', 'rs', 'hR']
+
+        def lrec(t, status, R):
+            r = dict.fromkeys(LF)
+            r.update(ticker=t, signal='2026-10-15', setup='pullback', shariah='pass', status=status, fillDate='2026-10-16', fillPx=100,
+                     exitDate='2026-10-19' if status == 'closed' else None, exitPx=95 if status == 'closed' else 101, R=R, riskPct=0.05, days=1)
+            return [r[k] for k in LF]
+        young = {'version': 1, 'started': '2026-10-15', 'updated': '2026-10-23', 'fields': LF, 'lapsed': 0, 'archived': {'n': 0, 'wins': 0, 'sumR': 0},
+                 'records': [lrec('AAA', 'closed', -1), lrec('BBB', 'closed', -1), lrec('CCC', 'open', 0.2), lrec('DDD', 'open', 0.1), lrec('EEE', 'open', -0.3)],
+                 'proof': {'n': 0, 'months': 0, 'needMonths': 6, 'horizon': 20, 'waiting': 5, 'cost': 0.002, 'since': '2026-10-15',
+                           'avgTrade': None, 'avgSpy': None, 'avgDiff': None, 'ciLow': None, 'ciHigh': None, 'proven': False}}
+
+        async def sig_route(r):
+            await r.fulfill(status=200, body=json.dumps(young), headers={'content-type': 'application/json'})
+        await pg.route('**/data/signals.json*', sig_route)
+        await pg.click('#nav button:has-text("Record")')
+        await pg.wait_for_timeout(1200)
+        live = await pg.inner_text('section[aria-label="Live record"]')
+        check('No trade has been followed for 20 trading days yet (5 are on the way)' in live, f'young log: nothing measured yet, and how many trades are on the way: {live[:240]!r}')
+        check('3 trades are still open' in live and 'losing trades tend to finish first' in live, 'young log: warns that early closes lean towards losses')
+        check(not errs, f'no page errors on the Record page with a young log {errs}')
         await pg.close()
 
         # ---- stock page: the data-quality line, and a withheld verdict when the data is not reliable
