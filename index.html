@@ -2939,7 +2939,8 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     // 4. holdings now: US stocks from the Watchlist and Journal, everything else from the list below
     const w = W.load();
     const jr = JR.load();
-    const priceOf = (t) => { const r = scr.by.get(t); return r && isNum(r.price) ? r.price : null; };
+    const ownPx = new Map(W.load().items.filter((it) => ownPrice(it)).map((it) => [it.t, ownPrice(it)]));
+    const priceOf = (t) => { const r = scr.by.get(t); return r && isNum(r.price) ? r.price : ownPx.has(t) ? ownPx.get(t) : null; };
     const defaultHp = HP_ORDER.slice().sort((x, y) => (T.split[y] || 0) - (T.split[x] || 0))[0];
     const { lt, sw } = holdingsFrom(w.items, jr.trades);
     lt.forEach((x) => { x.hp = HP[a.hp[x.t]] ? a.hp[x.t] : defaultHp; });
@@ -3073,7 +3074,11 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       let act = 'Hold';
       let tone = 'neutral';
       const why = [];
-      if (!r) { act = 'Review'; tone = 'warn'; why.push('Not in today’s data. Check it yourself.'); }
+      if (!r && x.own) {
+        act = 'Your call'; tone = 'neutral';
+        why.push('Your own ticker: not analysed here, so the tool’s rules cannot be applied to it. Check its results and halal status yourself (Zoya); the weekly review checks its news.');
+        if (!isNum(x.px)) why.push('Enter its price on the Watchlist (“Edit position”) so it counts at today’s value.');
+      } else if (!r) { act = 'Review'; tone = 'warn'; why.push('Not in today’s data. Check it yourself.'); }
       else if (r.shariah === 'fail') { act = 'Sell'; tone = 'bad'; why.push('Fails the Shariah screen now. Confirm on Zoya or Musaffa; if it still fails, sell it and purify any gain as your scholar advises.'); }
       else if (x.hp === 'short' && ['down', 'weakening'].includes(r.trend)) { act = 'Sell'; tone = 'bad'; why.push('Short-term hold and the uptrend has broken: your rule says sell.'); }
       else if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) { act = 'Sell'; tone = 'bad'; why.push(`The business itself got worse: now rated “${VERDICT_SHORT[r.verdict]}” (${r.verdict === 'SPECULATIVE' ? 'it is losing money' : 'its returns or its balance sheet fell below the line'}). Your rule: sell when the business weakens, not when the price falls.`); }
@@ -3090,7 +3095,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       if (r && r.shariah === 'review' && act !== 'Sell') why.push('Halal status is close to a limit: check it before adding.');
       if (x.hp === 'short' && x.since && daysApart(x.since, localISO()) > 365) why.push('Held over 12 months as a short-term position: review it.');
       const st = sinceTxt(x);
-      advRows.push({ name: x.t, sub: [HP[x.hp].label, r ? price(r.price) : ''].filter(Boolean).join(' · '), act, tone, why: (st ? st[0].toUpperCase() + st.slice(1) + '. ' : '') + why.join(' '), open: r ? x.t : null });
+      advRows.push({ name: x.t, sub: [HP[x.hp].label, r ? price(r.price) : isNum(x.px) ? `${price(x.px)} (your price)` : ''].filter(Boolean).join(' · '), act, tone, why: (st ? st[0].toUpperCase() + st.slice(1) + '. ' : '') + why.join(' '), open: r ? x.t : null });
     }
     const coreGap = T.core * total - coreVal;
     const safeGap = T.safe * total - safeVal;
@@ -3239,7 +3244,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     for (const x of lt) {
       const r = scr.by.get(x.t);
       const ad = advRows.find((y) => y.name === x.t);
-      ctxLines.push(`- ${x.t}: ${fmtShares(x.shares)} shares, value ${money0(val(x))}${isNum(x.cost) ? `, cost ${price(x.cost)}` : ''}, ${HP[x.hp].label.toLowerCase()}${r ? `, price ${price(r.price)}, verdict ${VERDICT_SHORT[r.verdict] || r.verdict}, halal ${r.shariah}${isNum(r.fair) ? `, fair ${price0(r.fair)}` : ''}${isNum(r.buyBelow) ? `, buy below ${price0(r.buyBelow)}` : ''}${isNum(r.trimAbove) ? `, trim above ${price0(r.trimAbove)}` : ''}, trend ${r.trend || 'n/a'}, sector ${r.sector || 'n/a'}` : ''}. Site says: ${ad ? ad.act : 'n/a'}.`);
+      ctxLines.push(`- ${x.t}: ${fmtShares(x.shares)} shares, value ${money0(val(x))}${isNum(x.cost) ? `, cost ${price(x.cost)}` : ''}, ${HP[x.hp].label.toLowerCase()}${!r && x.own ? ', my own ticker (not on the site: look it up yourself)' : ''}${r ? `, price ${price(r.price)}, verdict ${VERDICT_SHORT[r.verdict] || r.verdict}, halal ${r.shariah}${isNum(r.fair) ? `, fair ${price0(r.fair)}` : ''}${isNum(r.buyBelow) ? `, buy below ${price0(r.buyBelow)}` : ''}${isNum(r.trimAbove) ? `, trim above ${price0(r.trimAbove)}` : ''}, trend ${r.trend || 'n/a'}, sector ${r.sector || 'n/a'}` : ''}. Site says: ${ad ? ad.act : 'n/a'}.`);
     }
     for (const o of other) { const ad = advRows.find((y) => y.name === (o.kind === 'cash' ? 'Cash' : o.sym)); ctxLines.push(`- ${o.kind === 'cash' ? 'Cash' : o.sym} (${o.kind === 'equity' ? 'fund' : o.kind}${o.kind === 'stock' && MARKETS[o.market] ? ', ' + MARKETS[o.market].label : ''}): ${money0(o.value)}. Site says: ${ad ? ad.act : 'n/a'}.`); }
     for (const x of sw) ctxLines.push(`- Swing trade ${x.t}: ${fmtShares(x.shares)} shares, ${money0(val(x))}.`);
@@ -3378,7 +3383,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
   function holdingsFrom(watchItems, trades) {
     const lt = [];
     const ltSet = new Set();
-    for (const it of watchItems || []) if (it.shares > 0 && !it.swing) { lt.push({ t: it.t, shares: it.shares, cost: it.cost, since: it.added }); ltSet.add(it.t); }
+    for (const it of watchItems || []) if (it.shares > 0 && !it.swing) { lt.push({ t: it.t, shares: it.shares, cost: it.cost, since: it.added, px: ownPrice(it), pxDate: it.pxDate || null, own: !!it.manual }); ltSet.add(it.t); }
     const fromJournal = new Map();
     const sw = [];
     for (const tr of trades || []) {
@@ -3880,8 +3885,14 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     let value = 0;
     let cost = 0;
     let dayMove = 0;
+    const own = []; // your own tickers: no site data, only the price you entered
     for (const x of lt) {
       const r = scr.by.get(x.t);
+      if (!r && x.own) {
+        own.push(x);
+        if (isNum(x.px)) { value += x.px * x.shares; if (isNum(x.cost)) cost += x.cost * x.shares; }
+        continue;
+      }
       if (!r) { todo.push(['warn', x.t, 'Not in today’s data: check it yourself.']); continue; }
       const v = r.price * x.shares;
       value += v;
@@ -3929,6 +3940,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     if (todo.length) card.append(h('h3', { text: 'To do' }), ul(todo));
     if (hold.length) card.append(h('h3', { text: 'Down, but keep waiting' }), ul(hold.map(([t, text]) => ['info', t, text])),
       h('p', { class: 'note', text: 'Good businesses often fall for a while. The rule is to wait while the business stays healthy; the brief tells you if that changes.' }));
+    if (own.length) card.append(h('h3', { text: 'Your own tickers (not on the site)' }), ul(own.map((x) => ['info', x.t, `${fmtShares(x.shares)} shares${isNum(x.px) ? ` at ${price(x.px)} (your price${x.pxDate ? ` from ${niceDates(x.pxDate)}` : ''})` : ', no price entered yet'}. Not analysed here: the weekly review checks its news.`])));
     const changes = watchChanges(w, scr);
     if (changes.length) card.append(h('h3', { text: `Changed since ${niceDates(w.prev.date)}` }), ul(changes.map(([t, lines]) => ['info', t, lines.join('; ')])));
     if (news.length) card.append(h('h3', { text: 'Company news (last 7 days)' }), ul(news.slice(0, 8).map(([t, text]) => ['info', t, text])));
@@ -4229,10 +4241,14 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     },
     update(t, patch) { const w = this.load(); const it = w.items.find((x) => x.t === t); if (it) Object.assign(it, patch); this.save(w); },
     remove(t) { const w = this.load(); w.items = w.items.filter((x) => x.t !== t); this.save(w); },
+    // a ticker that is not on the site's list: tracked with the shares, cost and price you enter, no analysis
+    addManual(t) { const w = this.load(); if (!w.items.some((x) => x.t === t)) w.items.unshift({ t, added: todayISO(), addPx: null, manual: true }); this.save(w); },
   };
+  const MANUAL_T = /^[A-Z0-9][A-Z0-9-]{0,14}$/;
+  const ownPrice = (it) => (it && isNum(it.px) && it.px > 0 ? it.px : null);
   function itemAlerts(it, r, scr) {
     const a = [];
-    if (!r) { a.push(['warn', 'Not in today’s data (it may have dropped below $2 billion in market value).']); return a; }
+    if (!r) { if (!it.manual) a.push(['warn', 'Not in today’s data (it may have dropped below $2 billion in market value). You can enter its price yourself with “Edit”.']); return a; }
     const held = it.shares > 0;
     if (r.shariah === 'fail') a.push(['bad', held ? 'Fails the Shariah screen now. Confirm on Zoya or Musaffa, and plan to sell if it still fails.' : 'Fails the Shariah screen now.']);
     else if (r.shariah === 'review') a.push(['warn', 'Halal status needs checking: close to a limit, or unclear.']);
@@ -4344,7 +4360,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     el.replaceChildren(...parts);
   }
   function addBox() {
-    const inp = h('input', { type: 'search', placeholder: 'Add a ticker, e.g. MSFT', 'aria-label': 'Ticker to add', autocapitalize: 'characters', spellcheck: 'false', enterkeyhint: 'done' });
+    const inp = h('input', { type: 'search', placeholder: 'Add any ticker, e.g. MSFT', 'aria-label': 'Ticker to add', autocapitalize: 'characters', spellcheck: 'false', enterkeyhint: 'done' });
     const msg = h('div', { class: 'note', hidden: true });
     const form = h('form', { class: 'filters', style: 'margin-top:14px', autocomplete: 'off' }, inp, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Add'));
     form.addEventListener('submit', async (e) => {
@@ -4353,21 +4369,40 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       if (!t) return;
       const scr = await loadScreen();
       const r = scr && scr.by.get(t);
-      if (!r) { msg.hidden = false; msg.textContent = `“${t}” is not in today’s list (US companies worth $2 billion or more that file with the SEC).`; return; }
-      if (!W.has(t)) W.toggle(t, r.price);
-      renderWatchlist();
+      if (r) { if (!W.has(t)) W.toggle(t, r.price); renderWatchlist(); return; }
+      msg.hidden = false;
+      const fund = fundBySym(t.replace(/-(L|AS)$/, ''));
+      if (fund) {
+        msg.replaceChildren(h('span', { text: `${t} is a fund (${fund.name}). Add it on the Portfolio page under “Funds, sukuk, cash and stocks outside the US”, so the plan counts it as your fund part, not as a stock. ` }),
+          h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('advisor') }, 'Open the Portfolio page'));
+        return;
+      }
+      if (!MANUAL_T.test(t)) { msg.replaceChildren(`“${t}” does not look like a ticker. Use letters and numbers, for example MSFT or 2222-SR.`); return; }
+      if (W.has(t)) { renderWatchlist(); return; }
+      msg.replaceChildren(h('span', { text: `“${t}” is not on the site’s list (US companies worth $2 billion or more that file with the SEC), so there is no analysis for it here. You can still track it yourself: add it, then tap “I own it” to enter your shares, average cost and its price. The weekly review will check its news and results. ` }),
+        h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { W.addManual(t); renderWatchlist(); } }, `Add ${t} as my own ticker`));
     });
     return h('div', null, form, msg);
   }
   function wlItem(it, scr) {
     const r = scr.by.get(it.t);
     const held = it.shares > 0;
+    const own = r ? null : ownPrice(it);
     const box = h('div', { class: 'wl-item' });
-    box.append(h('button', { class: 'srow', type: 'button', onclick: () => openStock(it.t, it.swing ? 'tech' : null) },
-      h('span', { class: 'top' }, h('span', { class: 'tk', text: it.t }), h('span', { class: 'nm', text: r ? r.name : '' }),
-        h('span', { class: 'pr' }, r ? price(r.price) : 'n/a', r && isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
-      r ? h('span', { class: 'tags' }, [verdictTag(r.verdict), shariahTag(r.shariah), setupTag(r.setup, r.status)].filter(Boolean)) : null));
+    const inner = [h('span', { class: 'top' }, h('span', { class: 'tk', text: it.t }), h('span', { class: 'nm', text: r ? r.name : it.manual ? 'Your own ticker' : 'Not in today’s data' }),
+        h('span', { class: 'pr' }, r ? price(r.price) : isNum(own) ? price(own) : 'n/a', r && isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
+      r ? h('span', { class: 'tags' }, [verdictTag(r.verdict), shariahTag(r.shariah), setupTag(r.setup, r.status)].filter(Boolean)) : h('span', { class: 'tags' }, tagEl('No analysis here', 'neutral'))];
+    // a ticker without site data has no page to open
+    box.append(r ? h('button', { class: 'srow', type: 'button', onclick: () => openStock(it.t, it.swing ? 'tech' : null) }, ...inner) : h('div', { class: 'srow' }, ...inner));
     const det = [];
+    if (!r) {
+      if (held && isNum(own)) {
+        const val = it.shares * own;
+        det.push(`${fmtShares(it.shares)} shares worth ${price(val)} at your price${it.pxDate ? ` from ${niceDates(it.pxDate)}` : ''}`);
+        if (isNum(it.cost) && it.cost > 0) det.push(`gain ${pctS(own / it.cost - 1, 1)} (${moneyS(val - it.shares * it.cost)})`);
+      } else if (held) det.push(`${fmtShares(it.shares)} shares: enter its price (“Edit position”) to see the value`);
+      if (it.manual) det.push('Not analysed here: check its results and halal status yourself (Zoya). The weekly review checks its news.');
+    }
     if (r && isNum(it.addPx) && it.addPx > 0) det.push(Math.abs(r.price / it.addPx - 1) < 0.0005 ? `Added ${niceDates(it.added)}` : `${pctS(r.price / it.addPx - 1, 1)} since you added it (${niceDates(it.added)})`);
     if (held && r) {
       const val = it.shares * r.price;
@@ -4394,6 +4429,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     };
     const [fSh, iSh] = inp('Shares', it.shares);
     const [fCo, iCo] = inp('Average cost per share ($)', it.cost, r ? String(r.price) : '');
+    const [fPx, iPx] = inp('Its price now ($)', it.px, '');
     const swing = h('input', { type: 'checkbox' });
     swing.checked = !!it.swing;
     const [fSt, iSt] = inp('Stop loss ($)', it.stop, r && isNum(r.stop) && r.status === 'active' ? String(r.stop) : '');
@@ -4402,21 +4438,24 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     swingBox.hidden = !swing.checked;
     swing.addEventListener('change', () => { swingBox.hidden = !swing.checked; });
     const form = h('form', { class: 'editbox', autocomplete: 'off' },
-      h('div', { class: 'form-grid' }, fSh, fCo),
-      h('label', { class: 'chk' }, swing, 'A swing trade (with a stop and a target)'),
-      swingBox,
+      h('div', { class: 'form-grid' }, fSh, fCo, r ? null : fPx),
+      r ? h('label', { class: 'chk' }, swing, 'A swing trade (with a stop and a target)') : h('p', { class: 'note', text: 'The site has no price for this ticker: type the price from your broker app, and update it now and then.' }),
+      r ? swingBox : null,
       h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Save'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { form.hidden = true; } }, 'Cancel')),
       h('p', { class: 'note', text: 'Stays on this device. Long-term holdings get alerts on the verdict, halal status and the trim level; swing trades on your stop and target 1.' }));
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      W.update(it.t, { shares: num(iSh.value), cost: num(iCo.value), swing: swing.checked, stop: swing.checked ? num(iSt.value) : null, t1: swing.checked ? num(iT1.value) : null });
+      const patch = { shares: num(iSh.value), cost: num(iCo.value), swing: !!r && swing.checked, stop: r && swing.checked ? num(iSt.value) : null, t1: r && swing.checked ? num(iT1.value) : null };
+      if (!r) { const px = num(iPx.value); patch.px = px; patch.pxDate = px === null ? null : px !== it.px ? todayISO() : it.pxDate || todayISO(); }
+      W.update(it.t, patch);
       renderWatchlist();
     });
     return form;
   }
   function portfolioCard(held, scr) {
-    const rows = held.map((it) => ({ it, r: scr.by.get(it.t) })).filter((x) => x.r && x.r.price > 0);
+    const rowOf = (it) => scr.by.get(it.t) || (ownPrice(it) ? { price: ownPrice(it), sector: 'Your own tickers', shariah: 'unknown', own: true } : null);
+    const rows = held.map((it) => ({ it, r: rowOf(it) })).filter((x) => x.r && x.r.price > 0);
     const noPrice = held.filter((it) => !rows.some((x) => x.it === it)).map((it) => it.t);
     const total = rows.reduce((s, x) => s + x.it.shares * x.r.price, 0);
     const card = h('section', { class: 'card', 'aria-label': 'Portfolio check' }, h('h2', { text: 'Portfolio check' }));
@@ -4451,9 +4490,11 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     if (sectors[0] && sectors[0][1] > 0.5 && rows.length > 1) checks.push(['warn', `${pct(sectors[0][1], 0)} is in one sector (${sectors[0][0]}). A problem in that industry would hit most of your money at once.`]);
     const bad = rows.filter((x) => x.r.shariah === 'fail').map((x) => x.it.t);
     const rev = rows.filter((x) => x.r.shariah === 'review').map((x) => x.it.t);
+    const unk = rows.filter((x) => x.r.own).map((x) => x.it.t);
     if (bad.length) checks.push(['bad', `Not halal now: ${bad.join(', ')}. Confirm on Zoya or Musaffa.`]);
     if (rev.length) checks.push(['warn', `Halal status needs checking: ${rev.join(', ')}.`]);
-    if (!bad.length && !rev.length) checks.push(['good', 'Every position passes the halal screen today.']);
+    if (unk.length) checks.push(['warn', `Not screened here: ${unk.join(', ')}. Check halal status on Zoya or Musaffa.`]);
+    if (!bad.length && !rev.length && !unk.length) checks.push(['good', 'Every position passes the halal screen today.']);
     if (swingRisk > 0) checks.push(['na', `If every swing stop were hit from today’s prices, you would lose about ${price(swingRisk)} (${pct(swingRisk / total, 1)} of these holdings).`]);
     card.append(h('ul', { class: 'alert-list', style: 'margin-top:12px' }, checks.map(([tone, text]) => h('li', null, toneIcon(tone), h('span', { text })))));
     card.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
@@ -4463,7 +4504,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     return card;
   }
   function syncCard(w) {
-    const data = w.items.map((it) => [it.t, it.added || '', isNum(it.addPx) ? it.addPx : 0, it.shares || 0, it.cost || 0, it.swing ? 1 : 0, it.stop || 0, it.t1 || 0]);
+    const data = w.items.map((it) => [it.t, it.added || '', isNum(it.addPx) ? it.addPx : 0, it.shares || 0, it.cost || 0, it.swing ? 1 : 0, it.stop || 0, it.t1 || 0, it.manual ? 1 : 0, it.px || 0, it.pxDate || '']);
     const link = location.origin + location.pathname + '?p=watchlist#w=' + b64url(JSON.stringify({ v: 1, i: data }));
     const box = h('textarea', { class: 'promptbox', readonly: true, rows: '3', hidden: true, 'aria-label': 'Sync link' });
     box.value = link;
@@ -4481,7 +4522,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
   // (holdings change from week to week, so nothing is stored anywhere; the list only goes into the user's own chat)
   const REVIEW_HEAD = [
     'Weekly review of my stocks, using my Stock Checker tool (https://ayman-sketch97.github.io/stock-checker/). I am a beginner investor in the UAE: I hold for weeks to years, use no stop losses and wait out falls while the business stays healthy. Do not give your own buy or sell calls or price predictions: apply the tool’s rules below and explain them in plain English, under 400 words, with no em dashes.',
-    'For each stock in my list: fetch https://ayman-sketch97.github.io/stock-checker/data/TICKER.json (ticker in capitals) and read the verdict, price, fair value, buy-below and trim-above prices, Shariah status, data quality, next earnings date and filings of the last 7 days. Then search the news of the past 7 days (results, guidance, lawsuits, management changes, deals, accounting problems), ignoring price-move commentary.',
+    'For each stock in my list: fetch https://ayman-sketch97.github.io/stock-checker/data/TICKER.json (ticker in capitals) and read the verdict, price, fair value, buy-below and trim-above prices, Shariah status, data quality, next earnings date and filings of the last 7 days. Then search the news of the past 7 days (results, guidance, lawsuits, management changes, deals, accounting problems), ignoring price-move commentary. Stocks marked (not on the site) have no data there: look up their latest results, price and news yourself, check halal status on Zoya, and say plainly what you could not check.',
     'The rules: halal screen "fail" means sell (I confirm on Zoya first). Verdict "Avoid: weak fundamentals" or "Speculative" means the business weakened: sell. Price at or above the trim-above price: consider selling part and do not add. Down from my cost while the business is healthy: hold and wait. An 8-K item 4.02 (restated accounts), 4.01 (auditor change), 1.03 (bankruptcy) or a late-filing notice is a warning sign: tell me to read it. For item 3.01, say whether it is a listing warning or just a move to another exchange. A watched stock rated buy or strong buy at or below its buy-below price is a candidate for this month’s money; the Portfolio page decides how much.',
     'Answer with: 1) what needs doing this week, or "Nothing needs doing this week"; 2) each holding in one or two lines (what changed, what the rule says, why); 3) news that could change a business, with links; 4) watched stocks that became candidates; 5) one short lesson for a beginner. End with "Not financial advice: the tool’s rules applied to this week’s data."',
   ].join('\n\n');
@@ -4489,9 +4530,9 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     const w = W.load();
     const { lt } = holdingsFrom(w.items, JR.load().trades);
     const held = new Set(lt.map((x) => x.t));
-    const watching = w.items.filter((it) => !held.has(it.t)).map((it) => it.t);
+    const watching = w.items.filter((it) => !held.has(it.t)).map((it) => it.t + (it.manual ? ' (not on the site)' : ''));
     const pf = (ADV.load().profile) || {};
-    const hold = lt.length ? lt.map((x) => `${x.t} ${+x.shares.toFixed(4)} shares${isNum(x.cost) ? ` at ${price(x.cost)}` : ''}${x.since ? ` since ${x.since}` : ''}`).join('; ') : 'none';
+    const hold = lt.length ? lt.map((x) => `${x.t} ${+x.shares.toFixed(4)} shares${isNum(x.cost) ? ` at ${price(x.cost)}` : ''}${x.since ? ` since ${x.since}` : ''}${x.own ? ' (not on the site)' : ''}`).join('; ') : 'none';
     let shown = watching.slice();
     const make = () => [`${REVIEW_HEAD}\n\nMy Stock Checker list for the weekly review (${localISO()}):`,
       `Holdings: ${hold}`,
@@ -4526,7 +4567,8 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     const items = data.i.filter((x) => Array.isArray(x) && typeof x[0] === 'string' && x[0]).slice(0, 200).map((x) => ({
       t: tickerFromInput(x[0]), added: /^\d{4}-\d{2}-\d{2}$/.test(x[1]) ? x[1] : todayISO(), addPx: x[2] > 0 ? Number(x[2]) : null,
       shares: x[3] > 0 ? Number(x[3]) : null, cost: x[4] > 0 ? Number(x[4]) : null, swing: !!x[5], stop: x[6] > 0 ? Number(x[6]) : null, t1: x[7] > 0 ? Number(x[7]) : null,
-    }));
+      manual: !!x[8], px: x[9] > 0 ? Number(x[9]) : null, pxDate: /^\d{4}-\d{2}-\d{2}$/.test(x[10]) ? x[10] : null,
+    })).filter((x) => MANUAL_T.test(x.t));
     const apply = (mode) => {
       const w = W.load();
       if (mode === 'replace') w.items = items;
