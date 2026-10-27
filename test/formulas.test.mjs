@@ -7,8 +7,8 @@ import { sma, ema, rsi, atr, macd, prepare, evaluate, simulateTrade } from '../l
 import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen, FAIR_MAX_RATIO, FactBook, splitsFromRestatements } from '../lib/engine.js';
 import { netR, benchmarkTrades, portfolioSim, buyHold } from '../lib/backtest.js';
 import { liveProof, LOG_FIELDS, PROOF_H, updateStock } from '../lib/signals.js';
-import { monthEnds, pxRows, replaySplits, SNAP_FIELDS } from '../lib/longterm.js';
-import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean } from '../lib/ltstats.js';
+import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/longterm.js';
+import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS } from '../lib/ltstats.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -726,4 +726,113 @@ test('long-term backtest: month-end prices, forward returns and the shortlist po
   // Shariah failure: every rule sells
   const D3 = loadData([lines[0], mk('A', (k) => 10, (k) => snap(k, k < 5 ? 'BUY' : 'AVOID_SHARIAH', 0.5, { shariah: k < 5 ? 'pass' : 'fail' }))]);
   assert.equal(simulate(D3, { from: 0, to: 10, monthly: 300, rule: 'never' }).positions, 0);
+});
+
+test('long-term backtest: other ways to build the list, judged by the rules in PREREGISTERED.md', () => {
+  // momentum skips the latest month: the close a month ago over the close 12 months ago
+  const c = Array.from({ length: 14 }, (_, k) => 100 + k);
+  close(momentum(c, 13), 112 / 101 - 1, 1e-12, '12-1 month momentum');
+  assert.equal(momentum(c, 11), null, 'needs 12 months of prices');
+  // ranks: ties share their average rank; stocks without the number are left out
+  assert.deepEqual([...pctRanks([{ ci: 0, q: 1 }, { ci: 1, q: 2 }, { ci: 2, q: 2 }, { ci: 3, q: null }], 'q').entries()], [[0, 0], [1, 0.75], [2, 0.75]]);
+  // the best 20%, keeping a stock tied with the last one
+  assert.deepEqual(topShare([5, 4, 4, 3, 2, 1, 0, -1, -2, -3].map((score, ci) => ({ ci, score }))), [0, 1, 2]);
+  // a toy market over 60 months: 12 stocks rise about 2% a month, 12 fall about 2%, with some noise; the falling ones
+  // have the better quality scores and the bigger discounts; SPY is flat
+  const months = 60;
+  const date = (k) => `20${String(10 + Math.floor(k / 12)).padStart(2, '0')}-${String((k % 12) + 1).padStart(2, '0')}-28`;
+  let seed = 12345;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const stock = (t, drift, quality, upside) => {
+    const p = [10];
+    for (let k = 1; k < months; k++) p.push(p[k - 1] * (1 + drift + (rnd() - 0.5) * 0.02));
+    const row = (k) => SNAP_FIELDS.map((f) => ({ date: date(k), verdict: 'BUY', quality, health: 70, valuation: 'U', fair: null, buyBelow: null, trimAbove: null, dq: 'H', shariah: 'pass', price: p[k], upside, confidence: 'High', cap: null })[f]);
+    return JSON.stringify({ t, rows: p.map((_, k) => row(k)), px: p.map((x, k) => [date(k), x, x]) });
+  };
+  const lines = [
+    JSON.stringify({ t: '$SPY', px: Array.from({ length: months }, (_, k) => [date(k), 100, 100]) }),
+    ...Array.from({ length: 12 }, (_, j) => stock('R' + j, 0.02, 50 + j, 0.1)),
+    ...Array.from({ length: 12 }, (_, j) => stock('F' + j, -0.02, 70 + j, 0.5)),
+  ];
+  const D = loadData(lines);
+  const picks = altPicks(D);
+  const rising = (ci) => D.comps[ci].t.startsWith('R');
+  assert.deepEqual(picks.momentum[5], [], 'no momentum before 12 months of prices');
+  assert.ok(picks.momentum[20].length === 5 && picks.momentum[20].every(rising), `momentum picks the best 20% of trends: ${picks.momentum[20]}`);
+  assert.ok(picks.quality[20].length === 5 && !picks.quality[20].some(rising), 'quality picks the best quality scores (here the falling stocks)');
+  assert.ok(picks.listTrend[20].length === 12 && picks.listTrend[20].every(rising), 'the list with a trend filter keeps the rising stocks');
+  const rep = report(D, { randomRuns: 10 });
+  assert.deepEqual(Object.keys(rep.alternatives), Object.keys(ALTERNATIVES));
+  const m = rep.alternatives.momentum;
+  assert.ok(m.forward.h12.vsUniverse.mean > 0 && m.checks.beatsAverage && m.checks.bothHalves && m.checks.beatsRandom && m.pass, `momentum passes all three checks here: ${JSON.stringify(m.checks)}`);
+  const q = rep.alternatives.quality;
+  assert.ok(q.forward.h12.vsUniverse.mean < 0 && !q.checks.beatsAverage && !q.pass, 'quality fails here');
+  assert.ok(['momentum', 'listTrend', 'qualityMomentum'].includes(rep.alternativePassed), `the passing alternative with the highest t is named: ${rep.alternativePassed}`);
+  assert.ok(rep.forwardHalves.half1.months > 0 && rep.forwardHalves.half2.months > 0 && rep.middle, 'the current list is tested on both halves too');
+});
+
+test('long-term backtest: the trend label of the replay is the one the chart page shows', () => {
+  // a year of rising prices, then a slide, then a recovery: the labels must match lib/technical.js evaluate()
+  const daily = [];
+  let p = 50;
+  for (let i = 0; i < 520; i++) {
+    p *= i < 260 ? 1.003 : i < 380 ? 0.996 : 1.004;
+    p *= 1 + Math.sin(i / 7) * 0.004;
+    daily.push({ date: `d${i}`, o: p, h: p * 1.01, l: p * 0.99, c: p, v: 1e6 });
+  }
+  const P = prepare(daily);
+  const C = daily.map((d) => d.c);
+  const s50 = sma(C, 50);
+  const s200 = sma(C, 200);
+  const seen = new Set();
+  for (const i of [120, 230, 270, 300, 340, 379, 400, 430, 470, 519]) {
+    const want = evaluate(P, i).trend;
+    assert.equal(trendAt(C, s50, s200, i), want, `bar ${i}`);
+    seen.add(want);
+  }
+  assert.ok(seen.size >= 3, `the test covers several trends: ${[...seen]}`);
+  assert.equal(trendAt(C, s50, s200, 30), null, 'no label before 50 days');
+});
+
+test('long-term backtest: the Portfolio page picks, tested with its own buying and selling rules', () => {
+  // 30 stocks over 48 months in 3 sectors: quality, growth and health decide the long-term ideas; at most 2 a sector
+  const months = 48;
+  const date = (k) => `20${String(10 + Math.floor(k / 12)).padStart(2, '0')}-${String((k % 12) + 1).padStart(2, '0')}-28`;
+  const sectors = ['Tech', 'Health', 'Energy'];
+  const row = (k, o) => SNAP_FIELDS.map((f) => ({ date: date(k), verdict: 'BUY', quality: 80, health: 70, valuation: 'U', fair: 200, buyBelow: 100, trimAbove: 400, dq: 'H', shariah: 'pass', price: 100, upside: 0.3, confidence: 'High', cap: 5000, growth: 60, trend: 'up', ...o })[f]);
+  const stock = (j, drift, snap) => {
+    const px = Array.from({ length: months }, (_, k) => 100 * (1 + drift) ** k);
+    return JSON.stringify({ t: 'S' + j, sector: sectors[j % 3], rows: px.map((x, k) => row(k, { price: x, ...snap(k, x) })), px: px.map((x, k) => [date(k), x, x]) });
+  };
+  const lines = [JSON.stringify({ t: '$SPY', px: Array.from({ length: months }, (_, k) => [date(k), 100, 100]) })];
+  // S0..S9: the best scores (quality 95) and rising 2% a month; S10..S29: lower scores, flat
+  for (let j = 0; j < 30; j++) lines.push(stock(j, j < 10 ? 0.02 : 0, () => ({ quality: j < 10 ? 95 : 72, growth: j < 10 ? 80 : 55 })));
+  const D = loadData(lines);
+  const ideas = planIdeas(D, 5, 'long', 6);
+  assert.equal(ideas.length, 6);
+  const bySector = new Map();
+  ideas.forEach((ci) => bySector.set(D.comps[ci].sector, (bySector.get(D.comps[ci].sector) || 0) + 1));
+  assert.ok([...bySector.values()].every((n) => n <= 2), 'at most 2 ideas per sector');
+  assert.ok(ideas.every((ci) => Number(D.comps[ci].t.slice(1)) < 10), 'the best-scored stocks come first');
+  // a stock below quality 70, or one in a falling trend for the medium term, is not an idea
+  assert.equal(PLAN_POOLS.long.filter({ verdict: 'BUY', quality: 65, growth: 80, health: 80, shariah: 'pass', price: 10, dq: 'H', cap: 5000 }), false);
+  assert.equal(PLAN_POOLS.mid.filter({ verdict: 'BUY', quality: 80, growth: 80, health: 80, shariah: 'pass', price: 90, buyBelow: 100, upside: 0.3, dq: 'H', cap: 5000, trend: 'down' }), false);
+  // the money: one stock a month while there are fewer than 10, then top-ups; never more than 12 stocks here
+  const trades = [];
+  const r = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', onTrade: (t) => trades.push(t) });
+  const buysByMonth = new Map();
+  trades.filter((t) => t.side === 'buy').forEach((t) => buysByMonth.set(t.k, (buysByMonth.get(t.k) || 0) + 1));
+  assert.ok([...buysByMonth.values()].every((n) => n === 1), 'one buy a month (no sales here, so only new money)');
+  assert.equal(new Set(trades.filter((t) => t.side === 'buy').slice(0, 10).map((t) => t.t)).size, 10, 'the first 10 months each start a new stock');
+  assert.ok(r.positions >= 10 && r.positions <= 12 && r.fundShare === 0, `10 to 12 stocks, nothing left for the fund: ${JSON.stringify(r)}`);
+  const random = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', pick: 'random', seed: 3 });
+  assert.ok(r.yearly > random.yearly, `the page's picks (the rising stocks) beat random ones here: ${r.yearly} vs ${random.yearly}`);
+  // medium term: sold at fair value. A stock reaching its fair value of 200 is sold once
+  const mid = loadData([lines[0], ...Array.from({ length: 12 }, (_, j) => stock(j, 0.03, (k, x) => ({ fair: 150, buyBelow: 110, upside: 150 / x - 1 })))]);
+  const mt = [];
+  simulatePlan(mid, { from: 0, to: months - 1, monthly: 300, pool: 'mid', onTrade: (t) => mt.push(t) });
+  assert.ok(mt.some((t) => t.side === 'sell' && t.why === 'fair value'), 'medium-term holdings are sold at fair value');
+  // the report judges each kind of pick by rule 1
+  const rep = report(D, { randomRuns: 10 });
+  assert.ok(rep.plan.long && rep.plan.mid && rep.plan.long.decision.verdict && rep.decision.method && rep.review && rep.pools, 'the report carries the Portfolio page test and the split it sets');
 });

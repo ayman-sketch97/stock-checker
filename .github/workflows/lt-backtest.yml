@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: '20 6 4 * *' # the 4th of each month, 06:20 UTC
   workflow_dispatch:
+    inputs:
+      report_only:
+        description: 'Only rebuild the summary from the last replay (no new replay)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -28,7 +33,14 @@ jobs:
       - name: Test the formulas
         run: node --test test/formulas.test.mjs
       - name: Replay ten years of analyses
+        if: ${{ !inputs.report_only }}
         run: mkdir -p out && node --max-old-space-size=4096 tools/lt-backtest.mjs --concurrency 4 --out out/lt-data.ndjson
+      - name: Reuse the last replay
+        if: ${{ inputs.report_only }}
+        run: |
+          mkdir -p out
+          curl -sSfL "https://raw.githubusercontent.com/${{ github.repository }}/backtest/lt-data.ndjson.gz" | gunzip > out/lt-data.ndjson
+          wc -l out/lt-data.ndjson
       - name: Build the summary
         run: node --max-old-space-size=4096 tools/lt-report.mjs out/lt-data.ndjson out/lt-summary.json --runs 100
       - name: Publish to the backtest branch

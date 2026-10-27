@@ -30,4 +30,24 @@ for (const [name, p] of Object.entries(R.portfolio)) {
   }
   console.log(`  random (${p.random.runs} runs) yearly p10 ${pc(p.random.yearly.p10)} median ${pc(p.random.yearly.median)} p90 ${pc(p.random.yearly.p90)}`);
 }
+console.log(`The list's 12-month test by half (month-ends before ${R.middle}, and from it):`);
+for (const [k, f] of Object.entries(R.forwardHalves)) console.log(`  ${k}: ${pc(f.picks)} picks | ${pc(f.universe)} avg | vs avg ${pc(f.vsUniverse.mean)} (t ${f.vsUniverse.t}) | ${f.months} months`);
+console.log('Other ways to build the list (PREREGISTERED.md):');
+for (const [k, a] of Object.entries(R.alternatives)) {
+  const f = a.forward;
+  console.log(`  ${k.padEnd(16)} vs avg ${pc(f.h12.vsUniverse.mean)} (t ${f.h12.vsUniverse.t}), halves ${pc(f.half1.vsUniverse.mean)} / ${pc(f.half2.vsUniverse.mean)}, ${f.h12.avgPicks} picks/month | portfolio ${pc(a.portfolio.full.yearly)} (halves ${pc(a.portfolio.half1.yearly)} / ${pc(a.portfolio.half2.yearly)}, fund ${pc(a.portfolio.full.fundShare)}) | checks ${JSON.stringify(a.checks)} -> ${a.pass ? 'PASS' : 'fail'}`);
+}
+console.log('Passed:', R.alternativePassed);
+console.log('The list by rule 1:', JSON.stringify(R.listDecision));
+console.log('The Portfolio page picks (PREREGISTERED.md, section 3):');
+for (const [k, p] of Object.entries(R.plan)) {
+  const f = p.forward;
+  console.log(`  ${k}: 6 ideas a month vs avg ${pc(f.h12.vsUniverse.mean)} (t ${f.h12.vsUniverse.t}), halves ${pc(f.half1.vsUniverse.mean)} / ${pc(f.half2.vsUniverse.mean)}; ideas ${pc(f.h12.picks)} vs avg ${pc(f.h12.universe)} vs SPY ${pc(f.h12.spy)}`);
+  for (const per of ['full', 'half1', 'half2']) {
+    const x = p.portfolio[per];
+    console.log(`    ${per} ${x.from}..${x.to}: plan ${pc(x.shortlist.yearly)} (value ${x.shortlist.finalValue} of ${x.shortlist.deposited}, worst ${pc(x.shortlist.worstFall)}, fund ${pc(x.shortlist.fundShare)}) | random median ${pc(x.random.yearly.median)} (p10 ${pc(x.random.yearly.p10)}, p90 ${pc(x.random.yearly.p90)}) | SPY ${pc(x.spy.yearly)}`);
+  }
+  console.log(`    rule 1: ${JSON.stringify(p.decision)}`);
+}
+console.log('What the rules say on this run:', JSON.stringify(R.review), '| pools with money:', JSON.stringify(R.pools));
 console.log('Decision:', JSON.stringify(R.decision));
