@@ -410,6 +410,7 @@ async def main():
         item = pg.locator('.wl-item', has_text='XYZ')
         itxt = await item.inner_text()
         check('Your own ticker' in itxt and 'No analysis here' in itxt and 'Not analysed here' in itxt, f'own tickers: shown as your own, without analysis: {itxt[:160]!r}')
+        check('No price yet' in itxt and 'n/a' not in itxt, 'own tickers: says there is no price yet instead of n/a')
         await item.locator('button:has-text("I own it")').click()
         await item.locator('label:has-text("Shares") input').fill('10')
         await item.locator('label:has-text("Average cost") input').fill('5')
@@ -433,7 +434,14 @@ async def main():
         await pg.click('#nav button:has-text("Portfolio")')
         await pg.wait_for_timeout(1500)
         adv = await pg.inner_text('section[aria-label="Advice on what you hold"]')
-        check('Your own ticker: not analysed here' in adv and '$6.00 (your price)' in adv, 'own tickers: the Portfolio page counts it and gives no rule-based advice')
+        check('Your own ticker: not analysed here' in adv and 'none of the tool’s rules' in adv and 'Counted at the price you entered ($6.00 on' in adv, f'own tickers: the Portfolio page counts it and gives no rule-based advice: {adv[:400]!r}')
+        check('Only 2 US stocks, so it is still concentrated (largest: AAPL' in adv and 'no concentration' not in adv, 'a portfolio still being built is called concentrated, not problem-free')
+        # its ticker in the brief has no stock page to open, so it goes to the Watchlist
+        await pg.click('#homeBtn')
+        await pg.wait_for_timeout(1000)
+        await pg.click('section[aria-label="Your daily brief"] button.tk:has-text("XYZ")')
+        await pg.wait_for_timeout(800)
+        check(await pg.locator('#page-watchlist').is_visible(), 'own tickers: the brief opens the Watchlist for them, not an empty stock page')
         check(not errs, f'no page errors with your own ticker on the brief and Portfolio page {errs}')
         await pg.close()
         # the sync link carries it to another device
@@ -445,6 +453,29 @@ async def main():
         itxt = await pg.locator('.wl-item', has_text='XYZ').inner_text()
         check('Your own ticker' in itxt and '10 shares worth $60.00 at your price' in itxt, 'own tickers: the sync link copies them with their price')
         check(not errs, f'no page errors importing your own ticker {errs}')
+        await pg.close()
+        # a typed price goes stale; the size rule still applies to your own tickers once the portfolio is built
+        old = (dt.date.today() - dt.timedelta(days=40)).isoformat()
+        items = [{'t': 'BIGX', 'added': '2026-01-01', 'shares': 100, 'cost': 8, 'manual': True, 'px': 10, 'pxDate': old}]
+        items += [{'t': 'OWN%d' % i, 'added': '2026-01-01', 'shares': 10, 'cost': 5, 'manual': True, 'px': 5, 'pxDate': fresh} for i in range(11)]
+        pg, errs = await page_with(ctx, base, fresh, {'watch': {'v': 1, 'items': items, 'snap': None, 'prev': None}, 'advisor': start['advisor']}, '', None, {'data/lt-summary.json': LT})
+        await pg.click('#nav button:has-text("Watchlist")')
+        await pg.wait_for_timeout(1000)
+        itxt = await pg.locator('.wl-item', has_text='BIGX').inner_text()
+        check('Your price is from' in itxt, f'own tickers: an old typed price asks to be updated: {itxt[:260]!r}')
+        itxt = await pg.locator('.wl-item', has_text='OWN0').inner_text()
+        check('Your price is from' not in itxt, 'own tickers: a recent typed price gives no alert')
+        await pg.click('#homeBtn')
+        await pg.wait_for_timeout(1000)
+        brief = await pg.inner_text('section[aria-label="Your daily brief"]')
+        check(brief.count('That price is over a month old') == 1, 'own tickers: the brief asks to update an old typed price')
+        await pg.click('#nav button:has-text("Portfolio")')
+        await pg.wait_for_timeout(1500)
+        adv = await pg.inner_text('section[aria-label="Advice on what you hold"]')
+        row = await pg.locator('section[aria-label="Advice on what you hold"] .srow', has_text='BIGX').inner_text()
+        check('Trim' in row and 'above 15% in one company' in row and 'the size rule is the only one' in row, f'own tickers: the size rule still applies to them: {row[:300]!r}')
+        check('still concentrated' not in adv, 'no building-up note once the portfolio has enough stocks')
+        check(not errs, f'no page errors with many own tickers {errs}')
         await pg.close()
 
         # ---- stale data warning on the home page

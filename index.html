@@ -652,7 +652,7 @@ table.data.wrap1 td:first-child .sm { font-size: 12px; line-height: 1.4; margin-
 .alert-list li:first-child { border-top: 0; }
 .alert-list .tk { font-weight: 800; cursor: pointer; color: var(--accent-ink); background: none; border: 0; padding: 0; font: inherit; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
-.field { display: grid; gap: 5px; font-size: 13px; color: var(--ink-2); min-width: 0; font-weight: 550; }
+.field { display: grid; gap: 5px; font-size: 13px; color: var(--ink-2); min-width: 0; font-weight: 550; align-content: end; }
 .field input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
 .btn-sm { height: 38px; padding: 0 15px; border-radius: 11px; font-size: 14px; }
 .row-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
@@ -3076,8 +3076,10 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       const why = [];
       if (!r && x.own) {
         act = 'Your call'; tone = 'neutral';
-        why.push('Your own ticker: not analysed here, so the tool’s rules cannot be applied to it. Check its results and halal status yourself (Zoya); the weekly review checks its news.');
-        if (!isNum(x.px)) why.push('Enter its price on the Watchlist (“Edit position”) so it counts at today’s value.');
+        // only the size rule needs no analysis of the company, so it is the one rule that still applies
+        if (wgt > 0.15 && lt.length >= T.minStocks) { act = 'Trim'; tone = 'warn'; why.push(`${pct(wgt, 0)} of everything you own: above 15% in one company, one bad report hurts the whole portfolio.`); }
+        why.push(`Your own ticker: not analysed here, so ${act === 'Trim' ? 'the size rule is the only one' : 'none of the tool’s rules'} can be applied to it. Check its results and halal status yourself (Zoya); the weekly review checks its news.`);
+        why.push(isNum(x.px) ? `Counted at the price you entered (${price(x.px)}${x.pxDate ? ` on ${niceDates(x.pxDate)}` : ''}): update it on the Watchlist now and then.` : 'Enter its price on the Watchlist (“Edit position”) so it counts at today’s value.');
       } else if (!r) { act = 'Review'; tone = 'warn'; why.push('Not in today’s data. Check it yourself.'); }
       else if (r.shariah === 'fail') { act = 'Sell'; tone = 'bad'; why.push('Fails the Shariah screen now. Confirm on Zoya or Musaffa; if it still fails, sell it and purify any gain as your scholar advises.'); }
       else if (x.hp === 'short' && ['down', 'weakening'].includes(r.trend)) { act = 'Sell'; tone = 'bad'; why.push('Short-term hold and the uptrend has broken: your rule says sell.'); }
@@ -3095,7 +3097,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       if (r && r.shariah === 'review' && act !== 'Sell') why.push('Halal status is close to a limit: check it before adding.');
       if (x.hp === 'short' && x.since && daysApart(x.since, localISO()) > 365) why.push('Held over 12 months as a short-term position: review it.');
       const st = sinceTxt(x);
-      advRows.push({ name: x.t, sub: [HP[x.hp].label, r ? price(r.price) : isNum(x.px) ? `${price(x.px)} (your price)` : ''].filter(Boolean).join(' · '), act, tone, why: (st ? st[0].toUpperCase() + st.slice(1) + '. ' : '') + why.join(' '), open: r ? x.t : null });
+      advRows.push({ name: x.t, sub: [HP[x.hp].label, r ? price(r.price) : isNum(x.px) ? price(x.px) : ''].filter(Boolean).join(' · '), act, tone, why: (st ? st[0].toUpperCase() + st.slice(1) + '. ' : '') + why.join(' '), open: r ? x.t : null });
     }
     const coreGap = T.core * total - coreVal;
     const safeGap = T.safe * total - safeVal;
@@ -3133,6 +3135,11 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     const bySector = new Map();
     for (const x of lt) { const r = scr.by.get(x.t); const k = (r && r.sector) || 'Other'; bySector.set(k, (bySector.get(k) || 0) + val(x)); }
     for (const [k, v] of bySector) if (usVal > 0 && lt.length >= 3 && v / usVal > 0.4) checks.push(['warn', `${pct(v / usVal, 0)} of your US stocks are in ${k}. Spread new buys to other sectors.`]);
+    // the size rule is off while the portfolio is being built (see the advice above), so say that instead of "no problems found"
+    if (lt.length && lt.length < T.minStocks) {
+      const big = lt.reduce((m, x) => (val(x) > val(m) ? x : m), lt[0]);
+      checks.push(['warn', `Only ${lt.length} US ${lt.length === 1 ? 'stock' : 'stocks'}, so it is still concentrated (largest: ${big.t}, ${pct(wOf(val(big)), 0)} of everything you own). That is normal while you build up to at least ${T.minStocks}: the monthly plan starts new companies before topping up old ones, so this evens out as you buy.`]);
+    }
     const nStocks = lt.length + other.filter((o) => o.kind === 'stock').length;
     if (nStocks > T.maxStocks) checks.push(['warn', `You hold ${nStocks} stocks, more than the ${T.maxStocks} you have time to follow. Let the weakest go rather than adding more.`]);
     const monthlyUsd = (pf.monthlyAed || 0) / AED_PER_USD;
@@ -3936,11 +3943,12 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         stat('Today', (dayMove >= 0 ? '+' : '−') + money0(Math.abs(dayMove)).replace(/^−?/, ''), value - dayMove > 0 ? pctS(dayMove / (value - dayMove), 1) : ''),
         cost > 0 ? stat('Since you bought', pctS(value / cost - 1, 1), money0(value - cost)) : null));
     }
-    const ul = (rows) => h('ul', { class: 'alert-list' }, rows.map(([tone, t, text]) => h('li', null, toneIcon(tone === 'info' ? '' : tone), h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => openStock(t) }, t), ' ', text))));
+    // a ticker with no site data has no page to open: its button goes to the Watchlist, where you edit it
+    const ul = (rows) => h('ul', { class: 'alert-list' }, rows.map(([tone, t, text]) => h('li', null, toneIcon(tone === 'info' ? '' : tone), h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => (scr.by.get(t) ? openStock(t) : navigate('watchlist')) }, t), ' ', text))));
     if (todo.length) card.append(h('h3', { text: 'To do' }), ul(todo));
     if (hold.length) card.append(h('h3', { text: 'Down, but keep waiting' }), ul(hold.map(([t, text]) => ['info', t, text])),
       h('p', { class: 'note', text: 'Good businesses often fall for a while. The rule is to wait while the business stays healthy; the brief tells you if that changes.' }));
-    if (own.length) card.append(h('h3', { text: 'Your own tickers (not on the site)' }), ul(own.map((x) => ['info', x.t, `${fmtShares(x.shares)} shares${isNum(x.px) ? ` at ${price(x.px)} (your price${x.pxDate ? ` from ${niceDates(x.pxDate)}` : ''})` : ', no price entered yet'}. Not analysed here: the weekly review checks its news.`])));
+    if (own.length) card.append(h('h3', { text: 'Your own tickers (not on the site)' }), ul(own.map((x) => ['info', x.t, `${fmtShares(x.shares)} shares${isNum(x.px) ? ` at ${price(x.px)} (your price${x.pxDate ? ` from ${niceDates(x.pxDate)}` : ''})` : ', no price entered yet'}.${isNum(x.px) && x.pxDate && daysApart(x.pxDate, localISO()) > 30 ? ' That price is over a month old: update it on the Watchlist.' : ''} Not analysed here: the weekly review checks its news.`])));
     const changes = watchChanges(w, scr);
     if (changes.length) card.append(h('h3', { text: `Changed since ${niceDates(w.prev.date)}` }), ul(changes.map(([t, lines]) => ['info', t, lines.join('; ')])));
     if (news.length) card.append(h('h3', { text: 'Company news (last 7 days)' }), ul(news.slice(0, 8).map(([t, text]) => ['info', t, text])));
@@ -4248,7 +4256,12 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
   const ownPrice = (it) => (it && isNum(it.px) && it.px > 0 ? it.px : null);
   function itemAlerts(it, r, scr) {
     const a = [];
-    if (!r) { if (!it.manual) a.push(['warn', 'Not in today’s data (it may have dropped below $2 billion in market value). You can enter its price yourself with “Edit”.']); return a; }
+    if (!r) {
+      if (!it.manual) a.push(['warn', 'Not in today’s data (it may have dropped below $2 billion in market value). You can enter its price yourself with “Edit”.']);
+      // a price you typed goes stale: the value, the portfolio mix and the monthly plan all use it
+      if (it.shares > 0 && isNum(it.px) && it.pxDate && daysApart(it.pxDate, localISO()) > 30) a.push(['warn', `Your price is from ${niceDates(it.pxDate)}: update it (“Edit position”) so the value and the monthly plan stay right.`]);
+      return a;
+    }
     const held = it.shares > 0;
     if (r.shariah === 'fail') a.push(['bad', held ? 'Fails the Shariah screen now. Confirm on Zoya or Musaffa, and plan to sell if it still fails.' : 'Fails the Shariah screen now.']);
     else if (r.shariah === 'review') a.push(['warn', 'Halal status needs checking: close to a limit, or unclear.']);
@@ -4390,7 +4403,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     const own = r ? null : ownPrice(it);
     const box = h('div', { class: 'wl-item' });
     const inner = [h('span', { class: 'top' }, h('span', { class: 'tk', text: it.t }), h('span', { class: 'nm', text: r ? r.name : it.manual ? 'Your own ticker' : 'Not in today’s data' }),
-        h('span', { class: 'pr' }, r ? price(r.price) : isNum(own) ? price(own) : 'n/a', r && isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
+        h('span', { class: 'pr' }, r ? price(r.price) : isNum(own) ? price(own) : it.manual ? 'No price yet' : 'n/a', r && isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
       r ? h('span', { class: 'tags' }, [verdictTag(r.verdict), shariahTag(r.shariah), setupTag(r.setup, r.status)].filter(Boolean)) : h('span', { class: 'tags' }, tagEl('No analysis here', 'neutral'))];
     // a ticker without site data has no page to open
     box.append(r ? h('button', { class: 'srow', type: 'button', onclick: () => openStock(it.t, it.swing ? 'tech' : null) }, ...inner) : h('div', { class: 'srow' }, ...inner));

@@ -705,14 +705,19 @@ Checks made afterwards, which the rules did not cover:
 - **Buying rule.** When every holding is near its equal share and there are already enough stocks, new money tops up
   the smallest holding (as tested) instead of starting another stock.
 - **Concentration warning.** "Above 15% of everything in one company" is only shown once you hold the minimum number
-  of stocks; before that, every early holding is a big share and the plan spreads new money anyway.
+  of stocks; before that, every early holding is a big share and the plan spreads new money anyway. The Portfolio
+  page says so ("Only 2 US stocks, so it is still concentrated…") instead of "no concentration problems found", which
+  contradicted the Watchlist's Portfolio check.
 - **Record page.** A card with the 10-year test: the list, by verdict, the portfolio against SPY and random picks,
   the halves, the five other methods, and the Portfolio page's picks.
 - **Your own tickers.** Any ticker can be added to the Watchlist, not only the site's list: it is tracked with the
   shares, average cost and price you enter, counted at that price in the brief, the Portfolio check and the Portfolio
-  page, marked "not screened" for halal status, and given no rule-based advice (the tool has no analysis for it). The
-  weekly review asks Claude to look it up. Funds are sent to the Portfolio page instead, so the plan counts them as
-  the fund part. The sync link and the backup carry these tickers and their prices.
+  page, marked "not screened" for halal status, and given no rule-based advice (the tool has no analysis for it),
+  except the size rule, which needs none: above 15% of everything once the portfolio is built, it says trim. A typed
+  price older than a month asks to be updated (Watchlist and brief), because the value, the mix and the monthly plan
+  use it. In the brief its ticker opens the Watchlist, since it has no stock page. The weekly review asks Claude to
+  look it up. Funds are sent to the Portfolio page instead, so the plan counts them as the fund part. The sync link
+  and the backup carry these tickers and their prices.
 - **Weekly review.** "Start my weekly review" (Watchlist, and in the daily brief) opens a new Claude chat with the
   review instructions and the stocks on the Watchlist that day, so it follows a list that changes from week to week
   and nothing is stored outside the device. A Saturday reminder (a Claude scheduled task) points to it.
