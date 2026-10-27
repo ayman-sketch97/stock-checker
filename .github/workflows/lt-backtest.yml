@@ -1,0 +1,43 @@
+name: Long-term backtest
+
+# Once a month (and on demand): replays the long-term analysis of every listed US company worth $250 million or
+# more at each month-end of the past ten years, with only what had been filed by then; rebuilds the past
+# shortlists and follows them forward against SPY and random picks (tools/lt-backtest.mjs, tools/lt-report.mjs).
+# The results go to the "backtest" branch (one commit, replaced each time); the site reads lt-summary.json there.
+on:
+  schedule:
+    - cron: '20 6 4 * *' # the 4th of each month, 06:20 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lt-backtest
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test the formulas
+        run: node --test test/formulas.test.mjs
+      - name: Replay ten years of analyses
+        run: mkdir -p out && node --max-old-space-size=4096 tools/lt-backtest.mjs --concurrency 4 --out out/lt-data.ndjson
+      - name: Build the summary
+        run: node --max-old-space-size=4096 tools/lt-report.mjs out/lt-data.ndjson out/lt-summary.json --runs 100
+      - name: Publish to the backtest branch
+        run: |
+          cd out
+          gzip -9 lt-data.ndjson
+          git init -q -b backtest
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lt-summary.json lt-data.ndjson.gz
+          git commit -q -m "Long-term backtest $(date -u +%Y-%m-%d)"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" backtest

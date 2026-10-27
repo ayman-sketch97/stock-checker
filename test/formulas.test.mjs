@@ -4,9 +4,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sma, ema, rsi, atr, macd, prepare, evaluate, simulateTrade } from '../lib/technical.js';
-import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen, FAIR_MAX_RATIO } from '../lib/engine.js';
+import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen, FAIR_MAX_RATIO, FactBook, splitsFromRestatements } from '../lib/engine.js';
 import { netR, benchmarkTrades, portfolioSim, buyHold } from '../lib/backtest.js';
 import { liveProof, LOG_FIELDS, PROOF_H, updateStock } from '../lib/signals.js';
+import { monthEnds, pxRows, replaySplits, SNAP_FIELDS } from '../lib/longterm.js';
+import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean } from '../lib/ltstats.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -646,4 +648,82 @@ test('signal log: each filled trade also gets its result cut off 20 trading days
   // signal at 290: fewer than 20 bars since the fill, so no 20-day result yet
   assert.equal(b[F.status], 'open');
   assert.equal(b[F.hR], null);
+});
+
+// ---------------------------------------------------------------- long-term backtest
+test('splits: dated at the first filing whose cover share count jumped, not at the next annual report', () => {
+  const ann = (start, end, val, filed, form = '10-K') => ({ start, end, val, filed, form, accn: 'a-' + filed, fy: 0, fp: 'FY' });
+  const cov = (end, val, filed, form) => ({ end, val, filed, form, accn: 'a-' + filed });
+  const facts = {
+    'us-gaap': { WeightedAverageNumberOfDilutedSharesOutstanding: { units: { shares: [
+      ann('2022-04-01', '2023-03-31', 26.0e6, '2023-05-20'), ann('2022-04-01', '2023-03-31', 26.0e6, '2024-05-20'),
+      ann('2023-04-01', '2024-03-31', 25.6e6, '2024-05-20'),
+      ann('2023-04-01', '2024-03-31', 153.6e6, '2025-05-22'), ann('2024-04-01', '2025-03-31', 152.0e6, '2025-05-22'),
+    ] } } },
+    dei: { EntityCommonStockSharesOutstanding: { units: { shares: [
+      cov('2024-05-09', 25.4e6, '2024-05-20', '10-K'), cov('2024-07-20', 25.4e6, '2024-07-25', '10-Q'),
+      cov('2024-10-11', 151.9e6, '2024-10-24', '10-Q'), cov('2025-01-16', 151.7e6, '2025-01-30', '10-Q'), cov('2025-05-09', 149.4e6, '2025-05-22', '10-K'),
+    ] } } },
+  };
+  const s = splitsFromRestatements(new FactBook(facts));
+  assert.equal(s.length, 1);
+  close(s[0].ratio, 6, 0.01, '6-for-1');
+  assert.equal(s[0].date, '2024-10-24', 'the first quarterly report with the new count, not the next annual report');
+  // seeing only what was filed by a date: the restatement is not known yet, so no split
+  assert.equal(splitsFromRestatements(new FactBook(facts, '2025-01-31')).length, 0);
+  // the replay takes every split the filings reveal, and leaves out a company whose share count needed market data
+  assert.equal(replaySplits(facts, { sharesSource: 'market data (Nasdaq)' }), null);
+  const withRecent = replaySplits(facts, { sharesSource: 'shares outstanding as of 2026-07-09, adjusted for a 3-for-1 split' });
+  assert.equal(withRecent.length, 2);
+  assert.equal(withRecent[1].ratio, 3);
+});
+
+test('long-term backtest: month-end prices, forward returns and the shortlist portfolio', () => {
+  // month-ends: last trading day of each month, with the next session's close for the order
+  const daily = [
+    { date: '2020-01-30', c: 10 }, { date: '2020-01-31', c: 11 }, { date: '2020-02-03', c: 12 }, { date: '2020-02-28', c: 13 }, { date: '2020-03-02', c: 14 },
+  ];
+  assert.deepEqual(monthEnds(daily), [1, 3, 4]);
+  assert.deepEqual(pxRows(daily), [['2020-01-31', 11, 12], ['2020-02-28', 13, 14], ['2020-03-02', 14, null]]);
+  // xirr: 100 a month for 12 months growing 1% a month is 12.7% a year
+  const dep = Array.from({ length: 12 }, (_, k) => [k, 100]);
+  const fv = dep.reduce((s, [k, a]) => s + a * 1.01 ** (12 - k), 0);
+  close(xirrMonthly(dep, fv, 12), 1.01 ** 12 - 1, 1e-6, 'money-weighted return');
+  // Newey-West: the mean is the mean; a steady series has no spread
+  assert.equal(nwMean([0.1, 0.1, 0.1, 0.1], 2).mean, 0.1);
+  // a toy market: SPY flat; stock A on the shortlist rises 2% a month; stock B (not on it) falls 1% a month
+  const months = 40;
+  const mk = (t, f, snapAt) => JSON.stringify({ t, rows: Array.from({ length: months }, (_, k) => snapAt(k)).filter(Boolean),
+    px: Array.from({ length: months }, (_, k) => [`20${String(10 + Math.floor(k / 12)).padStart(2, '0')}-${String((k % 12) + 1).padStart(2, '0')}-28`, f(k), f(k + 0.03)]) });
+  const date = (k) => `20${String(10 + Math.floor(k / 12)).padStart(2, '0')}-${String((k % 12) + 1).padStart(2, '0')}-28`;
+  const snap = (k, verdict, upside, extra = {}) => SNAP_FIELDS.map((f) => ({ date: date(k), verdict, quality: 80, health: 80, valuation: 'U', fair: null, buyBelow: null, trimAbove: null, dq: 'H', shariah: 'pass', price: null, upside, confidence: 'High', ...extra })[f]);
+  const lines = [
+    JSON.stringify({ t: '$SPY', px: Array.from({ length: months }, (_, k) => [date(k), 100, 100]) }),
+    mk('A', (k) => 10 * 1.02 ** k, (k) => snap(k, 'BUY', 0.5)),
+    mk('B', (k) => 10 * 0.99 ** k, (k) => snap(k, 'PASS', -0.1)),
+  ];
+  const D = loadData(lines);
+  assert.equal(D.months.length, months);
+  const f = forwardTest(D, { h: 12 });
+  close(f.picks, 1.02 ** 12 / 1.02 ** 0.03 - 1, 1e-3, 'shortlist pick: A over 12 months, bought the next session');
+  close(f.spy, 0, 1e-9);
+  assert.ok(f.vsUniverse.mean > 0 && f.monthsBeatingSpy === 1, 'A beats the average stock and SPY every month');
+  const p = simulate(D, { from: 0, to: months - 1, monthly: 300 });
+  assert.equal(p.deposited, 300 * (months - 1));
+  assert.ok(p.positions === 1 && p.fundShare > 0.5, `one stock is capped (2 months of money, then 10% of the portfolio); the rest goes to the fund: ${JSON.stringify(p)}`);
+  // twelve rising shortlist stocks: the money is spread over them and grows
+  const many = [lines[0], ...Array.from({ length: 12 }, (_, j) => mk('S' + j, (k) => 10 * 1.02 ** k, (k) => snap(k, 'BUY', 0.5 - j / 100)))];
+  const pm = simulate(loadData(many), { from: 0, to: months - 1, monthly: 300 });
+  assert.ok(pm.positions >= 10 && pm.yearly > 0.2 && pm.fundShare < 0.1, `spread over the shortlist and growing: ${JSON.stringify(pm)}`);
+  const s = simulateSpy(D, { from: 0, to: months - 1, monthly: 300 });
+  assert.ok(Math.abs(s.yearly) < 0.01, 'flat SPY earns about nothing (fees only)');
+  // selling rules: A turns weak (verdict AVOID_WEAK) at month 20 while below its average cost
+  const lines2 = [lines[0], mk('A', (k) => (k < 20 ? 10 * 1.02 ** k : 10 * 1.02 ** 20 * 0.6), (k) => snap(k, k < 20 ? 'BUY' : 'AVOID_WEAK', 0.5))];
+  const D2 = loadData(lines2);
+  const healthy = simulate(D2, { from: 0, to: 30, monthly: 300, rule: 'healthy' });
+  const wait = simulate(D2, { from: 0, to: 30, monthly: 300, rule: 'wait' });
+  assert.ok(healthy.sellsBusiness === 1 && wait.sellsBusiness === 0, `healthy sells the weakened business, wait holds a loser: ${healthy.sellsBusiness}/${wait.sellsBusiness}`);
+  // Shariah failure: every rule sells
+  const D3 = loadData([lines[0], mk('A', (k) => 10, (k) => snap(k, k < 5 ? 'BUY' : 'AVOID_SHARIAH', 0.5, { shariah: k < 5 ? 'pass' : 'fail' }))]);
+  assert.equal(simulate(D3, { from: 0, to: 10, monthly: 300, rule: 'never' }).positions, 0);
 });
