@@ -1,6 +1,6 @@
 # Page tests for the calculations that live in index.html (journal, portfolio, backup, freshness warnings).
 # Run: python3 test/page.test.py   (needs Python Playwright with Chromium; serves the page locally, no network)
-import asyncio, datetime as dt, http.server, json, os, re, shutil, sys, tempfile, threading
+import asyncio, datetime as dt, http.server, json, os, re, shutil, sys, tempfile, threading, urllib.parse
 from playwright.async_api import async_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -330,14 +330,19 @@ async def main():
         check('Company news' in brief and 'Results for a quarter or year' in brief, 'brief: routine filings listed as company news')
         check('Ideas for new money' in brief and 'Long term: 3 years or more' in brief and '+8.1% a year for long-term ideas' in brief,
               f'brief: ideas the Portfolio page would buy, with what the 10-year test found: {brief[-400:]!r}')
+        bhref = await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"Your daily brief\"] a')].map((a) => a.href).find((x) => x.includes('claude.ai')) || ''")
+        check(bhref.startswith('https://claude.ai/new?q=') and 'Holdings: AAPL 2 shares at $150.00' in urllib.parse.unquote(bhref), 'brief: one tap opens the weekly review with today\'s list')
         check(not errs, f'no page errors in the daily brief {errs}')
-        # the Watchlist flags the warning filing too, and offers the list for the weekly review
+        # the Watchlist flags the warning filing too, and opens the weekly review with the list as it is today
         await pg.click('#nav button:has-text("Watchlist")')
         await pg.wait_for_timeout(1000)
         att = await pg.inner_text('section[aria-label="Needs attention"]')
         check('can no longer be relied on' in att, 'watchlist: warning filing in Needs attention')
         box = await pg.evaluate("document.querySelector('section[aria-label=\"Weekly review\"] textarea').value")
-        check('Holdings: AAPL 2 shares at $150.00' in box and 'Watching: KO' in box, f'weekly review list: {box!r}')
+        check('Holdings: AAPL 2 shares at $150.00' in box and 'Watching: KO' in box and 'Weekly review of my stocks' in box and 'data/TICKER.json' in box, f'weekly review request: {box[-300:]!r}')
+        whref = await pg.evaluate("document.querySelector('section[aria-label=\"Weekly review\"] a').href")
+        wtext = urllib.parse.unquote(whref.split('?q=', 1)[1]) if '?q=' in whref else ''
+        check(whref.startswith('https://claude.ai/new?q=') and wtext == box and len(whref) < 4700, f'weekly review: the button opens Claude with the same request ({len(whref)} characters)')
         # the Portfolio page offers to let the test decide, and then uses its split
         await pg.evaluate("(p) => { localStorage.setItem('advisor', JSON.stringify(p)); }",
                           {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'only', 'hold': 'auto', 'swing': 'no', 'broker': 'tiered', 'monthlyAed': 1000}, 'hp': {}, 'other': []})

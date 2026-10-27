@@ -708,8 +708,9 @@ Checks made afterwards, which the rules did not cover:
   of stocks; before that, every early holding is a big share and the plan spreads new money anyway.
 - **Record page.** A card with the 10-year test: the list, by verdict, the portfolio against SPY and random picks,
   the halves, the five other methods, and the Portfolio page's picks.
-- **Weekly review.** The Watchlist's "Copy my list" button gives a short list of holdings and watched stocks to
-  paste to Claude for the weekly review.
+- **Weekly review.** "Start my weekly review" (Watchlist, and in the daily brief) opens a new Claude chat with the
+  review instructions and the stocks on the Watchlist that day, so it follows a list that changes from week to week
+  and nothing is stored outside the device. A Saturday reminder (a Claude scheduled task) points to it.
 
 ### Limits
 

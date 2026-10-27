@@ -3951,7 +3951,8 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     }
     card.append(h('div', { class: 'ai' },
       h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('watchlist') }, 'Watchlist'),
-      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('advisor') }, 'This month’s plan')));
+      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('advisor') }, 'This month’s plan'),
+      h('a', { class: 'btn btn-outline btn-sm', href: weeklyReview().url, target: '_blank', rel: 'noopener', style: 'display:inline-flex;align-items:center;text-decoration:none' }, 'Weekly review with Claude')));
     return card;
   }
 
@@ -4476,25 +4477,44 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
   }
   // a plain-text copy of the list for the weekly review Claude writes (a scheduled task in the user's own Claude
   // account): pasted into a chat by the user, never sent anywhere by the page
-  function reviewCard(w) {
-    const jr = JR.load();
-    const { lt } = holdingsFrom(w.items, jr.trades);
+  // The weekly review: a new Claude chat with the review instructions and the list as it is on this device today
+  // (holdings change from week to week, so nothing is stored anywhere; the list only goes into the user's own chat)
+  const REVIEW_HEAD = [
+    'Weekly review of my stocks, using my Stock Checker tool (https://ayman-sketch97.github.io/stock-checker/). I am a beginner investor in the UAE: I hold for weeks to years, use no stop losses and wait out falls while the business stays healthy. Do not give your own buy or sell calls or price predictions: apply the tool’s rules below and explain them in plain English, under 400 words, with no em dashes.',
+    'For each stock in my list: fetch https://ayman-sketch97.github.io/stock-checker/data/TICKER.json (ticker in capitals) and read the verdict, price, fair value, buy-below and trim-above prices, Shariah status, data quality, next earnings date and filings of the last 7 days. Then search the news of the past 7 days (results, guidance, lawsuits, management changes, deals, accounting problems), ignoring price-move commentary.',
+    'The rules: halal screen "fail" means sell (I confirm on Zoya first). Verdict "Avoid: weak fundamentals" or "Speculative" means the business weakened: sell. Price at or above the trim-above price: consider selling part and do not add. Down from my cost while the business is healthy: hold and wait. An 8-K item 4.02 (restated accounts), 4.01 (auditor change), 1.03 (bankruptcy) or a late-filing notice is a warning sign: tell me to read it. For item 3.01, say whether it is a listing warning or just a move to another exchange. A watched stock rated buy or strong buy at or below its buy-below price is a candidate for this month’s money; the Portfolio page decides how much.',
+    'Answer with: 1) what needs doing this week, or "Nothing needs doing this week"; 2) each holding in one or two lines (what changed, what the rule says, why); 3) news that could change a business, with links; 4) watched stocks that became candidates; 5) one short lesson for a beginner. End with "Not financial advice: the tool’s rules applied to this week’s data."',
+  ].join('\n\n');
+  function weeklyReview() {
+    const w = W.load();
+    const { lt } = holdingsFrom(w.items, JR.load().trades);
     const held = new Set(lt.map((x) => x.t));
     const watching = w.items.filter((it) => !held.has(it.t)).map((it) => it.t);
     const pf = (ADV.load().profile) || {};
-    const text = ['My Stock Checker list for the weekly review:',
-      `Holdings: ${lt.length ? lt.map((x) => `${x.t} ${+x.shares.toFixed(4)} shares${isNum(x.cost) ? ` at ${price(x.cost)}` : ''}${x.since ? ` since ${x.since}` : ''}`).join('; ') : 'none'}`,
-      `Watching: ${watching.length ? watching.join(', ') : 'none'}`,
+    const hold = lt.length ? lt.map((x) => `${x.t} ${+x.shares.toFixed(4)} shares${isNum(x.cost) ? ` at ${price(x.cost)}` : ''}${x.since ? ` since ${x.since}` : ''}`).join('; ') : 'none';
+    let shown = watching.slice();
+    const make = () => [`${REVIEW_HEAD}\n\nMy Stock Checker list for the weekly review (${localISO()}):`,
+      `Holdings: ${hold}`,
+      `Watching: ${shown.length ? shown.join(', ') : 'none'}${shown.length < watching.length ? ` and ${watching.length - shown.length} more on my Watchlist` : ''}`,
       `Monthly: AED ${(pf.monthlyAed || 0).toLocaleString('en-US')}`].join('\n');
-    const box = h('textarea', { class: 'promptbox', readonly: true, rows: '4', hidden: true, 'aria-label': 'List for the weekly review' });
-    box.value = text;
+    let text = make();
+    // a chat link carries the text in its address: keep it short enough by listing fewer watched stocks
+    while (encodeURIComponent(text).length > 4500 && shown.length) { shown.pop(); text = make(); }
+    return { text, url: 'https://claude.ai/new?q=' + encodeURIComponent(text), empty: !lt.length && !watching.length };
+  }
+  function reviewCard(w) {
+    const r = weeklyReview();
+    const box = h('textarea', { class: 'promptbox', readonly: true, rows: '6', hidden: true, 'aria-label': 'Weekly review request' });
+    box.value = r.text;
     const ok = h('span', { class: 'copied', hidden: true, text: 'Copied' });
     return h('section', { class: 'card', 'aria-label': 'Weekly review' }, h('h2', { text: 'Weekly review by Claude' }),
-      h('p', { class: 'sub', text: 'Once a week Claude can read the news on your stocks and send you a plain-English review. Copy your list and paste it into your chat with Claude whenever you buy or sell, so the review stays up to date. The page sends nothing anywhere.' }),
-      h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: async () => {
-        try { await navigator.clipboard.writeText(text); ok.hidden = false; setTimeout(() => { ok.hidden = true; }, 2000); }
-        catch { box.hidden = false; box.focus(); box.select(); }
-      } }, 'Copy my list'), ok), box);
+      h('p', { class: 'sub', text: 'Once a week (you get a reminder on Saturday morning), tap the button. It opens a new Claude chat with the stocks on this Watchlist today, and Claude reads the news and this site’s data for each one and applies the tool’s rules. Keep the Watchlist up to date (“I own it” with shares and price) and the review always covers what you have. The page sends nothing anywhere: the list goes only into your own chat.' }),
+      h('div', { class: 'ai' },
+        h('a', { class: 'btn btn-sm', href: r.url, target: '_blank', rel: 'noopener', style: 'display:inline-flex;align-items:center;text-decoration:none' }, 'Start my weekly review'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: async () => {
+          try { await navigator.clipboard.writeText(r.text); ok.hidden = false; setTimeout(() => { ok.hidden = true; }, 2000); }
+          catch { box.hidden = false; box.focus(); box.select(); }
+        } }, 'Copy it instead'), ok), box);
   }
   function importCard() {
     const m = /^#w=([A-Za-z0-9_-]+)$/.exec(location.hash || '');
