@@ -41,13 +41,19 @@ def weekday_back(n):
     return d.isoformat()
 
 
-async def page_with(ctx, base, price_date, storage=None, path='', stock=None):
+async def page_with(ctx, base, price_date, storage=None, path='', stock=None, extra=None, patch=None):
     screen = json.load(open(os.path.join(FIX, 'screen.json')))
     index = json.load(open(os.path.join(FIX, 'index.json')))
     screen['priceDate'] = index['priceDate'] = price_date
+    if patch:
+        patch(screen)
 
     async def route(r):
         u = r.request.url
+        for k, v in (extra or {}).items():
+            if k in u:
+                await r.fulfill(status=200, body=json.dumps(v), headers={'content-type': 'application/json'})
+                return
         if u.endswith('data/screen.json') or 'data/screen.json?' in u:
             await r.fulfill(status=200, body=json.dumps(screen), headers={'content-type': 'application/json'})
         elif stock and re.search(r'/data/KO\.json', u):
@@ -295,6 +301,86 @@ async def main():
         await pg.wait_for_timeout(400)
         check(await pg.locator('#page-shortlist .paper-note').count() == 1, 'the swing list explains that its signals are paper trades')
         check(not errs, f'no page errors on home and shortlist {errs}')
+        await pg.close()
+
+        # ---- daily brief: what to do with the stocks you own, losers waited out, company news from filings
+        LT = json.load(open(os.path.join(FIX, 'lt-summary.json')))
+
+        def with_events(screen):
+            # filings of the last days (ev), the data-quality grade (dq), and KO turned into a long-term buy idea
+            screen['fields'] = screen['fields'] + ['ev', 'dq']
+            evs = {'AAPL': [f'{fresh}|8-K|4.02'], 'MSFT': [f'{fresh}|8-K|2.02'], 'KO': []}
+            vi = screen['fields'].index('verdict')
+            for row in screen['rows']:
+                row.extend([evs.get(row[0], []), 'high'])
+                if row[0] == 'KO':
+                    row[vi] = 'BUY'
+                    row[screen['fields'].index('trimAbove')] = 120
+        pg, errs = await page_with(ctx, base, fresh)
+        brief = await pg.inner_text('section[aria-label="Your daily brief"]')
+        check('Add the stocks you own' in brief, f'empty brief invites you to add stocks: {brief[:120]!r}')
+        await pg.close()
+        own = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 2, 'cost': 150}, {'t': 'MSFT', 'added': '2026-02-01', 'shares': 1, 'cost': 650},
+                                           {'t': 'KO', 'added': '2026-02-01', 'shares': 0}], 'snap': None, 'prev': None}}
+        pg, errs = await page_with(ctx, base, fresh, own, '', None, {'data/lt-summary.json': LT}, with_events)
+        brief = await pg.inner_text('section[aria-label="Your daily brief"]')
+        check('to look at today' in brief and 'Above its trim price' in brief, f'brief: AAPL above its trim price is a thing to look at: {brief[:300]!r}')
+        check('Said earlier financial statements can no longer be relied on' in brief, 'brief: a warning filing (8-K item 4.02) on a holding is flagged')
+        check('Down, but keep waiting' in brief and 'MSFT' in brief and 'hold and wait' in brief, 'brief: a holding down from cost with a healthy business: hold and wait')
+        check('Company news' in brief and 'Results for a quarter or year' in brief, 'brief: routine filings listed as company news')
+        check('Ideas for new money' in brief and 'Long term: 3 years or more' in brief and '+8.1% a year for long-term ideas' in brief,
+              f'brief: ideas the Portfolio page would buy, with what the 10-year test found: {brief[-400:]!r}')
+        check(not errs, f'no page errors in the daily brief {errs}')
+        # the Watchlist flags the warning filing too, and offers the list for the weekly review
+        await pg.click('#nav button:has-text("Watchlist")')
+        await pg.wait_for_timeout(1000)
+        att = await pg.inner_text('section[aria-label="Needs attention"]')
+        check('can no longer be relied on' in att, 'watchlist: warning filing in Needs attention')
+        box = await pg.evaluate("document.querySelector('section[aria-label=\"Weekly review\"] textarea').value")
+        check('Holdings: AAPL 2 shares at $150.00' in box and 'Watching: KO' in box, f'weekly review list: {box!r}')
+        # the Portfolio page offers to let the test decide, and then uses its split
+        await pg.evaluate("(p) => { localStorage.setItem('advisor', JSON.stringify(p)); }",
+                          {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'only', 'hold': 'auto', 'swing': 'no', 'broker': 'tiered', 'monthlyAed': 1000}, 'hp': {}, 'other': []})
+        await pg.click('#nav button:has-text("Portfolio")')
+        await pg.wait_for_timeout(1200)
+        offer = await pg.locator('#page-advisor button:has-text("Let the test decide my split")').count()
+        check(offer == 1, 'portfolio: offers to let the 10-year test set the split')
+        await pg.click('#page-advisor button:has-text("Let the test decide my split")')
+        await pg.wait_for_timeout(1200)
+        mix = await pg.inner_text('section[aria-label="Your target mix"]')
+        check('You let the 10-year test decide' in mix and '50%' in mix and 'the long-term picks on this page' in mix, f'portfolio: the test of the page\'s own picks sets stocks to 50%: {mix[:300]!r}')
+        check('Short-term picks get no real money' in mix and 'short term' not in mix.split('Your stocks')[1].split('\n')[0], 'portfolio: untested short-term picks get no real money, their share goes to the long term')
+        hp = await pg.inner_text('section[aria-label="Holding periods"]')
+        check('In the 10-year test: its ideas were ahead of the average halal stock by 8.1% a year' in hp and 'beat random picks in one half' in hp, f'portfolio: each holding period shows what the test found: {hp[:400]!r}')
+        check(not errs, f'no page errors on the brief, watchlist and portfolio {errs}')
+        await pg.close()
+
+        # ---- record: the long-term list test
+        pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT})
+        await pg.click('#nav button:has-text("Record")')
+        await pg.wait_for_timeout(1200)
+        ltc = await pg.inner_text('section[aria-label="Long-term list test"]')
+        check('The list did not beat the average stock' in ltc and '17.6%' in ltc and 'Companies that went bust are missing' in ltc, f'record: the long-term test, its verdict and its limits: {ltc[:200]!r}')
+        check('Other ways to build the list' in ltc and 'Ahead, but not clearly more than luck' in ltc and 'Did worse than the average' in ltc and 'None passed every check' in ltc,
+              'record: the other methods tried, each with its result in plain words')
+        check('The picks the Portfolio page buys' in ltc and 'Half in stocks' in ltc and 'The money split follows the long-term picks' in ltc and 'Short-term picks cannot be tested yet' in ltc,
+              'record: the test of the Portfolio page\'s own picks, which sets the split')
+        check(not errs, f'no page errors on the record page with the long-term test {errs}')
+        await pg.close()
+
+        # ---- stock page: the company's filings
+        ko = json.load(open(os.path.join(FIX, 'stock-ok.json')))
+        ko['filings'] = [{'form': '8-K', 'filed': fresh, 'items': ['2.02'], 'accession': '0000021344-26-000050', 'doc': 'ko-8k.htm'},
+                         {'form': '8-K', 'filed': fresh, 'items': ['4.02'], 'accession': '0000021344-26-000051', 'doc': 'x.htm'},
+                         {'form': '10-Q', 'filed': '2026-07-25', 'items': [], 'accession': '0000021344-26-000040', 'doc': 'q.htm'}]
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok', {'data/KO.json': ko})
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1500)
+        fil = await pg.inner_text('section[aria-label="Latest filings"]')
+        check('Results for a quarter or year' in fil and 'can no longer be relied on' in fil and 'warning sign' in fil, f'stock page lists filings and flags the warning sign: {fil[:200]!r}')
+        hrefs = await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"Latest filings\"] a')].map((a) => a.href)")
+        check('https://www.sec.gov/Archives/edgar/data/1/000002134426000050/ko-8k.htm' in hrefs and len(hrefs) == 3, f'filing links go to the SEC filing itself: {hrefs}')
+        check(not errs, f'no page errors on the stock page with filings {errs}')
         await pg.close()
 
         # ---- stale data warning on the home page

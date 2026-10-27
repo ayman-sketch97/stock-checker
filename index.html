@@ -640,6 +640,8 @@ table.data tr.click { cursor: pointer; }
 table.data tr.click:hover td { background: var(--surface-2); }
 table.data td.dim { color: var(--muted); }
 table.data.wrap1 td:first-child { white-space: normal; }
+table.data.wraph th { white-space: normal; vertical-align: bottom; }
+table.data.wraph td { white-space: normal; }
 table.data.wrap1 td:first-child .sm { font-size: 12px; line-height: 1.4; margin-top: 3px; }
 .askbox { width: 100%; margin-top: 10px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); padding: 11px 13px; font: inherit; font-size: 16px; line-height: 1.45; resize: vertical; }
 .note { font-size: 13px; color: var(--ink-2); margin-top: 10px; }
@@ -688,6 +690,13 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
   .spin { animation-duration: 3s; }
   .srow:hover, .star:hover { transform: none; }
 }
+
+  /* daily brief and filings */
+  .brief-head { font-weight: 650; font-size: 1.02rem; margin: 4px 0 12px; }
+  .brief-head.tone-good { color: var(--good-ink); }
+  .brief-head.tone-warn { color: var(--warn-ink); }
+  .brief h3 { margin-top: 16px; }
+  .filings li.tone-bad span { color: var(--bad-ink); }
 </style>
 </head>
 <body>
@@ -1175,6 +1184,87 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     statusEl.replaceChildren(box);
   }
 
+  // ------------------------------------------------------------------ the company's own news (SEC filings)
+  // 8-K item numbers -> what happened, in plain words. Tone 'bad': a warning sign; 'warn': worth reading; '': routine.
+  const ITEM_8K = {
+    '1.01': ['Signed a major agreement', ''],
+    '1.02': ['Ended a major agreement', 'warn'],
+    '1.03': ['Bankruptcy or receivership', 'bad'],
+    '1.05': ['Cybersecurity incident', 'warn'],
+    '2.01': ['Completed a purchase or sale of a business or assets', ''],
+    '2.02': ['Results for a quarter or year', ''],
+    '2.03': ['Took on new debt', ''],
+    '2.04': ['A debt became due early', 'bad'],
+    '2.05': ['Restructuring or job cuts', 'warn'],
+    '2.06': ['Wrote down the value of assets', 'warn'],
+    '3.01': ['Warning from the stock exchange about its listing', 'bad'],
+    '3.02': ['Sold new shares privately (existing shares are diluted)', 'warn'],
+    '3.03': ['Changed shareholders’ rights', 'warn'],
+    '4.01': ['Changed its auditor', 'warn'],
+    '4.02': ['Said earlier financial statements can no longer be relied on', 'bad'],
+    '5.01': ['Change in who controls the company', 'warn'],
+    '5.02': ['Change of directors or senior officers', ''],
+    '5.03': ['Changed its bylaws or fiscal year', ''],
+    '5.07': ['Results of a shareholder vote', ''],
+    '7.01': ['Shared information with investors', ''],
+    '8.01': ['Other company news', ''],
+  };
+  const FORM_TXT = {
+    '10-K': ['Annual report (the tool’s numbers update with it)', ''],
+    '10-K/A': ['Corrected annual report', 'warn'],
+    '10-Q': ['Quarterly report (the tool’s numbers update with it)', ''],
+    '10-Q/A': ['Corrected quarterly report', 'warn'],
+    'NT 10-K': ['Its annual report will be late', 'bad'],
+    'NT 10-Q': ['Its quarterly report will be late', 'bad'],
+    'SC 13D': ['An investor bought 5% or more and may push for changes', 'warn'],
+    'SC 13D/A': ['A large investor changed their stake', ''],
+    'S-1': ['Registered shares for sale (possible new shares)', 'warn'],
+    'S-3': ['Registered shares or debt it may sell later', ''],
+    'S-4': ['Registered shares for a merger or acquisition', 'warn'],
+    '25-NSE': ['The shares are being removed from the exchange', 'bad'],
+    '15-12B': ['Ending its SEC registration (leaving the market)', 'bad'],
+    '15-12G': ['Ending its SEC registration (leaving the market)', 'bad'],
+  };
+  // one filing -> [{ text, tone }]
+  function filingNews(f) {
+    if (f.form === '8-K' || f.form === '8-K/A') {
+      const items = (f.items || []).filter((i) => ITEM_8K[i]);
+      const out = items.length ? items.map((i) => ({ text: ITEM_8K[i][0], tone: ITEM_8K[i][1] })) : [{ text: 'Company news', tone: '' }];
+      if (f.form === '8-K/A') out.forEach((x) => { x.text += ' (correction)'; });
+      return out;
+    }
+    const t = FORM_TXT[f.form];
+    return t ? [{ text: t[0], tone: t[1] }] : [];
+  }
+  // the screener's compact form: 'date|form|items'
+  const parseEv = (s) => {
+    const [filed, form, items] = String(s || '').split('|');
+    return { filed, form, items: items ? items.split(',') : [] };
+  };
+  const filingUrl = (cik, f) => (f.accession && cik ? `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${String(f.accession).replace(/-/g, '')}/${f.doc || ''}` : null);
+  const TONE_ICON = { bad: 'bad', warn: 'ok', '': 'na' };
+  const TONE_LABEL = { bad: 'Warning sign', warn: 'Worth reading', '': 'Routine' };
+  function filingsCard(d) {
+    const list = Array.isArray(d.filings) ? d.filings : [];
+    if (!list.length) return null;
+    const rows = [];
+    for (const f of [...list].sort((a, b) => (a.filed < b.filed ? 1 : -1))) {
+      const url = filingUrl(d.cik, f);
+      for (const n of filingNews(f)) {
+        rows.push(h('li', { class: n.tone ? 'tone-' + n.tone : '' }, icon(TONE_ICON[n.tone] || 'na', TONE_LABEL[n.tone] || 'Routine'),
+          h('span', null, h('b', { text: niceDates(f.filed) + ': ' }), n.text, url ? h('span', null, ' · ', h('a', { href: url, target: '_blank', rel: 'noopener', text: 'read it' })) : null)));
+      }
+    }
+    if (!rows.length) return null;
+    const bad = list.some((f) => filingNews(f).some((n) => n.tone === 'bad'));
+    return h('section', { class: 'card', 'aria-label': 'Latest filings' },
+      h('h2', { text: 'What the company filed (last 4 months)' }),
+      h('p', { class: 'sub', text: bad
+        ? 'At least one of these is a warning sign: read it in full before buying or adding.'
+        : 'The company’s own news, straight from its SEC filings. Quarterly results and reports are routine; anything marked with a warning is worth reading.' }),
+      h('ul', { class: 'clean filings' }, rows));
+  }
+
   // ------------------------------------------------------------------ render
   const VERDICT_SHORT = {
     BUY_STRONG: 'Strong buy candidate', BUY: 'Buy candidate', CONTRARIAN: 'Possible bargain', WATCH: 'Watchlist',
@@ -1281,6 +1371,8 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     fund.append(longTermCard(d));
     const divCard = dividendsCard(d);
     if (divCard) fund.append(divCard);
+    const filCard = filingsCard(d);
+    if (filCard) fund.append(filCard);
 
     // strengths & risks
     const list = (items, rating) => items && items.length
@@ -2323,6 +2415,8 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     return screenPromise;
   }
   const loadBtSummary = () => (HAS_SITE ? getJson('data/backtest-summary.json') : Promise.resolve(null));
+  // the long-term test (tools/lt-backtest.mjs, monthly): copied into the site by the daily build
+  const loadLtSummary = () => (HAS_SITE ? getJson('data/lt-summary.json') : Promise.resolve(null));
   // Real money or practice? The daily build follows every filled live signal for 20 trading days and compares it with
   // the S&P 500 over the same days, after costs, month by month (lib/signals.js, liveProof). Until enough months beat
   // the index by more than luck can explain, every swing signal is shown as a paper trade. Missing, old-format or
@@ -2602,7 +2696,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     ['horizon', 'When will you need this money?', [['short', 'Within 3 years'], ['mid', 'In 3 to 10 years'], ['long', 'In 10 years or more']]],
     ['drop', 'If your portfolio fell 30% in a year, you would…', [['sell', 'Sell to stop the losses'], ['hold', 'Hold and wait'], ['buy', 'Buy more at lower prices']]],
     ['time', 'How much time can you give to following stocks each week?', [['low', 'Under 1 hour'], ['mid', '1 to 3 hours'], ['high', 'More than 3 hours']]],
-    ['focus', 'Funds (ETFs) or individual stocks?', [['fund', 'Mostly halal funds, a few stocks'], ['half', 'About half funds, half stocks'], ['stocks', 'Mostly stocks, a fund as the base'], ['only', 'Only stocks, no funds']]],
+    ['focus', 'Funds (ETFs) or individual stocks?', [['test', 'Let the 10-year test decide'], ['fund', 'Mostly halal funds, a few stocks'], ['half', 'About half funds, half stocks'], ['stocks', 'Mostly stocks, a fund as the base'], ['only', 'Only stocks, no funds']]],
     ['hold', 'How long do you want to hold each stock?', [['auto', 'Let the plan decide from my horizon'], ['short', 'Months (3 to 12)'], ['mid', '1 to 3 years'], ['long', '3 years or more'], ['mix', 'A mix of all three']]],
     ['swing', 'Do you want to swing trade as well?', [['no', 'No'], ['yes', 'Yes, a small part']]],
     ['broker', 'Which price plan do you use at Interactive Brokers?', [['tiered', 'IBKR Tiered'], ['fixed', 'IBKR Fixed'], ['unsure', 'Not sure (assume Fixed)'], ['other', 'I use another broker']]],
@@ -2624,10 +2718,43 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     return { long: 0.6, mid: 0.3, short: 0.1 };
   }
   // target mix from the answers: a halal index fund as the core, stocks around it, a small swing part
+  // how much of the monthly money the 10-year test of the long-term list earned for stocks (lib/ltstats.js, decide)
+  let LT_SUMMARY = null;
+  const ltDecision = () => {
+    const d = LT_SUMMARY && LT_SUMMARY.decision;
+    return d && isNum(d.stocks) ? d : { verdict: 'fund', stocks: 0.2, fund: 0.8, missing: true };
+  };
+  // Only the kinds of pick the 10-year test supports get real money (lib/ltstats.js POOLS_WITH_MONEY): the share of
+  // the others goes to the long-term picks. Short-term picks cannot be tested yet (the test lacks their chart data).
+  const ltPools = () => (LT_SUMMARY && LT_SUMMARY.pools) || { long: true, mid: true, short: false };
+  function fundedSplit(split, why) {
+    const P = ltPools();
+    const out = { ...split };
+    for (const k of ['mid', 'short']) {
+      if (!out[k] || P[k]) continue;
+      out.long = (out.long || 0) + out[k];
+      delete out[k];
+      why.push(k === 'short'
+        ? 'Short-term picks get no real money for now: the 10-year test cannot check them yet (it lacks the chart data they use), so their share goes to your long-term picks.'
+        : 'Medium-term picks did not beat random picks in the 10-year test, so their share goes to your long-term picks.');
+    }
+    return out;
+  }
   function targetMix(pf, swingOk = false) {
     const why = [];
     let safe = pf.horizon === 'short' ? 0.4 : pf.horizon === 'mid' ? 0.1 : 0;
-    let stocks = pf.focus === 'stocks' ? 0.7 : pf.focus === 'half' ? 0.45 : pf.time === 'low' ? 0.1 : pf.time === 'mid' ? 0.2 : 0.3;
+    const dec = ltDecision();
+    let stocks = pf.focus === 'test' ? dec.stocks : pf.focus === 'stocks' ? 0.7 : pf.focus === 'half' ? 0.45 : pf.time === 'low' ? 0.1 : pf.time === 'mid' ? 0.2 : 0.3;
+    if (pf.focus === 'test') {
+      const what = dec.method === 'list' ? 'the long-term list' : 'the long-term picks on this page';
+      why.push(dec.missing
+        ? 'You let the 10-year test decide. Its results are not available right now, so the plan uses the cautious split: 20% stocks, the rest in the index fund.'
+        : dec.verdict === 'stocks'
+          ? `You let the 10-year test decide. In the test, ${what} beat random picks and the S&P 500, in both halves of the period, so stocks get ${pct(dec.stocks, 0)} and the index fund the rest.`
+          : dec.verdict === 'mixed'
+            ? `You let the 10-year test decide. The evidence for ${what} was mixed (they did not win in every period, or their lead could be luck), so stocks get ${pct(dec.stocks, 0)} and the index fund the rest. The Record page has the details.`
+            : `You let the 10-year test decide. Over 10 years ${what} did not clearly beat random picks or the average halal stock, so most money goes to the index fund and stocks get ${pct(dec.stocks, 0)}: enough to learn and to follow your best ideas, not enough to hurt if the picks lag. The Record page has the details.`);
+    }
     // swing trading gets real money only once the live record has beaten the S&P 500 after costs
     let swing = pf.swing === 'yes' && swingOk ? 0.1 : 0;
     if (pf.swing === 'yes' && !swingOk) why.push(`You chose some swing trading. For now it is paper trades only: the live record has not yet beaten the S&P 500 after costs, so no real money goes to it and its share goes to ${pf.focus === 'only' ? 'your stocks' : 'the index fund'}.`);
@@ -2644,7 +2771,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       if (swing) why.push('Swing trading is capped at 10% (5% with a short horizon): the backtest edge is small.');
       let st = Math.max(0, 1 - safe - swing);
       if (pf.horizon === 'short' && st > 0.4) { st = 0.4; safe = 1 - st - swing; why.push('Money needed within 3 years: the stock part is capped at 40%, the rest stays safe.'); }
-      return { core: 0, safe, stocks: st, swing, why, maxStocks: Math.max(pf.time === 'low' ? 10 : pf.time === 'mid' ? 15 : 20, 12), minStocks: 12, split: holdSplit(pf) };
+      return { core: 0, safe, stocks: st, swing, why, maxStocks: Math.max(pf.time === 'low' ? 10 : pf.time === 'mid' ? 15 : 20, 12), minStocks: 12, split: fundedSplit(holdSplit(pf), why) };
     }
     if (pf.time === 'low' && stocks > 0.35) { stocks = 0.35; why.push('With under an hour a week, the stock part is capped at 35%: every stock you own needs its results checked each quarter.'); }
     if (pf.drop === 'sell') { safe = Math.max(safe, 0.2); stocks = Math.min(stocks, 0.35); swing = Math.min(swing, 0.05); why.push('You said you would sell after a big fall. Individual stocks fall further than the market, so the stock part is smaller to make holding on easier.'); }
@@ -2658,7 +2785,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     const maxStocks = pf.time === 'low' ? 6 : pf.time === 'mid' ? 12 : 18;
     const minStocks = stocks >= 0.5 ? 10 : stocks >= 0.3 ? 6 : 3;
     if (stocks >= 0.5) why.push(`With this much in stocks, own at least ${minStocks} companies across 5 or more sectors in time. Fewer than that is a concentrated bet, not a portfolio.`);
-    return { core, safe, stocks, swing, why, maxStocks: Math.max(maxStocks, minStocks), minStocks, split: holdSplit(pf) };
+    return { core, safe, stocks, swing, why, maxStocks: Math.max(maxStocks, minStocks), minStocks, split: fundedSplit(holdSplit(pf), why) };
   }
   // stock ideas for each holding period
   function pickBySector(pool, score, n, skip) {
@@ -2675,6 +2802,16 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     }
     out.forEach((r) => skip.add(r.ticker));
     return out;
+  }
+  // what the 10-year test found for one holding period's picks (lib/ltstats.js simulatePlan), in one line
+  function hpEvidence(k) {
+    const P = LT_SUMMARY && LT_SUMMARY.plan && LT_SUMMARY.plan[k];
+    const f = P && P.forward && P.forward.h12;
+    const full = P && P.portfolio && P.portfolio.full;
+    if (!f || !full || !full.shortlist || !full.random) return null;
+    const halves = ['half1', 'half2'].filter((x) => { const q = P.portfolio[x]; return q && q.shortlist && q.random && q.shortlist.yearly > q.random.yearly.median; }).length;
+    const lead = f.vsUniverse && isNum(f.vsUniverse.mean) ? f.vsUniverse.mean : null;
+    return h('p', { class: 'note', text: `In the 10-year test: its ideas were ${isNum(lead) ? `${lead >= 0 ? 'ahead of' : 'behind'} the average halal stock by ${pct(Math.abs(lead), 1)} a year` : 'not measurable'}; 1,000 AED a month with this rule made ${pct(full.shortlist.yearly, 1)} a year, against ${pct(full.random.yearly.median, 1)} for random picks with the same rule and ${pct(full.spy.yearly, 1)} for the S&P 500, and beat random picks in ${halves === 2 ? 'both halves' : halves === 1 ? 'one half' : 'neither half'} of the period.` });
   }
   function stockIdeasByHold(scr, heldSet, n, wanted) {
     const skip = new Set(heldSet);
@@ -2722,7 +2859,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     const el = $('#page-advisor');
     const head = pageHead('Portfolio', 'A plan for your whole portfolio: what mix suits you, which stocks fit and for how long, and where each month’s money should go. Saved on this device only.');
     el.replaceChildren(head, loadingBox('Loading today’s data…'));
-    const [scr] = await Promise.all([loadScreen(), loadSwingProof()]);
+    const [scr] = await Promise.all([loadScreen(), loadSwingProof(), loadLtSummary().then((x) => { LT_SUMMARY = x; })]);
     if (page !== 'advisor') return;
     if (!scr) { el.replaceChildren(head, errCard('Could not load today’s data. Check your connection and try again.')); return; }
     const a = ADV.load();
@@ -2761,6 +2898,15 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     };
     // older saved answers lack the newer questions: ask again
     if (!a.profile || PROFILE_Q.some(([k]) => !a.profile[k])) { showForm(); parts.push(profCard); el.replaceChildren(...parts); return; }
+    // the 10-year test can set the stock share; offer it once to anyone who chose a fixed split
+    if (a.profile.focus !== 'test' && LT_SUMMARY && LT_SUMMARY.decision) {
+      const d = ltDecision();
+      parts.push(h('div', { class: 'callout' }, h('b', { text: 'The 10-year test of the stock picks is in. ' }),
+        d.verdict === 'fund' ? 'The picks did not clearly beat random picks or the average halal stock, so it suggests most money in the index fund and 20% in stocks. '
+          : d.verdict === 'mixed' ? 'The evidence was mixed, so it suggests half in the index fund and half in stocks. '
+            : 'The picks beat random picks and the S&P 500, so it suggests 70% in stocks and 30% in the index fund. ',
+        h('button', { class: 'btn btn-sm', type: 'button', style: 'margin-top:8px', onclick: () => { const k = ADV.load(); k.profile = { ...k.profile, focus: 'test' }; ADV.save(k); rerender(); } }, 'Let the test decide my split')));
+    }
     const pf = a.profile;
     const answer = (key) => { const q = PROFILE_Q.find((x) => x[0] === key); const o = q[2].find((x) => x[0] === pf[key]); return o ? o[1] : ''; };
     profCard.append(h('p', { class: 'sub', text: `${answer('horizon')} · after a 30% fall: ${answer('drop').toLowerCase()} · ${answer('time').toLowerCase()} a week · stocks: ${answer('focus').toLowerCase()} · holding: ${answer('hold').toLowerCase()} · ${pf.swing === 'yes' ? 'some swing trading' : 'no swing trading'} · ${answer('broker')} · AED ${(pf.monthlyAed || 0).toLocaleString('en-US')} a month` }),
@@ -2787,7 +2933,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       h('p', { class: 'sub', text: pf.hold === 'auto' ? `From your horizon, the plan splits your stocks: ${splitTxt}. Money you need sooner goes to shorter holds, so it is not stuck in a stock that is down when you need it.` : `Your stocks: ${splitTxt}.` }),
       ...HP_ORDER.filter((k) => T.split[k]).map((k) => h('div', { class: 'hp-row hp-' + k },
         h('div', { class: 'hp-h' }, h('b', { text: `${HP[k].label}: ${HP[k].span}` }), h('span', { class: 'tag', text: pct(T.split[k], 0) + ' of stocks' })),
-        h('p', { text: HP[k].rule }), h('p', { class: 'note', text: HP[k].check }))),
+        h('p', { text: HP[k].rule }), h('p', { class: 'note', text: HP[k].check }), hpEvidence(k))),
       pf.time === 'low' && T.split.short ? h('p', { class: 'note', text: 'Short-term holds need a weekly look. With under an hour a week, keep them to 2 or 3 at a time.' }) : null));
 
     // 4. holdings now: US stocks from the Watchlist and Journal, everything else from the list below
@@ -2930,13 +3076,15 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       if (!r) { act = 'Review'; tone = 'warn'; why.push('Not in today’s data. Check it yourself.'); }
       else if (r.shariah === 'fail') { act = 'Sell'; tone = 'bad'; why.push('Fails the Shariah screen now. Confirm on Zoya or Musaffa; if it still fails, sell it and purify any gain as your scholar advises.'); }
       else if (x.hp === 'short' && ['down', 'weakening'].includes(r.trend)) { act = 'Sell'; tone = 'bad'; why.push('Short-term hold and the uptrend has broken: your rule says sell.'); }
-      else if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) { act = 'Review'; tone = 'bad'; why.push(`Now rated “${VERDICT_SHORT[r.verdict]}”: the business has weakened. Re-read its analysis and do not add.`); }
+      else if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) { act = 'Sell'; tone = 'bad'; why.push(`The business itself got worse: now rated “${VERDICT_SHORT[r.verdict]}” (${r.verdict === 'SPECULATIVE' ? 'it is losing money' : 'its returns or its balance sheet fell below the line'}). Your rule: sell when the business weakens, not when the price falls.`); }
       else if (x.hp === 'mid' && isNum(r.fair) && r.price >= r.fair) { act = 'Take profit'; tone = 'good'; why.push(`Reached its fair value (${price0(r.fair)}): your medium-term rule says sell, unless you move it to long term because the business is excellent.`); }
       else if (isNum(r.trimAbove) && r.price >= r.trimAbove) { act = 'Trim'; tone = 'warn'; why.push(`Above its trim price (${price(r.trimAbove)}): sell part and stop adding.`); }
-      else if (wgt > 0.15) { act = 'Trim'; tone = 'warn'; why.push(`${pct(wgt, 0)} of everything you own: above 15% in one company, one bad report hurts the whole portfolio.`); }
+      // (while the portfolio is still being built, every stock is a big share of it: the monthly plan spreads new money instead)
+      else if (wgt > 0.15 && lt.length >= T.minStocks) { act = 'Trim'; tone = 'warn'; why.push(`${pct(wgt, 0)} of everything you own: above 15% in one company, one bad report hurts the whole portfolio.`); }
       else if (['BUY_STRONG', 'BUY'].includes(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow && wgt < 0.08 && !(x.hp === 'short' && r.trend !== 'up')) { act = 'Add'; tone = 'good'; why.push(`Below its buy price (${price(r.buyBelow)}) and rated “${VERDICT_SHORT[r.verdict]}”: a good place for new stock money.`); }
       else {
         why.push('Passes the halal screen and its holding rule.');
+        if (isNum(x.cost) && x.cost > 0 && r.price <= x.cost * 0.9) why.push(`It is ${pctS(r.price / x.cost - 1, 0)} from what you paid, but the business is still healthy: your rule says hold and wait. You will be told if the business weakens.`);
         if (isNum(r.buyBelow) && r.buyBelow > 0) why.push(r.price <= r.buyBelow ? 'Below its buy price, but already a full position.' : `Add only below ${price(r.buyBelow)} (now ${price(r.price)}).`);
       }
       if (r && r.shariah === 'review' && act !== 'Sell') why.push('Halal status is close to a limit: check it before adding.');
@@ -3053,12 +3201,15 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         const inHp = lt.filter((x) => x.hp === hpPick);
         const each = (T.split[hpPick] * stockTarget) / Math.max(nInHp, inHp.length || 1);
         const ok = (x) => { const r = scr.by.get(x.t); return r && r.shariah !== 'fail' && !['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict) && !(isNum(r.trimAbove) && r.price >= r.trimAbove) && !(hpPick === 'short' && ['down', 'weakening'].includes(r.trend)); };
-        const under = inHp.filter((x) => ok(x) && val(x) < each * 0.8).sort((p, q) => val(p) - val(q));
+        // the same rule the 10-year test followed (lib/ltstats.js simulatePlan)
+        const okHeld = inHp.filter(ok).sort((p, q) => val(p) - val(q));
+        const under = okHeld.filter((x) => val(x) < each * 0.8);
         const pool = ideas[hpPick] || [];
         let target = null;
         if (inHp.length < nInHp && pool.length) target = { t: pool[0].ticker, why: `New ${HP[hpPick].label.toLowerCase()} position: ${pool[0].name || pool[0].ticker}, the best fit in the list below.` };
         else if (under.length) target = { t: under[0].t, why: `Top up ${under[0].t} (${HP[hpPick].label.toLowerCase()}): it is the furthest below its equal share.` };
-        else if (pool.length) target = { t: pool[0].ticker, why: `Your ${HP[hpPick].label.toLowerCase()} stocks are near their share; this is the best new idea.` };
+        else if (okHeld.length) target = { t: okHeld[0].t, why: `You have enough ${HP[hpPick].label.toLowerCase()} stocks and all are near their equal share: add to the smallest, ${okHeld[0].t}.` };
+        else if (pool.length) target = { t: pool[0].ticker, why: `None of your ${HP[hpPick].label.toLowerCase()} stocks can take more money right now; this is the best new idea.` };
         if (target) {
           const p = priceOf(target.t);
           planLines.push([target.t, alloc.stocks, `${target.why}${isNum(p) ? ` About ${fmtShares(alloc.stocks / p)} shares at ${price(p)}.` : ''} ${costTxt('US', alloc.stocks, p)}`]);
@@ -3707,16 +3858,113 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     return g && g.n >= 30 ? g : null;
   };
   let homeToken = 0;
+  // ------------------------------------------------------------------ daily brief (home page)
+  // What to do today with the stocks you own and follow, what changed since the last data day, and the companies'
+  // own news (SEC filings). Worked out on this device from the day's public data: your list never leaves it.
+  // The rules: sell when the business itself weakens or it stops being halal, consider trimming above the trim
+  // price, and otherwise hold, even through a fall (losers are waited out while the business is healthy).
+  function briefCard(scr, lts) {
+    const w = W.load();
+    const jr = JR.load();
+    const { lt } = holdingsFrom(w.items, jr.trades);
+    const heldSet = new Set(lt.map((x) => x.t));
+    const card = h('section', { class: 'card brief', 'aria-label': 'Your daily brief' },
+      h('div', { class: 'tech-head' }, h('h2', { text: 'Your daily brief' }), h('span', { class: 'note', style: 'margin:0', text: `close of ${niceDates(scr.priceDate)}` })));
+    if (!w.items.length && !lt.length) {
+      card.append(h('p', { class: 'sub', text: 'Add the stocks you own (“I own it” on the Watchlist) and the ones you follow. Each day this brief then tells you what changed and what, if anything, to do.' }),
+        h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('watchlist') }, 'Open the watchlist')));
+      return card;
+    }
+    const todo = []; // [tone, ticker, text]
+    const hold = []; // holdings that are down but healthy: [ticker, text]
+    let value = 0;
+    let cost = 0;
+    let dayMove = 0;
+    for (const x of lt) {
+      const r = scr.by.get(x.t);
+      if (!r) { todo.push(['warn', x.t, 'Not in today’s data: check it yourself.']); continue; }
+      const v = r.price * x.shares;
+      value += v;
+      if (isNum(x.cost)) cost += x.cost * x.shares;
+      if (isNum(r.chg)) dayMove += v - v / (1 + r.chg);
+      if (r.shariah === 'fail') todo.push(['bad', x.t, 'Fails the halal screen now. Check it on Zoya; if it still fails, sell it.']);
+      else if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) todo.push(['bad', x.t, `The business itself got worse (now “${VERDICT_SHORT[r.verdict]}”). Your rule: sell when the business weakens, not when the price falls.`]);
+      else if (isNum(r.trimAbove) && r.price >= r.trimAbove) todo.push(['warn', x.t, `Above its trim price (${price(r.trimAbove)}): consider selling part, and do not add.`]);
+      else if (isNum(x.cost) && x.cost > 0 && r.price <= x.cost * 0.9) hold.push([x.t, `${pctS(r.price / x.cost - 1, 0)} from what you paid, business still healthy (“${VERDICT_SHORT[r.verdict] || 'n/a'}”): hold and wait.`]);
+      const ed = earnDays(r, scr);
+      if (ed != null && ed <= 5) todo.push(['info', x.t, `Reports results ${ed <= 1 ? 'in the next session' : `in ${ed} trading days`}. Nothing to do; the tool re-checks the business after the report.`]);
+    }
+    // the companies' own news: warning filings of the last 7 days, for everything you own or follow
+    const since = new Date(Date.parse(scr.priceDate + 'T00:00:00Z') - 7 * 86400000).toISOString().slice(0, 10);
+    const tickers = [...new Set([...lt.map((x) => x.t), ...w.items.map((it) => it.t)])];
+    const news = [];
+    for (const t of tickers) {
+      const r = scr.by.get(t);
+      for (const ev of (r && Array.isArray(r.ev) ? r.ev : [])) {
+        const f = parseEv(ev);
+        if (!f.filed || f.filed < since) continue;
+        for (const n of filingNews(f)) {
+          if (n.tone) todo.push([n.tone === 'bad' ? 'bad' : 'warn', t, `${n.text} (filed ${niceDates(f.filed)}): read it on the company’s page.`]);
+          else news.push([t, `${n.text} (${niceDates(f.filed)})`]);
+        }
+      }
+    }
+    // stocks you follow but do not own that reached the long-term buy price
+    for (const it of w.items) {
+      if (heldSet.has(it.t) || it.shares > 0) continue;
+      const r = scr.by.get(it.t);
+      if (r && r.shariah !== 'fail' && GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow) todo.push(['good', it.t, `Below its buy price (${price(r.buyBelow)}). If it fits this month’s plan (Portfolio page), it is a candidate.`]);
+    }
+    const order = { bad: 0, warn: 1, good: 2, info: 3 };
+    todo.sort((a, b) => order[a[0]] - order[b[0]]);
+    const urgent = todo.filter((x) => x[0] === 'bad' || x[0] === 'warn').length;
+    card.append(h('p', { class: 'brief-head ' + (urgent ? 'tone-warn' : 'tone-good'), text: urgent ? `${urgent} thing${urgent === 1 ? '' : 's'} to look at today.` : 'Nothing needs doing today.' }));
+    if (lt.length && value > 0) {
+      card.append(h('div', { class: 'stats' },
+        stat('Your stocks', money0(value), `${lt.length} compan${lt.length === 1 ? 'y' : 'ies'}`),
+        stat('Today', (dayMove >= 0 ? '+' : '−') + money0(Math.abs(dayMove)).replace(/^−?/, ''), value - dayMove > 0 ? pctS(dayMove / (value - dayMove), 1) : ''),
+        cost > 0 ? stat('Since you bought', pctS(value / cost - 1, 1), money0(value - cost)) : null));
+    }
+    const ul = (rows) => h('ul', { class: 'alert-list' }, rows.map(([tone, t, text]) => h('li', null, toneIcon(tone === 'info' ? '' : tone), h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => openStock(t) }, t), ' ', text))));
+    if (todo.length) card.append(h('h3', { text: 'To do' }), ul(todo));
+    if (hold.length) card.append(h('h3', { text: 'Down, but keep waiting' }), ul(hold.map(([t, text]) => ['info', t, text])),
+      h('p', { class: 'note', text: 'Good businesses often fall for a while. The rule is to wait while the business stays healthy; the brief tells you if that changes.' }));
+    const changes = watchChanges(w, scr);
+    if (changes.length) card.append(h('h3', { text: `Changed since ${niceDates(w.prev.date)}` }), ul(changes.map(([t, lines]) => ['info', t, lines.join('; ')])));
+    if (news.length) card.append(h('h3', { text: 'Company news (last 7 days)' }), ul(news.slice(0, 8).map(([t, text]) => ['info', t, text])));
+    // ideas for new money: what the Portfolio page's plan would buy for each holding period that gets real money,
+    // with what the 10-year test found for them
+    const pools = (lts && lts.pools) || { long: true, mid: true, short: false };
+    const ideas = stockIdeasByHold(scr, new Set(heldSet), 2, { long: 1, mid: pools.mid !== false ? 1 : 0 });
+    if (lts && lts.decision && lts.decision.method === 'list') {
+      ideas.long = scr.list.filter((r) => ['BUY_STRONG', 'BUY', 'CONTRARIAN'].includes(r.verdict) && r.shariah === 'pass' && r.dq !== 'insufficient' && !heldSet.has(r.ticker)).sort(SORTS.upside[1]).slice(0, 2);
+    }
+    const groups = [['long', 'Long term'], ['mid', 'Medium term']].filter(([k]) => (ideas[k] || []).length);
+    if (groups.length) {
+      card.append(h('h3', { text: 'Ideas for new money' }));
+      for (const [k, label] of groups) card.append(h('p', { class: 'note', style: 'margin:6px 0 2px', text: `${label}: ${HP[k].span}` }), h('div', { class: 'list' }, ideas[k].map((r) => slRow(r, 'value', scr))));
+      const lead = (k) => { const f = lts && lts.plan && lts.plan[k] && lts.plan[k].forward && lts.plan[k].forward.h12; return f && f.vsUniverse && isNum(f.vsUniverse.mean) ? f.vsUniverse.mean : null; };
+      const parts0 = groups.map(([k]) => (isNum(lead(k)) ? `${pctS(lead(k), 1)} a year for ${k === 'long' ? 'long-term' : 'medium-term'} ideas` : null)).filter(Boolean);
+      card.append(h('p', { class: 'note', text: parts0.length
+        ? `In the 10-year test, against the average halal stock over the next year: ${parts0.join(', ')}. Ideas, not promises: the Portfolio page says where this month’s money goes, and the Record page has the details.`
+        : 'Ideas, not promises: the Portfolio page says where this month’s money goes, and the Record page shows how the picks did in the past.' }));
+    }
+    card.append(h('div', { class: 'ai' },
+      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('watchlist') }, 'Watchlist'),
+      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('advisor') }, 'This month’s plan')));
+    return card;
+  }
+
   async function showHome() {
     const el = $('#today');
     if (!HAS_SITE) { el.hidden = true; return; }
     const my = ++homeToken;
     el.hidden = false;
     if (!el.childElementCount) el.append(loadingBox('Loading today’s overview…'));
-    const [scr, bt] = await Promise.all([loadScreen(), loadBtSummary(), loadSwingProof()]);
+    const [scr, bt, lts] = await Promise.all([loadScreen(), loadBtSummary(), loadLtSummary(), loadSwingProof()]);
     if (my !== homeToken || !result.hidden || page !== 'stock') return;
     if (!scr) { el.replaceChildren(); el.hidden = true; return; }
-    el.replaceChildren(marketCard(scr, bt), todayCard(scr), watchTeaser(scr));
+    el.replaceChildren(briefCard(scr, lts), marketCard(scr, bt), todayCard(scr), watchTeaser(scr));
   }
   function marketCard(scr, bt) {
     const m = scr.market || {};
@@ -3992,12 +4240,18 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       else if (isNum(it.t1) && r.price >= it.t1) a.push(['good', `Reached target 1 (${price(it.t1)}): sell half and move your stop up to your entry price.`]);
     }
     if (held && !it.swing) {
-      if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) a.push(['bad', `The verdict is now “${VERDICT_SHORT[r.verdict]}”: re-check the business.`]);
+      if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) a.push(['bad', `The business got worse (now “${VERDICT_SHORT[r.verdict]}”): your rule says sell.`]);
       if (isNum(r.trimAbove) && r.price >= r.trimAbove) a.push(['warn', `Above the trim level (${price(r.trimAbove)}): consider selling part.`]);
     }
     if (!held && r.shariah !== 'fail') {
       if (r.status === 'active' && TRADED.includes(r.setup)) a.push(swingProven() ? ['good', `Swing buy signal: ${SETUP_NAME[r.setup] || r.setup}.`] : ['warn', `Swing signal (paper trade only): ${SETUP_NAME[r.setup] || r.setup}.`]);
       if (GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow) a.push(['good', `In the long-term buy zone (below ${price(r.buyBelow)}).`]);
+    }
+    // warning signs in the company's filings of the last 7 days
+    for (const ev of (Array.isArray(r.ev) ? r.ev : [])) {
+      const f = parseEv(ev);
+      if (!f.filed || !scr.priceDate || daysApart(f.filed, scr.priceDate) > 7) continue;
+      for (const n of filingNews(f)) if (n.tone) a.push([n.tone === 'bad' ? 'bad' : 'warn', `${n.text} (filed ${niceDates(f.filed)}).`]);
     }
     const ed = earnDays(r, scr);
     if (ed != null && ed <= 7) a.push(['warn', `Earnings ${ed <= 1 ? 'in the next session' : `in ${ed} trading days`} (${niceDates(r.earnings)}).`]);
@@ -4085,7 +4339,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     const watching = w.items.filter((it) => !(it.shares > 0));
     if (held.length) parts.push(h('h2', { class: 'page-sec', text: `Your positions (${held.length})` }), portfolioCard(held, scr), h('div', { class: 'list' }, held.map((it) => wlItem(it, scr))));
     if (watching.length) parts.push(h('h2', { class: 'page-sec', text: `Watching (${watching.length})` }), h('div', { class: 'list' }, watching.map((it) => wlItem(it, scr))));
-    parts.push(syncCard(w));
+    parts.push(reviewCard(w), syncCard(w));
     el.replaceChildren(...parts);
   }
   function addBox() {
@@ -4219,6 +4473,28 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         try { await navigator.clipboard.writeText(link); ok.hidden = false; setTimeout(() => { ok.hidden = true; }, 2000); }
         catch { box.hidden = false; box.focus(); box.select(); }
       } }, 'Copy sync link'), ok), box);
+  }
+  // a plain-text copy of the list for the weekly review Claude writes (a scheduled task in the user's own Claude
+  // account): pasted into a chat by the user, never sent anywhere by the page
+  function reviewCard(w) {
+    const jr = JR.load();
+    const { lt } = holdingsFrom(w.items, jr.trades);
+    const held = new Set(lt.map((x) => x.t));
+    const watching = w.items.filter((it) => !held.has(it.t)).map((it) => it.t);
+    const pf = (ADV.load().profile) || {};
+    const text = ['My Stock Checker list for the weekly review:',
+      `Holdings: ${lt.length ? lt.map((x) => `${x.t} ${+x.shares.toFixed(4)} shares${isNum(x.cost) ? ` at ${price(x.cost)}` : ''}${x.since ? ` since ${x.since}` : ''}`).join('; ') : 'none'}`,
+      `Watching: ${watching.length ? watching.join(', ') : 'none'}`,
+      `Monthly: AED ${(pf.monthlyAed || 0).toLocaleString('en-US')}`].join('\n');
+    const box = h('textarea', { class: 'promptbox', readonly: true, rows: '4', hidden: true, 'aria-label': 'List for the weekly review' });
+    box.value = text;
+    const ok = h('span', { class: 'copied', hidden: true, text: 'Copied' });
+    return h('section', { class: 'card', 'aria-label': 'Weekly review' }, h('h2', { text: 'Weekly review by Claude' }),
+      h('p', { class: 'sub', text: 'Once a week Claude can read the news on your stocks and send you a plain-English review. Copy your list and paste it into your chat with Claude whenever you buy or sell, so the review stays up to date. The page sends nothing anywhere.' }),
+      h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: async () => {
+        try { await navigator.clipboard.writeText(text); ok.hidden = false; setTimeout(() => { ok.hidden = true; }, 2000); }
+        catch { box.hidden = false; box.focus(); box.select(); }
+      } }, 'Copy my list'), ok), box);
   }
   function importCard() {
     const m = /^#w=([A-Za-z0-9_-]+)$/.exec(location.hash || '');
@@ -4512,9 +4788,9 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
   }
   async function renderRecord() {
     const el = $('#page-record');
-    const head = pageHead('Track record', 'Does the swing plan make money? The same rules, replayed on five years of prices, and recorded live from the day the site started.');
+    const head = pageHead('Track record', 'Does the tool’s advice work? The long-term list replayed on ten years of past reports and prices, and the swing plan replayed and recorded live.');
     el.replaceChildren(head, loadingBox('Loading the record…'));
-    const [bt, log] = await Promise.all([loadBtSummary(), getJson('data/signals.json')]);
+    const [bt, log, lts] = await Promise.all([loadBtSummary(), getJson('data/signals.json'), loadLtSummary()]);
     if (page !== 'record') return;
     if (!bt) { el.replaceChildren(head, errCard('Could not load the track record. Check your connection and try again.')); return; }
     const COSTS = (bt.costs || [bt.cost]).map((c) => [c, `${(c * 100).toFixed(1)}%`]);
@@ -4532,7 +4808,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       const pack = st.cost === bt.cost ? bt[st.uni] : bt.byCost && bt.byCost[String(st.cost)] && bt.byCost[String(st.cost)][st.uni];
       body.replaceChildren(...(pack ? recordBody(pack, bt, st) : [errCard('That combination is not available.')]));
     };
-    el.replaceChildren(head,
+    el.replaceChildren(head, ltCard(lts), h('h2', { class: 'page-sec', text: 'The swing plan' }),
       h('div', { class: 'callout' }, h('b', { text: 'How it was tested. ' }),
         `Every trading day of the past ${bt.years} years, on ${bt.stocks.toLocaleString()} stocks, the rules looked only at prices up to that day, wrote the same plan this site shows, and followed it: the order for the next session, the stop, target 1, and the exit rule. One trade per stock at a time. Results are in R: +1R means you made as much as you risked, −1R means the stop was hit.`),
       controls, body, liveCard(log, bt), limitsCard(bt));
@@ -4677,6 +4953,108 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         ['Sold', (x) => h('td', { text: niceDates(x.exit) })], ['Result', (x) => { const v = netRc(x.R, x.riskPct, cost); return h('td', { class: v > 0 ? 'up' : v < 0 ? 'down' : '', text: fmtR(v, 1) }); }]]));
     }
     if (isNum(log.lapsed) && log.lapsed > 0) card.append(h('p', { class: 'note', text: `${log.lapsed.toLocaleString()} orders (all stocks) lapsed without filling. That is normal: many signals never trigger.` }));
+    return card;
+  }
+  // the long-term list replayed on ten years of past filings and prices (tools/lt-backtest.mjs, lib/ltstats.js)
+  const monthTxt = (m) => {
+    const [y, mo] = String(m || '').split('-').map(Number);
+    return y && mo ? new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'n/a';
+  };
+  function ltCard(L) {
+    const card = h('section', { class: 'card', 'aria-label': 'Long-term list test' }, h('h2', { text: 'The stock picks, tested on 10 years' }));
+    if (!L || !L.forward || !L.forward.h12 || !L.portfolio || !L.portfolio.full) {
+      card.append(h('p', { class: 'sub', text: 'The 10-year test of the long-term list is not available right now.' }));
+      return card;
+    }
+    const f12 = L.forward.h12;
+    const f36 = L.forward.h36 || {};
+    const P = L.portfolio.full;
+    // the list's own result (older summaries only have `decision`, which was the list's)
+    const d = L.listDecision || L.decision || {};
+    card.append(h('p', { class: 'sub', text: `At every month-end from ${monthTxt(L.from)} to ${monthTxt(L.to)}, the tool re-ran its analysis of ${L.companies.toLocaleString()} US companies using only the reports filed by then, rebuilt that day’s “Quality on sale” list (halal companies worth $2 billion or more that day) and followed it forward.` }));
+    const beat = isNum(f12.vsUniverse?.mean) ? f12.vsUniverse.mean : null;
+    card.append(h('div', { class: d.verdict === 'stocks' ? 'callout' : 'paper-note' }, icon(d.verdict === 'stocks' ? 'good' : 'ok'),
+      h('span', null, h('b', { text: d.verdict === 'stocks' ? 'The list earned its place. ' : d.verdict === 'mixed' ? 'Mixed evidence. ' : 'The list did not beat the average stock. ' }),
+        `A year after each month-end its stocks were up ${pct(f12.picks, 1)} on average, against ${pct(f12.universe, 1)} for the average halal stock the tool could judge and ${pct(f12.spy, 1)} for the S&P 500` +
+        (isNum(beat) ? ` (${beat >= 0 ? 'ahead of' : 'behind'} the average stock by ${pct(Math.abs(beat), 1)}${isNum(f12.vsUniverse.t) && Math.abs(f12.vsUniverse.t) < 2 ? ', which is within what luck alone produces' : ''}).` : '.') +
+        (L.plan ? ' The Portfolio page buys stocks its own way; that test, which sets your money split, is further down.'
+          : d.verdict === 'fund' ? ' So the Portfolio plan puts most of the monthly money in the index fund and keeps stocks to 20%, if you let the test decide.'
+            : d.verdict === 'mixed' ? ' So the Portfolio plan splits the monthly money half and half between the index fund and stocks, if you let the test decide.'
+              : ' So the Portfolio plan puts 70% of the monthly money in stocks, if you let the test decide.'))));
+    const table = (cols, rows) => h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' }, h('tr', null, cols.map((x) => h('th', { text: x }))), rows.map((r) => h('tr', null, r.map((x) => h('td', { text: x }))))));
+    card.append(h('h3', { text: 'Return after buying (average over every month)' }),
+      table(['', '1 year later', '3 years later'], [
+        ['Stocks on the list', pctS(f12.picks, 1), pctS(f36.picks, 1)],
+        ['The average halal stock', pctS(f12.universe, 1), pctS(f36.universe, 1)],
+        ['S&P 500 (SPY)', pctS(f12.spy, 1), pctS(f36.spy, 1)],
+      ]));
+    const V = L.variants || {};
+    const vr = [['Strong buy', V.strongBuy], ['Buy', V.buy], ['Possible bargain', V.contrarian], ['Watchlist (great business, price too high)', V.watch], ['Avoid: weak fundamentals', V.avoidWeak]].filter(([, x]) => x && isNum(x.picks));
+    if (vr.length) {
+      card.append(h('h3', { text: 'By verdict, 1 year later' }),
+        table(['Verdict', 'Return', 'Against the average stock', 'Stocks a month'], vr.map(([k, x]) => [k, pctS(x.picks, 1), pctS(x.vsUniverse?.mean, 1), isNum(x.avgPicks) ? Math.round(x.avgPicks).toString() : 'n/a'])),
+        h('p', { class: 'note', text: 'If the verdicts worked, “Strong buy” would come out on top and “Avoid” at the bottom. Differences of a few percent a year are within what luck produces over ten years.' }));
+    }
+    const yr = (s) => (s && isNum(s.yearly) ? pctS(s.yearly, 1) : 'n/a');
+    const val = (s) => (s && isNum(s.finalValue) ? money0(s.finalValue) : 'n/a');
+    card.append(h('h3', { text: `What 1,000 AED a month would have become` }),
+      h('p', { class: 'sub', text: `${monthTxt(P.from)} to ${monthTxt(P.to)}, ${money0(P.spy.deposited)} paid in. The list: each month the stock with the most upside, at most 15 stocks and 10% in one, sold when the business weakened, half sold above the trim price, money that fits no stock goes to the index fund. Broker costs included.` }),
+      table(['', 'A year', 'At the end', 'Worst fall'], [
+        ['The list, your rules', yr(P.shortlist), val(P.shortlist), pctS(P.shortlist?.worstFall, 0)],
+        ['S&P 500 (SPY)', yr(P.spy), val(P.spy), pctS(P.spy?.worstFall, 0)],
+        [`Random halal stocks, same rules (middle of ${P.random?.runs || 'many'} tries)`, P.random ? pctS(P.random.yearly.median, 1) : 'n/a', P.random ? money0(P.random.finalValue.median) : 'n/a', ''],
+      ]));
+    if (P.random) card.append(h('p', { class: 'note', text: `Random picks with the same rules ended anywhere from ${pctS(P.random.yearly.p10, 1)} to ${pctS(P.random.yearly.p90, 1)} a year (8 tries in 10). One portfolio of 15 stocks depends on a few big winners, so read the list’s result against that range, not as a precise number.` }));
+    const H1 = L.portfolio.half1;
+    const H2 = L.portfolio.half2;
+    if (H1 && H2) {
+      card.append(h('h3', { text: 'In each half of the period' }),
+        table(['', `${monthTxt(H1.from)} to ${monthTxt(H1.to)}`, `${monthTxt(H2.from)} to ${monthTxt(H2.to)}`], [
+          ['The list, your rules', yr(H1.shortlist), yr(H2.shortlist)],
+          ['S&P 500 (SPY)', yr(H1.spy), yr(H2.spy)],
+          ['Random halal stocks (middle)', H1.random ? pctS(H1.random.yearly.median, 1) : 'n/a', H2.random ? pctS(H2.random.yearly.median, 1) : 'n/a'],
+        ]));
+    }
+    // other ways to build the list, with pass marks written down before the results were seen (PREREGISTERED.md)
+    const A = L.alternatives && typeof L.alternatives === 'object' ? Object.values(L.alternatives).filter((a) => a && a.forward && a.forward.h12 && a.checks) : [];
+    if (A.length) {
+      const outcome = (a) => (a.pass ? 'Passed'
+        : !a.checks.beatsAverage ? (a.forward.h12.vsUniverse?.mean > 0 ? 'Ahead, but not clearly more than luck' : 'Did worse than the average')
+          : !a.checks.bothHalves ? 'Failed in one half of the period' : 'As a portfolio, lost to random picks');
+      const won = L.alternativePassed && L.alternatives[L.alternativePassed];
+      card.append(h('h3', { text: 'Other ways to build the list' }),
+        h('p', { class: 'sub', text: `${A.length} well-known methods from research were tried too, with their settings and pass marks written down before the results were seen. To pass, a method had to beat the average stock by clearly more than luck over the next year, beat it in both halves of the period, and beat random picks as a 1,000 AED a month portfolio.` }),
+        table(['Method', 'Against the average stock, 1 year later', 'Result'], A.map((a) => [a.label, pctS(a.forward.h12.vsUniverse?.mean, 1), outcome(a)])),
+        h('p', { class: 'note', text: won
+          ? `${won.label} passed every check in this run. A method only replaces the current list after a review, and then with at most half the monthly money in stocks until it has a year of live results.`
+          : 'None passed every check, so the list stays as it is.' }));
+    }
+    // the picks the Portfolio page's monthly plan buys, which set the money split (PREREGISTERED.md, section 3)
+    const PL = L.plan || {};
+    const kinds = [['long', 'Long term'], ['mid', 'Medium term']].filter(([k]) => PL[k] && PL[k].forward && PL[k].forward.h12 && PL[k].portfolio && PL[k].portfolio.full);
+    if (kinds.length) {
+      const per = (k, key) => PL[k].portfolio[key] || {};
+      const beatRnd = (p) => (p.shortlist && p.random && isNum(p.shortlist.yearly) && isNum(p.random.yearly?.median) ? (p.shortlist.yearly > p.random.yearly.median ? 'yes' : 'no') : 'n/a');
+      const tier = (v) => (v === 'stocks' ? '70% in stocks' : v === 'mixed' ? 'Half in stocks' : 'Mostly in the fund');
+      const dec = L.decision || {};
+      card.append(h('h3', { text: 'The picks the Portfolio page buys' }),
+        h('p', { class: 'sub', text: 'The monthly plan does not buy the list above in order of upside. It picks stocks for each holding period its own way (great, growing businesses for the long term; good businesses below fair value, sold at fair value, for the medium term) and puts each month’s money into one of them. That was tested too, with the pass marks written down before the data existed.' }),
+        table(['', ...kinds.map(([, t]) => t)], [
+          ['Its 6 ideas a month, 1 year later, against the average stock', ...kinds.map(([k]) => pctS(PL[k].forward.h12.vsUniverse?.mean, 1))],
+          ['1,000 AED a month with its rules, a year', ...kinds.map(([k]) => (isNum(per(k, 'full').shortlist?.yearly) ? pctS(per(k, 'full').shortlist.yearly, 1) : 'n/a'))],
+          ['Random halal stocks, same rules (middle)', ...kinds.map(([k]) => (isNum(per(k, 'full').random?.yearly?.median) ? pctS(per(k, 'full').random.yearly.median, 1) : 'n/a'))],
+          ['S&P 500 (SPY)', ...kinds.map(([k]) => (isNum(per(k, 'full').spy?.yearly) ? pctS(per(k, 'full').spy.yearly, 1) : 'n/a'))],
+          ['Beat random picks: whole period, first half, second half', ...kinds.map(([k]) => ['full', 'half1', 'half2'].map((x) => beatRnd(per(k, x))).join(', '))],
+          ['Test result', ...kinds.map(([k]) => tier(PL[k].decision?.verdict))],
+        ]),
+        h('p', { class: 'note', text: `${dec.method === 'list' ? 'The long-term part of the plan buys the list above, which did better in the test, so the money split follows the list' : 'The money split follows the long-term picks, the main part of the plan'}: ${tier(dec.verdict).toLowerCase()}, if you let the test decide. ${L.pools && L.pools.mid === false ? 'Medium-term picks did not beat random picks, so they get no real money. ' : ''}Short-term picks cannot be tested yet (the test lacks their chart data), so they get no real money either.` }));
+    }
+    card.append(h('h3', { text: 'Read this before trusting the numbers' }),
+      h('ul', { class: 'clean' },
+        h('li', null, h('span', null, h('b', { text: 'Companies that went bust are missing. ' }), 'Only companies still listed today could be tested (including those that shrank). The ones that failed would have hurt cheap-looking picks most, so the real results were worse than these, especially for the list.')),
+        h('li', null, h('span', null, h('b', { text: 'Prices only. ' }), 'Dividends are left out on every side, which slightly understates both the stocks and the S&P 500.')),
+        h('li', null, h('span', null, h('b', { text: 'Nothing was tuned. ' }), 'The list’s rules were written before this test and were not changed to improve these numbers.')),
+        h('li', null, h('span', null, h('b', { text: 'The future is not the past. ' }), 'Ten years is one stretch of history; another ten could favour different stocks.'))));
     return card;
   }
   function limitsCard(bt) {

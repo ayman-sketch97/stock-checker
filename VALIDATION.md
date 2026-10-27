@@ -1,4 +1,4 @@
-# Validation report (19 October 2026, second and third rounds 23 October 2026, fourth round 27 October 2026)
+# Validation report (19 October 2026, second and third rounds 23 October 2026, fourth and fifth rounds 27 October 2026)
 
 What was checked, how, and what is still wrong. Nothing here claims the tool is error-free: it records the
 evidence for the 16 companies tested against their filings and the limits that remain.
@@ -574,7 +574,154 @@ entry price.
   modes: no page scrolls sideways; body, muted and status text and the buttons meet WCAG AA contrast (4.5:1 or
   more) in both modes; the font is served from the site itself (no third-party requests).
 
-## 7. What is not validated
+## 7. The 10-year test of the stock picks (27 October 2026)
+
+### How it works
+
+- **Replay.** At every month-end from December 2016 to October 2026, each company's analysis is run again with only
+  the filings filed by the day before and that day's closing price (`lib/longterm.js`, `tools/lt-backtest.mjs`).
+  Orders fill at the next session's close. Prices are Nasdaq's, adjusted for splits, not dividends. Filed share
+  counts are converted to today's basis with every split the filings reveal; a split is dated at the first filing
+  whose cover share count jumped (DECK's fair value was 6 times too low in late 2024 before this fix).
+- **Companies.** Every US common stock worth $250 million or more today (3,539 replayed; banks and insurers skipped;
+  2,638 with usable results). On each month-end only companies worth $2 billion or more that day count, as on the
+  site. This brings back companies that were big and have since shrunk, which a test of today's site list would
+  miss. Companies that went bust, were taken over or fell below $250 million are still missing.
+- **Questions.** (1) Did the picks beat the average halal stock the tool could judge, and the S&P 500 (SPY), 12, 24
+  and 36 months later? Months overlap, so the t statistics are Newey-West. (2) What would 1,000 AED a month
+  ($272.29) have become with the site's rules, against SPY and against 100 portfolios of random halal stocks with
+  the same rules, over the whole period and in each half (split at December 2021)? Costs: the larger of $0.35 and
+  $0.0035 a share, plus 0.05% for the spread.
+- **Rules fixed in advance.** How the results are judged was written down before they were seen, in
+  `PREREGISTERED.md` (git keeps the times). Rule 1 decides how much of the monthly money goes to stocks: 70% if the
+  portfolio beat the random median over the whole period and both halves, beat SPY, and the picks beat the average
+  stock with t above 2; 50% if it beat the random median over the whole period and the picks were ahead of the
+  average stock; 20% otherwise.
+- **Monthly.** `.github/workflows/lt-backtest.yml` re-runs everything on the 4th of each month and publishes
+  `lt-summary.json` to the `backtest` branch; the daily build copies it to the site.
+
+### The "Quality on sale" list (strong buy, buy, possible bargain), most upside first
+
+| | 1 year later | 3 years later |
+|---|---|---|
+| Stocks on the list | +14.7% | +45.8% |
+| The average halal stock | +13.6% | +42.6% |
+| S&P 500 (SPY) | +13.7% | +44.1% |
+
+- Ahead of the average stock by 1.1 points a year (t 0.8): within what luck produces. Before December 2021: -0.2
+  points; from December 2021: +2.8 (t 1.7).
+- By verdict, 1 year later: strong buy +16.7%, possible bargain +15.1%, buy +14.1%, watchlist +13.2%, avoid (weak
+  fundamentals) +12.2%. The order is the right one, but no gap is clearly more than luck (t 1.3 or less).
+- 1,000 AED a month, most upside first, at most 15 stocks: 20.4% a year (worst fall -33%) against SPY 13.9% and the
+  random median 11.2% (8 in 10 random portfolios between 7.1% and 15.7%). First half 21.0% against a random median
+  of 20.8%; second half 18.7% against 10.7%. The lead held in all 18 variations tried (10, 15 or 20 stocks, six
+  different start months). But five stocks (EME, META, KLAC, SIG, LRCX) made 76% of the gain, and random picks from
+  the list itself had a median of 13% to 16% a year, so most of the lead comes from buying the most upside first;
+  in the 12-month test, the 15 stocks with the most upside were ahead only after 2021 (-0.5 points before, +9.8
+  after).
+- Rule 1: **mixed** (half the monthly money to stocks). Not "stocks": the picks' lead over the average stock is
+  within luck (t 0.8; the rule needs more than 2), and the first half only just beat the random middle (20.8% here,
+  21.5% in the first wider run, which had 3 fewer companies and drew different random portfolios).
+- The first run, on the site's 1,977 companies only, gave +16.5% for the list against +17.6% for the average stock
+  ("fund"). Adding the companies that shrank lowered the average stock far more (17.6% to 13.6%) than the list:
+  that run flattered the average stock most.
+- Check of the random portfolios: they can buy weak businesses that the rules sell a month later. Leaving those out
+  gives a random median of 11.8% (halves 22.0% and 14.0%): the same verdict.
+
+### Five other ways to build the list (PREREGISTERED.md, section 2)
+
+Each needed to beat the average stock with t 2.5 or more, in both halves, and as a portfolio against random picks.
+
+| Method | Against the average stock, 1 year later | Halves | Portfolio beat random | Result |
+|---|---|---|---|---|
+| Momentum (best 20% of 12-1 month returns) | +4.3 (t 1.7) | +2.9 / +5.7 | yes | failed: could be luck |
+| Quality (best 20% of quality scores) | +0.1 (t 0.1) | +1.2 / -1.3 | no | failed |
+| Quality and momentum | +1.4 (t 1.5) | +0.6 / +2.2 | yes | failed: could be luck |
+| Quality and value | +1.4 (t 1.0) | +0.3 / +2.8 | yes | failed: could be luck |
+| The list, rising stocks only | +1.4 (t 0.9) | -0.9 / +3.9 | yes | failed |
+
+None passed, so the list stays as it is. Momentum came closest. Its portfolio figure is not a fair test of it: the
+site's rules never sell a stock for dropping out of the top 20%, so most of its money ended in the fund.
+
+**A finding after the fact (it does not count).** While looking into these results, the 15 stocks on the list with
+the best quality score turned out ahead of the average stock by 4.8 points a year (t 4.6), in both halves (+4.1 and
++5.6). It was found by looking, after the planned tests failed, so it is a lead to check on new data, not a result.
+
+### The picks the Portfolio page actually buys (PREREGISTERED.md, section 3)
+
+The page's monthly plan does not buy the list in order of upside: it has its own long-term and medium-term picks
+and puts each month's money into one place. Testing them needed each company's growth score and price trend on
+every past month-end, so the replay was run again with those (version 2) after the rules for judging were
+committed (87d663e). The short-term picks need relative strength and chart setups, which the replay does not have.
+
+| | Long-term picks | Medium-term picks |
+|---|---|---|
+| Their 6 ideas a month, 1 year later, against the average stock | +8.1 points a year (t 2.1) | +3.5 (t 1.4) |
+| The same by half (before / from December 2021) | +1.3 / +16.8 | -1.8 / +10.1 |
+| 1,000 AED a month with the page's rules, a year | 11.7% (worst fall -34%) | 22.9% (worst fall -29%) |
+| Random halal stocks, same rules (middle of 100) | 11.0% (8 in 10: 4.4% to 19.8%) | 14.9% (10.5% to 20.8%) |
+| S&P 500 | 13.9% | 13.9% |
+| First half: picks / random middle / SPY | 18.7% / 21.1% / 18.7% | 24.2% / 19.3% / 18.7% |
+| Second half | 17.1% / 13.3% / 16.7% | 25.4% / 16.1% / 16.7% |
+| Rule 1 | mixed | mixed |
+
+What follows by the rules written in advance: the long-term part keeps the page's own picks (as good as the list by
+rule 1), the money split follows them (half in stocks), the medium-term picks get their share of the stock money,
+and the short-term picks get none until they can be tested. `lib/ltstats.js` holds these as `LONG_METHOD` and
+`POOLS_WITH_MONEY`; each monthly run reports whether it still agrees (`review` in the summary).
+
+Checks made afterwards, which the rules did not cover:
+
+- **Robustness.** Each was re-run with 6 to 8, 10 to 12 and 15 to 18 stocks and six start months (December 2016 to
+  May 2017), against 40 random portfolios each. The medium-term picks beat the random middle in 18 of 18. The
+  long-term picks did in only 5 of 18 (5.1% to 17.5% a year): their result depends on which stocks happened to be
+  bought in the first year.
+- **Why the long-term portfolio gives back its ideas' lead.** The ideas are good (the 6 best beat the average stock
+  by 8.1 points a year; all stocks passing the long-term filter, about 62 a month, by 3.2 points, t 3.0). But a
+  long-term holding is almost never sold (no sale for a weaker business in 10 years), so after the first 10 to 12
+  months the portfolio holds the same stocks and new money tops up whichever is smallest. Five stocks (UI, KLAC,
+  META, FFIV, AYI) made more than all the gain; the other 14 lost money together. Removing the trims did not help
+  (10.6%). Buying the best current idea each month instead (the rule used for the list) beat its random middle in
+  18 of 18, but most of the money then ended in the index fund because few ideas had room left. This was found by
+  looking, so nothing was changed; it is recorded as a lead for the monthly review.
+- **Medium-term concentration.** 62 stocks were bought over the 10 years (sales at fair value make room for new
+  ones); the top five (FIX, FTNT, IESC, KLAC, MEDP) made 62% of the gain.
+
+### What changed on the site
+
+- **Home: a daily brief.** Your stocks' value and today's move, what to do (halal screen failed, business weakened,
+  above the trim price, warning filings), holdings that are down but whose business is healthy ("hold and wait"),
+  what changed since your last visit, the companies' own news from their SEC filings, and ideas for new money from
+  the Portfolio page's picks with what the test found.
+- **Company news from filings.** Each stock page lists the last 4 months of filings in plain English (results,
+  restatements, auditor changes, delisting notices, late reports, large stakes, share sales), with warning signs
+  marked; the daily build adds the last 14 days of filings to the screen data for the brief and the Watchlist.
+- **Hold while the business is healthy.** The Portfolio page and the Watchlist say "sell" only when the business
+  weakens (verdict "Avoid: weak fundamentals" or "Speculative") or the halal screen fails, and "hold and wait" for a
+  fall when the business is still healthy.
+- **Let the test decide.** A new answer to "Funds or stocks?" takes the split from the monthly test (now half and
+  half); the Portfolio page offers it once. Medium-term and short-term shares move to the long term when their picks
+  get no money (now: short term), with the reason shown.
+- **Buying rule.** When every holding is near its equal share and there are already enough stocks, new money tops up
+  the smallest holding (as tested) instead of starting another stock.
+- **Concentration warning.** "Above 15% of everything in one company" is only shown once you hold the minimum number
+  of stocks; before that, every early holding is a big share and the plan spreads new money anyway.
+- **Record page.** A card with the 10-year test: the list, by verdict, the portfolio against SPY and random picks,
+  the halves, the five other methods, and the Portfolio page's picks.
+- **Weekly review.** The Watchlist's "Copy my list" button gives a short list of holdings and watched stocks to
+  paste to Claude for the weekly review.
+
+### Limits
+
+- Companies that went bust, were taken over or fell below $250 million are missing. This flatters cheap-looking
+  picks most: the list and the medium-term picks.
+- Prices only: dividends are left out on every side.
+- One stretch of US history (2016 to 2026), in which large growth companies did unusually well.
+- Each portfolio's result rests on a handful of big winners. Read the random range, not the single figure.
+- The rules for judging were fixed in advance, but the methods themselves existed before the test, so a good
+  result is still one draw from one decade.
+
+## 8. What is not validated
 
 - Companies outside the 16 tested; foreign filers (20-F/40-F), REITs, banks and insurers are not analysed.
 - Companies with a finance or lending arm (DE, CAT, MELI): debt and cash flow mix two businesses. DE is now withheld,

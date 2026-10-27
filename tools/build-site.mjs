@@ -36,6 +36,7 @@ const SITE_URL = (process.env.SITE_URL || 'https://ayman-sketch97.github.io/stoc
 const LOG_FILE = arg('--log-file', '');
 const NO_LOG = args.includes('--no-log');
 const BT_YEARS = 5;
+const RECENT_FILED = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10); // filings shown as news
 
 // ---------------------------------------------------------------- the page
 function buildPage() {
@@ -226,6 +227,8 @@ async function one(u) {
   const res = analyze({ ticker: u.t, cik: rec.cik, listing: rec, submissions, facts, price, fetchedAt: started.toISOString() });
   const earn = earnings.byTicker.get(u.t) || null;
   if (res.ok) res.nextEarnings = earn;
+  // the company's own news: notable filings of the last 120 days (lib/data.js, notableFilings)
+  res.filings = submissions?.filings || [];
   fs.writeFileSync(path.join(dataDir, `${u.t}.json`), JSON.stringify(res));
 
   // everything that changes the run-wide totals is applied at the end, so a retry after an error cannot double-count
@@ -321,6 +324,8 @@ async function one(u) {
     ok && res.dividends?.pays ? rd(res.dividends.growth5y ?? null, 3) : null,
     // data quality: high, limited or insufficient (insufficient means the verdict is withheld)
     ok ? res.dataQuality?.level || null : null,
+    // filings of the last 14 days, as 'date|form|8-K items' (the watchlist and the daily brief show them)
+    (res.filings || []).filter((f) => f.filed >= RECENT_FILED).map((f) => `${f.filed}|${f.form}|${(f.items || []).join(',')}`),
   ];
   counts[code] = (counts[code] || 0) + 1;
   items.push(item);
@@ -345,7 +350,7 @@ const SCREEN_FIELDS = [
   'ticker', 'name', 'sector', 'industry', 'capM', 'price', 'chg', 'verdict', 'shariah', 'quality', 'health', 'growth', 'valuation',
   'fair', 'upside', 'buyBelow', 'pe', 'pfcf', 'roic', 'revGrowth', 'fcfMargin', 'divYield', 'setup', 'status', 'techScore', 'trend',
   'rsi', 'r1m', 'r3m', 'r6m', 'r12m', 'rs', 'offHigh', 'atrPct', 'entry', 'stop', 't1', 'riskPct', 'earnings', 'btN', 'btAvgR', 'impure',
-  'trimAbove', 'ema21', 'divYears', 'divFcf', 'divGrowth', 'dq',
+  'trimAbove', 'ema21', 'divYears', 'divFcf', 'divGrowth', 'dq', 'ev',
 ];
 
 async function attempt(list, n) {
@@ -542,6 +547,19 @@ fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: start
   const c = { pending: 0, open: 0, closed: 0 };
   for (const r of log.records) c[r[st]] = (c[r[st]] || 0) + 1;
   console.log(`signal log: ${JSON.stringify(c)}, lapsed so far ${log.lapsed}`);
+}
+
+// the long-term test (tools/lt-backtest.mjs, run monthly by its own workflow) lives on the "backtest" branch; the
+// pages read its summary from the site itself
+try {
+  const r = await fetch('https://raw.githubusercontent.com/ayman-sketch97/stock-checker/backtest/lt-summary.json');
+  if (r.ok) {
+    const lt = await r.json();
+    fs.writeFileSync(path.join(dataDir, 'lt-summary.json'), JSON.stringify(lt));
+    console.log(`long-term test: ${lt.from} to ${lt.to}, ${lt.companies} companies, decision ${lt.decision?.verdict}`);
+  } else console.log('long-term test summary not available:', r.status);
+} catch (e) {
+  console.log('long-term test summary not available:', e.message);
 }
 
 const secs = Math.round((Date.now() - started) / 1000);

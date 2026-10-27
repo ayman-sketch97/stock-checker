@@ -836,3 +836,21 @@ test('long-term backtest: the Portfolio page picks, tested with its own buying a
   const rep = report(D, { randomRuns: 10 });
   assert.ok(rep.plan.long && rep.plan.mid && rep.plan.long.decision.verdict && rep.decision.method && rep.review && rep.pools, 'the report carries the Portfolio page test and the split it sets');
 });
+
+test('company news: notable filings of the last 120 days, with 8-K items and links', async () => {
+  const { notableFilings } = await import('../lib/data.js');
+  const recent = {
+    form: ['8-K', '4', '10-Q', 'SC 13G', '8-K', 'NT 10-K', '8-K'],
+    filingDate: ['2026-10-20', '2026-10-19', '2026-10-01', '2026-09-30', '2026-08-01', '2026-07-15', '2026-05-01'],
+    items: ['2.02,9.01', '', '', '', '4.02', '', '5.02'],
+    accessionNumber: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'],
+    primaryDocument: ['d1.htm', 'd2.xml', 'd3.htm', 'd4.htm', 'd5.htm', 'd6.htm', 'd7.htm'],
+  };
+  const out = notableFilings(recent, 120, Date.parse('2026-10-27T12:00:00Z'));
+  assert.deepEqual(out.map((f) => f.form), ['8-K', '10-Q', '8-K', 'NT 10-K'], 'insider forms and passive stakes are left out, and filings older than 120 days');
+  assert.deepEqual(out[0].items, ['2.02'], 'item 9.01 (exhibits) is not news');
+  assert.equal(out[2].items[0], '4.02');
+  assert.equal(out[0].accession, 'a1');
+  assert.equal(out[0].doc, 'd1.htm');
+  assert.deepEqual(notableFilings(undefined), []);
+});
