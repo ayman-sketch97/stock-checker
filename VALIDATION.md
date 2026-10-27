@@ -694,7 +694,7 @@ Checks made afterwards, which the rules did not cover:
   what changed since your last visit, the companies' own news from their SEC filings, and ideas for new money from
   the Portfolio page's picks with what the test found.
 - **Company news from filings.** Each stock page lists the last 4 months of filings in plain English (results,
-  restatements, auditor changes, delisting notices, late reports, large stakes, share sales), with warning signs
+  restatements, auditor changes, listing notices, late reports, large stakes, share sales), with warning signs
   marked; the daily build adds the last 14 days of filings to the screen data for the brief and the Watchlist.
 - **Hold while the business is healthy.** The Portfolio page and the Watchlist say "sell" only when the business
   weakens (verdict "Avoid: weak fundamentals" or "Speculative") or the halal screen fails, and "hold and wait" for a
