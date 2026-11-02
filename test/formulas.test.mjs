@@ -817,16 +817,34 @@ test('long-term backtest: the Portfolio page picks, tested with its own buying a
   // a stock below quality 70, or one in a falling trend for the medium term, is not an idea
   assert.equal(PLAN_POOLS.long.filter({ verdict: 'BUY', quality: 65, growth: 80, health: 80, shariah: 'pass', price: 10, dq: 'H', cap: 5000 }), false);
   assert.equal(PLAN_POOLS.mid.filter({ verdict: 'BUY', quality: 80, growth: 80, health: 80, shariah: 'pass', price: 90, buyBelow: 100, upside: 0.3, dq: 'H', cap: 5000, trend: 'down' }), false);
-  // the money: one stock a month while there are fewer than 10, then top-ups; never more than 12 stocks here
+  // the money, under the rules before 3 Nov 2026: one stock a month while there are fewer than 10, then top-ups; never
+  // more than 12 stocks here
   const trades = [];
-  const r = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', onTrade: (t) => trades.push(t) });
+  const r = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', policy: false, onTrade: (t) => trades.push(t) });
   const buysByMonth = new Map();
   trades.filter((t) => t.side === 'buy').forEach((t) => buysByMonth.set(t.k, (buysByMonth.get(t.k) || 0) + 1));
   assert.ok([...buysByMonth.values()].every((n) => n === 1), 'one buy a month (no sales here, so only new money)');
   assert.equal(new Set(trades.filter((t) => t.side === 'buy').slice(0, 10).map((t) => t.t)).size, 10, 'the first 10 months each start a new stock');
   assert.ok(r.positions >= 10 && r.positions <= 12 && r.fundShare === 0, `10 to 12 stocks, nothing left for the fund: ${JSON.stringify(r)}`);
-  const random = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', pick: 'random', seed: 3 });
+  const random = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', pick: 'random', seed: 3, policy: false });
   assert.ok(r.yearly > random.yearly, `the page's picks (the rising stocks) beat random ones here: ${r.yearly} vs ${random.yearly}`);
+  // the approved policy (3 Nov 2026): no buy in a stock already 10% of the portfolio or in a sector already 40% of the
+  // stocks, and winners above 15% are cut back to 10% once there are 10 stocks (here the rising stocks get there)
+  const pt = [];
+  const rp = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', onTrade: (t) => pt.push(t) });
+  const pbuys = pt.filter((t) => t.side === 'buy');
+  assert.ok(pbuys.length > 0 && pbuys.every((t) => t.weightBefore < 0.1 + 1e-9), 'no buy in a stock already 10% of the portfolio');
+  assert.ok(pbuys.every((t) => t.sectorBefore < 0.4 + 1e-9), 'no buy in a sector already 40% of the stocks');
+  assert.ok(rp.sellsSize > 0 && pt.some((t) => t.side === 'sell' && t.why === 'size'), `winners above 15% are trimmed: ${JSON.stringify(rp)}`);
+  assert.ok(rp.positions >= 10, `the policy still builds a full portfolio: ${rp.positions} stocks`);
+  // a held stock whose halal status turns "review" gets no more money under the policy, but did under the old rules
+  const rv = loadData([lines[0], ...Array.from({ length: 12 }, (_, j) => stock(j, 0, (k) => ({ shariah: j === 0 && k >= 3 ? 'review' : 'pass' })))]);
+  const before = [];
+  simulatePlan(rv, { from: 0, to: months - 1, monthly: 300, pool: 'long', policy: false, onTrade: (t) => before.push(t) });
+  const after = [];
+  simulatePlan(rv, { from: 0, to: months - 1, monthly: 300, pool: 'long', onTrade: (t) => after.push(t) });
+  assert.ok(before.some((t) => t.side === 'buy' && t.t === 'S0' && t.k >= 3), 'the old rules topped up a stock under review');
+  assert.ok(after.filter((t) => t.side === 'buy').every((t) => t.shariah === 'pass'), 'the policy buys only clear halal passes');
   // medium term: sold at fair value. A stock reaching its fair value of 200 is sold once
   const mid = loadData([lines[0], ...Array.from({ length: 12 }, (_, j) => stock(j, 0.03, (k, x) => ({ fair: 150, buyBelow: 110, upside: 150 / x - 1 })))]);
   const mt = [];

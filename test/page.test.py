@@ -128,14 +128,16 @@ async def main():
         check(tm[0]['swing'] == 0 and near(tm[0]['core'] + tm[0]['stocks'] + tm[0]['safe'], 1) and any('paper trades only' in w for w in tm[0]['why']), f"not proven: no real money for swing trades: {tm[0]['swing']}, core {tm[0]['core']}")
         check(near(tm[1]['swing'], 0.1), 'proven: the usual 10% swing share')
 
-        # ---- trade size: loss at the stop, and the 1% risk limit
-        z = await pg.evaluate("__sc.sizePosition(100, 95, 1000, 10000)")
+        # ---- trade size: loss at the stop, and the risk limit (1% given explicitly; the approved default is 0.5%)
+        z = await pg.evaluate("__sc.sizePosition(100, 95, 1000, 10000, 0.01)")
         check(near(z['shares'], 10) and near(z['loss'], 50) and near(z['maxPos'], 2000) and not z['overLimit'], f'$1,000 at 100 with a stop at 95: 10 shares, $50 at risk, at most $2,000: {z}')
-        z = await pg.evaluate("__sc.sizePosition(100, 95, 3000, 10000)")
+        z = await pg.evaluate("__sc.sizePosition(100, 95, 3000, 10000, 0.01)")
         check(z['overLimit'], 'a position above the 1% risk size is flagged')
-        z = await pg.evaluate("__sc.sizePosition(100, 99.5, 1000, 5000)")
+        z = await pg.evaluate("__sc.sizePosition(100, 99.5, 1000, 5000, 0.01)")
         check(near(z['maxPos'], 5000), 'a very tight stop never suggests more than the whole portfolio')
         check(await pg.evaluate("__sc.sizePosition(100, 100, 1000, 10000)") is None, 'a stop that is not below the entry gives no size')
+        z = await pg.evaluate("__sc.sizePosition(100, 95, 1500, 10000)")
+        check(near(z['maxPos'], 1000) and z['overLimit'], f'the approved default risks 0.5% a trade: at most $1,000 here, so $1,500 is flagged: {z}')
 
         # ---- trading costs used by the Portfolio page
         c = await pg.evaluate("__sc.tradeCost('LSE_USD', 300, 'fixed', 60)")
@@ -473,9 +475,84 @@ async def main():
         await pg.wait_for_timeout(1500)
         adv = await pg.inner_text('section[aria-label="Advice on what you hold"]')
         row = await pg.locator('section[aria-label="Advice on what you hold"] .srow', has_text='BIGX').inner_text()
-        check('Trim' in row and 'above 15% in one company' in row and 'the size rule is the only one' in row, f'own tickers: the size rule still applies to them: {row[:300]!r}')
+        check('Trim' in row and 'above your 15% limit for one company' in row and 'only the size rule can be applied' in row, f'own tickers: the size rule still applies to them: {row[:300]!r}')
         check('still concentrated' not in adv, 'no building-up note once the portfolio has enough stocks')
         check(not errs, f'no page errors with many own tickers {errs}')
+        await pg.close()
+
+        # ---- stage 1 (3 Nov 2026): one risk check for every buy suggestion: halal "pass", your limits, late data
+        prof = {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'test', 'hold': 'auto', 'swing': 'no', 'broker': 'tiered', 'monthlyAed': 1000}
+        # the stock page: an unresolved halal status turns a buy price into "check halal status first"
+        ko_review = json.load(open(os.path.join(FIX, 'stock-ok.json')))
+        ko_review['labels']['shariah']['status'] = 'review'
+        pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/KO.json': ko_review})
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1500)
+        act = await pg.inner_text('.act-row >> nth=0')
+        check('Check halal status first' in act and 'Strong buy price now' not in act, f'stock page: no buy while the halal status is unresolved: {act[:160]!r}')
+        check(not errs, f'no page errors on the stock page halal check {errs}')
+        await pg.close()
+        # the stock page: a stock that is already most of the portfolio is blocked by the 10% limit
+        heavy = {'watch': {'v': 1, 'items': [{'t': 'KO', 'added': '2026-01-01', 'shares': 100, 'cost': 50}, {'t': 'AAPL', 'added': '2026-01-01', 'shares': 1, 'cost': 150}], 'snap': None, 'prev': None},
+                 'advisor': {'v': 1, 'profile': prof, 'hp': {}, 'other': []}}
+        pg, errs = await page_with(ctx, base, fresh, heavy, '', 'stock-ok')
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1800)
+        act = await pg.inner_text('.act-row >> nth=0')
+        check('Blocked by your limits' in act and 'of your portfolio' in act and '10%' in act, f'stock page: the 10% limit blocks adding to a stock that is most of the portfolio: {act[:220]!r}')
+        note = await pg.inner_text('section[aria-label="What to do now"], .act-h')
+        check(not errs, f'no page errors on the stock page limit check {errs}')
+        await pg.close()
+        # the Portfolio page: a holding under review says so, never "Passes the halal screen"; a sector already above 40%
+        # gets no new buys, so the plan and the ideas skip it
+        def add_rows(scr):
+            F = {k: i for i, k in enumerate(scr['fields'])}
+            base_row = list(scr['rows'][0])
+            nv = list(base_row)
+            for k, v in {'ticker': 'NVDA', 'name': 'Nvidia', 'sector': 'Technology', 'verdict': 'BUY', 'shariah': 'pass', 'quality': 90, 'growth': 80, 'health': 80, 'price': 100, 'buyBelow': 120, 'trimAbove': 300, 'upside': 0.3, 'fair': 140, 'trend': 'up'}.items():
+                nv[F[k]] = v
+            scr['rows'].append(nv)
+            for r in scr['rows']:
+                if r[F['ticker']] == 'KO':
+                    r[F['verdict']] = 'BUY'; r[F['trimAbove']] = 120
+                if r[F['ticker']] == 'MSFT':
+                    r[F['shariah']] = 'review'
+        techy = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 2, 'cost': 150}, {'t': 'MSFT', 'added': '2026-01-01', 'shares': 1, 'cost': 300}], 'snap': None, 'prev': None},
+                 'advisor': {'v': 1, 'profile': prof, 'hp': {}, 'other': [{'id': 'o1', 'sym': 'ISDW', 'kind': 'fund', 'market': '', 'shares': None, 'value': 5000}]}}
+        pg, errs = await page_with(ctx, base, fresh, techy, '', None, {'data/lt-summary.json': LT}, patch=add_rows)
+        await pg.click('#nav button:has-text("Portfolio")')
+        await pg.wait_for_timeout(1800)
+        adv = await pg.inner_text('section[aria-label="Advice on what you hold"]')
+        msft = await pg.locator('section[aria-label="Advice on what you hold"] .srow', has_text='MSFT').inner_text()
+        check('Check halal' in msft and 'unresolved' in msft and 'Passes the halal screen' not in msft, f'portfolio: a holding under review is called unresolved: {msft[:200]!r}')
+        plan_txt = await pg.inner_text('section[aria-label="This month"]')
+        check('NVDA' not in plan_txt and 'MSFT' not in plan_txt, f'portfolio: the plan buys neither a sector above 40% nor a stock under review: {plan_txt[:400]!r}')
+        fit = await pg.inner_text('section[aria-label="Stocks that fit you"]')
+        check('NVDA' in fit and 'Blocked by your limits' in fit and 'Technology is already' in fit, f'portfolio: the idea in the full sector is shown as blocked, with the reason: {fit[:500]!r}')
+        lim = await pg.inner_text('section[aria-label="Your limits"]')
+        check('approved on 3 November 2026' in lim, 'portfolio: the limits card shows the approved limits')
+        # change a limit: the risk per swing trade becomes 1% and the stock page says so
+        await pg.locator('section[aria-label="Your limits"] label:has-text("swing trade") input').fill('1')
+        await pg.click('section[aria-label="Your limits"] button:has-text("Save limits")')
+        await pg.wait_for_timeout(900)
+        lim = await pg.inner_text('section[aria-label="Your limits"]')
+        check('You changed them' in lim, 'portfolio: a changed limit is saved and marked as changed')
+        risk = await pg.evaluate("JSON.parse(localStorage.getItem('advisor')).limits.swingRisk")
+        check(near(risk, 0.01), f'portfolio: the new limit is stored as 1%: {risk}')
+        z = await pg.evaluate("__sc.sizePosition(100, 95, 1000, 10000)")
+        check(near(z['maxPos'], 2000), f'the position size follows the changed limit: {z}')
+        check(not errs, f'no page errors with the limits on the Portfolio page {errs}')
+        await pg.close()
+        # late data: every action is paused, the numbers stay
+        pg, errs = await page_with(ctx, base, weekday_back(6), techy, '', None, {'data/lt-summary.json': LT}, patch=add_rows)
+        brief = await pg.inner_text('section[aria-label="Your daily brief"]')
+        check('Advice paused' in brief and 'To do' not in brief and 'Ideas for new money' not in brief, f'brief: late data pauses the to-do list and the ideas: {brief[:300]!r}')
+        await pg.click('#nav button:has-text("Portfolio")')
+        await pg.wait_for_timeout(1800)
+        adv = await pg.inner_text('section[aria-label="Advice on what you hold"]')
+        plan_txt = await pg.inner_text('section[aria-label="This month"]')
+        check('Advice paused' in adv and 'Paused' in adv and 'Advice paused' in plan_txt, 'portfolio: late data pauses the advice and the monthly plan')
+        check(not errs, f'no page errors with late data {errs}')
         await pg.close()
 
         # ---- stale data warning on the home page

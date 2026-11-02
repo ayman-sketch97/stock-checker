@@ -97,3 +97,16 @@ What follows from the results:
 - One small change to the page's buying rule is made at the same time and is part of what is tested: when every
   holding is near its equal share and there are already enough stocks, new money tops up the smallest holding
   instead of starting yet another stock.
+
+## 4. Rule change of 3 November 2026 (owner's policy, not a result of the tests)
+
+Written before the re-run with the new rules. The owner approved these limits as policy for compliance and risk; they
+were not chosen by looking at returns, and the judging rules (rule 1 and section 3) stay as they are.
+
+- Every buy needs a clear halal "pass". Before, a held stock whose status was "review" could still be topped up.
+- No new buys in a stock that is already 10% of the portfolio, or in a sector that is already 40% of the stocks.
+- A stock above 15% of the portfolio, once there are at least the minimum number of stocks, is cut back to 10%.
+
+The page and the 10-year test use the same rules (`POLICY` in `lib/ltstats.js`, `buyCheck` in `index.html`). The
+report keeps the result of the old rules for the full period (`plan.<kind>.portfolio.before`), so the effect of the
+change can be seen. If the re-run moves the money split, the site follows it, as section 1 says.

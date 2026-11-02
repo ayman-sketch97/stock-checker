@@ -1982,10 +1982,11 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       ];
       const ct = tradeCostRow(a, p.entry, loss);
       if (ct) rows.push(ct);
+      const riskTxt = pct(limits().swingRisk, 1);
       if (P) {
-        rows.push(h('div', null, 'To risk no more than 1% of your portfolio (', h('b', { text: price(P * 0.01) }), ') on this trade, put in at most ', h('b', { text: price(z.maxPos) }), '.'));
-        if (z.overLimit) rows.push(h('div', { style: 'color:var(--bad-ink)', text: 'Your amount is above that limit: one bad trade would cost more than 1% of your portfolio.' }));
-      } else rows.push(h('div', { class: 'muted', text: 'Add your portfolio size to see the most you should put in (so one loss costs at most 1% of it). It stays on this device.' }));
+        rows.push(h('div', null, `To risk no more than ${riskTxt} of your portfolio (`, h('b', { text: price(P * limits().swingRisk) }), ') on this trade, put in at most ', h('b', { text: price(z.maxPos) }), '.'));
+        if (z.overLimit) rows.push(h('div', { style: 'color:var(--bad-ink)', text: `Your amount is above that limit: one bad trade would cost more than ${riskTxt} of your portfolio.` }));
+      } else rows.push(h('div', { class: 'muted', text: `Add your portfolio size to see the most you should put in (so one loss costs at most ${riskTxt} of it). It stays on this device.` }));
       out.replaceChildren(...rows);
     };
     inv.addEventListener('input', upd);
@@ -2370,7 +2371,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         li('No trade now: the trend is down or there is no edge. Doing nothing is a position too.')),
       h('h3', { text: 'Rules that keep you in the game' }),
       h('ul', null,
-        li('Risk at most 1% of your portfolio on any one trade (the calculator works this out).'),
+        li(`Risk at most ${pct(limits().swingRisk, 1)} of your portfolio on any one trade (your limit on the Portfolio page; the calculator works it out).`),
         li('Set the stop when you buy, and never move it lower. Move it up to your entry once target 1 is hit.'),
         li('Prices can gap past a stop overnight, so a loss can be bigger than planned. Smaller positions make that survivable.'),
         li('Buying only, no short selling, no margin: in line with halal investing.')),
@@ -2401,6 +2402,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     return jsonCache.get(path);
   }
   let screenPromise = null;
+  let SCR_NOW = null; // the loaded screen, for code that cannot wait (the stock page's risk check)
   function loadScreen() {
     if (!HAS_SITE) return Promise.resolve(null);
     if (!screenPromise) {
@@ -2409,6 +2411,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         const list = j.rows.map((r) => { const o = {}; j.fields.forEach((k, i) => { o[k] = r[i]; }); return o; });
         const scr = { ...j, list, by: new Map(list.map((o) => [o.ticker, o])) };
         overlayQuotes(scr);
+        SCR_NOW = scr;
         return scr;
       });
     }
@@ -2499,8 +2502,78 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - quotesAt > 2 * 60 * 1000) refreshLive(); });
   }
 
+  // ------------------------------------------------------------------ your limits and the one risk check
+  // Approved by you on 3 Nov 2026: no new buys in a stock that is already 10% of the portfolio, trim above 15%, no new
+  // buys in a sector that is already 40% of your stocks, 0.5% of the portfolio at risk per swing trade. Every page that
+  // suggests a buy asks buyCheck() first, so no page can suggest what your limits forbid. Editable on the Portfolio page.
+  const LIMIT_DEFAULTS = { buyCap: 0.1, trimAt: 0.15, sectorMax: 0.4, swingRisk: 0.005 };
+  const LIMIT_RANGE = { buyCap: [0.02, 0.5], trimAt: [0.03, 0.6], sectorMax: [0.1, 1], swingRisk: [0.001, 0.02] };
+  function limits() {
+    const saved = ADV.load().limits || {};
+    const out = { ...LIMIT_DEFAULTS };
+    for (const [k, [lo, hi]] of Object.entries(LIMIT_RANGE)) if (isNum(saved[k]) && saved[k] >= lo && saved[k] <= hi) out[k] = saved[k];
+    return out;
+  }
+  // the nightly update is two or more trading days late: every action is paused, the numbers stay readable
+  function staleOf(scr) {
+    const missed = scr && scr.priceDate ? weekdaysStrictlyBetween(scr.priceDate, localISO()) : 0;
+    return missed >= 2 ? { missed, priceDate: scr.priceDate } : null;
+  }
+  const staleText = (s) => `Advice paused: the nightly update is ${s.missed} trading days late (last full update ${niceDates(s.priceDate)}). The numbers are shown for reference only; act after the next update.`;
+  // what you own, valued as the Portfolio page values it (a fund without a live price counts at its saved value)
+  function holdingsSnapshot(scr) {
+    const w = W.load();
+    const { lt, sw } = holdingsFrom(w.items, JR.load().trades);
+    const ownPx = new Map(w.items.filter((it) => ownPrice(it)).map((it) => [it.t, ownPrice(it)]));
+    const pxOf = (t) => { const r = scr && scr.by.get(t); return r && isNum(r.price) ? r.price : ownPx.has(t) ? ownPx.get(t) : null; };
+    const valOf = (x) => { const p = pxOf(x.t); return isNum(p) ? p * x.shares : isNum(x.cost) ? x.cost * x.shares : 0; };
+    const byT = new Map();
+    for (const x of [...lt, ...sw]) byT.set(x.t, (byT.get(x.t) || 0) + valOf(x));
+    const bySector = new Map();
+    let usVal = 0;
+    for (const x of lt) { const r = scr && scr.by.get(x.t); const k = (r && r.sector) || 'Other'; const v = valOf(x); usVal += v; bySector.set(k, (bySector.get(k) || 0) + v); }
+    let otherVal = 0;
+    for (const o of ADV.load().other || []) {
+      const f = o.kind === 'stock' || o.kind === 'cash' ? null : fundBySym(o.sym);
+      const live = f ? fundLive(f, o.sym) : null;
+      otherVal += live && isNum(live.usd) && isNum(o.shares) && o.shares > 0 ? live.usd * o.shares : isNum(o.value) ? o.value : 0;
+    }
+    const swVal = sw.reduce((s, x) => s + valOf(x), 0);
+    return { byT, bySector, usVal, total: usVal + swVal + otherVal, n: lt.length };
+  }
+  // may a new buy of ticker t be suggested? why = what blocks it, in plain words (empty = allowed)
+  function buyCheck(t, scr, snap) {
+    const r = scr && scr.by.get(t);
+    const L = limits();
+    const why = [];
+    const st = staleOf(scr);
+    if (st) why.push(`the nightly update is ${st.missed} trading days late, so advice is paused`);
+    if (!r || r.shariah !== 'pass') why.push(r && r.shariah === 'fail' ? 'it fails the halal screen' : 'its halal status is unresolved: confirm it passes on Zoya first');
+    const s = snap || holdingsSnapshot(scr);
+    if (s.total > 0) {
+      const wT = (s.byT.get(t) || 0) / s.total;
+      if (wT >= L.buyCap) why.push(`it is already ${pct(wT, 0)} of your portfolio; your limit stops new buys at ${pct(L.buyCap, 0)}`);
+      const sec = r && r.sector;
+      if (sec && s.usVal > 0 && s.n >= 1) {
+        const wS = (s.bySector.get(sec) || 0) / s.usVal;
+        if (wS >= L.sectorMax) why.push(`${sec} is already ${pct(wS, 0)} of your stocks; your limit stops new buys in a sector at ${pct(L.sectorMax, 0)}`);
+      }
+    }
+    return { ok: !why.length, why };
+  }
+  // a buy answer on a stock page passes the same check before it is shown
+  function guardBuy(a, d, scr) {
+    if (!a || a.tone !== 'good') return a;
+    const sh = d.labels && d.labels.shariah && d.labels.shariah.status;
+    if (sh !== 'pass') return { tone: 'warn', title: 'Check halal status first', text: `${firstSentence(a.text)} But its halal status is unresolved (close to a limit, or unclear): don’t buy until Zoya confirms it passes.` };
+    if (!scr) return a;
+    const c = buyCheck(d.ticker, scr);
+    if (c.ok) return a;
+    return { tone: 'warn', title: staleOf(scr) ? 'Advice paused' : 'Blocked by your limits', text: `${firstSentence(a.text)} But not for you now: ${c.why.join('; ')}.` };
+  }
+
   // ------------------------------------------------------------------ what to do now (long term and swing)
-  const firstSentence = (s) => { const m = /^[\s\S]*?[.!?](\s|$)/.exec(String(s || '')); return (m ? m[0] : String(s || '')).trim(); };
+  const firstSentence =(s) => { const m = /^[\s\S]*?[.!?](\s|$)/.exec(String(s || '')); return (m ? m[0] : String(s || '')).trim(); };
   function longTermNow(d, px) {
     const P = d.pricePlan;
     const code = d.verdict && d.verdict.code;
@@ -2571,14 +2644,17 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     const px = L ? L.p : d.price;
     const halalFail = d.labels && d.labels.shariah && d.labels.shariah.status === 'fail';
     if (HAS_SITE && !swingProofDone) loadSwingProof().then(() => paintAction());
-    const rows = [actionRow('Long term (years)', longTermNow(d, px), () => selectTab('fund', true))];
-    const sw = T ? swingNow(T, L, halalFail) : null;
+    if (HAS_SITE && !SCR_NOW) loadScreen().then((s) => { if (s) paintAction(); });
+    const rows = [actionRow('Long term (years)', guardBuy(longTermNow(d, px), d, SCR_NOW), () => selectTab('fund', true))];
+    const sw = T ? guardBuy(swingNow(T, L, halalFail), d, SCR_NOW) : null;
     if (sw) rows.push(actionRow('Swing trade (weeks)', sw, () => selectTab('tech', true)));
     else if (!T) rows.push(h('div', { class: 'act-row' }, h('span', { class: 'ak', text: 'Swing trade (weeks)' }), h('span', { class: 'av' }, h('span', { text: 'Loading the chart…' }))));
+    const st = staleOf(SCR_NOW);
     t.action.replaceChildren(
       h('div', { class: 'act-h' }, h('h2', { text: 'What to do now' }), h('span', { class: 'sub', text: L ? liveLabel(L) : b.date ? `Closing price, ${shortDate(b.date)}` : '' })),
+      st ? h('p', { class: 'hint stale', text: staleText(st) }) : null,
       ...rows,
-      h('p', { class: 'note', text: 'Rules applied to the data, not a guarantee. Size every trade so the stop loses at most 1% of your account.' }));
+      h('p', { class: 'note', text: `Rules applied to the data, not a guarantee. Size every trade so the stop loses at most ${pct(limits().swingRisk, 1)} of your portfolio.` }));
     // the price in the header
     if (t.pxEl) {
       t.pxEl.textContent = price(px);
@@ -2928,6 +3004,44 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       h('p', { class: 'note', text: T.core > 0 ? `Index fund: ${EQ.t} (${EQ.name}) spreads your money over hundreds of Shariah-screened companies, with no stock picking. See “Best halal funds for you” below. Stocks: ${nRange} companies is manageable for the time you have.` : `Stocks: aim for ${nRange} companies across at least 6 sectors.` }));
     parts.push(mixCard);
 
+    // 2b. your limits: the one risk check (buyCheck) uses them on every page
+    {
+      const LM = limits();
+      const LIM_TXT = { buyCap: 'No new buys in a stock already this share of the portfolio', trimAt: 'Trim a stock above this share, once you hold enough stocks', sectorMax: 'No new buys in a sector already this share of your stocks', swingRisk: 'Most you can lose on one swing trade, at its stop' };
+      const limIn = {};
+      const limMsg = h('p', { class: 'note', 'aria-live': 'polite' });
+      const limForm = h('form', { class: 'editbox', autocomplete: 'off' },
+        h('div', { class: 'form-grid' }, Object.keys(LIMIT_DEFAULTS).map((k) => {
+          const i = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', 'aria-label': LIM_TXT[k] });
+          i.value = String(+(LM[k] * 100).toFixed(2));
+          limIn[k] = i;
+          return h('label', { class: 'field' }, h('span', { text: `${LIM_TXT[k]} (%)` }), i);
+        })),
+        h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Save limits'),
+          h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { const k = ADV.load(); delete k.limits; ADV.save(k); rerender(); } }, 'Back to the approved limits')),
+        limMsg);
+      limForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const nl = {};
+        const bad = [];
+        for (const k of Object.keys(LIMIT_DEFAULTS)) {
+          const v = toNum(limIn[k].value) / 100;
+          const [lo, hi] = LIMIT_RANGE[k];
+          if (Number.isFinite(v) && v >= lo && v <= hi) nl[k] = v;
+          else bad.push(`${LIM_TXT[k].toLowerCase()}: use ${+(lo * 100).toFixed(1)} to ${+(hi * 100).toFixed(1)}`);
+        }
+        if (bad.length) { limMsg.textContent = `Not saved. ${bad.join('; ')}.`; return; }
+        const a2 = ADV.load();
+        a2.limits = nl;
+        ADV.save(a2);
+        rerender();
+      });
+      const changed = Object.keys(LIMIT_DEFAULTS).some((k) => LM[k] !== LIMIT_DEFAULTS[k]);
+      parts.push(h('section', { class: 'card', 'aria-label': 'Your limits' }, h('h2', { text: 'Your limits' }),
+        h('p', { class: 'sub', text: `Every buy the site suggests, on every page, must pass these, and a stock whose halal status is not a clear pass is never suggested. ${changed ? 'You changed them from the limits approved on 3 November 2026.' : 'These are the limits you approved on 3 November 2026.'}` }),
+        limForm));
+    }
+
     // 3. holding periods explained
     parts.push(h('section', { class: 'card', 'aria-label': 'Holding periods' }, h('h2', { text: 'How long to hold, and when to sell' }),
       h('p', { class: 'sub', text: pf.hold === 'auto' ? `From your horizon, the plan splits your stocks: ${splitTxt}. Money you need sooner goes to shorter holds, so it is not stuck in a stock that is down when you need it.` : `Your stocks: ${splitTxt}.` }),
@@ -3065,37 +3179,48 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     nowCard.append(oForm);
     parts.push(nowCard);
 
-    // 5. advice on each holding
+    // 5. advice on each holding. Buys go through the one risk check (buyCheck), fed with this page's own values.
+    const L = limits();
+    const stale = staleOf(scr);
+    const snap = { byT: new Map(), bySector: new Map(), usVal, total, n: lt.length };
+    for (const x of [...lt, ...sw]) snap.byT.set(x.t, (snap.byT.get(x.t) || 0) + val(x));
+    for (const x of lt) { const r = scr.by.get(x.t); const k = (r && r.sector) || 'Other'; snap.bySector.set(k, (snap.bySector.get(k) || 0) + val(x)); }
     const advRows = [];
     const sinceTxt = (x) => { const p = priceOf(x.t); return isNum(x.cost) && x.cost > 0 && isNum(p) ? `${pctS(p / x.cost - 1, 1)} since you bought` : ''; };
+    const sizeWhy = (wgt) => `${pct(wgt, 0)} of everything you own: above your ${pct(L.trimAt, 0)} limit for one company. Sell enough to bring it back to about ${pct(L.buyCap, 0)}, so one bad report cannot hurt the whole portfolio.`;
     for (const x of lt) {
       const r = scr.by.get(x.t);
       const wgt = wOf(val(x));
+      const bc = r ? buyCheck(x.t, scr, snap) : { ok: false, why: [] };
       let act = 'Hold';
       let tone = 'neutral';
       const why = [];
       if (!r && x.own) {
         act = 'Your call'; tone = 'neutral';
         // only the size rule needs no analysis of the company, so it is the one rule that still applies
-        if (wgt > 0.15 && lt.length >= T.minStocks) { act = 'Trim'; tone = 'warn'; why.push(`${pct(wgt, 0)} of everything you own: above 15% in one company, one bad report hurts the whole portfolio.`); }
-        why.push(`Your own ticker: not analysed here, so ${act === 'Trim' ? 'the size rule is the only one' : 'none of the tool’s rules'} can be applied to it. Check its results and halal status yourself (Zoya); the weekly review checks its news.`);
+        if (wgt > L.trimAt && lt.length >= T.minStocks) { act = 'Trim'; tone = 'warn'; why.push(sizeWhy(wgt)); }
+        why.push(`Your own ticker: not analysed here, so ${act === 'Trim' ? 'only the size rule' : 'none of the tool’s rules'} can be applied to it. Check its results and halal status yourself (Zoya); the weekly review checks its news.`);
         why.push(isNum(x.px) ? `Counted at the price you entered (${price(x.px)}${x.pxDate ? ` on ${niceDates(x.pxDate)}` : ''}): update it on the Watchlist now and then.` : 'Enter its price on the Watchlist (“Edit position”) so it counts at today’s value.');
       } else if (!r) { act = 'Review'; tone = 'warn'; why.push('Not in today’s data. Check it yourself.'); }
-      else if (r.shariah === 'fail') { act = 'Sell'; tone = 'bad'; why.push('Fails the Shariah screen now. Confirm on Zoya or Musaffa; if it still fails, sell it and purify any gain as your scholar advises.'); }
+      else if (r.shariah === 'fail') { act = 'Sell'; tone = 'bad'; why.push('Fails the Shariah screen now. Confirm on Zoya or Musaffa; if it still fails, your rule is to sell within 90 days and purify any gain as your scholar advises.'); }
       else if (x.hp === 'short' && ['down', 'weakening'].includes(r.trend)) { act = 'Sell'; tone = 'bad'; why.push('Short-term hold and the uptrend has broken: your rule says sell.'); }
       else if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) { act = 'Sell'; tone = 'bad'; why.push(`The business itself got worse: now rated “${VERDICT_SHORT[r.verdict]}” (${r.verdict === 'SPECULATIVE' ? 'it is losing money' : 'its returns or its balance sheet fell below the line'}). Your rule: sell when the business weakens, not when the price falls.`); }
       else if (x.hp === 'mid' && isNum(r.fair) && r.price >= r.fair) { act = 'Take profit'; tone = 'good'; why.push(`Reached its fair value (${price0(r.fair)}): your medium-term rule says sell, unless you move it to long term because the business is excellent.`); }
       else if (isNum(r.trimAbove) && r.price >= r.trimAbove) { act = 'Trim'; tone = 'warn'; why.push(`Above its trim price (${price(r.trimAbove)}): sell part and stop adding.`); }
       // (while the portfolio is still being built, every stock is a big share of it: the monthly plan spreads new money instead)
-      else if (wgt > 0.15 && lt.length >= T.minStocks) { act = 'Trim'; tone = 'warn'; why.push(`${pct(wgt, 0)} of everything you own: above 15% in one company, one bad report hurts the whole portfolio.`); }
-      else if (['BUY_STRONG', 'BUY'].includes(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow && wgt < 0.08 && !(x.hp === 'short' && r.trend !== 'up')) { act = 'Add'; tone = 'good'; why.push(`Below its buy price (${price(r.buyBelow)}) and rated “${VERDICT_SHORT[r.verdict]}”: a good place for new stock money.`); }
+      else if (wgt > L.trimAt && lt.length >= T.minStocks) { act = 'Trim'; tone = 'warn'; why.push(sizeWhy(wgt)); }
+      else if (r.shariah !== 'pass') { act = 'Check halal'; tone = 'warn'; why.push('Its halal status is unresolved (close to a limit, or unclear). Check it on Zoya now and add nothing until it passes; if it fails, your 90-day exit rule starts.'); }
+      else if (['UNRELIABLE', 'NODATA'].includes(r.verdict)) { act = 'Review'; tone = 'warn'; why.push('The data for this company is not reliable enough to judge the business right now. Check its latest report yourself before adding.'); }
+      else if (r.verdict === 'FINANCIAL') { act = 'Review'; tone = 'warn'; why.push('Banks, insurers and brokers are not rated by this tool. Check it yourself.'); }
+      else if (['BUY_STRONG', 'BUY'].includes(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow && wgt < L.buyCap * 0.8 && bc.ok && !(x.hp === 'short' && r.trend !== 'up')) { act = 'Add'; tone = 'good'; why.push(`Below its buy price (${price(r.buyBelow)}) and rated “${VERDICT_SHORT[r.verdict]}”: a good place for new stock money.`); }
       else {
         why.push('Passes the halal screen and its holding rule.');
         if (isNum(x.cost) && x.cost > 0 && r.price <= x.cost * 0.9) why.push(`It is ${pctS(r.price / x.cost - 1, 0)} from what you paid, but the business is still healthy: your rule says hold and wait. You will be told if the business weakens.`);
-        if (isNum(r.buyBelow) && r.buyBelow > 0) why.push(r.price <= r.buyBelow ? 'Below its buy price, but already a full position.' : `Add only below ${price(r.buyBelow)} (now ${price(r.price)}).`);
+        if (isNum(r.buyBelow) && r.buyBelow > 0) why.push(r.price <= r.buyBelow ? (bc.ok ? 'Below its buy price, but already a full position.' : `Below its buy price, but not adding: ${bc.why.join('; ')}.`) : `Add only below ${price(r.buyBelow)} (now ${price(r.price)}).`);
       }
-      if (r && r.shariah === 'review' && act !== 'Sell') why.push('Halal status is close to a limit: check it before adding.');
+      if (r && r.shariah === 'review' && !['Sell', 'Check halal'].includes(act)) why.push('Its halal status is unresolved: check it on Zoya.');
       if (x.hp === 'short' && x.since && daysApart(x.since, localISO()) > 365) why.push('Held over 12 months as a short-term position: review it.');
+      if (stale) { act = 'Paused'; tone = 'neutral'; }
       const st = sinceTxt(x);
       advRows.push({ name: x.t, sub: [HP[x.hp].label, r ? price(r.price) : isNum(x.px) ? price(x.px) : ''].filter(Boolean).join(' · '), act, tone, why: (st ? st[0].toUpperCase() + st.slice(1) + '. ' : '') + why.join(' '), open: r ? x.t : null });
     }
@@ -3151,6 +3276,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     if (usSitus > 60000) checks.push(['bad', `You hold about ${money0(usSitus)} of US-based assets (US shares and US-domiciled funds). For non-US residents, US estate tax can apply above $60,000. Irish-domiciled funds such as ${EQ.t} are not US assets; consider taking advice on this.`]);
     else if (usSitus > 40000) checks.push(['warn', `US-based assets are about ${money0(usSitus)}. Above $60,000, US estate tax can apply to non-US residents; Irish-domiciled funds such as ${EQ.t} do not count.`]);
     const advCard = h('section', { class: 'card', 'aria-label': 'Advice on what you hold' }, h('h2', { text: 'Advice on what you hold' }));
+    if (stale) advCard.append(h('p', { class: 'hint stale', text: staleText(stale) }));
     if (advRows.length) {
       advCard.append(h('div', { class: 'list' }, advRows.map((x) => h(x.open ? 'button' : 'div', x.open ? { class: 'srow', type: 'button', onclick: () => openStock(x.open, 'fund') } : { class: 'srow' },
         h('span', { class: 'top' }, h('span', { class: 'tk', text: x.name }), h('span', { class: 'nm', text: x.sub }), h('span', { class: 'pr' }, tagEl(x.act, x.tone))),
@@ -3176,7 +3302,8 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       if (m > 1) { const c2 = tradeCost(market, amt * m, plan, px); t += ` Cheaper: set it aside and buy once every ${m} months (about ${pct(c2.pct, 2)} per buy).`; }
       return t;
     };
-    if (monthlyUsd > 0) {
+    if (stale) planCard.append(h('p', { class: 'hint stale', text: staleText(stale) }));
+    else if (monthlyUsd > 0) {
       const after = total + monthlyUsd;
       const deficit = {};
       let sumDef = 0;
@@ -3212,11 +3339,12 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         const nInHp = Math.max(1, Math.round(nTarget * (T.split[hpPick] || 0)));
         const inHp = lt.filter((x) => x.hp === hpPick);
         const each = (T.split[hpPick] * stockTarget) / Math.max(nInHp, inHp.length || 1);
-        const ok = (x) => { const r = scr.by.get(x.t); return r && r.shariah !== 'fail' && !['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict) && !(isNum(r.trimAbove) && r.price >= r.trimAbove) && !(hpPick === 'short' && ['down', 'weakening'].includes(r.trend)); };
-        // the same rule the 10-year test followed (lib/ltstats.js simulatePlan)
+        // the 10-year test follows the same rule (lib/ltstats.js simulatePlan), including the halal "pass" and your limits
+        const ok = (x) => { const r = scr.by.get(x.t); return r && r.shariah === 'pass' && !['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict) && !(isNum(r.trimAbove) && r.price >= r.trimAbove) && !(hpPick === 'short' && ['down', 'weakening'].includes(r.trend)) && buyCheck(x.t, scr, snap).ok; };
         const okHeld = inHp.filter(ok).sort((p, q) => val(p) - val(q));
         const under = okHeld.filter((x) => val(x) < each * 0.8);
-        const pool = ideas[hpPick] || [];
+        const pool = (ideas[hpPick] || []).filter((r) => buyCheck(r.ticker, scr, snap).ok);
+        const blockedIdeas = (ideas[hpPick] || []).length - pool.length;
         let target = null;
         if (inHp.length < nInHp && pool.length) target = { t: pool[0].ticker, why: `New ${HP[hpPick].label.toLowerCase()} position: ${pool[0].name || pool[0].ticker}, the best fit in the list below.` };
         else if (under.length) target = { t: under[0].t, why: `Top up ${under[0].t} (${HP[hpPick].label.toLowerCase()}): it is the furthest below its equal share.` };
@@ -3225,7 +3353,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         if (target) {
           const p = priceOf(target.t);
           planLines.push([target.t, alloc.stocks, `${target.why}${isNum(p) ? ` About ${fmtShares(alloc.stocks / p)} shares at ${price(p)}.` : ''} ${costTxt('US', alloc.stocks, p)}`]);
-        } else planLines.push(['Stocks', alloc.stocks, focusOnly ? 'No stock fits right now: keep it in cash until one does.' : 'No stock fits right now: add it to the index fund instead.']);
+        } else planLines.push(['Stocks', alloc.stocks, `${focusOnly ? 'No stock fits right now: keep it in cash until one does.' : 'No stock fits right now: add it to the index fund instead.'}${blockedIdeas ? ` ${blockedIdeas} idea${blockedIdeas === 1 ? ' was' : 's were'} skipped because your limits block ${blockedIdeas === 1 ? 'it' : 'them'} (sector or size).` : ''}`]);
       }
       planCard.append(h('p', { class: 'sub', text: `AED ${pf.monthlyAed.toLocaleString('en-US')} is about ${money0(monthlyUsd)}. It goes where your portfolio is furthest below its target mix, so you rarely have to sell anything.` }),
         h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
@@ -3235,7 +3363,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       if (pf.swing === 'yes' && !(T.swing > 0)) planCard.append(h('p', { class: 'note', text: 'Swing trades: paper only for now (the Record page shows why). Practise them in the Journal; this month’s money goes to the plan above.' }));
       if (T.swing > 0) {
         const swTarget = T.swing * after;
-        planCard.append(h('p', { class: 'note', text: swVal > swTarget * 1.2 ? `Swing trades are ${money0(swVal)}, above your ${pct(T.swing, 0)} limit (${money0(swTarget)}): no new swing trades until some close.` : `Swing trades: keep them to about ${money0(swTarget)} in total (${pct(T.swing, 0)}), only in US stocks, and size each so its stop loses at most 1% of the whole portfolio (${money0(after * 0.01)}).` }));
+        planCard.append(h('p', { class: 'note', text: swVal > swTarget * 1.2 ? `Swing trades are ${money0(swVal)}, above your ${pct(T.swing, 0)} limit (${money0(swTarget)}): no new swing trades until some close.` : `Swing trades: keep them to about ${money0(swTarget)} in total (${pct(T.swing, 0)}), only in US stocks, and size each so its stop loses at most ${pct(limits().swingRisk, 1)} of the whole portfolio (${money0(after * limits().swingRisk)}).` }));
       }
       planCard.append(h('p', { class: 'note', text: `Fund prices ${fundAsOf()}. Stock prices ${scr.live ? `live (${scr.live.time || scr.live.session})` : `from the ${shortDate(scr.priceDate)} close`}. Check the price in your broker app before you buy.` }));
     } else planCard.append(h('p', { class: 'sub', text: 'Add a monthly amount in “About you” to get a buying plan.' }));
@@ -3351,8 +3479,8 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       ideaCard.append(h('div', { class: 'list' }, list.map((r) => h('button', { class: 'srow', type: 'button', onclick: () => openStock(r.ticker, k === 'short' ? 'tech' : 'fund') },
         h('span', { class: 'top' }, h('span', { class: 'tk', text: r.ticker }), h('span', { class: 'nm', text: r.name || '' }),
           h('span', { class: 'pr' }, price(r.price), isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
-        h('span', { class: 'tags' }, [verdictTag(r.verdict), tagEl(r.sector || 'Other', 'neutral')].filter(Boolean)),
-        h('span', { class: 'det', text: ideaReason(r, k) })))));
+        h('span', { class: 'tags' }, [verdictTag(r.verdict), tagEl(r.sector || 'Other', 'neutral'), buyCheck(r.ticker, scr, snap).ok ? null : tagEl('Blocked by your limits', 'warn')].filter(Boolean)),
+        h('span', { class: 'det', text: (() => { const c = buyCheck(r.ticker, scr, snap); return c.ok ? ideaReason(r, k) : `${ideaReason(r, k)}. Not for you now: ${c.why.join('; ')}.`; })() })))));
     }
     parts.push(ideaCard);
 
@@ -3408,11 +3536,12 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     for (const it of watchItems || []) if (it.shares > 0 && it.swing && !sw.some((x) => x.t === it.t)) sw.push({ t: it.t, shares: it.shares });
     return { lt, sw };
   }
-  // trade size: shares bought, the loss if the stop is hit, and the largest position that risks 1% of the portfolio
-  function sizePosition(entry, stop, amount, portfolio) {
+  // trade size: shares bought, the loss if the stop is hit, and the largest position that risks your limit per trade
+  // (0.5% of the portfolio unless changed on the Portfolio page)
+  function sizePosition(entry, stop, amount, portfolio, risk = limits().swingRisk) {
     if (!(entry > 0) || !(stop < entry) || !(amount > 0)) return null;
     const stopPct = (entry - stop) / entry;
-    const maxPos = portfolio > 0 ? Math.min((portfolio * 0.01) / stopPct, portfolio) : null;
+    const maxPos = portfolio > 0 ? Math.min((portfolio * risk) / stopPct, portfolio) : null;
     return { shares: amount / entry, loss: amount * stopPct, maxPos, overLimit: isNum(maxPos) && amount > maxPos * 1.05 };
   }
   function tradeCalc(tr, nowPx) {
@@ -3927,16 +4056,22 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         }
       }
     }
-    // stocks you follow but do not own that reached the long-term buy price
+    // stocks you follow but do not own that reached the long-term buy price, if the risk check allows a buy
+    const snapB = holdingsSnapshot(scr);
     for (const it of w.items) {
       if (heldSet.has(it.t) || it.shares > 0) continue;
       const r = scr.by.get(it.t);
-      if (r && r.shariah !== 'fail' && GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow) todo.push(['good', it.t, `Below its buy price (${price(r.buyBelow)}). If it fits this month’s plan (Portfolio page), it is a candidate.`]);
+      if (!(r && GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow && r.shariah !== 'fail')) continue;
+      const c = buyCheck(it.t, scr, snapB);
+      if (c.ok) todo.push(['good', it.t, `Below its buy price (${price(r.buyBelow)}). If it fits this month’s plan (Portfolio page), it is a candidate.`]);
+      else if (r.shariah === 'review') todo.push(['warn', it.t, `Below its buy price (${price(r.buyBelow)}), but its halal status is unresolved: check it on Zoya before thinking of buying.`]);
     }
+    const staleB = staleOf(scr);
     const order = { bad: 0, warn: 1, good: 2, info: 3 };
     todo.sort((a, b) => order[a[0]] - order[b[0]]);
     const urgent = todo.filter((x) => x[0] === 'bad' || x[0] === 'warn').length;
-    card.append(h('p', { class: 'brief-head ' + (urgent ? 'tone-warn' : 'tone-good'), text: urgent ? `${urgent} thing${urgent === 1 ? '' : 's'} to look at today.` : 'Nothing needs doing today.' }));
+    if (staleB) card.append(h('p', { class: 'brief-head tone-warn', text: staleText(staleB) }));
+    else card.append(h('p', { class: 'brief-head ' + (urgent ? 'tone-warn' : 'tone-good'), text: urgent ? `${urgent} thing${urgent === 1 ? '' : 's'} to look at today.` : 'Nothing needs doing today.' }));
     if (lt.length && value > 0) {
       card.append(h('div', { class: 'stats' },
         stat('Your stocks', money0(value), `${lt.length} compan${lt.length === 1 ? 'y' : 'ies'}`),
@@ -3945,7 +4080,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     }
     // a ticker with no site data has no page to open: its button goes to the Watchlist, where you edit it
     const ul = (rows) => h('ul', { class: 'alert-list' }, rows.map(([tone, t, text]) => h('li', null, toneIcon(tone === 'info' ? '' : tone), h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => (scr.by.get(t) ? openStock(t) : navigate('watchlist')) }, t), ' ', text))));
-    if (todo.length) card.append(h('h3', { text: 'To do' }), ul(todo));
+    if (todo.length && !staleB) card.append(h('h3', { text: 'To do' }), ul(todo));
     if (hold.length) card.append(h('h3', { text: 'Down, but keep waiting' }), ul(hold.map(([t, text]) => ['info', t, text])),
       h('p', { class: 'note', text: 'Good businesses often fall for a while. The rule is to wait while the business stays healthy; the brief tells you if that changes.' }));
     if (own.length) card.append(h('h3', { text: 'Your own tickers (not on the site)' }), ul(own.map((x) => ['info', x.t, `${fmtShares(x.shares)} shares${isNum(x.px) ? ` at ${price(x.px)} (your price${x.pxDate ? ` from ${niceDates(x.pxDate)}` : ''})` : ', no price entered yet'}.${isNum(x.px) && x.pxDate && daysApart(x.pxDate, localISO()) > 30 ? ' That price is over a month old: update it on the Watchlist.' : ''} Not analysed here: the weekly review checks its news.`])));
@@ -3955,10 +4090,12 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
     // ideas for new money: what the Portfolio page's plan would buy for each holding period that gets real money,
     // with what the 10-year test found for them
     const pools = (lts && lts.pools) || { long: true, mid: true, short: false };
-    const ideas = stockIdeasByHold(scr, new Set(heldSet), 2, { long: 1, mid: pools.mid !== false ? 1 : 0 });
+    // (only ideas the risk check allows; none while the data is late)
+    const ideas = stockIdeasByHold(scr, new Set(heldSet), 8, { long: 1, mid: pools.mid !== false ? 1 : 0 });
     if (lts && lts.decision && lts.decision.method === 'list') {
-      ideas.long = scr.list.filter((r) => ['BUY_STRONG', 'BUY', 'CONTRARIAN'].includes(r.verdict) && r.shariah === 'pass' && r.dq !== 'insufficient' && !heldSet.has(r.ticker)).sort(SORTS.upside[1]).slice(0, 2);
+      ideas.long = scr.list.filter((r) => ['BUY_STRONG', 'BUY', 'CONTRARIAN'].includes(r.verdict) && r.shariah === 'pass' && r.dq !== 'insufficient' && !heldSet.has(r.ticker)).sort(SORTS.upside[1]).slice(0, 8);
     }
+    for (const k of Object.keys(ideas)) ideas[k] = staleB ? [] : (ideas[k] || []).filter((r) => buyCheck(r.ticker, scr, snapB).ok).slice(0, 2);
     const groups = [['long', 'Long term'], ['mid', 'Medium term']].filter(([k]) => (ideas[k] || []).length);
     if (groups.length) {
       card.append(h('h3', { text: 'Ideas for new money' }));
@@ -4273,9 +4410,13 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) a.push(['bad', `The business got worse (now “${VERDICT_SHORT[r.verdict]}”): your rule says sell.`]);
       if (isNum(r.trimAbove) && r.price >= r.trimAbove) a.push(['warn', `Above the trim level (${price(r.trimAbove)}): consider selling part.`]);
     }
-    if (!held && r.shariah !== 'fail') {
+    // buy alerts only for a clear halal pass, and only if the risk check allows a buy (a "review" already warns above)
+    if (!held && r.shariah === 'pass') {
       if (r.status === 'active' && TRADED.includes(r.setup)) a.push(swingProven() ? ['good', `Swing buy signal: ${SETUP_NAME[r.setup] || r.setup}.`] : ['warn', `Swing signal (paper trade only): ${SETUP_NAME[r.setup] || r.setup}.`]);
-      if (GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow) a.push(['good', `In the long-term buy zone (below ${price(r.buyBelow)}).`]);
+      if (GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow) {
+        const c = buyCheck(it.t, scr);
+        a.push(c.ok ? ['good', `In the long-term buy zone (below ${price(r.buyBelow)}).`] : ['warn', `In the long-term buy zone, but not for you now: ${c.why.join('; ')}.`]);
+      }
     }
     // warning signs in the company's filings of the last 7 days
     for (const ev of (Array.isArray(r.ev) ? r.ev : [])) {
@@ -4904,7 +5045,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         stat('Average hold', `${o.avgDays} days`, 'trading days')),
       h('div', { class: 'callout' }, h('b', { text: 'What it means for you. ' }),
         o.avgR > 0
-          ? `If you risk 1% of your portfolio on each trade, an average of ${fmtR(o.avgR)} is about ${pctS(o.avgR / 100, 2)} of the portfolio per trade, before taxes and before the biases listed below. `
+          ? `If you risk ${pct(limits().swingRisk, 1)} of your portfolio on each trade (your limit), an average of ${fmtR(o.avgR)} is about ${pctS(o.avgR * limits().swingRisk, 2)} of the portfolio per trade, before taxes and before the biases listed below. `
           : `On average these trades lost money after costs (${fmtR(o.avgR)} per trade). `,
         `Only ${pct(o.winRate, 0)} of trades won: the profit comes from winners being bigger than losers, not from winning often.`,
         streak ? ` Over 100 trades, a run of about ${streak} losses in a row is normal.` : '',
@@ -4997,7 +5138,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
       h('span', null, h('b', { text: P && P.proven ? 'Real money: allowed. ' : 'Real money: not yet. ' }),
         P && P.n ? `${P.n} trades over ${mo(P.months)} have each been followed for ${H} trading days and compared with the S&P 500 over the same days, after ${pct(P.cost || bt.cost, 1)} costs: ${pctS(P.avgTrade, 1)} a trade against ${pctS(P.avgSpy, 1)} for the index${isNum(P.ciLow) ? ` (the difference is likely between ${pctS(P.ciLow, 1)} and ${pctS(P.ciHigh, 1)})` : ''}. `
           : `No trade has been followed for ${H} trading days yet${P && P.waiting ? ` (${P.waiting.toLocaleString()} are on the way)` : ''}. `,
-        P && P.proven ? 'The signals have beaten the index for long enough; still size every trade so its stop loses at most 1% of your account.'
+        P && P.proven ? `The signals have beaten the index for long enough; still size every trade so its stop loses at most ${pct(limits().swingRisk, 1)} of your portfolio.`
           : `Swing signals stay paper trades until at least ${mo(needM)} of trades, each followed for ${H} trading days whether it closed or not, beat the index after costs by more than luck can explain.`)));
     if (!log || !Array.isArray(log.records) || !Array.isArray(log.fields)) { card.append(h('p', { class: 'sub', text: 'The live record is not available right now.' })); return card; }
     const F = Object.fromEntries(log.fields.map((k, i) => [k, i]));
