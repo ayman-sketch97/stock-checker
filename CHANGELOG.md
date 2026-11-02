@@ -20,3 +20,8 @@ the same day.
 - A holding with unreliable data, or a bank or insurer, is marked "Review" instead of "Passes".
 - The 10-year test uses the same rules (`POLICY` in `lib/ltstats.js`) and keeps the old rules' result for comparison
   (`PREREGISTERED.md`, section 4).
+- Re-run of the 10-year test with these rules (same data as 27 October): the long-term picks returned 9.3% a year
+  (11.7% before the limits), against 13.9% for the S&P 500 and 13.1% for random picks under the same rules. By the
+  pre-registered rule, "let the test decide" now suggests 20% stocks and 80% fund (it was half and half). Most of the
+  drop comes from the 40% sector limit; the 10% limit on new buys alone raised the result. Details in `VALIDATION.md`,
+  section 9. The Record page shows the result before and after the limits.

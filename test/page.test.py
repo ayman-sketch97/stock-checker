@@ -372,6 +372,7 @@ async def main():
               'record: the other methods tried, each with its result in plain words')
         check('The picks the Portfolio page buys' in ltc and 'Half in stocks' in ltc and 'The money split follows the long-term picks' in ltc and 'Short-term picks cannot be tested yet' in ltc,
               'record: the test of the Portfolio page\'s own picks, which sets the split')
+        check('The same, with the rules before your limits of 3 Nov 2026' in ltc and '+11.7%' in ltc and '+22.9%' in ltc, 'record: the old rules\' result is shown next to the new one')
         check(not errs, f'no page errors on the record page with the long-term test {errs}')
         await pg.close()
 

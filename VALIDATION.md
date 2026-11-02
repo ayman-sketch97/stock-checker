@@ -1,4 +1,4 @@
-# Validation report (19 October 2026, second and third rounds 23 October 2026, fourth and fifth rounds 27 October 2026)
+# Validation report (19 October 2026, second and third rounds 23 October 2026, fourth and fifth rounds 27 October 2026, audit and stage 1 on 3 November 2026)
 
 What was checked, how, and what is still wrong. Nothing here claims the tool is error-free: it records the
 evidence for the 16 companies tested against their filings and the limits that remain.
@@ -747,3 +747,61 @@ Checks made afterwards, which the rules did not cover:
 - SEC's company-facts data can lag the filings by weeks (about 105 companies on 23 October 2026); the page flags
   statements older than 4 months and withholds the verdict past 9 months.
 - The fair value is a model with stated assumptions, not a measured fact.
+
+## 9. Audit and stage 1 (3 November 2026)
+
+### Re-checks during the audit
+
+- **Figures against the SEC's data, in separate code.** Apple's twelve-month revenue, net income, operating cash flow
+  and capital spending to 27 June 2026 (annual report plus nine months, less the prior nine months) and Microsoft's to
+  30 September 2026 (its 10-Q filed 28 October): 8 of 8 match the site to the dollar. Apple's cash matches exactly;
+  its debt differs by $47 million (0.06%, two debt tags for the same notes).
+- **Fair value.** Apple's bear, base and bull values rebuilt from the published inputs with a separate DCF: within
+  $0.06 of the site.
+- **Indicators.** Apple's EMA 21, SMA 50 and 200, RSI 14, MACD, signal line, ATR 14 and relative volume over the last
+  100 days, recomputed in pandas: equal to the decimals the site shows.
+- **Coverage.** Of 2,038 companies, 466 get no verdict, each with a stated reason (foreign filers, REITs, new
+  listings, re-registered holding companies such as ExxonMobil); 162 more are withheld for insufficient data.
+
+### Stage 1: what changed
+
+One risk check (`buyCheck`) now decides every buy suggestion, on every page; the limits the owner approved on 3
+November are its defaults and can be changed on the Portfolio page. A buy needs a clear halal "pass"; no new buys in a
+stock already 10% of the portfolio or a sector already 40% of the stocks; a stock above 15% is trimmed back to about
+10% once there are enough stocks; 0.5% of the portfolio at risk per swing trade (was 1%); two or more trading days of
+late data pause every action. Tests: 59 formula tests (new: the simulation never buys a "review" stock, never buys
+above the size or sector limit, and trims winners above 15%), 119 page checks (new: each rule on the stock page, the
+brief, the Watchlist, the Portfolio advice, the monthly plan, the ideas, the limits card and the late-data pause).
+
+### The 10-year test re-run with the limits
+
+The rules were written down before the re-run (`PREREGISTERED.md`, section 4). The replay data is the one of 27
+October; only the buying and selling rules changed. 1,000 AED a month, December 2016 to October 2026:
+
+| Portfolio page picks | Before the limits | With the limits | Random picks, same rules (middle) | S&P 500 |
+| --- | --- | --- | --- | --- |
+| Long term, a year | 11.7% | 9.3% | 13.1% | 13.9% |
+| Long term, worst fall | -33.7% | -38.1% | | -25.4% |
+| Medium term, a year | 22.9% | 20.8% | 14.6% | 13.9% |
+| Medium term, worst fall | -28.7% | -32.2% | | -25.4% |
+
+By the pre-registered rule the long-term picks now count as "fund" (they trail random picks and the S&P 500), so the
+split for "let the test decide" moves from half and half to 20% stocks and 80% fund. The medium-term picks stay
+"mixed". The run also reports that the list now did better than the page's long-term picks (`review.agrees` false);
+the site keeps the page's picks until a review, as section 3 of `PREREGISTERED.md` says.
+
+Which limit did what (long-term picks, one rule added at a time, same data):
+
+| Rules | A year | Worst fall |
+| --- | --- | --- |
+| Before the limits | 11.7% | -33.7% |
+| Halal "pass" for every buy | 11.6% | -34.2% |
+| plus the 10% limit on new buys | 16.9% | -35.4% |
+| plus the 15% trim back to 10% (no sector limit) | 15.4% | -35.0% |
+| pass and the 40% sector limit only | 9.9% | -37.6% |
+| All the approved limits | 9.3% | -38.1% |
+
+Read with care: one path through one decade, survivor-only data (failed companies are missing, which is exactly the
+risk that limits protect against, so the test cannot credit them for it), and these are results seen after the fact.
+They are a reason to review the 40% sector limit and the trim size with the owner, not a licence to pick the rule set
+that scored best.

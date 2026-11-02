@@ -5258,6 +5258,7 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
         table(['', ...kinds.map(([, t]) => t)], [
           ['Its 6 ideas a month, 1 year later, against the average stock', ...kinds.map(([k]) => pctS(PL[k].forward.h12.vsUniverse?.mean, 1))],
           ['1,000 AED a month with its rules, a year', ...kinds.map(([k]) => (isNum(per(k, 'full').shortlist?.yearly) ? pctS(per(k, 'full').shortlist.yearly, 1) : 'n/a'))],
+          ...(kinds.some(([k]) => isNum(PL[k].portfolio?.before?.yearly)) ? [['The same, with the rules before your limits of 3 Nov 2026', ...kinds.map(([k]) => (isNum(PL[k].portfolio?.before?.yearly) ? pctS(PL[k].portfolio.before.yearly, 1) : 'n/a'))]] : []),
           ['Random halal stocks, same rules (middle)', ...kinds.map(([k]) => (isNum(per(k, 'full').random?.yearly?.median) ? pctS(per(k, 'full').random.yearly.median, 1) : 'n/a'))],
           ['S&P 500 (SPY)', ...kinds.map(([k]) => (isNum(per(k, 'full').spy?.yearly) ? pctS(per(k, 'full').spy.yearly, 1) : 'n/a'))],
           ['Beat random picks: whole period, first half, second half', ...kinds.map(([k]) => ['full', 'half1', 'half2'].map((x) => beatRnd(per(k, x))).join(', '))],
