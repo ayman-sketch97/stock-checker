@@ -1058,3 +1058,79 @@ own day, the gap and an interval above zero when the calls always win, no interv
 zero when half the calls win and half lose, the same interval from the same record, the nightly step reading each
 day's state file (a company that failed the screen that day is left out), and the page with each verdict and with the
 wrong-call shares. 75 formula tests and 199 page checks pass.
+
+## 14. Survivorship: which companies the benchmarks cannot see (3 November 2026)
+
+Asked for by the owner: can taken-over, delisted and bankrupt companies be included in the halal-pass benchmark?
+
+The 10-year test holds only companies listed today (`tools/lt-backtest.mjs` builds its list from today's listings).
+To measure what that leaves out, `tools/survivorship-check.py` takes every company with a public float of $250 million
+or more on its mid-2016 10-K cover page (the SEC's XBRL frames), and follows each one through its SEC filing history.
+Of the 1,485 non-financial companies (banks, insurers and REITs left out, as the tool does):
+
+| What happened by November 2026 | Companies | Share |
+| --- | ---: | ---: |
+| In the 10-year test | 832 | 56.0% |
+| Taken over or merged (merger proxy, tender offer or Rule 425 filings) | 422 | 28.4% |
+| Bankrupt (8-K item 1.03) | 52 | 3.5% |
+| Delisted or deregistered, reason not filed, or stopped filing | 32 | 2.2% |
+| Still files with the SEC, no listed shares | 78 | 5.3% |
+| Listed, public float now under $250 million | 39 | 2.6% |
+| Listed, missing for another reason (another exchange, a changed ticker) | 30 | 2.0% |
+
+So 44% of the companies an investor could have held in 2016 are missing from the test. They cannot be added with free
+data: the SEC keeps their filings, so their halal screen and fair value could be worked out, but the free price
+sources the site uses (Nasdaq, Yahoo) drop a company's prices once it is gone. Full coverage needs a paid
+survivorship-free database (for example CRSP, Norgate or EODHD), which the plan does not use. The missing companies
+pull in both directions: takeovers usually come at a premium, while bankruptcies and shrinking companies lose most of
+their value. The research on missing delisting returns finds the losses dominate: Shumway (1997) found the omitted
+returns large, and Shumway and Warther (1999) estimated -55% for the missing performance-related delisting returns of
+Nasdaq stocks. So the test's own returns are most likely flattered. Random halal stocks are drawn from the same
+companies, so the comparison with them is affected less, but not free of it.
+
+A second, smaller bias comes from choosing companies by today's size: a company small in 2016 that grew is in the
+test. Keeping only companies that were large enough at the time hardly changes the base rates (trailing the S&P 500
+by more than 10 points: 45.0% with every company, 45.3% at $250 million or more at the time, 44.4% at $2 billion or
+more) but lowers the average 12-month return against the S&P 500 from +1.8 to +0.2 and -1.0 points.
+
+What is done about it: the Record page shows the table's figures next to the 10-year results, and the permanent record
+now keeps its own prices (section 15), so it does not have the gap. A version of the 10-year test that applies the
+size cut at each past date, and so adds the shrunk companies, is a candidate for review; it would change the evidence
+shown, so it would be compared and shown first, as any decision-changing change is.
+
+Sources: [Shumway (1997), The Delisting Bias in CRSP Data](https://econpapers.repec.org/RePEc:bla:jfinan:v:52:y:1997:i:1:p:327-40);
+[Shumway and Warther (1999), The Delisting Bias in CRSP's Nasdaq Data](https://ideas.repec.org/a/bla/jfinan/v54y1999i6p2361-2379.html).
+
+## 15. Section 7.2 in the code: every call measured to the end (3 November 2026)
+
+Written down first (PREREGISTERED.md, section 7.2, its own commit), then built in `lib/records.js`:
+
+- Horizons are counted in sessions of the S&P 500 from the entry session, and the stock's price at a horizon is its
+  last close on or before that session (before, sessions of the stock itself; the same for any stock that trades
+  every day).
+- The record keeps its own price archive (`prices/YYYY/YYYY-MM-DD.json` on the records branch, one file a night,
+  never replaced, a second run that day adding only what the first did not have): the close of every company in a
+  call or in a yardstick of the last 400 days, and the dividend histories read. A company the sources no longer give
+  is followed from the archive, and once it has had no close for 10 sessions of the S&P 500 it is treated as stopped:
+  its return runs to its last close, then 0%.
+- A call with no prices anywhere is unpriceable: at every horizon that has come it counts as wrong and is left out of
+  the averages.
+- Dividends: the code reinvests them at the ex-day close and counts them at a horizon only when both the stock's and
+  the S&P 500's histories were read on or after its session; otherwise prices only for both, and the page counts those
+  calls. No source is switched on, because none of the site's free sources gives them reliably today: Yahoo's chart
+  data refuses the site's requests (429, too many requests), and Nasdaq's dividend history gave none for companies
+  that pay every quarter (Coca-Cola, Procter & Gamble, Johnson & Johnson, and the S&P 500 fund itself) while giving
+  full histories for Nasdaq-listed ones such as Microsoft (checked on 3 Nov 2026). A source that reads only some
+  companies would bias the comparison, so every call is measured on prices only, for the stock and the S&P 500 alike,
+  and the page says so. If a reliable source is added later, it is written down as a dated amendment and applied to
+  every call, old and new, with the prices-only figures kept next to it.
+- The Record page shows each kind of call after 12 months, from 30 matured calls: return, S&P 500, difference, random
+  halal stocks, wrong calls next to the random share, the calls that stopped trading, had no prices or were measured
+  on prices only, and pass, fail or undecided (provisional until 100 calls).
+
+Tests: a company that stops trading (followed to its last close, then cash), one only a few sessions behind (it
+waits), an unpriceable call (wrong, out of the averages), dividends reinvested at the ex-day close, a dividend history
+read too early (prices only for both), the archive (the first observation of a day is kept, a second file adds only
+what is new, dividends merged), the companies tracked, a company followed from the archive after the source dropped
+it, and the page with each verdict. 77 formula tests and 201 page checks pass.
+

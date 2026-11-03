@@ -597,7 +597,10 @@ if (!ONLY.length && !LIMIT && priceDate && !fs.existsSync(RECORDS_DIR)) {
     // companies with calls in the record but no prices tonight (no longer analysed, or a failed download): only their
     // prices are fetched, so a company that fell does not drop out of the results
     const extra = new Map();
-    const want = REC.followedTickers(RECORDS_DIR).filter((t) => !idxOf.has(t));
+    // section 7.2: every company in a call or in a yardstick of the last year is followed, and its close kept in the
+    // record's own archive each night, so one that leaves the companies analysed (or the price source) still counts
+    const tracked = REC.trackedTickers(RECORDS_DIR, priceDate);
+    const want = tracked.filter((t) => !idxOf.has(t));
     await pool(want, 4, async (t) => {
       try {
         const hist = await historyFor(t);
@@ -605,18 +608,32 @@ if (!ONLY.length && !LIMIT && priceDate && !fs.existsSync(RECORDS_DIR)) {
         if (P) extra.set(t, toCloses(P.dates, P.C));
       } catch { /* left out tonight, and counted as such */ }
     });
+    const closesOf = (t) => (idxOf.has(t) ? rsData[idxOf.get(t)] : extra.get(t) || null);
+    const spyCl = M ? toCloses(M.dates, M.C) : null;
+    const ymd = Number(priceDate.replace(/-/g, ''));
+    const closes = {};
+    for (const t of tracked) { const x = closesOf(t); if (x && x.d.length && x.d[x.d.length - 1] === ymd) closes[t] = x.c[x.c.length - 1]; }
+    if (spyCl && spyCl.d[spyCl.d.length - 1] === ymd) closes.SPY = spyCl.c[spyCl.c.length - 1];
+    // dividends: none read yet. Section 7.2 counts them only where both the stock's and the S&P 500's histories were
+    // read; no free source gives them reliably (VALIDATION.md, section 15), so every call is measured on prices only,
+    // and the page says so. The archive and the follow-up already take them, for when a reliable source is found.
+    const divNow = {};
+    const spyDiv = null;
     const summary = REC.updateRecord({
       dir: RECORDS_DIR,
       date: priceDate,
       built: started.toISOString(),
       rows: REC.rowsOf({ fields: SCREEN_FIELDS, rows: screen }),
       signals: { before: prevLog.records, after: finalSignalRecords || [] },
-      closesOf: (t) => (idxOf.has(t) ? rsData[idxOf.get(t)] : extra.get(t) || null),
-      spy: M ? toCloses(M.dates, M.C) : null,
+      closesOf,
+      spy: spyCl,
       url: RECORDS_URL,
+      tonight: { closes, div: divNow },
+      divOf: (t) => divNow[t] || null,
+      spyDiv,
     });
     fs.writeFileSync(recordOut, JSON.stringify(summary));
-    console.log(`permanent record: ${summary.days} day files, chain ${summary.chain.ok ? 'intact' : `BROKEN at ${summary.chain.at} (${summary.chain.why})`}, today ${JSON.stringify(summary.today)}, kinds ${JSON.stringify(summary.kinds)}, prices only for ${extra.size} of ${want.length} followed companies not analysed tonight`);
+    console.log(`permanent record: ${summary.days} day files, chain ${summary.chain.ok ? 'intact' : `BROKEN at ${summary.chain.at} (${summary.chain.why})`}, today ${JSON.stringify(summary.today)}, kinds ${JSON.stringify(summary.kinds)}, prices only for ${extra.size} of ${want.length} tracked companies not analysed tonight, archive ${JSON.stringify(summary.archive)}, dividends read for ${Object.keys(divNow).length}`);
   } catch (e) {
     fs.writeFileSync(recordOut, JSON.stringify({ skipped: 'error', url: RECORDS_URL }));
     console.log('permanent record not updated:', e.message);

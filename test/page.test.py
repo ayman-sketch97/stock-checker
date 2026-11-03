@@ -436,6 +436,8 @@ async def main():
         check('Five-year periods (59, starting each month from Dec 2016 to Oct 2021): beat random picks / beat the S&P 500' in ltc and '60% / 40%' in ltc
               and 'Result on one 10-year path' in ltc and 'Mostly in the fund' in ltc and 'Since 3 Nov 2026 the test result comes from the five-year periods' in ltc and '+12.4% / +18.7%' in ltc,
               f'record: the plan judged on many five-year periods, with the single path next to it: {ltc[-1500:]!r}')
+        check('Companies the test cannot see. It holds only companies listed today.' in ltc and '34% have since disappeared (28% taken over or merged, 3.5% bankrupt' in ltc and 'Free price sources do not keep the prices of companies that disappeared' in ltc,
+              'record: the 10-year test says which companies it cannot see (survivorship), next to its results')
         check(not errs, f'no page errors on the record page with the long-term test {errs}')
         await pg.close()
 
@@ -622,8 +624,8 @@ async def main():
         # ---- stage 2 (3 Nov 2026): the permanent record on the Record page, and the tool's view kept with each trade
         rec_summary = {'version': 1, 'since': '2026-11-03', 'days': 4, 'chain': {'ok': True, 'at': None, 'okBefore': True}, 'today': None, 'kinds': {'verdict': 1500, 'buy_in': 40},
                        'groups': {'buy': {'label': 'Entered the long-term buy zone', 'up': True, 'n': 12, 'h': {'1m': {'n': 5, 'ret': 0.03, 'spy': 0.01, 'diff': 0.02, 'beat': 0.6, 'y': {'n': 5, 'diff': 0.01, 'beat': 0.5, 't10': 0.1, 'b10': 0.2, 'b20': 0.1, 'gap': 0.01, 'lo': -0.02, 'hi': 0.04, 'days': 5}}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}},
-                                  'trim': {'label': 'Reached the trim price', 'up': False, 'n': 31, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 31, 'ret': 0.08, 'spy': 0.1, 'diff': -0.02, 'beat': 0.4, 't10': 0.3, 'b10': 0.29, 'b20': 0.1, 'y': {'n': 31, 'diff': 0.0, 'beat': 0.45, 't10': 0.44, 'b10': 0.32, 'b20': 0.22, 'gap': -0.02, 'lo': None, 'hi': None, 'days': 3}}}},
-                                  'hold_fall': {'label': 'Fell 20% with the business still sound: hold', 'up': True, 'n': 6, 'h': {'1m': {'n': 0}, '3m': {'n': 6, 'ret': 0.05, 'spy': 0.01, 'diff': 0.04, 'beat': 0.67, 'y': {'n': 6, 'diff': -0.01, 'beat': 0.4, 't10': 0.3, 'b10': 0.1, 'b20': 0.05, 'gap': 0.05, 'lo': 0.01, 'hi': 0.09, 'days': 6}}, '6m': {'n': 0}, '12m': {'n': 0}}}},
+                                  'trim': {'label': 'Reached the trim price', 'up': False, 'n': 31, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 31, 'matured': 31, 'wrong': 0.29, 'st': 1, 'po': 2, 'up': 0, 'ret': 0.08, 'spy': 0.1, 'diff': -0.02, 'beat': 0.4, 't10': 0.3, 'b10': 0.29, 'b20': 0.1, 'y': {'n': 31, 'diff': 0.0, 'beat': 0.45, 't10': 0.44, 'b10': 0.32, 'b20': 0.22, 'gap': -0.02, 'lo': None, 'hi': None, 'days': 3}}}},
+                                  'hold_fall': {'label': 'Fell 20% with the business still sound: hold', 'up': True, 'n': 6, 'h': {'1m': {'n': 0}, '3m': {'n': 6, 'ret': 0.05, 'spy': 0.01, 'diff': 0.04, 'beat': 0.67, 'y': {'n': 6, 'diff': -0.01, 'beat': 0.4, 't10': 0.3, 'b10': 0.1, 'b20': 0.05, 'gap': 0.05, 'lo': 0.01, 'hi': 0.09, 'days': 6}}, '6m': {'n': 0}, '12m': {'n': 34, 'matured': 35, 'up': 1, 'st': 0, 'po': 0, 'ret': 0.15, 'spy': 0.1, 'diff': 0.05, 'wrong': 0.3, 'beat': 0.6, 't10': 0.27, 'b10': 0.4, 'b20': 0.2, 'y': {'n': 34, 'diff': -0.02, 'beat': 0.45, 't10': 0.44, 'b10': 0.3, 'b20': 0.2, 'gap': 0.07, 'lo': 0.01, 'hi': 0.12, 'days': 8}}}}},
                        'standing': {}, 'recent': [{'d': '2026-11-06', 't': 'MSFT', 'g': 'hold_fall', 'px': 320, 'v': 'BUY'}, {'d': '2026-11-05', 't': 'KO', 'g': 'buy', 'px': 60, 'v': 'BUY'}], 'url': 'https://github.com/ayman-sketch97/stock-checker/tree/records'}
         pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': rec_summary})
         await pg.click('#nav button:has-text("Record")')
@@ -638,8 +640,12 @@ async def main():
               f'record: the yardstick and its verdict in each cell: {rc[:1500]!r}')
         check('calls on 3 days, too few to judge' in rc, 'record: no verdict from calls on fewer than 5 days')
         # measures 1, 2 and 4: wrong calls, shown from 30 matured calls, next to the yardstick
-        check('Reached the trim price: 29% went wrong (random halal stocks over the same days: 32%).' in rc and 'Entered the long-term buy zone: waiting, 0 of 30 calls have had their 12 months.' in rc and '45% of halal stocks trailed' in rc,
-              f'record: how often the calls went wrong: {rc[-1400:]!r}')
+        check('Reached the trim price: 31 calls have had their 12 months (provisional until 100).' in rc and 'Return +8.0%, S&P 500 +10.0% over the same days: -2.0%; random halal stocks 0.0%.' in rc
+              and 'Wrong calls: 29% (random halal stocks 32%).' in rc and '1 stopped trading (followed to the last price) · 2 measured on prices only.' in rc and 'Too few days of calls (3) to judge.' in rc
+              and 'Entered the long-term buy zone: waiting, 0 of 30 calls have had their 12 months.' in rc and '45% of halal stocks trailed' in rc,
+              f'record: each kind of call after 12 months: {rc[-2200:]!r}')
+        check('Fell 20% with the business still sound: hold: 35 calls have had their 12 months' in rc and '1 without prices, counted as wrong' in rc and 'Passes: better than random halal stocks.' in rc,
+              'record: a kind of call that passes, with an unpriceable call counted as wrong')
         hrefs = await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"The permanent record\"] a')].map((a) => a.href)")
         check('https://github.com/ayman-sketch97/stock-checker/tree/records' in hrefs, 'record: links to every file on GitHub')
         check(not errs, f'no page errors on the permanent record card {errs}')

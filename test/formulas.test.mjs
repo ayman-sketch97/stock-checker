@@ -12,7 +12,7 @@ import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/lo
 import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS, planWindows, decideWindows, WINDOW_MONTHS } from '../lib/ltstats.js';
 import { POLICY_VERSION, POLICY_RULES, buyRoom, trimSale, sectorOpen, worthAnOrder } from '../lib/policy.js';
 import { healthChecks, LT_MAX_DAYS } from '../lib/health.js';
-import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, fallFrom, yardstick, gapInterval, MISSING_DAYS, REPEAT_DAYS, HOLD_FALL, YARD_MIN_DAYS } from '../lib/records.js';
+import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, fallFrom, yardstick, gapInterval, writePrices, readPrices, trackedTickers, MISSING_DAYS, REPEAT_DAYS, HOLD_FALL, YARD_MIN_DAYS, STOP_SESSIONS } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -1171,6 +1171,86 @@ test('permanent record: the nightly step pairs each call with the halal-pass com
   assert.ok(Math.abs(h1.diff - a) < 1e-4, JSON.stringify(h1));
   assert.ok(h1.y && h1.y.n === 1 && Math.abs(h1.y.diff - yard) < 1e-4 && Math.abs(h1.y.gap - (a - yard)) < 1e-4, JSON.stringify(h1.y));
   assert.deepEqual([h1.y.days, h1.y.lo], [1, null], 'one day of calls: no verdict');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('permanent record: section 7.2, sessions, companies that stop trading, unpriceable calls and dividends', async () => {
+  const n = 300;
+  const d = Int32Array.from({ length: n }, (_, i) => 20260100 + i);
+  const spy = { d, c: Float64Array.from({ length: n }, () => 100) };
+  const day = (i) => { const x = String(20260100 + i); return `${x.slice(0, 4)}-${x.slice(4, 6)}-${x.slice(6)}`; };
+  const cut = (k, f = 1) => ({ d: d.slice(0, k), c: Float64Array.from({ length: k }, (_, i) => 100 * f ** i) });
+  const C = {
+    LIVE: cut(n, 1.001),
+    GONE: cut(50, 0.99), // stopped trading after 50 sessions (taken over, delisted or bankrupt)
+    LATE: cut(n - 3, 1), // three sessions behind the S&P 500: not stopped, the latest horizon waits
+  };
+  const call = (t, i = 10) => ({ date: day(i), e: { k: 'buy_in', t } });
+  const r = followUp([call('LIVE'), call('GONE'), call('NOPRICE')], (t) => C[t] || null, spy).buy.h;
+  // GONE: 12 months after the call it has been stopped for far more than STOP_SESSIONS sessions: its return runs to its
+  // last close and is 0% after that; it counts at that return
+  const gone = 0.99 ** 38 - 1; // entered at session 11, last close at session 49
+  assert.equal(r['12m'].st, 1);
+  assert.equal(r['12m'].n, 2, 'LIVE and GONE are followed; NOPRICE is not');
+  assert.ok(Math.abs(r['12m'].ret - ((1.001 ** 252 - 1) + gone) / 2) < 1e-4, JSON.stringify(r['12m']));
+  // NOPRICE: unpriceable at every horizon that has come. It counts as wrong, never as a success, and is left out of
+  // the averages
+  assert.deepEqual([r['12m'].up, r['12m'].matured], [1, 3]);
+  assert.ok(Math.abs(r['12m'].wrong - 2 / 3) < 1e-4, `GONE trailed by more than 10 points and NOPRICE is wrong: ${r['12m'].wrong}`);
+  // a company a few sessions behind is not stopped: its latest horizon waits for its prices
+  const late = followUp([call('LATE', n - 25)], (t) => C[t] || null, spy).buy.h['1m']; // its 1-month session comes after its last close
+  assert.deepEqual([late.n, late.up || 0], [0, 0], 'waiting, not stopped and not unpriceable');
+  assert.equal(STOP_SESSIONS, 10);
+  // dividends, reinvested at the ex-day close, counted only when both histories were read up to the horizon
+  const flat = { FLAT: cut(n, 1) };
+  const div = { asOf: 20260400, div: [[20260120, 2]] }; // 2% paid on session 20
+  const spyDiv = { asOf: 20260400, div: [[20260130, 1]] }; // 1% on session 30
+  const tr = followUp([call('FLAT')], (t) => flat[t] || null, spy, { divOf: () => div, spyDiv }).buy.h['1m'];
+  assert.ok(Math.abs(tr.ret - 0.02) < 1e-9 && Math.abs(tr.spy - 0.01) < 1e-9 && tr.po === 0, JSON.stringify(tr));
+  const stale = followUp([call('FLAT')], (t) => flat[t] || null, spy, { divOf: () => ({ ...div, asOf: 20260120 }), spyDiv }).buy.h['1m'];
+  assert.deepEqual([stale.ret, stale.spy, stale.po], [0, 0, 1], 'dividends read only up to before the horizon: prices only for both, and counted');
+  const none = followUp([call('FLAT')], (t) => flat[t] || null, spy, { divOf: () => null, spyDiv }).buy.h['1m'];
+  assert.deepEqual([none.ret, none.po], [0, 1], 'no dividend history: prices only');
+  // the record's price archive: one file a night, never replaced; a second write that day keeps only what is new
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'recprice-'));
+  assert.deepEqual(writePrices(dir, '2026-11-04', { closes: { AAA: 10, BBB: 20 }, div: { AAA: { asOf: 20261104, div: [[20261001, 0.5]] } } }), { file: '2026-11-04.json', closes: 2, div: 1 });
+  assert.equal(writePrices(dir, '2026-11-04', { closes: { AAA: 11 } }), null, 'the first observation of a day is kept');
+  assert.equal(writePrices(dir, '2026-11-04', { closes: { AAA: 11, CCC: 5 } }).file, '2026-11-04_2.json');
+  writePrices(dir, '2026-11-05', { closes: { AAA: 12 }, div: { AAA: { asOf: 20261105, div: [[20261001, 0.5], [20261105, 0.5]] } } });
+  const A = readPrices(dir);
+  assert.deepEqual([...A.series.get('AAA').d], [20261104, 20261105]);
+  assert.deepEqual([...A.series.get('AAA').c], [10, 12], 'the first observation of the 4th, not the later 11');
+  assert.deepEqual(A.divs.get('AAA'), { asOf: 20261105, div: [[20261001, 0.5], [20261105, 0.5]] });
+  assert.deepEqual([...A.series.get('CCC').d], [20261104]);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('permanent record: a company that leaves the price source is still followed from the record\'s own archive', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'recarch-'));
+  const fields = ['ticker', 'sector', 'price', 'verdict', 'shariah', 'quality', 'health', 'growth', 'fair', 'upside', 'buyBelow', 'trimAbove', 'trend', 'dq'];
+  const row = (o) => fields.map((k) => ({ sector: 'Tech', price: 100, verdict: 'BUY', shariah: 'pass', quality: 80, health: 70, growth: 60, fair: 140, upside: 0.4, buyBelow: 120, trimAbove: 200, trend: 'up', dq: 'high', ...o })[k]);
+  const rows = rowsOf({ fields, rows: [row({ ticker: 'AAA' }), row({ ticker: 'BBB', verdict: 'WATCH', price: 150 })] });
+  updateRecord({ dir, date: '2026-11-04', built: '2026-11-05T03:30:00Z', rows });
+  assert.deepEqual(trackedTickers(dir, '2026-11-04'), ['AAA', 'BBB'], 'companies in a call, and every halal-pass company of a yardstick');
+  assert.deepEqual(trackedTickers(dir, '2027-12-31'), followedTickers(dir), 'a yardstick older than PRICE_DAYS no longer needs prices; a call always does');
+  // AAA is archived for 30 nights while it trades, then the source stops giving it (taken over at 130)
+  const dates = Array.from({ length: 300 }, (_, i) => 20261105 + i);
+  const spy = { d: Int32Array.from(dates), c: Float64Array.from(dates, () => 100) };
+  for (let i = 0; i < 30; i++) {
+    const x = String(dates[i]);
+    writePrices(dir, `${x.slice(0, 4)}-${x.slice(4, 6)}-${x.slice(6)}`, { closes: { AAA: 100 + i } });
+  }
+  const R = updateRecord({ dir, date: '2027-12-01', built: '2027-12-02T03:30:00Z', rows: rowsOf({ fields, rows: [row({ ticker: 'BBB', verdict: 'WATCH', price: 150 })] }), closesOf: () => null, spy });
+  const h12 = R.standing.buy.h['12m'];
+  assert.equal(h12.n, 1, 'followed from the archive');
+  assert.ok(Math.abs(h12.ret - (129 / 100 - 1)) < 1e-9 && h12.st === 1, `to its last close (129), then cash: ${JSON.stringify(h12)}`);
+  assert.equal(R.standing.buy.gone, 0);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

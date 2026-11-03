@@ -3,6 +3,20 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: calls measured to the end, and the missing companies disclosed (stage 6)
+
+- Each kind of call (buy zone, long-term pick, medium-term pick, hold, sell, trim) is now shown after 12 months with
+  its actual return, the S&P 500's, random halal stocks', how often it was wrong next to the random share, and pass,
+  fail or undecided. Shown from 30 calls that have had their 12 months; provisional until 100. Rules fixed first in
+  PREREGISTERED.md, section 7.2, before any result.
+- The permanent record keeps its own nightly prices of every company in a call or a yardstick, so a company that is
+  taken over, delisted or goes bankrupt is still followed to its last price. A call with no prices counts as wrong,
+  never as a success. Dividends are not included yet: no free source gives them reliably, so the calls and the S&P
+  500 are both measured on prices only, and the page says so.
+- The 10-year test now says which companies it cannot see: of the companies large enough to hold in 2016, 44% are
+  missing (34% have disappeared), because free price sources drop them. Measured from SEC filings.
+- Record and display only: no advice changes.
+
 ## 3 November 2026: every result next to random halal stocks (stage 6)
 
 - Each figure on the Record page now sits next to the same figure for every halal-pass company on the same days, with
