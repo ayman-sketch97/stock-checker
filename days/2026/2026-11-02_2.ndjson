@@ -1,0 +1,16 @@
+{"v":1,"date":"2026-11-02","built":"2026-11-03T16:00:38.243Z","prev":"43a2abb975f8c2b33ef317fb040a37209d0992831b649d05a6589ff6b97c02a4","n":15,"baseline":false}
+{"k":"halal","t":"DT","px":55.13,"v":"PASS","s":"review","fair":37.84,"bb":32.17,"tr":50.52,"from":"pass"}
+{"k":"halal","t":"VAL","px":94.69,"v":"AVOID_WEAK","s":"pass","fair":null,"bb":null,"tr":null,"from":"review"}
+{"k":"verdict","t":"MZTI","px":110.93,"v":"WATCH","s":"pass","fair":81.38,"bb":69.18,"tr":114.92,"from":"BUY"}
+{"k":"verdict","t":"TRLV","px":11.1,"v":"AVOID_SHARIAH","s":"fail","fair":null,"bb":null,"tr":null,"from":null}
+{"k":"verdict","t":"ALGT","px":76.58,"v":"AVOID_SHARIAH","s":"fail","fair":49.71,"bb":42.26,"tr":90.62,"from":null}
+{"k":"verdict","t":"AIN","px":73.47,"v":"PASS","s":"pass","fair":66.32,"bb":56.37,"tr":95.52,"from":null}
+{"k":"verdict","t":"WHR","px":31.62,"v":"AVOID_SHARIAH","s":"fail","fair":null,"bb":null,"tr":null,"from":null}
+{"k":"verdict","t":"KMPR","px":35.08,"v":"AVOID_SHARIAH","s":"fail","fair":null,"bb":null,"tr":null,"from":null}
+{"k":"verdict","t":"NSP","px":53.18,"v":"AVOID_SHARIAH","s":"fail","fair":99.67,"bb":84.72,"tr":134.8,"from":null}
+{"k":"verdict","t":"MCRI","px":114.74,"v":"AVOID_SHARIAH","s":"fail","fair":null,"bb":null,"tr":null,"from":null}
+{"k":"verdict","t":"MTX","px":64.83,"v":"AVOID_SHARIAH","s":"fail","fair":37.06,"bb":31.5,"tr":58.13,"from":null}
+{"k":"trim_in","t":"MTX","px":64.83,"v":"AVOID_SHARIAH","s":"fail","fair":37.06,"bb":31.5,"tr":58.13}
+{"k":"verdict","t":"SAH","px":63.61,"v":"AVOID_SHARIAH","s":"fail","fair":156.23,"bb":132.79,"tr":234.26,"from":null}
+{"k":"pick_in","pool":"mid","t":"IT","px":235.26,"v":"BUY","s":"pass","fair":335.02,"bb":284.77,"tr":472.94}
+{"k":"pick_out","pool":"mid","t":"FSS","px":117.01,"v":"BUY_STRONG","s":"pass","fair":151.95,"bb":129.15,"tr":208.77}
