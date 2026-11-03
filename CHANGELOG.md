@@ -3,6 +3,14 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: a stray "null" removed from "What to do now"
+
+- Since stage 1 this morning, every company page printed the word "null" under "What to do now" whenever the data was
+  up to date. The same slip could print it on the Record page and in the Technical tab's help; both are fixed.
+- Without chart data, "What to do now" now shows the date of the closing price (it was blank) and can show the live
+  price; before, it read "close on 2" as the date and hid live prices.
+- The page tests now fail whenever a missing value would be printed as text, on every page they open.
+
 ## 3 November 2026: a premium look
 
 - A soft aurora and dot grid behind every page, cards with a gradient edge, a glass navigation bar with a lit pill

@@ -2580,7 +2580,7 @@ table.data tr.me td { background: var(--accent-wash); }
     det.append(h('summary', null, h('span', { class: 'st', text: 'How to use the technical tab' }), h('span', { class: 'sc' }, chevron())));
     const body = h('div', { class: 'sec-body how' });
     const li = (t) => h('li', { text: t });
-    body.append(
+    body.append(...[
       h('p', { text: 'The Fundamental tab answers "is this a good business at a fair price?". This tab answers "is now a good moment to buy, and where would I get out?". The best entries usually have both on your side.' }),
       h('h3', { text: 'The plan statuses' }),
       h('ul', null,
@@ -2597,7 +2597,7 @@ table.data tr.me td { background: var(--accent-wash); }
       h('h3', { text: 'Honest expectations' }),
       h('p', { text: 'No indicator or combination of indicators wins 90% of the time. Good swing traders often win only 40 to 55% of trades and still make money, because winners (2R or more) are bigger than losers (1R). Judge the plan over 20 or more trades, not one.' }),
       HAS_SITE ? h('p', null, 'The Record page shows how these exact rules did on five years of prices, and a live log of every signal since the site started. ', linkBtn('Open the record', () => navigate('record'))) : null,
-      h('p', { text: 'Levels and signals are calculated from daily closing prices, refreshed every weekday morning (US time). Educational tool, not financial advice.' }));
+      h('p', { text: 'Levels and signals are calculated from daily closing prices, refreshed every weekday morning (US time). Educational tool, not financial advice.' })].filter(Boolean));
     det.append(body);
     return det;
   }
@@ -2863,7 +2863,8 @@ table.data tr.me td { background: var(--accent-wash); }
   }
   function stockBase(t) {
     const T = t.data && t.data.ok ? t.data : null;
-    return { date: (T && T.asOf) || String(t.d.priceTime || '').slice(0, 10), close: T ? T.close : t.d.price };
+    // priceTime reads "close on 2026-11-02": take the date out of it (its first 10 characters are "close on 2")
+    return { date: (T && T.asOf) || (/\d{4}-\d{2}-\d{2}/.exec(String(t.d.priceTime || '')) || [''])[0], close: T ? T.close : t.d.price };
   }
   function paintAction() {
     const t = tech;
@@ -2882,11 +2883,12 @@ table.data tr.me td { background: var(--accent-wash); }
     if (sw) rows.push(actionRow('Swing trade (weeks)', sw, () => selectTab('tech', true)));
     else if (!T) rows.push(h('div', { class: 'act-row' }, h('span', { class: 'ak', text: 'Swing trade (weeks)' }), h('span', { class: 'av' }, h('span', { text: 'Loading the chart…' }))));
     const st = staleOf(SCR_NOW);
-    t.action.replaceChildren(
+    // native replaceChildren/append print a null child as the word "null" (h() skips them), so filter first
+    t.action.replaceChildren(...[
       h('div', { class: 'act-h' }, h('h2', { text: 'What to do now' }), h('span', { class: 'sub', text: L ? liveLabel(L) : b.date ? `Closing price, ${shortDate(b.date)}` : '' })),
       st ? h('p', { class: 'hint stale', text: staleText(st) }) : null,
       ...rows,
-      h('p', { class: 'note', text: `Rules applied to the data, not a guarantee. Size every trade so the stop loses at most ${pct(limits().swingRisk, 1)} of your portfolio.` }));
+      h('p', { class: 'note', text: `Rules applied to the data, not a guarantee. Size every trade so the stop loses at most ${pct(limits().swingRisk, 1)} of your portfolio.` })].filter(Boolean));
     // the price in the header
     if (t.pxEl) {
       t.pxEl.textContent = price(px);
@@ -5538,7 +5540,7 @@ table.data tr.me td { background: var(--accent-wash); }
       const beatRnd = (p) => (p.shortlist && p.random && isNum(p.shortlist.yearly) && isNum(p.random.yearly?.median) ? (p.shortlist.yearly > p.random.yearly.median ? 'yes' : 'no') : 'n/a');
       const tier = (v) => (v === 'stocks' ? '70% in stocks' : v === 'mixed' ? 'Half in stocks' : 'Mostly in the fund');
       const dec = L.decision || {};
-      card.append(h('h3', { text: 'The picks the Portfolio page buys' }),
+      card.append(...[h('h3', { text: 'The picks the Portfolio page buys' }),
         h('p', { class: 'sub', text: 'The monthly plan does not buy the list above in order of upside. It picks stocks for each holding period its own way (great, growing businesses for the long term; good businesses below fair value, sold at fair value, for the medium term) and puts each month’s money into one of them. That was tested too, with the pass marks written down before the data existed.' }),
         table(['', ...kinds.map(([, t]) => t)], [
           ['Its 6 ideas a month, 1 year later, against the average stock', ...kinds.map(([k]) => pctS(PL[k].forward.h12.vsUniverse?.mean, 1))],
@@ -5557,7 +5559,7 @@ table.data tr.me td { background: var(--accent-wash); }
           ...(kinds.some(([k]) => PL[k].decisionSinglePath) ? [['Result on one 10-year path (the rule before 3 Nov 2026)', ...kinds.map(([k]) => (PL[k].decisionSinglePath ? tier(PL[k].decisionSinglePath.verdict) : 'n/a'))]] : []),
         ]),
         kinds.some(([k]) => PL[k].windows && PL[k].windows.n) ? h('p', { class: 'note', text: 'Since 3 Nov 2026 the test result comes from the five-year periods, not one path. One path depends a lot on which stocks happened to be bought first: random stocks with the same rules end years apart. To get 70% in stocks, the plan must beat random picks in three quarters of the periods and the S&P 500 in half, and its ideas must beat the average stock by more than luck, in both halves. The periods overlap and come from one decade, so they remove the luck of the start date, not of the decade. The pass marks were written down before the periods were run (PREREGISTERED.md, section 5).' }) : null,
-        h('p', { class: 'note', text: `${dec.method === 'list' ? 'The long-term part of the plan buys the list above, which did better in the test, so the money split follows the list' : 'The money split follows the long-term picks, the main part of the plan'}: ${tier(dec.verdict).toLowerCase()}, if you let the test decide. ${L.pools && L.pools.mid === false ? 'Medium-term picks did not beat random picks, so they get no real money. ' : ''}Short-term picks cannot be tested yet (the test lacks their chart data), so they get no real money either.` }));
+        h('p', { class: 'note', text: `${dec.method === 'list' ? 'The long-term part of the plan buys the list above, which did better in the test, so the money split follows the list' : 'The money split follows the long-term picks, the main part of the plan'}: ${tier(dec.verdict).toLowerCase()}, if you let the test decide. ${L.pools && L.pools.mid === false ? 'Medium-term picks did not beat random picks, so they get no real money. ' : ''}Short-term picks cannot be tested yet (the test lacks their chart data), so they get no real money either.` })].filter(Boolean));
     }
     card.append(h('h3', { text: 'Read this before trusting the numbers' }),
       h('ul', { class: 'clean' },

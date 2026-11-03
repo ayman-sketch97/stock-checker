@@ -32,6 +32,20 @@ def serve():
     return httpd, d
 
 
+STRAY_CHILD = r"""(() => {
+  const kinds = [Element.prototype, Document.prototype, DocumentFragment.prototype, CharacterData.prototype];
+  for (const proto of kinds) for (const m of ['append', 'prepend', 'replaceChildren', 'before', 'after', 'replaceWith']) {
+    if (!Object.prototype.hasOwnProperty.call(proto, m)) continue;
+    const f = proto[m];
+    proto[m] = function (...xs) {
+      if (xs.some((x) => x === null || x === undefined || typeof x === 'boolean'))
+        console.error(`stray child: ${m}(${xs.map((x) => (x instanceof Node ? x.nodeName : typeof x === 'string' ? 'text' : String(x))).join(', ')}) ${(new Error().stack.split('\n')[2] || '').trim()}`);
+      return f.apply(this, xs);
+    };
+  }
+})();"""
+
+
 def weekday_back(n):
     d = dt.date.today()
     while n > 0:
@@ -67,6 +81,10 @@ async def page_with(ctx, base, price_date, storage=None, path='', stock=None, ex
     pg = await ctx.new_page()
     errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)))
+    # a null, undefined or true/false child passed to the browser's own append() is printed as that word on the page,
+    # so every test that checks for page errors also fails on one of these
+    pg.on('console', lambda m: errs.append(m.text) if m.text.startswith('stray child') else None)
+    await pg.add_init_script(STRAY_CHILD)
     await pg.route(re.compile(r'.*(/data/|quotes\.json).*'), route)
     await pg.goto(base + '?selftest=1')
     if storage is not None:
@@ -267,7 +285,27 @@ async def main():
         await pg.wait_for_timeout(1500)
         txt = await pg.inner_text('section[aria-label="Verdict"]')
         check('High confidence in the data' in txt and 'Strong buy candidate' in txt, 'clean data: verdict kept, data quality high')
+        act = await pg.inner_text('section.card.act')
+        check('null' not in act and 'undefined' not in act, f'"What to do now" with fresh data shows no stray "null": {act[:160]!r}')
+        check('Closing price, Mar 14' in act, f'without chart data the date comes from "close on 2025-03-14" (it used to be blank, which also hid live prices): {act[:60]!r}')
         check(not errs, f'no page errors on a normal stock page {errs}')
+        await pg.close()
+        # the Technical tab with a full chart file, written by the site's own engine (test/make-tech-fixture.mjs), every section open
+        tech_ok = json.load(open(os.path.join(FIX, 'tech-ok.json')))
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok', {'data/tech/KO.json': tech_ok})
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1500)
+        await pg.locator('button:has-text("Technical")').first.click()
+        await pg.wait_for_timeout(1200)
+        for det in await pg.locator('#page-stock details summary').all():
+            try:
+                await det.click(timeout=800)
+            except Exception:
+                pass
+        await pg.wait_for_timeout(400)
+        tt = await pg.inner_text('#page-stock')
+        check('Signals' in tt and 'Closing price, Nov 2' in tt and not re.search(r'\bnull\b|\bundefined\b|\bNaN\b', tt), f'Technical tab: signals and the chart date shown, no missing values printed: {tt[:120]!r}')
+        check(not errs, f'no page errors on the Technical tab {errs}')
         await pg.close()
 
         # ---- journal: a paper trade is saved as practice and labelled

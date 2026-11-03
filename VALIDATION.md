@@ -908,3 +908,19 @@ Tests: the periods are counted and dated right, a plan of rising stocks wins eve
 a rising S&P 500, each pass mark is checked on its own edge (t just below 2, one half behind, 74% of periods, 49%
 against the S&P 500 or random picks, ideas behind the average, no periods at all), and the report keeps the single-path
 result and the 2- and 3-year results next to the periods. 68 formula tests and 135 page checks pass.
+
+### A stray "null" on the company page (found while checking the new look)
+
+The preview screenshots of the new design showed the word "null" under "What to do now". The browser's own `append`
+and `replaceChildren` print a missing child as that word (the page's `h()` helper skips them), and stage 1 handed one
+over whenever the data was up to date, so every company page showed it from the stage 1 release on 3 November until
+this fix. A search of the page's code for the same slip found two more, fixed too: the Record page without five-year
+results, and the Technical tab's help in the version without the site. While checking, a second fault showed up:
+without chart data the closing date was read from "close on 2026-11-02" as "close on 2", which left the date blank
+and made the live price look older than the close, so it was never shown.
+
+The page tests now report any missing value handed to these browser functions on every page they open (run on the
+version before the fix, the check names `paintAction`, the function at fault), and a new test opens the Technical tab
+with a full chart file made by the site's own engine (`test/make-tech-fixture.mjs`) with every section open. A sweep
+of every page and section, with fresh and late data and with holdings, found nothing else. 68 formula tests and 139
+page checks pass.
