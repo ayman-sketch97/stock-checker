@@ -237,3 +237,31 @@ many there are.
 What is never done: the rules that make the calls are not changed because of these measures except through a review
 written down beforehand, as in sections 3 to 6. If a review changes a rule, the calls made under the old rule stay in
 the record labelled with that rule's version, and every measure is reported per version.
+
+### 7.1 Amendment, 3 November 2026: every rate next to a random-stock yardstick (measures, version 2)
+
+Added at the owner's request on the evening of 3 November 2026 (UTC), when the record held three days and no result
+had matured. It changes no call, no threshold and no horizon: it adds what each rate is compared with. The rates as
+first written (version 1) are still reported.
+
+Why: in the 10-year data (2,012 companies, month-ends from December 2016 to October 2025, halal-pass companies only,
+72,335 stock-months), 45% of stocks trailed the S&P 500 by more than 10 points over the next 12 months, 32% beat it by
+more than 10 points and 23.5% beat it by more than 20 points. The data holds only companies still listed today, so
+the true share of large losses is higher. A rate on its own says little: a false-buy rate of 40% would be better than
+chance.
+
+The yardstick: for measures 1, 2, 4, 8 and 9, at every horizon (the early reads included), the same figure for every
+company that passed the halal screen on the day of the call (the record's state file of that day says which), followed
+from the same close, over the same days, with the same prices. Each call is paired with its own day's yardstick, so a
+kind of call made mostly in a falling market is compared with that same falling market.
+
+How it is read: the calls' figure, the yardstick's, and the gap between them, with a 90% interval for the gap found by
+resampling the days on which the calls were made (2,000 resamples with a fixed seed, so the same record always gives
+the same interval; calls made on the same day move together, so days are resampled, not calls). With calls on fewer
+than 5 days, no interval is given. If the interval includes zero, the page says the calls are no better than random
+halal stocks so far. For buy and hold calls, better means a higher return than the yardstick and fewer large losses;
+for sell and trim calls, the opposite.
+
+Unchanged: measure 3 is judged against each thesis's own conditions, 5 and 6 are counts, 7 compares the price with
+the fair value, and 10 already compares with the S&P 500. Companies without prices that night are left out of the
+yardstick, as they are of the calls.
