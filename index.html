@@ -698,6 +698,20 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
   .brief h3 { margin-top: 16px; }
   .filings li.tone-bad span { color: var(--bad-ink); }
 
+/* what you own of a company, under its quote card; recording a holding by hand */
+.own-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 12px 0 2px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); }
+.own-row .own-txt { font-size: 14px; min-width: 0; flex: 1 1 200px; }
+.own-row .own-txt.muted { color: var(--muted); }
+.own-row .own-form { flex: 1 1 100%; margin: 0; }
+.own-add { margin-top: 12px; }
+.own-form .note:empty { display: none; }
+/* your split and the 10-year test's split, side by side (Portfolio page) */
+.pve { display: grid; gap: 10px; margin: 14px 0 4px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); }
+.pve-row { display: grid; gap: 3px; min-width: 0; }
+.pve-k { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.pve-row b { font-size: 16px; }
+.pve-sub { font-size: 13px; color: var(--muted); }
+.pve .note { margin: 0; }
 /* ---------------------------------------------------------------- premium layer (Nov 2026)
    Depth, edges and motion on top of the base styles above: an aurora behind the page, cards with a soft gradient
    edge, score rings, a quote card with the last six months, and gentle entrance motion that switches off when the
@@ -1471,6 +1485,8 @@ table.data tr.me td { background: var(--accent-wash); }
         (tech.pxSub = h('div', { class: 'm' })),
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' })),
       (tech.spark = h('div', { class: 'spark', hidden: true }))));
+    const own = ownRow(d);
+    if (own) result.append(own);
     paintSpark();
     riseIn(result);
     // at a glance: the verdict, halal status, chart signal and dates, each a shortcut to its section
@@ -2724,15 +2740,54 @@ table.data tr.me td { background: var(--accent-wash); }
   }
 
   // ------------------------------------------------------------------ your limits and the one risk check
-  // Approved by you on 3 Nov 2026: no new buys in a stock that is already 10% of the portfolio, trim above 15%, no new
-  // buys in a sector that is already 40% of your stocks, 0.5% of the portfolio at risk per swing trade. Every page that
-  // suggests a buy asks buyCheck() first, so no page can suggest what your limits forbid. Editable on the Portfolio page.
-  const LIMIT_DEFAULTS = { buyCap: 0.1, trimAt: 0.15, sectorMax: 0.4, swingRisk: 0.005 };
+  // Approved by you on 3 Nov 2026 and made exact the same day (PREREGISTERED.md, section 6): no buy may take a stock
+  // above 10% of the portfolio, a stock above 15% is trimmed back to 10% at any number of stocks, no new buys in a
+  // sector that is already 40% of your stocks, no order under $100, and 0.5% of the portfolio at risk per swing trade.
+  // Every page that suggests a buy asks buyCheck() first, so no page can suggest what your limits forbid. The 10-year
+  // test runs the same rules from lib/policy.js. The limits can be changed on the Portfolio page.
+  // ---- policy.js (start): a copy of lib/policy.js, checked by test/formulas.test.mjs
+  // Position-size rules, approved by the owner on 3 Nov 2026 and made exact the same day (PREREGISTERED.md, section 6).
+  // This file runs the 10-year test (lib/ltstats.js). index.html carries the same text between the policy.js markers
+  // (without the word "export"), and test/formulas.test.mjs fails if the two copies differ in any way.
+  //
+  // Weights are shares of the whole portfolio: stocks, funds, sukuk and cash, including money about to be invested.
+  // The sector limit is the one exception: a share of the long-term stocks only.
+  //   new buy:  amount <= buyCap x total - value   (no buy may take a stock above 10%; a new stock can take up to 10%)
+  //   trim:     if value / total > trimAt, sell value - trimTo x total   (above 15%, back to 10%, at any number of stocks)
+  //   sector:   no new money once sector value / stock value >= sectorMax   (40%, measured before the buy)
+  //   orders:   a buy or a sale under minOrder dollars is not made
+  const POLICY_VERSION = 2;
+  const POLICY_RULES = { buyCap: 0.1, trimAt: 0.15, trimTo: 0.1, sectorMax: 0.4, minOrder: 100 };
+  const POLICY_EPS = 1e-9; // rounding noise only: 9.99% is below 10%, and 10% plus a rounding error is still 10%
+  // the most that may go into one stock now; value: what you hold of it (0 for a new stock)
+  function buyRoom(value, total, cap = POLICY_RULES.buyCap) {
+    if (!(total > 0)) return 0;
+    const room = cap * total - (value > 0 ? value : 0);
+    return room > POLICY_EPS * total ? room : 0;
+  }
+  // how much of a stock to sell to bring it back within the limit (0 at or below trimAt)
+  function trimSale(value, total, at = POLICY_RULES.trimAt, to = POLICY_RULES.trimTo) {
+    if (!(total > 0) || !(value > 0)) return 0;
+    return value / total > at + POLICY_EPS ? value - to * total : 0;
+  }
+  // may a sector take new money? Measured before the buy: a cap after the buy would block the first stock of every new
+  // portfolio, which is always 100% of its stocks
+  function sectorOpen(sectorValue, stocksValue, max = POLICY_RULES.sectorMax) {
+    return !(stocksValue > 0 && sectorValue / stocksValue >= max - POLICY_EPS);
+  }
+  // is an amount worth an order?
+  function worthAnOrder(amount, min = POLICY_RULES.minOrder) {
+    return amount >= min - POLICY_EPS;
+  }
+  // ---- policy.js (end)
+  const LIMIT_DEFAULTS = { buyCap: POLICY_RULES.buyCap, trimAt: POLICY_RULES.trimAt, sectorMax: POLICY_RULES.sectorMax, swingRisk: 0.005 };
   const LIMIT_RANGE = { buyCap: [0.02, 0.5], trimAt: [0.03, 0.6], sectorMax: [0.1, 1], swingRisk: [0.001, 0.02] };
+  // a trim goes back to the buy limit, so the trim line must sit above it; a saved pair that breaks this is ignored
   function limits() {
     const saved = ADV.load().limits || {};
     const out = { ...LIMIT_DEFAULTS };
     for (const [k, [lo, hi]] of Object.entries(LIMIT_RANGE)) if (isNum(saved[k]) && saved[k] >= lo && saved[k] <= hi) out[k] = saved[k];
+    if (!(out.trimAt > out.buyCap)) { out.buyCap = LIMIT_DEFAULTS.buyCap; out.trimAt = LIMIT_DEFAULTS.trimAt; }
     return out;
   }
   // the nightly update is two or more trading days late: every action is paused, the numbers stay readable
@@ -2762,8 +2817,10 @@ table.data tr.me td { background: var(--accent-wash); }
     const swVal = sw.reduce((s, x) => s + valOf(x), 0);
     return { byT, bySector, usVal, total: usVal + swVal + otherVal, n: lt.length };
   }
-  // may a new buy of ticker t be suggested? why = what blocks it, in plain words (empty = allowed)
-  function buyCheck(t, scr, snap) {
+  // may a new buy of ticker t be suggested? why = what blocks it, in plain words (empty = allowed); room = the most that
+  // may go into it in dollars (null when no holdings are recorded, so the size limit cannot be worked out). add = money
+  // about to be invested (the monthly plan's), which is part of the portfolio when the buy is made
+  function buyCheck(t, scr, snap, add = 0) {
     const r = scr && scr.by.get(t);
     const L = limits();
     const why = [];
@@ -2771,16 +2828,23 @@ table.data tr.me td { background: var(--accent-wash); }
     if (st) why.push(`the nightly update is ${st.missed} trading days late, so advice is paused`);
     if (!r || r.shariah !== 'pass') why.push(r && r.shariah === 'fail' ? 'it fails the halal screen' : 'its halal status is unresolved: confirm it passes on Zoya first');
     const s = snap || holdingsSnapshot(scr);
-    if (s.total > 0) {
-      const wT = (s.byT.get(t) || 0) / s.total;
-      if (wT >= L.buyCap) why.push(`it is already ${pct(wT, 0)} of your portfolio; your limit stops new buys at ${pct(L.buyCap, 0)}`);
+    const total = s.total + (add > 0 ? add : 0);
+    let room = null;
+    if (total > 0) {
+      const v = s.byT.get(t) || 0;
+      room = buyRoom(v, total, L.buyCap);
+      if (!(room > 0)) why.push(`it is already ${pct(v / total, 0)} of your portfolio, and no buy may take a stock above ${pct(L.buyCap, 0)}`);
+      else if (!worthAnOrder(room)) why.push(v > 0 ? `it is already ${pct(v / total, 1)} of your portfolio: your ${pct(L.buyCap, 0)} limit leaves room for ${money0(room)}, under the ${money0(POLICY_RULES.minOrder)} an order needs` : `with ${money0(total)} in all, your ${pct(L.buyCap, 0)} limit allows ${money0(room)} in one stock, under the ${money0(POLICY_RULES.minOrder)} an order needs`);
       const sec = r && r.sector;
-      if (sec && s.usVal > 0 && s.n >= 1) {
-        const wS = (s.bySector.get(sec) || 0) / s.usVal;
-        if (wS >= L.sectorMax) why.push(`${sec} is already ${pct(wS, 0)} of your stocks; your limit stops new buys in a sector at ${pct(L.sectorMax, 0)}`);
-      }
+      if (sec && s.usVal > 0 && s.n >= 1 && !sectorOpen(s.bySector.get(sec) || 0, s.usVal, L.sectorMax)) why.push(`${sec} is already ${pct((s.bySector.get(sec) || 0) / s.usVal, 0)} of your stocks; your limit stops new buys in a sector at ${pct(L.sectorMax, 0)}`);
     }
-    return { ok: !why.length, why };
+    return { ok: !why.length, why, room };
+  }
+  // how much of a holding the size rule sells (0: none, or under the $100 an order needs)
+  function sizeTrim(value, total) {
+    const L = limits();
+    const sale = trimSale(value, total, L.trimAt, L.buyCap);
+    return sale > 0 && worthAnOrder(sale) ? sale : 0;
   }
   // what the tool said about a stock when you logged a trade (kept with the trade, on your device): the verdict, the
   // halal status, whether it was in the long-term buy zone, and any swing signal that day
@@ -2800,7 +2864,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (sh !== 'pass') return { tone: 'warn', title: 'Check halal status first', text: `${firstSentence(a.text)} But its halal status is unresolved (close to a limit, or unclear): don’t buy until Zoya confirms it passes.` };
     if (!scr) return a;
     const c = buyCheck(d.ticker, scr);
-    if (c.ok) return a;
+    if (c.ok) return isNum(c.room) ? { ...a, text: `${a.text} Your ${pct(limits().buyCap, 0)} limit for one stock allows up to ${money0(c.room)} more in it now.` } : a;
     return { tone: 'warn', title: staleOf(scr) ? 'Advice paused' : 'Blocked by your limits', text: `${firstSentence(a.text)} But not for you now: ${c.why.join('; ')}.` };
   }
 
@@ -3050,6 +3114,28 @@ table.data tr.me td { background: var(--accent-wash); }
     }
     return out;
   }
+  // Your split is your decision; the 10-year test's split is evidence. Both are shown, and the gap is explained, so a
+  // personal risk choice is never presented as a test result (and the test never quietly overrides your choice).
+  function policyVsEvidence(pf, T) {
+    const ev = ltDecision();
+    const box = h('div', { class: 'pve', role: 'group', 'aria-label': 'Your split and the evidence' });
+    const row = (k, v, sub) => h('div', { class: 'pve-row' }, h('span', { class: 'pve-k', text: k }), h('b', { text: v }), sub ? h('span', { class: 'pve-sub', text: sub }) : null);
+    const mine = `${pct(T.stocks, 0)} stocks · ${pct(1 - T.stocks, 0)} funds and cash`;
+    if (pf.focus === 'test') {
+      box.append(row('Your split', mine, ev.missing ? 'You let the 10-year test decide, but its results are not available right now: the cautious split is used.' : 'You let the 10-year test decide, so your split is the evidence.'));
+      return box;
+    }
+    box.append(row('Your split (your choice)', mine, 'A personal risk decision. It is not a result of the 10-year test.'));
+    if (ev.missing) { box.append(row('What the 10-year test supports', 'not available right now', null)); return box; }
+    const W = LT_SUMMARY && LT_SUMMARY.plan && LT_SUMMARY.plan.long && LT_SUMMARY.plan.long.windows;
+    const word = ev.verdict === 'stocks' ? 'the picks passed every mark set in advance' : ev.verdict === 'mixed' ? 'mixed evidence' : 'the picks did not clearly beat random picks';
+    box.append(row('What the 10-year test supports', `${pct(ev.stocks, 0)} stocks · ${pct(ev.fund, 0)} index fund`, `${word[0].toUpperCase()}${word.slice(1)}.${windowsLine(W)}`));
+    const gap = T.stocks - ev.stocks;
+    if (Math.abs(gap) < 0.05) box.append(h('p', { class: 'note', text: 'Your split and the evidence agree.' }));
+    else if (gap > 0) box.append(h('p', { class: 'note', text: `They differ: your split puts ${pct(gap, 0)} more of everything in stocks than the test supports. That is yours to decide, but it is more risk than the evidence can justify today: ${ev.verdict === 'mixed' ? '70% would need the picks to beat random picks in at least three quarters of the five-year periods, the S&P 500 in at least half, and a lead over the average halal stock that is unlikely to be luck (a t of 2) in both halves of the decade' : 'the picks would first need to beat random picks in at least half of the five-year periods'} (PREREGISTERED.md). The permanent record on the Record page will show, with real dated calls, whether the picks earn the extra.` }));
+    else box.append(h('p', { class: 'note', text: `They differ: your split holds ${pct(-gap, 0)} less in stocks than the test would allow. That is the cautious side, and costs nothing if the picks lag.` }));
+    return box;
+  }
   function targetMix(pf, swingOk = false) {
     const why = [];
     let safe = pf.horizon === 'short' ? 0.4 : pf.horizon === 'mid' ? 0.1 : 0;
@@ -3072,8 +3158,8 @@ table.data tr.me td { background: var(--accent-wash); }
     else if (pf.horizon === 'mid') why.push('With 3 to 10 years, a small safe part (sukuk or cash) softens bad years.');
     else why.push('With 10 years or more, almost everything can be in shares: there is time to recover from bad years.');
     if (pf.focus === 'only') why.push('Stocks only, as you chose. Be clear about the trade-off: with no fund underneath, all the risk of picking is yours. Over 10 years most stock pickers trail a world index fund, and nothing here offsets a bad pick. It also matters for tax: US shares count toward US estate tax above $60,000 for non-US residents; an Irish-domiciled fund such as ISDW does not.');
-    else if (pf.focus === 'stocks') why.push('You want most of it in stocks. The plan keeps at least 20% in the index fund anyway: it is your safety net if your picks underperform, and most stock pickers do over time.');
-    else if (pf.focus === 'half') why.push('About half in stocks, half in the index fund: your picks can make a real difference, while the fund keeps you diversified.');
+    else if (pf.focus === 'stocks') why.push('Mostly stocks, as you chose: a personal risk decision, not a result of the 10-year test (what the test supports is shown above). The plan keeps at least 20% in the index fund anyway: it is your safety net if your picks underperform, and most stock pickers do over time.');
+    else if (pf.focus === 'half') why.push('About half in stocks, half in the index fund, as you chose: your picks can make a real difference, while the fund keeps you diversified.');
     if (pf.focus === 'only') {
       if (pf.drop === 'sell') { safe = Math.max(safe, 0.2); swing = Math.min(swing, 0.05); why.push('You said you would sell after a big fall, so 20% stays in a safe part (cash) to make holding on easier.'); }
       if (pf.horizon === 'short') swing = Math.min(swing, 0.05);
@@ -3213,15 +3299,7 @@ table.data tr.me td { background: var(--accent-wash); }
     };
     // older saved answers lack the newer questions: ask again
     if (!a.profile || PROFILE_Q.some(([k]) => !a.profile[k])) { showForm(); parts.push(profCard); el.replaceChildren(...parts); return; }
-    // the 10-year test can set the stock share; offer it once to anyone who chose a fixed split
-    if (a.profile.focus !== 'test' && LT_SUMMARY && LT_SUMMARY.decision) {
-      const d = ltDecision();
-      parts.push(h('div', { class: 'callout' }, h('b', { text: 'The 10-year test of the stock picks is in. ' }),
-        d.verdict === 'fund' ? 'The picks did not clearly beat random picks or the average halal stock, so it suggests most money in the index fund and 20% in stocks. '
-          : d.verdict === 'mixed' ? 'The evidence was mixed, so it suggests half in the index fund and half in stocks. '
-            : 'The picks beat random picks and the S&P 500, so it suggests 70% in stocks and 30% in the index fund. ',
-        h('button', { class: 'btn btn-sm', type: 'button', style: 'margin-top:8px', onclick: () => { const k = ADV.load(); k.profile = { ...k.profile, focus: 'test' }; ADV.save(k); rerender(); } }, 'Let the test decide my split')));
-    }
+    // (the 10-year test's split is shown next to your own in the target mix card below, never in place of it)
     const pf = a.profile;
     const answer = (key) => { const q = PROFILE_Q.find((x) => x[0] === key); const o = q[2].find((x) => x[0] === pf[key]); return o ? o[1] : ''; };
     profCard.append(h('p', { class: 'sub', text: `${answer('horizon')} · after a 30% fall: ${answer('drop').toLowerCase()} · ${answer('time').toLowerCase()} a week · stocks: ${answer('focus').toLowerCase()} · holding: ${answer('hold').toLowerCase()} · ${pf.swing === 'yes' ? 'some swing trading' : 'no swing trading'} · ${answer('broker')} · AED ${(pf.monthlyAed || 0).toLocaleString('en-US')} a month` }),
@@ -3239,6 +3317,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const splitTxt = HP_ORDER.filter((k) => T.split[k]).map((k) => `${HP[k].label.toLowerCase()} ${pct(T.split[k], 0)}`).join(', ');
     const mixCard = h('section', { class: 'card', 'aria-label': 'Your target mix' }, h('h2', { text: 'Your target mix' }), mixBar(mixParts),
       h('ul', { class: 'mixkey' }, mixParts.filter((p) => p.w > 0).map((p) => h('li', null, h('i', { class: 'sw mx-' + p.key, 'aria-hidden': 'true' }), h('span', { text: p.key === 'stocks' ? `${p.label} (${splitTxt})` : p.label }), h('b', { text: pct(p.w, 0) })))),
+      policyVsEvidence(pf, T),
       h('ul', { class: 'clean' }, T.why.map((t) => h('li', null, h('span', { text: t })))),
       h('p', { class: 'note', text: T.core > 0 ? `Index fund: ${EQ.t} (${EQ.name}) spreads your money over hundreds of Shariah-screened companies, with no stock picking. See “Best halal funds for you” below. Stocks: ${nRange} companies is manageable for the time you have.` : `Stocks: aim for ${nRange} companies across at least 6 sectors.` }));
     parts.push(mixCard);
@@ -3246,7 +3325,7 @@ table.data tr.me td { background: var(--accent-wash); }
     // 2b. your limits: the one risk check (buyCheck) uses them on every page
     {
       const LM = limits();
-      const LIM_TXT = { buyCap: 'No new buys in a stock already this share of the portfolio', trimAt: 'Trim a stock above this share, once you hold enough stocks', sectorMax: 'No new buys in a sector already this share of your stocks', swingRisk: 'Most you can lose on one swing trade, at its stop' };
+      const LIM_TXT = { buyCap: 'No buy may take a stock above this share of the portfolio', trimAt: 'Above this share, trim a stock back to the limit above', sectorMax: 'No new buys in a sector already this share of your stocks', swingRisk: 'Most you can lose on one swing trade, at its stop' };;
       const limIn = {};
       const limMsg = h('p', { class: 'note', 'aria-live': 'polite' });
       const limForm = h('form', { class: 'editbox', autocomplete: 'off' },
@@ -3269,6 +3348,7 @@ table.data tr.me td { background: var(--accent-wash); }
           if (Number.isFinite(v) && v >= lo && v <= hi) nl[k] = v;
           else bad.push(`${LIM_TXT[k].toLowerCase()}: use ${+(lo * 100).toFixed(1)} to ${+(hi * 100).toFixed(1)}`);
         }
+        if (!bad.length && !(nl.trimAt > nl.buyCap)) bad.push('the trim line must be above the buy limit, since a trim goes back to the buy limit');
         if (bad.length) { limMsg.textContent = `Not saved. ${bad.join('; ')}.`; return; }
         const a2 = ADV.load();
         a2.limits = nl;
@@ -3278,6 +3358,7 @@ table.data tr.me td { background: var(--accent-wash); }
       const changed = Object.keys(LIMIT_DEFAULTS).some((k) => LM[k] !== LIMIT_DEFAULTS[k]);
       parts.push(h('section', { class: 'card', 'aria-label': 'Your limits' }, h('h2', { text: 'Your limits' }),
         h('p', { class: 'sub', text: `Every buy the site suggests, on every page, must pass these, and a stock whose halal status is not a clear pass is never suggested. ${changed ? 'You changed them from the limits approved on 3 November 2026.' : 'These are the limits you approved on 3 November 2026.'}` }),
+        h('p', { class: 'note', text: `Exactly: weights are shares of everything you own (stocks, funds, sukuk and cash), sectors are shares of your long-term stocks. A buy is capped at what keeps the stock at or under ${pct(LM.buyCap, 0)} after it, counting the money you are investing: a stock at ${pct(LM.buyCap - 0.001, 1)} has room for only 0.1% of the portfolio, and at ${pct(LM.buyCap, 0)} none. A stock above ${pct(LM.trimAt, 0)} (not at it) is trimmed back to ${pct(LM.buyCap, 0)}, whether you hold 3 stocks or 30; between ${pct(LM.buyCap, 0)} and ${pct(LM.trimAt, 0)} it is held but gets no new money. Buys and sales under ${money0(POLICY_RULES.minOrder)} are not worth an order and are skipped.` }),
         limForm));
     }
 
@@ -3343,18 +3424,43 @@ table.data tr.me td { background: var(--accent-wash); }
             h('td', { text: pct(T[k], 0) }));
         }))));
     } else nowCard.append(h('p', { class: 'sub', text: 'Starting from zero? That is fine: the monthly plan below builds the whole portfolio step by step.' }));
+    // your US stocks: recorded here by hand, from a company's page ("I own it") or on the Watchlist; all three write the
+    // same Watchlist entry, so nothing is counted twice
+    const ownBox = h('div', { class: 'own-box' });
+    const fromWatch = new Set(W.load().items.filter((it) => it.shares > 0 && !it.swing).map((it) => it.t));
+    const openHolding = (t, r) => { ownBox.replaceChildren(holdingForm(t, r, (saved) => { if (saved) rerender(); else ownBox.replaceChildren(); })); const i = ownBox.querySelector('input'); if (i) i.focus(); };
     if (lt.length) {
       nowCard.append(h('h3', { text: 'Your US stocks and how long you plan to hold each' }));
       nowCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-        h('tr', null, ['Stock', 'Value', 'Hold'].map((x) => h('th', { text: x }))),
+        h('tr', null, ['Stock', 'Value', 'Hold', ''].map((x) => h('th', { text: x }))),
         lt.map((x) => {
           const s = h('select', { 'aria-label': `Holding period for ${x.t}` });
           HP_ORDER.forEach((k) => s.append(h('option', { value: k, selected: x.hp === k ? true : null }, HP[k].label)));
           s.addEventListener('change', () => { const k = ADV.load(); k.hp[x.t] = s.value; ADV.save(k); rerender(); });
-          return h('tr', null, h('td', null, h('b', { text: x.t }), h('span', { class: 'sm', text: total > 0 ? `${pct(wOf(val(x)), 1)} of everything` : '' })), h('td', { text: money0(val(x)) }), h('td', null, s));
+          // a holding from the Journal is edited there; one recorded by hand is edited here
+          const acts = fromWatch.has(x.t) ? h('td', null, h('button', { class: 'linkbtn', type: 'button', onclick: () => openHolding(x.t, scr.by.get(x.t) || null) }, 'Edit'), ' ',
+            h('button', { class: 'linkbtn', type: 'button', onclick: () => { W.update(x.t, { shares: null, cost: null, bought: null }); rerender(); } }, 'Sold')) : h('td', null, h('span', { class: 'sm', text: 'from your Journal' }));
+          return h('tr', null, h('td', null, h('b', { text: x.t }), h('span', { class: 'sm', text: total > 0 ? `${pct(wOf(val(x)), 1)} of everything` : '' })), h('td', { text: money0(val(x)) }), h('td', null, s), acts);
         }))));
     }
-    nowCard.append(h('p', { class: 'note', text: 'US stocks come from your Watchlist (“I own it”) and your Journal (open long-term buys of the same stock added together, at their average cost with fees; swing trades listed separately), at the latest prices. A stock on both uses the Watchlist figures.' }));
+    {
+      const tIn = h('input', { type: 'text', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', placeholder: 'e.g. MSFT', 'aria-label': 'Ticker of a US stock you own' });
+      const tMsg = h('p', { class: 'note', 'aria-live': 'polite' });
+      const tForm = h('form', { class: 'filters own-add', autocomplete: 'off' }, tIn, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Add a stock you own'));
+      tForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const t = tickerFromInput(tIn.value);
+        tMsg.textContent = '';
+        if (!t) return;
+        if (fundBySym(t.replace(/-(L|AS)$/, ''))) { tMsg.textContent = `${t} is a fund: add it below under “Funds, sukuk, cash and stocks outside the US”, so it counts as your fund part.`; return; }
+        if (!MANUAL_T.test(t)) { tMsg.textContent = `“${t}” does not look like a ticker. Use letters and numbers, for example MSFT.`; return; }
+        const r = scr.by.get(t) || null;
+        if (!r) tMsg.textContent = `${t} is not on the site’s list (US companies worth $2 billion or more that file with the SEC): it is recorded with the price you type, and no rule but the size limit can judge it.`;
+        openHolding(t, r);
+      });
+      nowCard.append(tForm, tMsg, ownBox);
+    }
+    nowCard.append(h('p', { class: 'note', text: 'Record the US stocks you own above, with “I own it” on a company’s page, or on the Watchlist: all three keep the same record on this device, nothing is read from your broker. Open long-term buys in your Journal count too (added together, at their average cost with fees; swing trades listed separately), at the latest prices. A stock recorded both ways uses the figures you typed.' }));
     // funds, sukuk, cash and stocks outside the US
     nowCard.append(h('h3', { text: 'Funds, sukuk, cash and stocks outside the US' }));
     const KIND_LABEL = { fund: 'Fund (ETF)', sukuk: 'Sukuk fund', cash: 'Cash', stock: 'Stock outside the US' };
@@ -3426,7 +3532,8 @@ table.data tr.me td { background: var(--accent-wash); }
     for (const x of lt) { const r = scr.by.get(x.t); const k = (r && r.sector) || 'Other'; snap.bySector.set(k, (snap.bySector.get(k) || 0) + val(x)); }
     const advRows = [];
     const sinceTxt = (x) => { const p = priceOf(x.t); return isNum(x.cost) && x.cost > 0 && isNum(p) ? `${pctS(p / x.cost - 1, 1)} since you bought` : ''; };
-    const sizeWhy = (wgt) => `${pct(wgt, 0)} of everything you own: above your ${pct(L.trimAt, 0)} limit for one company. Sell enough to bring it back to about ${pct(L.buyCap, 0)}, so one bad report cannot hurt the whole portfolio.`;
+    // the size rule (lib/policy.js): above trimAt of everything you own, sell back to the buy limit, at any number of stocks
+    const sizeWhy = (x, sale) => { const p = priceOf(x.t) ?? x.px; return `${pct(wOf(val(x)), 1)} of everything you own: above your ${pct(L.trimAt, 0)} limit for one company. Sell about ${money0(sale)}${isNum(p) && p > 0 ? ` (${fmtShares(sale / p)} shares)` : ''} to bring it back to ${pct(L.buyCap, 0)}, so one bad report cannot hurt the whole portfolio.`; };
     for (const x of lt) {
       const r = scr.by.get(x.t);
       const wgt = wOf(val(x));
@@ -3437,7 +3544,8 @@ table.data tr.me td { background: var(--accent-wash); }
       if (!r && x.own) {
         act = 'Your call'; tone = 'neutral';
         // only the size rule needs no analysis of the company, so it is the one rule that still applies
-        if (wgt > L.trimAt && lt.length >= T.minStocks) { act = 'Trim'; tone = 'warn'; why.push(sizeWhy(wgt)); }
+        const sale = sizeTrim(val(x), total);
+        if (sale) { act = 'Trim'; tone = 'warn'; why.push(sizeWhy(x, sale)); }
         why.push(`Your own ticker: not analysed here, so ${act === 'Trim' ? 'only the size rule' : 'none of the tool’s rules'} can be applied to it. Check its results and halal status yourself (Zoya); the weekly review checks its news.`);
         why.push(isNum(x.px) ? `Counted at the price you entered (${price(x.px)}${x.pxDate ? ` on ${niceDates(x.pxDate)}` : ''}): update it on the Watchlist now and then.` : 'Enter its price on the Watchlist (“Edit position”) so it counts at today’s value.');
       } else if (!r) { act = 'Review'; tone = 'warn'; why.push('Not in today’s data. Check it yourself.'); }
@@ -3446,12 +3554,11 @@ table.data tr.me td { background: var(--accent-wash); }
       else if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) { act = 'Sell'; tone = 'bad'; why.push(`The business itself got worse: now rated “${VERDICT_SHORT[r.verdict]}” (${r.verdict === 'SPECULATIVE' ? 'it is losing money' : 'its returns or its balance sheet fell below the line'}). Your rule: sell when the business weakens, not when the price falls.`); }
       else if (x.hp === 'mid' && isNum(r.fair) && r.price >= r.fair) { act = 'Take profit'; tone = 'good'; why.push(`Reached its fair value (${price0(r.fair)}): your medium-term rule says sell, unless you move it to long term because the business is excellent.`); }
       else if (isNum(r.trimAbove) && r.price >= r.trimAbove) { act = 'Trim'; tone = 'warn'; why.push(`Above its trim price (${price(r.trimAbove)}): sell part and stop adding.`); }
-      // (while the portfolio is still being built, every stock is a big share of it: the monthly plan spreads new money instead)
-      else if (wgt > L.trimAt && lt.length >= T.minStocks) { act = 'Trim'; tone = 'warn'; why.push(sizeWhy(wgt)); }
+      else if (sizeTrim(val(x), total)) { act = 'Trim'; tone = 'warn'; why.push(sizeWhy(x, sizeTrim(val(x), total))); }
       else if (r.shariah !== 'pass') { act = 'Check halal'; tone = 'warn'; why.push('Its halal status is unresolved (close to a limit, or unclear). Check it on Zoya now and add nothing until it passes; if it fails, your 90-day exit rule starts.'); }
       else if (['UNRELIABLE', 'NODATA'].includes(r.verdict)) { act = 'Review'; tone = 'warn'; why.push('The data for this company is not reliable enough to judge the business right now. Check its latest report yourself before adding.'); }
       else if (r.verdict === 'FINANCIAL') { act = 'Review'; tone = 'warn'; why.push('Banks, insurers and brokers are not rated by this tool. Check it yourself.'); }
-      else if (['BUY_STRONG', 'BUY'].includes(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow && wgt < L.buyCap * 0.8 && bc.ok && !(x.hp === 'short' && r.trend !== 'up')) { act = 'Add'; tone = 'good'; why.push(`Below its buy price (${price(r.buyBelow)}) and rated “${VERDICT_SHORT[r.verdict]}”: a good place for new stock money.`); }
+      else if (['BUY_STRONG', 'BUY'].includes(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow && wgt < L.buyCap * 0.8 && bc.ok && !(x.hp === 'short' && r.trend !== 'up')) { act = 'Add'; tone = 'good'; why.push(`Below its buy price (${price(r.buyBelow)}) and rated “${VERDICT_SHORT[r.verdict]}”: a good place for new stock money${isNum(bc.room) ? `, up to ${money0(bc.room)} (your ${pct(L.buyCap, 0)} limit)` : ''}.`); }
       else {
         why.push('Passes the halal screen and its holding rule.');
         if (isNum(x.cost) && x.cost > 0 && r.price <= x.cost * 0.9) why.push(`It is ${pctS(r.price / x.cost - 1, 0)} from what you paid, but the business is still healthy: your rule says hold and wait. You will be told if the business weakens.`);
@@ -3499,10 +3606,10 @@ table.data tr.me td { background: var(--accent-wash); }
     const bySector = new Map();
     for (const x of lt) { const r = scr.by.get(x.t); const k = (r && r.sector) || 'Other'; bySector.set(k, (bySector.get(k) || 0) + val(x)); }
     for (const [k, v] of bySector) if (usVal > 0 && lt.length >= 3 && v / usVal > 0.4) checks.push(['warn', `${pct(v / usVal, 0)} of your US stocks are in ${k}. Spread new buys to other sectors.`]);
-    // the size rule is off while the portfolio is being built (see the advice above), so say that instead of "no problems found"
+    // few stocks: say so (the size rule applies at any number of stocks, but a short list is still a concentrated one)
     if (lt.length && lt.length < T.minStocks) {
       const big = lt.reduce((m, x) => (val(x) > val(m) ? x : m), lt[0]);
-      checks.push(['warn', `Only ${lt.length} US ${lt.length === 1 ? 'stock' : 'stocks'}, so it is still concentrated (largest: ${big.t}, ${pct(wOf(val(big)), 0)} of everything you own). That is normal while you build up to at least ${T.minStocks}: the monthly plan starts new companies before topping up old ones, so this evens out as you buy.`]);
+      checks.push(['warn', `Only ${lt.length} US ${lt.length === 1 ? 'stock' : 'stocks'}, so the stock part is still concentrated (largest: ${big.t}, ${pct(wOf(val(big)), 0)} of everything you own). The monthly plan starts new companies before topping up old ones, no buy takes a stock above ${pct(L.buyCap, 0)}, and a stock above ${pct(L.trimAt, 0)} is trimmed back to ${pct(L.buyCap, 0)}, so this evens out as you build up to at least ${T.minStocks}.`]);
     }
     const nStocks = lt.length + other.filter((o) => o.kind === 'stock').length;
     if (nStocks > T.maxStocks) checks.push(['warn', `You hold ${nStocks} stocks, more than the ${T.maxStocks} you have time to follow. Let the weakest go rather than adding more.`]);
@@ -3520,7 +3627,7 @@ table.data tr.me td { background: var(--accent-wash); }
       advCard.append(h('div', { class: 'list' }, advRows.map((x) => h(x.open ? 'button' : 'div', x.open ? { class: 'srow', type: 'button', onclick: () => openStock(x.open, 'fund') } : { class: 'srow' },
         h('span', { class: 'top' }, h('span', { class: 'tk', text: x.name }), h('span', { class: 'nm', text: x.sub }), h('span', { class: 'pr' }, tagEl(x.act, x.tone))),
         h('span', { class: 'det', text: x.why })))));
-    } else advCard.append(h('p', { class: 'sub', text: 'Nothing recorded yet. Mark the US stocks you own with “I own it” on the Watchlist, and add funds, sukuk and cash above.' }));
+    } else advCard.append(h('p', { class: 'sub', text: 'Nothing recorded yet. Add the US stocks you own under “Your portfolio now” (or with “I own it” on a company’s page), and your funds, sukuk and cash there too.' }));
     if (checks.length) advCard.append(h('h3', { text: 'The portfolio as a whole' }), h('ul', { class: 'alert-list' }, checks.map(([tone, t]) => h('li', null, icon(tone === 'bad' ? 'bad' : 'ok'), h('span', { text: t })))));
     else if (advRows.length) advCard.append(h('p', { class: 'note', text: 'The portfolio as a whole: no concentration, tax or balance problems found.' }));
     advCard.append(h('p', { class: 'note', text: 'Based on the latest prices and today’s analysis of each company. A rule-based check, not a forecast.' }));
@@ -3554,20 +3661,11 @@ table.data tr.me td { background: var(--accent-wash); }
       const alloc = {};
       for (const k of ['core', 'stocks', 'safe']) alloc[k] = sumDef > 0 ? (monthlyUsd * deficit[k]) / sumDef : monthlyUsd * (T[k] / (T.core + T.stocks + T.safe || 1));
       let movedSmall = false;
-      if (!focusOnly && alloc.stocks > 0 && alloc.stocks < 100) { alloc.core += alloc.stocks; alloc.stocks = 0; movedSmall = true; }
-      if (alloc.core > 1) {
-        const L = fundLive(EQ);
-        const px = L && L.usd;
-        planLines.push([`${EQ.t} (halal world fund)`, alloc.core, `${isNum(px) ? `${px > alloc.core ? `One unit is ${price(px)}, more than this amount: save up for it.` : `About ${Math.floor(alloc.core / px)} units at ${price(px)}.`} ` : ''}${costTxt(marketOfFund(EQ), alloc.core, px)}`]);
-      }
-      if (alloc.safe > 1) {
-        if (focusOnly) planLines.push(['Cash (safe part)', alloc.safe, 'A halal savings account that pays profit instead of interest.']);
-        else {
-          const L = fundLive(SK);
-          const px = L && L.usd;
-          planLines.push([`${SK.t} (sukuk fund) or cash`, alloc.safe, `${isNum(px) ? `About ${Math.floor(alloc.safe / px) || 'less than 1'} units at ${price(px)}. ` : ''}${costTxt(marketOfFund(SK), alloc.safe, px)} Or keep it in a halal savings account.`]);
-        }
-      }
+      if (!focusOnly && alloc.stocks > 0 && alloc.stocks < POLICY_RULES.minOrder) { alloc.core += alloc.stocks; alloc.stocks = 0; movedSmall = true; }
+      // stocks first, so what your limits leave over can go to the fund: each buy is capped so it takes no stock past
+      // your limit, counting this month's money as part of the portfolio (lib/policy.js; the 10-year test does the same)
+      const stockLines = [];
+      let leftOver = 0;
       if (alloc.stocks > 1) {
         // which holding period is furthest behind, then start a new stock there or top up the smallest one
         const stockTarget = T.stocks * after;
@@ -3579,21 +3677,51 @@ table.data tr.me td { background: var(--accent-wash); }
         const inHp = lt.filter((x) => x.hp === hpPick);
         const each = (T.split[hpPick] * stockTarget) / Math.max(nInHp, inHp.length || 1);
         // the 10-year test follows the same rule (lib/ltstats.js simulatePlan), including the halal "pass" and your limits
-        const ok = (x) => { const r = scr.by.get(x.t); return r && r.shariah === 'pass' && !['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict) && !(isNum(r.trimAbove) && r.price >= r.trimAbove) && !(hpPick === 'short' && ['down', 'weakening'].includes(r.trend)) && buyCheck(x.t, scr, snap).ok; };
+        const check = (t) => buyCheck(t, scr, snap, monthlyUsd);
+        const ok = (x) => { const r = scr.by.get(x.t); return r && r.shariah === 'pass' && !['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict) && !(isNum(r.trimAbove) && r.price >= r.trimAbove) && !(hpPick === 'short' && ['down', 'weakening'].includes(r.trend)) && check(x.t).ok; };
         const okHeld = inHp.filter(ok).sort((p, q) => val(p) - val(q));
         const under = okHeld.filter((x) => val(x) < each * 0.8);
-        const pool = (ideas[hpPick] || []).filter((r) => buyCheck(r.ticker, scr, snap).ok);
+        const pool = (ideas[hpPick] || []).filter((r) => check(r.ticker).ok);
         const blockedIdeas = (ideas[hpPick] || []).length - pool.length;
-        let target = null;
-        if (inHp.length < nInHp && pool.length) target = { t: pool[0].ticker, why: `New ${HP[hpPick].label.toLowerCase()} position: ${pool[0].name || pool[0].ticker}, the best fit in the list below.` };
-        else if (under.length) target = { t: under[0].t, why: `Top up ${under[0].t} (${HP[hpPick].label.toLowerCase()}): it is the furthest below its equal share.` };
-        else if (okHeld.length) target = { t: okHeld[0].t, why: `You have enough ${HP[hpPick].label.toLowerCase()} stocks and all are near their equal share: add to the smallest, ${okHeld[0].t}.` };
-        else if (pool.length) target = { t: pool[0].ticker, why: `None of your ${HP[hpPick].label.toLowerCase()} stocks can take more money right now; this is the best new idea.` };
-        if (target) {
-          const p = priceOf(target.t);
-          planLines.push([target.t, alloc.stocks, `${target.why}${isNum(p) ? ` About ${fmtShares(alloc.stocks / p)} shares at ${price(p)}.` : ''} ${costTxt('US', alloc.stocks, p)}`]);
-        } else planLines.push(['Stocks', alloc.stocks, `${focusOnly ? 'No stock fits right now: keep it in cash until one does.' : 'No stock fits right now: add it to the index fund instead.'}${blockedIdeas ? ` ${blockedIdeas} idea${blockedIdeas === 1 ? ' was' : 's were'} skipped because your limits block ${blockedIdeas === 1 ? 'it' : 'them'} (sector or size).` : ''}`]);
+        const label = HP[hpPick].label.toLowerCase();
+        // in order of preference: a new stock while there are too few, the holdings furthest below their equal share, the
+        // smallest holding, then a new idea; the first that can take the money gets it, the rest goes to the next
+        const newOnes = pool.map((r) => ({ t: r.ticker, why: `New ${label} position: ${r.name || r.ticker}, the best fit in the list below.` }));
+        const order = [
+          ...(inHp.length < nInHp ? newOnes : []),
+          ...under.map((x) => ({ t: x.t, why: `Top up ${x.t} (${label}): it is the furthest below its equal share.` })),
+          ...okHeld.map((x) => ({ t: x.t, why: `You have enough ${label} stocks and all are near their equal share: add to the smallest, ${x.t}.` })),
+          ...(inHp.length < nInHp ? [] : newOnes.map((o) => ({ ...o, why: `None of your ${label} stocks can take more money right now; this is the best new idea.` }))),
+        ].filter((o, i, a) => a.findIndex((q) => q.t === o.t) === i);
+        let rest = alloc.stocks;
+        for (const o of order) {
+          if (rest < POLICY_RULES.minOrder || stockLines.length >= 3) break;
+          const room = check(o.t).room;
+          const amt = isNum(room) ? Math.min(rest, room) : rest;
+          if (!worthAnOrder(amt)) continue;
+          const p = priceOf(o.t);
+          const capped = amt < rest ? ` Capped at ${money0(amt)}: more would take it past your ${pct(limits().buyCap, 0)} limit for one stock.` : '';
+          stockLines.push([o.t, amt, `${o.why}${capped}${isNum(p) ? ` About ${fmtShares(amt / p)} shares at ${price(p)}.` : ''} ${costTxt('US', amt, p)}`]);
+          rest -= amt;
+        }
+        if (!stockLines.length) stockLines.push(['Stocks', alloc.stocks, `${focusOnly ? 'No stock fits right now: keep it in cash until one does.' : 'No stock fits right now: add it to the index fund instead.'}${blockedIdeas ? ` ${blockedIdeas} idea${blockedIdeas === 1 ? ' was' : 's were'} skipped because your limits block ${blockedIdeas === 1 ? 'it' : 'them'} (sector or size).` : ''}`]);
+        else if (rest > 1) { leftOver = rest; if (!focusOnly) alloc.core += rest; }
       }
+      if (alloc.core > 1) {
+        const L = fundLive(EQ);
+        const px = L && L.usd;
+        planLines.push([`${EQ.t} (halal world fund)`, alloc.core, `${leftOver > 1 && !focusOnly ? `Includes ${money0(leftOver)} your limits leave over from the stock part. ` : ''}${isNum(px) ? `${px > alloc.core ? `One unit is ${price(px)}, more than this amount: save up for it.` : `About ${Math.floor(alloc.core / px)} units at ${price(px)}.`} ` : ''}${costTxt(marketOfFund(EQ), alloc.core, px)}`]);
+      }
+      if (alloc.safe > 1) {
+        if (focusOnly) planLines.push(['Cash (safe part)', alloc.safe, 'A halal savings account that pays profit instead of interest.']);
+        else {
+          const L = fundLive(SK);
+          const px = L && L.usd;
+          planLines.push([`${SK.t} (sukuk fund) or cash`, alloc.safe, `${isNum(px) ? `About ${Math.floor(alloc.safe / px) || 'less than 1'} units at ${price(px)}. ` : ''}${costTxt(marketOfFund(SK), alloc.safe, px)} Or keep it in a halal savings account.`]);
+        }
+      }
+      planLines.push(...stockLines);
+      if (leftOver > 1 && focusOnly) planLines.push(['Cash for now', leftOver, `What your ${pct(limits().buyCap, 0)} limit for one stock leaves over this month. It goes to stocks in a later month.`]);
       planCard.append(h('p', { class: 'sub', text: `AED ${pf.monthlyAed.toLocaleString('en-US')} is about ${money0(monthlyUsd)}. It goes where your portfolio is furthest below its target mix, so you rarely have to sell anything.` }),
         h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
           h('tr', null, ['Buy', 'Amount'].map((x) => h('th', { text: x }))),
@@ -3757,7 +3885,7 @@ table.data tr.me td { background: var(--accent-wash); }
   function holdingsFrom(watchItems, trades) {
     const lt = [];
     const ltSet = new Set();
-    for (const it of watchItems || []) if (it.shares > 0 && !it.swing) { lt.push({ t: it.t, shares: it.shares, cost: it.cost, since: it.added, px: ownPrice(it), pxDate: it.pxDate || null, own: !!it.manual }); ltSet.add(it.t); }
+    for (const it of watchItems || []) if (it.shares > 0 && !it.swing) { lt.push({ t: it.t, shares: it.shares, cost: it.cost, since: it.bought || it.added, px: ownPrice(it), pxDate: it.pxDate || null, own: !!it.manual }); ltSet.add(it.t); }
     const fromJournal = new Map();
     const sw = [];
     for (const tr of trades || []) {
@@ -4259,12 +4387,13 @@ table.data tr.me td { background: var(--accent-wash); }
     const card = h('section', { class: 'card brief', 'aria-label': 'Your daily brief' },
       h('div', { class: 'tech-head' }, h('h2', { text: 'Your daily brief' }), h('span', { class: 'note', style: 'margin:0', text: `close of ${niceDates(scr.priceDate)}` })));
     if (!w.items.length && !lt.length) {
-      card.append(h('p', { class: 'sub', text: 'Add the stocks you own (“I own it” on the Watchlist) and the ones you follow. Each day this brief then tells you what changed and what, if anything, to do.' }),
+      card.append(h('p', { class: 'sub', text: 'Add the stocks you own (“I own it” on a company’s page, or on the Portfolio page) and the ones you follow. Each day this brief then tells you what changed and what, if anything, to do.' }),
         h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('watchlist') }, 'Open the watchlist')));
       return card;
     }
     const todo = []; // [tone, ticker, text]
     const hold = []; // holdings that are down but healthy: [ticker, text]
+    const snap0 = holdingsSnapshot(scr);
     let value = 0;
     let cost = 0;
     let dayMove = 0;
@@ -4281,9 +4410,10 @@ table.data tr.me td { background: var(--accent-wash); }
       value += v;
       if (isNum(x.cost)) cost += x.cost * x.shares;
       if (isNum(r.chg)) dayMove += v - v / (1 + r.chg);
-      if (r.shariah === 'fail') todo.push(['bad', x.t, 'Fails the halal screen now. Check it on Zoya; if it still fails, sell it.']);
+      if (r.shariah === 'fail') todo.push(['bad', x.t, 'Fails the halal screen now. Check it on Zoya; if it still fails, your rule is to sell within 90 days.']);
       else if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) todo.push(['bad', x.t, `The business itself got worse (now “${VERDICT_SHORT[r.verdict]}”). Your rule: sell when the business weakens, not when the price falls.`]);
       else if (isNum(r.trimAbove) && r.price >= r.trimAbove) todo.push(['warn', x.t, `Above its trim price (${price(r.trimAbove)}): consider selling part, and do not add.`]);
+      else if (sizeTrim(snap0.byT.get(x.t) || 0, snap0.total)) todo.push(['warn', x.t, `${pct((snap0.byT.get(x.t) || 0) / snap0.total, 1)} of everything you own, above your ${pct(limits().trimAt, 0)} limit: sell about ${money0(sizeTrim(snap0.byT.get(x.t) || 0, snap0.total))} to bring it back to ${pct(limits().buyCap, 0)} (Portfolio page).`]);
       else if (isNum(x.cost) && x.cost > 0 && r.price <= x.cost * 0.9) hold.push([x.t, `${pctS(r.price / x.cost - 1, 0)} from what you paid, business still healthy (“${VERDICT_SHORT[r.verdict] || 'n/a'}”): hold and wait.`]);
       const ed = earnDays(r, scr);
       if (ed != null && ed <= 5) todo.push(['info', x.t, `Reports results ${ed <= 1 ? 'in the next session' : `in ${ed} trading days`}. Nothing to do; the tool re-checks the business after the report.`]);
@@ -4467,9 +4597,18 @@ table.data tr.me td { background: var(--accent-wash); }
     store.set('sl', st);
     navigate('shortlist');
   }
+  // the Shortlist marks a long-term buy candidate that your size or sector limit blocks (the halal tag shows the rest)
+  let slSnap = null;
+  function limitTag(r, scr) {
+    if (!(GOOD_VERDICTS.has(r.verdict) && r.shariah === 'pass' && isNum(r.buyBelow) && r.price <= r.buyBelow * 1.1)) return null;
+    if (!slSnap || slSnap.scr !== scr) slSnap = { scr, s: holdingsSnapshot(scr) };
+    if (!(slSnap.s.total > 0)) return null;
+    const c = buyCheck(r.ticker, scr, slSnap.s);
+    return c.ok || staleOf(scr) ? null : tagEl('Blocked by your limits', 'warn');
+  }
   function slRow(r, preset, scr) {
     const P = PRESETS[preset] || PRESETS.value;
-    const tags = [verdictTag(r.verdict), shariahTag(r.shariah)];
+    const tags = [verdictTag(r.verdict), shariahTag(r.shariah), limitTag(r, scr)];
     if (P.swing) tags.push(setupTag(r.setup, r.status));
     if (P.swing && r.status === 'active' && TRADED.includes(r.setup) && !swingProven()) tags.push(tagEl('Paper trade only', 'paper'));
     const ed = earnDays(r, scr);
@@ -4647,7 +4786,7 @@ table.data tr.me td { background: var(--accent-wash); }
       return a;
     }
     const held = it.shares > 0;
-    if (r.shariah === 'fail') a.push(['bad', held ? 'Fails the Shariah screen now. Confirm on Zoya or Musaffa, and plan to sell if it still fails.' : 'Fails the Shariah screen now.']);
+    if (r.shariah === 'fail') a.push(['bad', held ? 'Fails the Shariah screen now. Confirm on Zoya or Musaffa; if it still fails, your rule is to sell within 90 days.' : 'Fails the Shariah screen now.']);
     else if (r.shariah === 'review') a.push(['warn', 'Halal status needs checking: close to a limit, or unclear.']);
     if (held && it.swing) {
       if (isNum(it.stop) && r.price <= it.stop) a.push(['bad', `At or below your stop (${price(it.stop)}): the plan says sell.`]);
@@ -4656,6 +4795,9 @@ table.data tr.me td { background: var(--accent-wash); }
     if (held && !it.swing) {
       if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) a.push(['bad', `The business got worse (now “${VERDICT_SHORT[r.verdict]}”): your rule says sell.`]);
       if (isNum(r.trimAbove) && r.price >= r.trimAbove) a.push(['warn', `Above the trim level (${price(r.trimAbove)}): consider selling part.`]);
+      const s = holdingsSnapshot(scr);
+      const sale = sizeTrim(s.byT.get(it.t) || 0, s.total);
+      if (sale) a.push(['warn', `${pct((s.byT.get(it.t) || 0) / s.total, 1)} of everything you own, above your ${pct(limits().trimAt, 0)} limit: sell about ${money0(sale)} to bring it back to ${pct(limits().buyCap, 0)}.`]);
     }
     // buy alerts only for a clear halal pass, and only if the risk check allows a buy (a "review" already warns above)
     if (!held && r.shariah === 'pass') {
@@ -4821,6 +4963,78 @@ table.data tr.me td { background: var(--accent-wash); }
       h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { W.remove(it.t); renderWatchlist(); } }, 'Remove')), form);
     return box;
   }
+  // Record a stock you own by hand: shares, average cost and (if you like) the date you bought it. The Watchlist entry is
+  // the one record every page reads (Portfolio, brief, risk check), so a holding added here shows up everywhere. A swing
+  // trade's stop and target are kept as they are (edit those on the Watchlist). r: the site's row (null: not on the
+  // site, so its price must be typed). done(saved) runs after Save or Cancel.
+  function holdingForm(t, r, done) {
+    const it = W.get(t) || { t };
+    const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n > 0 ? n : null; };
+    const field = (label, val, ph, mode = 'decimal') => {
+      const i = h('input', { type: 'text', inputmode: mode, autocomplete: 'off', placeholder: ph || '' });
+      if (val !== null && val !== undefined && val !== '') i.value = String(val);
+      return [h('label', { class: 'field' }, h('span', { text: label }), i), i];
+    };
+    const [fSh, iSh] = field('Shares', it.shares, 'e.g. 12.5');
+    const [fCo, iCo] = field('Average cost per share ($)', it.cost, r && isNum(r.price) ? String(r.price) : '');
+    const [fBo, iBo] = field('Date bought (optional)', it.bought || '', 'YYYY-MM-DD', 'numeric');
+    const [fPx, iPx] = field('Its price now ($)', it.px, '');
+    const msg = h('p', { class: 'note', 'aria-live': 'polite' });
+    const form = h('form', { class: 'editbox own-form', autocomplete: 'off', 'aria-label': `Your holding in ${t}` },
+      h('div', { class: 'form-grid' }, fSh, fCo, fBo, r ? null : fPx),
+      r ? null : h('p', { class: 'note', text: 'The site has no price for this ticker: type the price from your broker app, and update it now and then.' }),
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Save holding'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => done(false) }, 'Cancel')),
+      msg,
+      h('p', { class: 'note', text: 'Stays on this device. It is added to your Watchlist (marked as owned) and counted on the Portfolio page, in the daily brief and in every limit check.' }));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const shares = num(iSh.value);
+      const cost = num(iCo.value);
+      const bought = iBo.value.trim();
+      const px = r ? null : num(iPx.value);
+      const bad = [];
+      if (shares === null) bad.push('the number of shares (more than 0)');
+      if (cost === null) bad.push('your average cost per share in dollars');
+      if (bought && !(/^\d{4}-\d{2}-\d{2}$/.test(bought) && Number.isFinite(Date.parse(bought + 'T00:00:00Z')) && bought <= localISO())) bad.push('the date as YYYY-MM-DD, not in the future');
+      if (!r && px === null) bad.push('its price now');
+      if (bad.length) { msg.textContent = `Not saved. Enter ${bad.join('; ')}.`; return; }
+      if (!W.has(t)) { if (r) W.toggle(t, r.price); else W.addManual(t); }
+      const patch = { shares, cost, bought: bought || null };
+      if (!r) { patch.px = px; patch.pxDate = px !== it.px ? todayISO() : it.pxDate || todayISO(); }
+      W.update(t, patch);
+      done(true);
+    });
+    return form;
+  }
+  // the line under a company's quote card: what you own of it, and a button to record or edit it
+  function ownRow(d) {
+    if (!HAS_SITE) return null;
+    const row = h('div', { class: 'own-row' });
+    const paint = () => {
+      const it = W.get(d.ticker);
+      const held = it && it.shares > 0;
+      const px = (tech && tech.liveQ && tech.liveQ.p) || d.price;
+      const gain = held && isNum(it.cost) && it.cost > 0 && isNum(px) ? ` (${pctS(px / it.cost - 1, 1)})` : '';
+      const label = held ? h('span', { class: 'own-txt', text: `You own ${fmtShares(it.shares)} shares${isNum(it.cost) ? ` at ${price(it.cost)} average` : ''}${gain}${it.swing ? ', as a swing trade' : ''}.` }) : h('span', { class: 'own-txt muted', text: 'Do you own it? Record it so every limit check counts it.' });
+      const btn = h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => {
+        const f = holdingForm(d.ticker, SCR_NOW && SCR_NOW.by.get(d.ticker) ? SCR_NOW.by.get(d.ticker) : { price: d.price }, (saved) => {
+          paint();
+          if (saved) {
+            const star = document.querySelector('.co-name .star');
+            if (star) { star.setAttribute('aria-pressed', 'true'); star.setAttribute('aria-label', 'Remove from watchlist'); star.title = 'On your watchlist'; }
+            paintAction();
+          }
+        });
+        row.replaceChildren(f);
+        const first = f.querySelector('input');
+        if (first) first.focus();
+      } }, held ? 'Edit holding' : 'I own it');
+      row.replaceChildren(label, btn);
+    };
+    paint();
+    return row;
+  }
   function editForm(it, r) {
     const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n > 0 ? n : null; };
     const inp = (label, val, ph) => {
@@ -4879,16 +5093,21 @@ table.data tr.me td { background: var(--accent-wash); }
     }
     let swingRisk = 0;
     for (const x of rows) if (x.it.swing && isNum(x.it.stop) && x.r.price > x.it.stop) swingRisk += x.it.shares * (x.r.price - x.it.stop);
+    // the same limits as every other page: shares of everything you own (funds and cash on the Portfolio page included)
+    const snapP = holdingsSnapshot(scr);
+    const everything = snapP.total > 0 ? snapP.total : total;
+    const LP = limits();
     card.append(h('div', { class: 'stats' },
       stat('Value', price(total), `${rows.length} position${rows.length === 1 ? '' : 's'}`),
       costKnown && cost > 0 ? stat('Gain', moneyS(total - cost), pctS(total / cost - 1, 1)) : stat('Gain', 'n/a', 'add your average costs'),
-      stat('Largest', pct(weights[0].w, 0), weights[0].t),
+      stat('Largest', pct((weights[0].w * total) / everything, 0), `${weights[0].t}, of everything you own`),
       !payers ? stat('Purification', '$0', 'no dividends to purify')
         : purMissing === payers ? stat('Purification', 'n/a', 'not reported: use Zoya or Musaffa')
           : stat('Purification', price(pur), purMissing ? `a year, estimate (${purMissing} not reported)` : 'a year, on dividends (estimate)')));
     const checks = [];
-    if (weights[0].w > 0.4 && rows.length > 1) checks.push(['warn', `${weights[0].t} is ${pct(weights[0].w, 0)} of these holdings. One bad surprise there would hurt the whole portfolio.`]);
-    if (sectors[0] && sectors[0][1] > 0.5 && rows.length > 1) checks.push(['warn', `${pct(sectors[0][1], 0)} is in one sector (${sectors[0][0]}). A problem in that industry would hit most of your money at once.`]);
+    const over = rows.filter((x) => !x.it.swing && sizeTrim(snapP.byT.get(x.it.t) || 0, everything)).map((x) => `${x.it.t} (${pct((snapP.byT.get(x.it.t) || 0) / everything, 0)})`);
+    if (over.length) checks.push(['warn', `Above your ${pct(LP.trimAt, 0)} limit for one company: ${over.join(', ')}. Trim ${over.length === 1 ? 'it' : 'them'} back to ${pct(LP.buyCap, 0)} of everything you own; the Portfolio page gives the amounts.${snapP.total > total + 1 ? '' : ' (Only these stocks are recorded: add your funds and cash on the Portfolio page, or every stock looks bigger than it is.)'}`]);
+    for (const [k, v] of snapP.bySector) if (snapP.usVal > 0 && snapP.n >= 3 && !sectorOpen(v, snapP.usVal, LP.sectorMax)) checks.push(['warn', `${k} is ${pct(v / snapP.usVal, 0)} of your long-term stocks: your limit stops new buys there at ${pct(LP.sectorMax, 0)}.`]);
     const bad = rows.filter((x) => x.r.shariah === 'fail').map((x) => x.it.t);
     const rev = rows.filter((x) => x.r.shariah === 'review').map((x) => x.it.t);
     const unk = rows.filter((x) => x.r.own).map((x) => x.it.t);
@@ -5539,14 +5758,17 @@ table.data tr.me td { background: var(--accent-wash); }
       const per = (k, key) => PL[k].portfolio[key] || {};
       const beatRnd = (p) => (p.shortlist && p.random && isNum(p.shortlist.yearly) && isNum(p.random.yearly?.median) ? (p.shortlist.yearly > p.random.yearly.median ? 'yes' : 'no') : 'n/a');
       const tier = (v) => (v === 'stocks' ? '70% in stocks' : v === 'mixed' ? 'Half in stocks' : 'Mostly in the fund');
+      // which rule set produced the numbers (lib/policy.js and PREREGISTERED.md, section 6): the original rules and your
+      // approved ones are kept apart, and experimental variants are never shown here
+      const rulesTxt = L.rules && L.rules.version >= 2 ? 'your approved limits (3 Nov 2026, made exact the same day)' : 'your limits of 3 Nov 2026 (first version)';
       const dec = L.decision || {};
       card.append(...[h('h3', { text: 'The picks the Portfolio page buys' }),
         h('p', { class: 'sub', text: 'The monthly plan does not buy the list above in order of upside. It picks stocks for each holding period its own way (great, growing businesses for the long term; good businesses below fair value, sold at fair value, for the medium term) and puts each month’s money into one of them. That was tested too, with the pass marks written down before the data existed.' }),
         table(['', ...kinds.map(([, t]) => t)], [
           ['Its 6 ideas a month, 1 year later, against the average stock', ...kinds.map(([k]) => pctS(PL[k].forward.h12.vsUniverse?.mean, 1))],
           ...(kinds.some(([k]) => PL[k].forward.h24 && PL[k].forward.h36) ? [['The same ideas, 2 and 3 years later (in total, not a year)', ...kinds.map(([k]) => (PL[k].forward.h24 && PL[k].forward.h36 ? `${pctS(PL[k].forward.h24.vsUniverse?.mean, 1)} / ${pctS(PL[k].forward.h36.vsUniverse?.mean, 1)}` : 'n/a'))]] : []),
-          ['1,000 AED a month with its rules, a year', ...kinds.map(([k]) => (isNum(per(k, 'full').shortlist?.yearly) ? pctS(per(k, 'full').shortlist.yearly, 1) : 'n/a'))],
-          ...(kinds.some(([k]) => isNum(PL[k].portfolio?.before?.yearly)) ? [['The same, with the rules before your limits of 3 Nov 2026', ...kinds.map(([k]) => (isNum(PL[k].portfolio?.before?.yearly) ? pctS(PL[k].portfolio.before.yearly, 1) : 'n/a'))]] : []),
+          [`1,000 AED a month with ${rulesTxt}, a year`, ...kinds.map(([k]) => (isNum(per(k, 'full').shortlist?.yearly) ? pctS(per(k, 'full').shortlist.yearly, 1) : 'n/a'))],
+          ...(kinds.some(([k]) => isNum(PL[k].portfolio?.before?.yearly)) ? [['The same with the original rules (before 3 Nov 2026), for comparison only', ...kinds.map(([k]) => (isNum(PL[k].portfolio?.before?.yearly) ? pctS(PL[k].portfolio.before.yearly, 1) : 'n/a'))]] : []),
           ['Random halal stocks, same rules (middle)', ...kinds.map(([k]) => (isNum(per(k, 'full').random?.yearly?.median) ? pctS(per(k, 'full').random.yearly.median, 1) : 'n/a'))],
           ['S&P 500 (SPY)', ...kinds.map(([k]) => (isNum(per(k, 'full').spy?.yearly) ? pctS(per(k, 'full').spy.yearly, 1) : 'n/a'))],
           ['One 10-year path: beat random picks over the whole period, first half, second half', ...kinds.map(([k]) => ['full', 'half1', 'half2'].map((x) => beatRnd(per(k, x))).join(', '))],
@@ -5555,11 +5777,12 @@ table.data tr.me td { background: var(--accent-wash); }
               ...kinds.map(([k]) => (PL[k].windows && PL[k].windows.n ? `${pct(PL[k].windows.beatRandom, 0)} / ${pct(PL[k].windows.beatSpy, 0)}` : 'n/a'))],
             ['Five-year periods: middle result against the S&P 500, a year (worst to best)', ...kinds.map(([k]) => (PL[k].windows && PL[k].windows.n ? `${pctS(PL[k].windows.vsSpy, 1)} (${pctS(PL[k].windows.worstVsSpy, 1)} to ${pctS(PL[k].windows.bestVsSpy, 1)})` : 'n/a'))],
           ] : []),
-          ['Test result', ...kinds.map(([k]) => tier(PL[k].decision?.verdict))],
+          ['What the evidence supports', ...kinds.map(([k]) => tier(PL[k].decision?.verdict))],
           ...(kinds.some(([k]) => PL[k].decisionSinglePath) ? [['Result on one 10-year path (the rule before 3 Nov 2026)', ...kinds.map(([k]) => (PL[k].decisionSinglePath ? tier(PL[k].decisionSinglePath.verdict) : 'n/a'))]] : []),
         ]),
         kinds.some(([k]) => PL[k].windows && PL[k].windows.n) ? h('p', { class: 'note', text: 'Since 3 Nov 2026 the test result comes from the five-year periods, not one path. One path depends a lot on which stocks happened to be bought first: random stocks with the same rules end years apart. To get 70% in stocks, the plan must beat random picks in three quarters of the periods and the S&P 500 in half, and its ideas must beat the average stock by more than luck, in both halves. The periods overlap and come from one decade, so they remove the luck of the start date, not of the decade. The pass marks were written down before the periods were run (PREREGISTERED.md, section 5).' }) : null,
-        h('p', { class: 'note', text: `${dec.method === 'list' ? 'The long-term part of the plan buys the list above, which did better in the test, so the money split follows the list' : 'The money split follows the long-term picks, the main part of the plan'}: ${tier(dec.verdict).toLowerCase()}, if you let the test decide. ${L.pools && L.pools.mid === false ? 'Medium-term picks did not beat random picks, so they get no real money. ' : ''}Short-term picks cannot be tested yet (the test lacks their chart data), so they get no real money either.` })].filter(Boolean));
+        h('p', { class: 'note', text: `${dec.method === 'list' ? 'The long-term part of the plan buys the list above, which did better in the test, so the money split follows the list' : 'The money split follows the long-term picks, the main part of the plan'}: ${tier(dec.verdict).toLowerCase()}, if you let the test decide. ${L.pools && L.pools.mid === false ? 'Medium-term picks did not beat random picks, so they get no real money. ' : ''}Short-term picks cannot be tested yet (the test lacks their chart data), so they get no real money either.` }),
+        (() => { const pf = ADV.load().profile; if (!pf || !pf.focus || pf.focus === 'test') return null; const T = targetMix(pf, false); return h('p', { class: 'note', text: `This is the evidence, not your plan. Your Portfolio page uses your own split, ${pct(T.stocks, 0)} in stocks: a personal risk decision${Math.abs(T.stocks - (dec.stocks ?? T.stocks)) >= 0.05 ? `, ${T.stocks > dec.stocks ? 'more' : 'less'} than the ${pct(dec.stocks, 0)} the test supports` : ' that matches the test'}. The Portfolio page shows the two side by side.` }); })()].filter(Boolean));
     }
     card.append(h('h3', { text: 'Read this before trusting the numbers' }),
       h('ul', { class: 'clean' },
@@ -5626,7 +5849,7 @@ table.data tr.me td { background: var(--accent-wash); }
     });
   }
   // test hook for the automated page tests (test/page.test.py); inert unless the page is opened with ?selftest=1
-  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven };
+  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
 })();
 </script>
 </body>

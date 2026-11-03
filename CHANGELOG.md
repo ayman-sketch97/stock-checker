@@ -3,6 +3,22 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: the position-size rules made exact, your split next to the evidence, holdings by hand
+
+- No buy may take a stock above 10% of everything you own. Before, a stock at 9.9% could still get a full month's buy
+  and end well above 10%. The monthly plan caps each buy and sends what is left to the next stock or to the fund.
+- A stock above 15% is trimmed back to 10% whatever the number of stocks (before, only from 10 stocks), with the amount
+  to sell, on the Portfolio page, in the daily brief and on the Watchlist. The Watchlist's own portfolio check now
+  uses the same limits. The Shortlist marks buy candidates your limits block. Orders under $100 are skipped.
+- The Portfolio page shows your split (70% stocks, your choice) next to what the 10-year test supports (50%) and
+  explains the gap; it no longer invites you to hand your split to the test. The Record page says the evidence is not
+  your plan and names the rule set behind each number, with the original rules kept apart.
+- Record a stock you own from its page ("I own it") or on the Portfolio page: shares, average cost and the date you
+  bought it. Nothing is read from a broker.
+- A halal fail now says your rule everywhere: sell within 90 days if Zoya confirms it.
+- The 10-year test runs the same rules (`lib/policy.js`, identical in the page). The split the evidence supports is
+  unchanged (half in stocks); details in `VALIDATION.md`, section 10.
+
 ## 3 November 2026: a stray "null" removed from "What to do now"
 
 - Since stage 1 this morning, every company page printed the word "null" under "What to do now" whenever the data was

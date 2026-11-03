@@ -2,6 +2,7 @@
 // Reference values are worked out by hand (shown in comments) or taken from published examples, not from the
 // code under test.
 import test from 'node:test';
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { sma, ema, rsi, atr, macd, prepare, evaluate, simulateTrade } from '../lib/technical.js';
 import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen, FAIR_MAX_RATIO, FactBook, splitsFromRestatements } from '../lib/engine.js';
@@ -9,6 +10,7 @@ import { netR, benchmarkTrades, portfolioSim, buyHold } from '../lib/backtest.js
 import { liveProof, LOG_FIELDS, PROOF_H, updateStock } from '../lib/signals.js';
 import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/longterm.js';
 import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS, planWindows, decideWindows, WINDOW_MONTHS } from '../lib/ltstats.js';
+import { POLICY_VERSION, POLICY_RULES, buyRoom, trimSale, sectorOpen, worthAnOrder } from '../lib/policy.js';
 import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, MISSING_DAYS, REPEAT_DAYS } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
@@ -829,15 +831,27 @@ test('long-term backtest: the Portfolio page picks, tested with its own buying a
   assert.ok(r.positions >= 10 && r.positions <= 12 && r.fundShare === 0, `10 to 12 stocks, nothing left for the fund: ${JSON.stringify(r)}`);
   const random = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', pick: 'random', seed: 3, policy: false });
   assert.ok(r.yearly > random.yearly, `the page's picks (the rising stocks) beat random ones here: ${r.yearly} vs ${random.yearly}`);
-  // the approved policy (3 Nov 2026): no buy in a stock already 10% of the portfolio or in a sector already 40% of the
-  // stocks, and winners above 15% are cut back to 10% once there are 10 stocks (here the rising stocks get there)
+  // the limits as first built on 3 Nov 2026 (version 1, kept to compare with): no buy in a stock already 10% of the
+  // portfolio or in a sector already 40% of the stocks, and winners above 15% cut back to 10% once there are 10 stocks
   const pt = [];
-  const rp = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', onTrade: (t) => pt.push(t) });
+  const rp = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', policy: 1, onTrade: (t) => pt.push(t) });
   const pbuys = pt.filter((t) => t.side === 'buy');
-  assert.ok(pbuys.length > 0 && pbuys.every((t) => t.weightBefore < 0.1 + 1e-9), 'no buy in a stock already 10% of the portfolio');
+  assert.ok(pbuys.length > 0 && pbuys.every((t) => t.weightBefore < 0.1 + 1e-9), 'version 1: no buy in a stock already 10% of the portfolio');
+  assert.ok(pbuys.some((t) => t.weightAfter > 0.1 + 1e-9), 'version 1: a buy could still take a stock past 10% (what version 2 fixes)');
   assert.ok(pbuys.every((t) => t.sectorBefore < 0.4 + 1e-9), 'no buy in a sector already 40% of the stocks');
   assert.ok(rp.sellsSize > 0 && pt.some((t) => t.side === 'sell' && t.why === 'size'), `winners above 15% are trimmed: ${JSON.stringify(rp)}`);
   assert.ok(rp.positions >= 10, `the policy still builds a full portfolio: ${rp.positions} stocks`);
+  // the approved rules (version 2, the default): no buy takes a stock past 10%, counting the month's money
+  const p2 = [];
+  const r2 = simulatePlan(D, { from: 0, to: months - 1, monthly: 300, pool: 'long', onTrade: (t) => p2.push(t) });
+  const b2 = p2.filter((t) => t.side === 'buy');
+  assert.equal(POLICY_VERSION, 2);
+  assert.ok(b2.length > 0 && b2.every((t) => t.weightAfter <= 0.1 + 1e-9), `version 2: no stock above 10% after a buy (largest ${Math.max(...b2.map((t) => t.weightAfter))})`);
+  assert.ok(b2.every((t) => t.value >= POLICY_RULES.minOrder - 1e-9), 'version 2: no order under $100');
+  assert.ok(b2.every((t) => t.sectorBefore < 0.4 + 1e-9), 'version 2: the sector rule as before');
+  assert.ok(b2[0].k >= 3, `version 2: the first three months ($300, $600, $900 in all) leave no stock $100 of room, so they go to the fund: first buy in month ${b2[0].k}`);
+  // (no size trims here: with every buy capped at 10%, the rising stocks never reach 15%; version 1 overshot and had to trim)
+  assert.ok(r2.positions >= 10, `version 2 still builds a full portfolio: ${JSON.stringify(r2)}`);
   // a held stock whose halal status turns "review" gets no more money under the policy, but did under the old rules
   const rv = loadData([lines[0], ...Array.from({ length: 12 }, (_, j) => stock(j, 0, (k) => ({ shariah: j === 0 && k >= 3 ? 'review' : 'pass' })))]);
   const before = [];
@@ -854,6 +868,75 @@ test('long-term backtest: the Portfolio page picks, tested with its own buying a
   // the report judges each kind of pick by rule 1
   const rep = report(D, { randomRuns: 10 });
   assert.ok(rep.plan.long && rep.plan.mid && rep.plan.long.decision.verdict && rep.decision.method && rep.review && rep.pools, 'the report carries the Portfolio page test and the split it sets');
+});
+
+test('position-size rules: every boundary (PREREGISTERED.md, section 6)', () => {
+  assert.deepEqual(POLICY_RULES, { buyCap: 0.1, trimAt: 0.15, trimTo: 0.1, sectorMax: 0.4, minOrder: 100 });
+  // new purchase: capped at what keeps the stock at or under 10% of the whole portfolio after the buy
+  close(buyRoom(0, 10000), 1000, 1e-9, 'a new stock in a $10,000 portfolio: up to $1,000');
+  close(buyRoom(990, 10000), 10, 1e-9, '9.9%: room for $10');
+  assert.equal(worthAnOrder(buyRoom(990, 10000)), false, '9.9% of $10,000: $10 is under the $100 an order needs, so no buy');
+  close(buyRoom(9900, 100000), 100, 1e-9, '9.9% of $100,000: room for exactly $100');
+  assert.equal(worthAnOrder(buyRoom(9900, 100000)), true, '... which is an order');
+  assert.equal(buyRoom(1000, 10000), 0, 'exactly 10%: no room');
+  assert.equal(buyRoom(0.1 * 3, 3), 0, '10% plus a rounding error is still 10%');
+  assert.equal(buyRoom(1200, 10000), 0, 'an existing position at 12% (grown there): no new money');
+  close(buyRoom(900, 9000 + 1000), 100, 1e-9, 'the money about to be invested counts: $900 of $9,000, with $1,000 coming in');
+  assert.equal(buyRoom(500, 0), 0, 'no portfolio, no room');
+  // trim: above 15% (not at it), back to 10%, at any number of stocks (the functions do not even know the number)
+  assert.equal(trimSale(1500, 10000), 0, 'exactly 15%: not trimmed');
+  assert.equal(trimSale(0.15 * 7, 7), 0, '15% plus a rounding error is not above 15%');
+  close(trimSale(1501, 10000), 501, 1e-9, '15.01%: sell $501, back to 10%');
+  close(trimSale(2000, 10000), 1000, 1e-9, '20%: sell $1,000');
+  assert.equal(trimSale(1200, 10000), 0, 'between 10% and 15%: held, not trimmed');
+  close(trimSale(2000, 10000, 0.15, 0.1) / 2000, 0.5, 1e-12, 'half of a 20% position goes');
+  // sector: no new money once it is 40% or more of the stocks
+  assert.equal(sectorOpen(400, 1000), false, 'exactly 40%: closed');
+  assert.equal(sectorOpen(399.99, 1000), true, 'just under 40%: open');
+  assert.equal(sectorOpen(0, 0), true, 'the first stock of a new portfolio is always allowed');
+  // a portfolio of 5, 10 and 15 stocks, $10,000 in all with the rest in the fund: the same rules at every size
+  const book = (vals, fund) => ({ vals, total: vals.reduce((a, b) => a + b, 0) + fund });
+  for (const [n, b] of [[5, book([2000, 1000, 1000, 1000, 1000], 4000)], [10, book([1600, ...Array(9).fill(600)], 3000)], [15, book([1500, 1550, ...Array(13).fill(300)], 3050)]]) {
+    assert.equal(b.vals.length, n);
+    close(b.total, 10000, 1e-9, `${n} stocks: $10,000 in all`);
+    const sales = b.vals.map((v) => trimSale(v, b.total));
+    const rooms = b.vals.map((v) => buyRoom(v, b.total));
+    if (n === 5) { close(sales[0], 1000, 1e-9, '5 stocks: the 20% one is cut to 10%'); assert.ok(sales.slice(1).every((x) => x === 0) && rooms.slice(1).every((x) => x === 0), '5 stocks: the others sit at exactly 10%: no trim, no buy'); }
+    if (n === 10) { close(sales[0], 600, 1e-9, '10 stocks: the 16% one is cut to 10%'); assert.ok(rooms.slice(1).every((x) => Math.abs(x - 400) < 1e-9), '10 stocks: each 6% one can take $400 more'); }
+    if (n === 15) { assert.equal(sales[0], 0, '15 stocks: exactly 15% is kept'); close(sales[1], 550, 1e-9, '15 stocks: 15.5% is cut to 10%'); assert.ok(rooms.slice(2).every((x) => Math.abs(x - 700) < 1e-9), '15 stocks: each 3% one can take $700 more'); }
+  }
+});
+
+test('position-size rules: the page runs exactly the same rules as the 10-year test', () => {
+  const page = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const a = page.indexOf('// ---- policy.js (start)');
+  const b = page.indexOf('// ---- policy.js (end)');
+  assert.ok(a > 0 && b > a, 'the page has the policy.js block');
+  const inPage = page.slice(page.indexOf('\n', a) + 1, b).replace(/\s+$/, '').split('\n').map((l) => l.replace(/^  /, '')).join('\n');
+  const mod = fs.readFileSync(new URL('../lib/policy.js', import.meta.url), 'utf8').split('\nexport {')[0].replace(/\s+$/, '');
+  assert.equal(inPage, mod, 'index.html and lib/policy.js must hold the same rules, character for character');
+});
+
+test('position-size rules: the 10-year test trims at any number of stocks, and keeps the old versions apart', () => {
+  // 4 stocks in 4 sectors; S0 rises 8% a month, the rest are flat. Under version 1 (trim only from 10 stocks) S0 is never
+  // trimmed; under version 2 it is cut back to 10% whenever it passes 15%
+  const months = 36;
+  const date = (k) => `20${String(10 + Math.floor(k / 12)).padStart(2, '0')}-${String((k % 12) + 1).padStart(2, '0')}-28`;
+  const row = (k, o) => SNAP_FIELDS.map((f) => ({ date: date(k), verdict: 'BUY', quality: 90, health: 70, valuation: 'U', fair: 1e9, buyBelow: 1e9, trimAbove: null, dq: 'H', shariah: 'pass', price: 100, upside: 0.3, confidence: 'High', cap: 5000, growth: 70, trend: 'up', ...o })[f]);
+  const stock = (j, drift) => {
+    const px = Array.from({ length: months }, (_, k) => 100 * (1 + drift) ** k);
+    return JSON.stringify({ t: 'S' + j, sector: ['Tech', 'Health', 'Energy', 'Retail'][j], rows: px.map((x, k) => row(k, { price: x })), px: px.map((x, k) => [date(k), x, x]) });
+  };
+  const lines = [JSON.stringify({ t: '$SPY', px: Array.from({ length: months }, (_, k) => [date(k), 100, 100]) }), stock(0, 0.08), stock(1, 0), stock(2, 0), stock(3, 0)];
+  const D = loadData(lines);
+  const run = (policy) => { const t = []; const r = simulatePlan(D, { from: 0, to: months - 1, monthly: 1000, pool: 'long', policy, onTrade: (x) => t.push(x) }); return { r, t }; };
+  const v1 = run(1);
+  const v2 = run(2);
+  assert.ok(v1.r.positions <= 4 && v2.r.positions <= 4, 'never more than the 4 stocks there are');
+  assert.equal(v1.r.sellsSize, 0, 'version 1: no size trim with fewer than 10 stocks');
+  assert.ok(v2.r.sellsSize > 0 && v2.t.some((x) => x.side === 'sell' && x.why === 'size' && x.t === 'S0'), `version 2: S0 is trimmed at 4 stocks: ${JSON.stringify(v2.r)}`);
+  assert.deepEqual(run(true).r, v2.r, 'policy: true is the approved version');
+  assert.equal(run(false).r.sellsSize, 0, 'the original rules have no size rule at all');
 });
 
 test('long-term backtest: the plan judged on many five-year periods (PREREGISTERED.md, section 5)', () => {

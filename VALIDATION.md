@@ -924,3 +924,71 @@ version before the fix, the check names `paintAction`, the function at fault), a
 with a full chart file made by the site's own engine (`test/make-tech-fixture.mjs`) with every section open. A sweep
 of every page and section, with fresh and late data and with holdings, found nothing else. 68 formula tests and 139
 page checks pass.
+
+## 10. The policy completed (3 November 2026)
+
+### The position-size rules made exact
+
+The owner asked for the limits to be defined exactly and applied the same way everywhere, and decided three points:
+a stock above 15% goes back to 10% (as recorded), the trim applies at any number of stocks (it used to wait for 10),
+and no buy may take a stock above 10% (it used to stop only buys in a stock already at 10%). The rules were written
+down in `PREREGISTERED.md`, section 6, at 15:27 UTC on 3 November (commit 3c8b285); the re-run below finished at
+15:35 UTC. They are policy, chosen for risk; the comparison shows what they did and is not evidence for the strategy.
+
+One copy of the rules (`lib/policy.js`) runs the 10-year test, and the page carries the same text; a test fails if
+the two differ by one character. Every page now uses it: the monthly plan (each buy capped, what is left goes to the
+next stock or the fund), the stock page (what to do now, and how much room is left), the Portfolio page (trims at any
+number of stocks, with the amount to sell; "Add" with the room left), the daily brief and the Watchlist (the same
+trim; the Watchlist's own check of 40% of holdings and 50% in one sector is replaced by your limits), and the
+Shortlist (buy candidates your limits block are marked).
+
+| Case | Before (version 1) | Now (approved) |
+| --- | --- | --- |
+| A stock you do not hold | any buy | up to 10% of everything you own, after the buy |
+| A stock at 9.9% | a full month's buy, so it could end at 11% to 14% | room for 0.1% of the portfolio: bought only if that is $100 or more |
+| Exactly 10% | no new buys | no new buys |
+| Between 10% and 15% | held | held |
+| Exactly 15% | not trimmed | not trimmed |
+| Above 15%, 10 or more stocks | trimmed back to 10% | trimmed back to 10% |
+| Above 15%, fewer than 10 stocks | not trimmed (a warning) | trimmed back to 10% |
+| A sector at 40% of your stocks | no new buys | no new buys (unchanged) |
+| An order under $100 | not made | not made, for buys and trims |
+
+The 10-year test with both versions, on the replay data of the published run of 3 November (the local run of version
+1 reproduced that published summary exactly, apart from its timestamp):
+
+| | Long term, version 1 | Long term, approved | Medium term, version 1 | Medium term, approved |
+| --- | --- | --- | --- | --- |
+| One 10-year path, a year | 9.3% | 11.8% | 20.8% | 20.6% |
+| Random picks, same rules (median) | 13.1% | 12.9% | 14.6% | 14.9% |
+| S&P 500 | 13.9% | 13.9% | 13.9% | 13.9% |
+| Worst fall | -38.1% | -32.9% | -32.2% | -29.8% |
+| Money the limits sent to the fund | 0% | 2.5% | 0% | 5.3% |
+| 59 five-year periods: beat random picks / the S&P 500 | 64% / 68% | 66% / 73% | 92% / 93% | 97% / 95% |
+| Middle period against the S&P 500 (worst to best) | +3.5% (-8.0% to +17.9%) | +4.0% (-6.7% to +21.2%) | +7.4% (-2.3% to +16.4%) | +6.6% (-1.9% to +13.4%) |
+| What the evidence supports (section 5) | half in stocks | half in stocks | half in stocks | half in stocks |
+
+What it means: the split the evidence supports does not move: half in stocks. The long-term path did better mainly
+because version 1 let buys overshoot 10% and then had to trim; that is a reason the new rule is cleaner, not a reason
+to trust the picks more, since a better backtest under rules picked for risk is still one decade of survivor-only
+data. No experimental variant was run for this change.
+
+Tests: 71 formula tests (new: every boundary of the rules, 5, 10 and 15 stocks, the page copy identical to
+`lib/policy.js`, trims at any number of stocks, the three rule sets kept apart) and 187 page checks (new: the same
+boundaries in the browser, the risk check at 9.9% and 10%, 5, 10 and 15 stocks on the Portfolio page, the monthly
+plan's cap and a portfolio too small for a stock, the room on the stock page, the limits card, your split next to the
+evidence, the rule sets named on the Record page, and holdings recorded by hand). The page tests now also fail on
+any missing value handed to the browser's own append functions.
+
+### Your split and the evidence, kept apart
+
+The Portfolio page shows your split (70% stocks, your choice) next to what the 10-year test supports (50%) and
+explains the gap, and no longer invites you to hand the split to the test; the Record page says the evidence is not
+your plan and names the rule set behind each number, with the original rules kept apart.
+
+### Holdings recorded by hand
+
+Stage 3 no longer reads broker statements. A stock you own is recorded on its page ("I own it": shares, average cost,
+the date you bought it if you like) or on the Portfolio page ("Add a stock you own", which also takes tickers the site
+does not cover, at a price you type). Both write the same Watchlist entry that every page and every limit check reads,
+so nothing is counted twice.

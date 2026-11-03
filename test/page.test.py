@@ -362,6 +362,14 @@ async def main():
         await pg.close()
         own = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 2, 'cost': 150}, {'t': 'MSFT', 'added': '2026-02-01', 'shares': 1, 'cost': 650},
                                            {'t': 'KO', 'added': '2026-02-01', 'shares': 0}], 'snap': None, 'prev': None}}
+        # the size rule applies at any number of stocks (PREREGISTERED.md, section 6): on its own, MSFT is 44% of the two
+        # stocks, so the brief says trim it
+        pg, errs = await page_with(ctx, base, fresh, own, '', None, {'data/lt-summary.json': LT}, with_events)
+        brief = await pg.inner_text('section[aria-label="Your daily brief"]')
+        check('MSFT' in brief and 'of everything you own, above your 15% limit: sell about $' in brief and 'to bring it back to 10%' in brief, f'brief: with nothing else recorded, MSFT is 44% of everything and is trimmed: {brief[:500]!r}')
+        await pg.close()
+        # with the rest of the portfolio recorded ($10,000 in cash and funds), no stock is above 15%
+        own['advisor'] = {'v': 1, 'profile': None, 'hp': {}, 'other': [{'id': 'o1', 'sym': 'CASH', 'kind': 'cash', 'market': '', 'shares': None, 'value': 10000}]}
         pg, errs = await page_with(ctx, base, fresh, own, '', None, {'data/lt-summary.json': LT}, with_events)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check('to look at today' in brief and 'Above its trim price' in brief, f'brief: AAPL above its trim price is a thing to look at: {brief[:300]!r}')
@@ -383,16 +391,28 @@ async def main():
         whref = await pg.evaluate("document.querySelector('section[aria-label=\"Weekly review\"] a').href")
         wtext = urllib.parse.unquote(whref.split('?q=', 1)[1]) if '?q=' in whref else ''
         check(whref.startswith('https://claude.ai/new?q=') and wtext == box and len(whref) < 4700, f'weekly review: the button opens Claude with the same request ({len(whref)} characters)')
-        # the Portfolio page offers to let the test decide, and then uses its split
+        # the Portfolio page shows your own split next to what the test supports, says when they differ, and never nudges
+        # you to switch (3 Nov 2026: 70/30 is a personal risk decision, not a test result)
         await pg.evaluate("(p) => { localStorage.setItem('advisor', JSON.stringify(p)); }",
-                          {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'only', 'hold': 'auto', 'swing': 'no', 'broker': 'tiered', 'monthlyAed': 1000}, 'hp': {}, 'other': []})
+                          {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'stocks', 'hold': 'auto', 'swing': 'no', 'broker': 'tiered', 'monthlyAed': 1000}, 'hp': {}, 'other': []})
         await pg.click('#nav button:has-text("Portfolio")')
         await pg.wait_for_timeout(1200)
         offer = await pg.locator('#page-advisor button:has-text("Let the test decide my split")').count()
-        check(offer == 1, 'portfolio: offers to let the 10-year test set the split')
-        await pg.click('#page-advisor button:has-text("Let the test decide my split")')
+        check(offer == 0, 'portfolio: no nudge to hand your split to the test')
+        mix = await pg.inner_text('section[aria-label="Your target mix"]')
+        check('your split (your choice)' in mix.lower() and '70% stocks' in mix and 'not a result of the 10-year test' in mix and 'what the 10-year test supports' in mix.lower() and '50% stocks · 50% index fund' in mix
+              and 'They differ: your split puts 20% more of everything in stocks than the test supports' in mix and 'Mixed evidence' in mix and 'it beat random picks in 60% of them' in mix,
+              f'portfolio: your 70% and the test\'s 50% side by side, with the gap explained: {mix[:900]!r}')
+        check('a personal risk decision, not a result of the 10-year test' in mix, 'portfolio: the reasons call 70% your own risk decision')
+        # choosing "Let the 10-year test decide" in the answers hands the split to the evidence
+        await pg.evaluate("(p) => { localStorage.setItem('advisor', JSON.stringify(p)); }",
+                          {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'test', 'hold': 'auto', 'swing': 'no', 'broker': 'tiered', 'monthlyAed': 1000}, 'hp': {}, 'other': []})
+        await pg.click('#nav button:has-text("Watchlist")')
+        await pg.wait_for_timeout(500)
+        await pg.click('#nav button:has-text("Portfolio")')
         await pg.wait_for_timeout(1200)
         mix = await pg.inner_text('section[aria-label="Your target mix"]')
+        check('so your split is the evidence' in mix, f'portfolio: with the test deciding, your split is the evidence: {mix[:300]!r}')
         check('You let the 10-year test decide' in mix and '50%' in mix and 'the long-term picks on this page' in mix, f'portfolio: the test of the page\'s own picks sets stocks to 50%: {mix[:300]!r}')
         check('Short-term picks get no real money' in mix and 'short term' not in mix.split('Your stocks')[1].split('\n')[0], 'portfolio: untested short-term picks get no real money, their share goes to the long term')
         hp = await pg.inner_text('section[aria-label="Holding periods"]')
@@ -411,7 +431,8 @@ async def main():
               'record: the other methods tried, each with its result in plain words')
         check('The picks the Portfolio page buys' in ltc and 'Half in stocks' in ltc and 'The money split follows the long-term picks' in ltc and 'Short-term picks cannot be tested yet' in ltc,
               'record: the test of the Portfolio page\'s own picks, which sets the split')
-        check('The same, with the rules before your limits of 3 Nov 2026' in ltc and '+11.7%' in ltc and '+22.9%' in ltc, 'record: the old rules\' result is shown next to the new one')
+        check('The same with the original rules (before 3 Nov 2026), for comparison only' in ltc and '+11.7%' in ltc and '+22.9%' in ltc, 'record: the original rules\' result is kept apart from the approved one')
+        check('1,000 AED a month with your limits of 3 Nov 2026 (first version), a year' in ltc and 'What the evidence supports' in ltc, f'record: the rule set behind the numbers is named: {ltc[-2500:-1500]!r}')
         check('Five-year periods (59, starting each month from Dec 2016 to Oct 2021): beat random picks / beat the S&P 500' in ltc and '60% / 40%' in ltc
               and 'Result on one 10-year path' in ltc and 'Mostly in the fund' in ltc and 'Since 3 Nov 2026 the test result comes from the five-year periods' in ltc and '+12.4% / +18.7%' in ltc,
               f'record: the plan judged on many five-year periods, with the single path next to it: {ltc[-1500:]!r}')
@@ -480,7 +501,7 @@ async def main():
         await pg.wait_for_timeout(1500)
         adv = await pg.inner_text('section[aria-label="Advice on what you hold"]')
         check('Your own ticker: not analysed here' in adv and 'none of the tool’s rules' in adv and 'Counted at the price you entered ($6.00 on' in adv, f'own tickers: the Portfolio page counts it and gives no rule-based advice: {adv[:400]!r}')
-        check('Only 2 US stocks, so it is still concentrated (largest: AAPL' in adv and 'no concentration' not in adv, 'a portfolio still being built is called concentrated, not problem-free')
+        check('Only 2 US stocks, so the stock part is still concentrated (largest: AAPL' in adv and 'no concentration' not in adv, 'a portfolio still being built is called concentrated, not problem-free')
         # its ticker in the brief has no stock page to open, so it goes to the Watchlist
         await pg.click('#homeBtn')
         await pg.wait_for_timeout(1000)
@@ -658,6 +679,146 @@ async def main():
         res = await pg.inner_text('section[aria-label="Your results"]')
         check('Trades the tool agreed with when you bought: 1 (average +20.0% a trade); trades against it: 1 (average -10.0%)' in res, f'journal: results with the tool and against it: {res[-300:]!r}')
         check(not errs, f'no page errors in the with-or-against results {errs}')
+        await pg.close()
+
+        # ---- the position-size rules made exact (PREREGISTERED.md, section 6): the page runs lib/policy.js
+        pg, errs = await page_with(ctx, base, fresh)
+        v = await pg.evaluate('''() => { const S = __sc; return {
+            r0: S.buyRoom(0, 10000), r99: S.buyRoom(990, 10000), w99: S.worthAnOrder(S.buyRoom(990, 10000)), r99b: S.buyRoom(9900, 100000), w99b: S.worthAnOrder(S.buyRoom(9900, 100000)),
+            r10: S.buyRoom(1000, 10000), rNoise: S.buyRoom(0.1 * 3, 3), r12: S.buyRoom(1200, 10000), rNew: S.buyRoom(900, 10000),
+            t15: S.trimSale(1500, 10000), t1501: S.trimSale(1501, 10000), t20: S.trimSale(2000, 10000), t12: S.trimSale(1200, 10000),
+            s40: S.sectorOpen(400, 1000), s39: S.sectorOpen(399.99, 1000), sz50: S.sizeTrim(2000, 10000), szSmall: S.sizeTrim(160, 1000), rules: S.POLICY_RULES }; }''')
+        check(v['r0'] == 1000 and abs(v['r99'] - 10) < 1e-9 and v['w99'] is False and abs(v['r99b'] - 100) < 1e-9 and v['w99b'] is True, f'page rules: a new stock takes up to 10%; 9.9% leaves 0.1% of the portfolio, an order only if that is $100 or more: {v}')
+        check(v['r10'] == 0 and v['rNoise'] == 0 and v['r12'] == 0 and abs(v['rNew'] - 100) < 1e-9, 'page rules: at 10% (even with a rounding error) and above, no room')
+        check(v['t15'] == 0 and abs(v['t1501'] - 501) < 1e-9 and abs(v['t20'] - 1000) < 1e-9 and v['t12'] == 0, 'page rules: exactly 15% is kept, above it goes back to 10%, between 10% and 15% is held')
+        check(v['s40'] is False and v['s39'] is True and abs(v['sz50'] - 1000) < 1e-9 and v['szSmall'] == 0, 'page rules: a sector at 40% is closed; a trim under $100 is not worth an order')
+        check(v['rules'] == {'buyCap': 0.1, 'trimAt': 0.15, 'trimTo': 0.1, 'sectorMax': 0.4, 'minOrder': 100}, f"page rules: the approved numbers {v['rules']}")
+        # the risk check: a stock at 9.9% of a $10,000 portfolio is blocked (room $10), of a $100,000 one allowed (room $100)
+        bc = await pg.evaluate('''() => { const scr = { by: new Map([['AAA', { shariah: 'pass', sector: 'Tech' }]]), priceDate: __sc.screen().priceDate };
+            const snap = (v, tot) => ({ byT: new Map([['AAA', v]]), bySector: new Map([['Tech', v]]), usVal: tot * 0.7, total: tot, n: 7 });
+            return [__sc.buyCheck('AAA', scr, snap(990, 10000)), __sc.buyCheck('AAA', scr, snap(9900, 100000)), __sc.buyCheck('AAA', scr, snap(1000, 10000)), __sc.buyCheck('AAA', scr, snap(900, 9000), 1000)]; }''')
+        check(not bc[0]['ok'] and 'leaves room for $10.00, under the $100.00 an order needs' in bc[0]['why'][0], f"risk check: 9.9% of $10,000 is blocked: {bc[0]}")
+        check(bc[1]['ok'] and abs(bc[1]['room'] - 100) < 1e-6, f"risk check: 9.9% of $100,000 can take $100: {bc[1]}")
+        check(not bc[2]['ok'] and 'no buy may take a stock above 10%' in bc[2]['why'][0], f"risk check: exactly 10% is blocked: {bc[2]}")
+        check(bc[3]['ok'] and abs(bc[3]['room'] - 100) < 1e-6, f"risk check: the month's money counts in the portfolio ($900 of $9,000 plus $1,000 coming): {bc[3]}")
+        check(not errs, f'no page errors checking the rules {errs}')
+        await pg.close()
+        # 5, 10 and 15 stocks on the Portfolio page, $10,000 in all: the size rule applies at every count
+        def book(vals, cash):
+            items = [{'t': 'P%02d' % i, 'added': '2026-01-01', 'shares': v / 100, 'cost': 100, 'manual': True, 'px': 100, 'pxDate': fresh} for i, v in enumerate(vals)]
+            return {'watch': {'v': 1, 'items': items, 'snap': None, 'prev': None},
+                    'advisor': {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'stocks', 'hold': 'auto', 'swing': 'no', 'broker': 'fixed', 'monthlyAed': 0}, 'hp': {}, 'other': [{'id': 'o1', 'sym': 'CASH', 'kind': 'cash', 'market': '', 'shares': None, 'value': cash}]}}
+        cases = [(5, [2000, 1000, 1000, 1000, 1000], 4000, {'P00': 'Sell about $1,000.00 (10 shares) to bring it back to 10%'}, ['P01', 'P04']),
+                 (10, [1600] + [600] * 9, 3000, {'P00': 'Sell about $600.00 (6 shares) to bring it back to 10%'}, ['P01', 'P09']),
+                 (15, [1500, 1550] + [300] * 13, 3050, {'P01': 'Sell about $550.00 (5.5 shares) to bring it back to 10%'}, ['P00', 'P02'])]
+        for n, vals, cash, trims, kept in cases:
+            pg, errs = await page_with(ctx, base, fresh, book(vals, cash), '', None, {'data/lt-summary.json': LT})
+            await pg.click('#nav button:has-text("Portfolio")')
+            await pg.wait_for_timeout(1500)
+            rows = await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"Advice on what you hold\"] .srow')].map((e) => e.innerText)")
+            byT = {r.split('\n')[0].strip(): r for r in rows}
+            for t, want in trims.items():
+                check(t in byT and 'Trim' in byT[t] and want in byT[t], f'{n} stocks: {t} is trimmed back to 10%: {byT.get(t, "")[:300]!r}')
+            for t in kept:
+                check(t in byT and 'Trim' not in byT[t], f'{n} stocks: {t} is not trimmed (at or under 15%): {byT.get(t, "")[:200]!r}')
+            check(not errs, f'no page errors with {n} stocks {errs}')
+            await pg.close()
+        # the monthly plan: a buy is capped at the room left, and what is left over goes to the fund; too small a portfolio
+        # gets no stock at all (MSFT is the fixture's long-term idea)
+        for cash, want, what in [(1500, ['MSFT', 'Capped at $177.23', 'Includes $13.38 your limits leave over'], 'capped'), (500, ['No stock fits right now', 'skipped because your limits block it'], 'too small')]:
+            st = book([], cash)
+            st['advisor']['profile']['monthlyAed'] = 1000
+            pg, errs = await page_with(ctx, base, fresh, st, '', None, {'data/lt-summary.json': LT})
+            await pg.click('#nav button:has-text("Portfolio")')
+            await pg.wait_for_timeout(1500)
+            plan = await pg.inner_text('section[aria-label="This month"]')
+            check(all(w in plan for w in want), f'monthly plan ({what}): {plan[:700]!r}')
+            check(not errs, f'no page errors in the monthly plan ({what}) {errs}')
+            await pg.close()
+        # the stock page says how much room is left; the limits card states the rules exactly
+        pg, errs = await page_with(ctx, base, fresh, book([], 10000), '', 'stock-ok')
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1800)
+        act = await pg.inner_text('.act-row >> nth=0')
+        check('Your 10% limit for one stock allows up to $1,000.00 more in it now' in act, f'stock page: the room left under the 10% limit: {act[:300]!r}')
+        await pg.close()
+        pg, errs = await page_with(ctx, base, fresh, book([1000], 9000), '', None, {'data/lt-summary.json': LT})
+        await pg.click('#nav button:has-text("Portfolio")')
+        await pg.wait_for_timeout(1500)
+        lim = await pg.inner_text('section[aria-label="Your limits"]')
+        check('a stock at 9.9% has room for only 0.1% of the portfolio, and at 10% none' in lim and 'whether you hold 3 stocks or 30' in lim and 'No buy may take a stock above this share' in lim, f'limits card: the exact rules in words: {lim[:900]!r}')
+        check(not errs, f'no page errors on the limits card {errs}')
+        await pg.close()
+
+        # ---- holdings recorded by hand (3 Nov 2026, instead of broker statements): from a company's page and the Portfolio page
+        prof0 = {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'stocks', 'hold': 'auto', 'swing': 'no', 'broker': 'fixed', 'monthlyAed': 0}
+        pg, errs = await page_with(ctx, base, fresh, {'watch': {'v': 1, 'items': [], 'snap': None, 'prev': None}, 'advisor': {'v': 1, 'profile': prof0, 'hp': {}, 'other': []}}, '', 'stock-ok')
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1500)
+        own = await pg.inner_text('.own-row')
+        check('Do you own it?' in own, f'stock page: offers to record a holding: {own!r}')
+        await pg.click('.own-row button:has-text("I own it")')
+        await pg.wait_for_timeout(300)
+        await pg.click('.own-row button:has-text("Save holding")')
+        await pg.wait_for_timeout(300)
+        bad = await pg.inner_text('.own-row')
+        check('Not saved. Enter the number of shares' in bad and 'your average cost per share' in bad, f'stock page: an empty form is not saved: {bad[-200:]!r}')
+        await pg.fill('.own-row label:has-text("Shares") input', '10')
+        await pg.fill('.own-row label:has-text("Average cost") input', '45')
+        await pg.fill('.own-row label:has-text("Date bought") input', '2099-01-01')
+        await pg.click('.own-row button:has-text("Save holding")')
+        await pg.wait_for_timeout(300)
+        check('not in the future' in await pg.inner_text('.own-row'), 'stock page: a date in the future is refused')
+        await pg.fill('.own-row label:has-text("Date bought") input', '2026-01-15')
+        await pg.click('.own-row button:has-text("Save holding")')
+        await pg.wait_for_timeout(800)
+        own = await pg.inner_text('.own-row')
+        check('You own 10 shares at $45.00 average (+11.1%)' in own and 'Edit holding' in own, f'stock page: the holding is shown under the quote card: {own!r}')
+        w = await pg.evaluate("JSON.parse(localStorage.getItem('watch')).items")
+        check(len(w) == 1 and w[0]['t'] == 'KO' and w[0]['shares'] == 10 and w[0]['cost'] == 45 and w[0]['bought'] == '2026-01-15', f'stock page: saved as an owned Watchlist entry: {w}')
+        check(await pg.get_attribute('.co-name .star', 'aria-pressed') == 'true', 'stock page: the star shows it is on the Watchlist')
+        await pg.click('#nav button:has-text("Portfolio")')
+        await pg.wait_for_timeout(1500)
+        now = await pg.inner_text('section[aria-label="Your portfolio now"]')
+        check('KO' in now and '$920.00' in now, f'portfolio: the holding from the stock page is counted (10 shares at the list price of $92): {now[:500]!r}')
+        check(not errs, f'no page errors recording a holding on the stock page {errs}')
+        await pg.close()
+        pg, errs = await page_with(ctx, base, fresh, {'watch': {'v': 1, 'items': [], 'snap': None, 'prev': None}, 'advisor': {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'stocks', 'hold': 'auto', 'swing': 'no', 'broker': 'fixed', 'monthlyAed': 0}, 'hp': {}, 'other': []}})
+        await pg.click('#nav button:has-text("Portfolio")')
+        await pg.wait_for_timeout(1500)
+        await pg.fill('section[aria-label="Your portfolio now"] input[aria-label="Ticker of a US stock you own"]', 'msft')
+        await pg.click('section[aria-label="Your portfolio now"] button:has-text("Add a stock you own")')
+        await pg.wait_for_timeout(300)
+        await pg.fill('section[aria-label="Your portfolio now"] label:has-text("Shares") input', '2')
+        await pg.fill('section[aria-label="Your portfolio now"] label:has-text("Average cost") input', '400')
+        await pg.click('section[aria-label="Your portfolio now"] button:has-text("Save holding")')
+        await pg.wait_for_timeout(1500)
+        now = await pg.inner_text('section[aria-label="Your portfolio now"]')
+        check('MSFT' in now and '$1,078.88' in now, f'portfolio: a stock added by hand is counted at the latest price: {now[:600]!r}')
+        # a ticker the site does not cover needs its price; a fund belongs with the funds
+        await pg.fill('section[aria-label="Your portfolio now"] input[aria-label="Ticker of a US stock you own"]', 'ZZZZ')
+        await pg.click('section[aria-label="Your portfolio now"] button:has-text("Add a stock you own")')
+        await pg.wait_for_timeout(300)
+        note = await pg.inner_text('section[aria-label="Your portfolio now"]')
+        check('ZZZZ is not on the site’s list' in note and 'Its price now' in note, 'portfolio: a ticker not on the site asks for its price')
+        await pg.fill('section[aria-label="Your portfolio now"] label:has-text("Shares") input', '5')
+        await pg.fill('section[aria-label="Your portfolio now"] label:has-text("Average cost") input', '10')
+        await pg.fill('section[aria-label="Your portfolio now"] label:has-text("Its price now") input', '12')
+        await pg.click('section[aria-label="Your portfolio now"] button:has-text("Save holding")')
+        await pg.wait_for_timeout(1500)
+        now = await pg.inner_text('section[aria-label="Your portfolio now"]')
+        check('ZZZZ' in now and '$60.00' in now, f'portfolio: your own ticker is counted at your price: {now[:700]!r}')
+        await pg.fill('section[aria-label="Your portfolio now"] input[aria-label="Ticker of a US stock you own"]', 'ISDW')
+        await pg.click('section[aria-label="Your portfolio now"] button:has-text("Add a stock you own")')
+        await pg.wait_for_timeout(300)
+        check('ISDW is a fund' in await pg.inner_text('section[aria-label="Your portfolio now"]'), 'portfolio: a fund is sent to the funds section')
+        # sold: the holding goes, the Watchlist entry stays
+        await pg.click('section[aria-label="Your portfolio now"] tr:has-text("MSFT") button:has-text("Sold")')
+        await pg.wait_for_timeout(1500)
+        w = await pg.evaluate("JSON.parse(localStorage.getItem('watch')).items")
+        ms = [x for x in w if x['t'] == 'MSFT']
+        check(len(ms) == 1 and not ms[0].get('shares'), f'portfolio: "Sold" clears the holding and keeps MSFT on the Watchlist: {ms}')
+        check(not errs, f'no page errors recording holdings on the Portfolio page {errs}')
         await pg.close()
 
         # ---- stale data warning on the home page
