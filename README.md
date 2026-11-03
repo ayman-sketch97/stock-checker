@@ -12,6 +12,6 @@ Plain-English analysis of US-listed companies, built from official SEC filings a
 
 The site is rebuilt every weekday morning (US time) by a GitHub Actions workflow (`.github/workflows/update-site.yml`), which runs `node tools/build-site.mjs` and publishes `site/` to GitHub Pages. The live signal log is carried from one day's site to the next (`data/signals.json`). Charts use [TradingView Lightweight Charts](https://github.com/tradingview/lightweight-charts) (Apache-2.0).
 
-Code map: `lib/data.js` (network), `lib/engine.js` (fundamentals), `lib/technical.js` (indicators, setups, trade simulation), `lib/backtest.js` (track record), `lib/signals.js` (live log), `lib/longterm.js` and `lib/ltstats.js` (10-year test), `tools/build-site.mjs` (daily build), `index.html` (the whole page).
+Code map: `lib/data.js` (network), `lib/engine.js` (fundamentals), `lib/technical.js` (indicators, setups, trade simulation), `lib/backtest.js` (track record), `lib/signals.js` (live log), `lib/longterm.js` and `lib/ltstats.js` (10-year test), `lib/records.js` (the permanent record of every call, kept on the `records` branch, append-only), `tools/build-site.mjs` (daily build), `index.html` (the whole page).
 
 Educational tool, not financial advice. Always confirm halal status with a dedicated screener before investing.

@@ -556,6 +556,62 @@ async def main():
         check(not errs, f'no page errors with late data {errs}')
         await pg.close()
 
+        # ---- stage 2 (3 Nov 2026): the permanent record on the Record page, and the tool's view kept with each trade
+        rec_summary = {'version': 1, 'since': '2026-11-03', 'days': 4, 'chain': {'ok': True, 'at': None, 'okBefore': True}, 'today': None, 'kinds': {'verdict': 1500, 'buy_in': 40},
+                       'groups': {'buy': {'label': 'Entered the long-term buy zone', 'up': True, 'n': 12, 'h': {'1m': {'n': 5, 'ret': 0.03, 'spy': 0.01, 'diff': 0.02, 'beat': 0.6}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}},
+                                  'trim': {'label': 'Reached the trim price', 'up': False, 'n': 3, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}}},
+                       'standing': {}, 'recent': [{'d': '2026-11-05', 't': 'KO', 'g': 'buy', 'px': 60, 'v': 'BUY'}], 'url': 'https://github.com/ayman-sketch97/stock-checker/tree/records'}
+        pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': rec_summary})
+        await pg.click('#nav button:has-text("Record")')
+        await pg.wait_for_timeout(1500)
+        rc = await pg.inner_text('section[aria-label="The permanent record"]')
+        check('every file intact' in rc and '4 days recorded' in rc and '+2.0%' in rc and '5 followed, 60% beat it' in rc and '12 calls' in rc and 'waiting' in rc and 'lower is better' in rc and 'KO, entered the long-term buy zone at $60.00' in rc,
+              f'record: the permanent record card shows the chain, the follow-up and the latest calls: {rc[:400]!r}')
+        hrefs = await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"The permanent record\"] a')].map((a) => a.href)")
+        check('https://github.com/ayman-sketch97/stock-checker/tree/records' in hrefs, 'record: links to every file on GitHub')
+        check(not errs, f'no page errors on the permanent record card {errs}')
+        await pg.close()
+        # problems are shown, not hidden: a missing day, a night not saved, no prices, repeats and companies left out
+        bad = {**rec_summary, 'chain': {'ok': False, 'at': '2026-11-05', 'why': 'missing', 'okBefore': True}, 'saved': False, 'prices': False, 'repeatDays': 30,
+               'groups': {**rec_summary['groups'], 'buy': {**rec_summary['groups']['buy'], 'rep': 2, 'gone': 1}}}
+        for fix, want, what in [(bad, ['a day is missing (2026-11-05)', 'could not be saved to GitHub', 'Prices could not be loaded tonight', 'Not counted again: 2 repeats', 'Left out tonight: 1 call'], 'problems'),
+                                ({'skipped': 'not read', 'url': rec_summary['url']}, ['could not be read tonight', 'every file on GitHub'], 'a skipped night')]:
+            pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': fix})
+            await pg.click('#nav button:has-text("Record")')
+            await pg.wait_for_timeout(1500)
+            rc = await pg.inner_text('section[aria-label="The permanent record"]')
+            check(all(w in rc for w in want), f'record: {what} are shown on the card: {rc[:700]!r}')
+            check(not errs, f'no page errors showing {what} {errs}')
+            await pg.close()
+        # the journal keeps what the tool said when you logged the trade (KO is rated "watch", outside its buy zone here)
+        pg, errs = await page_with(ctx, base, fresh, {'journal': {'v': 1, 'trades': [], 'backup': None}})
+        await pg.click('#nav button:has-text("Journal")')
+        await pg.wait_for_timeout(900)
+        await pg.click('button:has-text("Add a trade")')
+        await pg.wait_for_timeout(500)
+        await pg.fill('label:has-text("Ticker") input', 'KO')
+        await pg.fill('label:has-text("Buy price") input', '90')
+        await pg.fill('label:has-text("Shares") input', '3')
+        await pg.select_option('select[aria-label="Setup"]', 'longterm')
+        await pg.click('button:has-text("Add to journal")')
+        await pg.wait_for_timeout(900)
+        tool = await pg.evaluate("JSON.parse(localStorage.getItem('journal')).trades[0].tool")
+        check(tool is not None and tool.get('v') == 'WATCH' and tool.get('s') == 'pass' and tool.get('buy') is False, f'journal: a new trade keeps what the tool said that day: {tool}')
+        jt = await pg.inner_text('#page-journal')
+        check('When you bought, the tool said: ' in jt and 'halal pass' in jt, 'journal: the trade shows what the tool said')
+        check(not errs, f'no page errors keeping the tool view {errs}')
+        await pg.close()
+        # closed trades: with the tool and against it, side by side
+        closed = [{'id': 'c1', 't': 'KO', 'opened': '2026-01-02', 'entry': 50, 'shares': 2, 'setup': 'longterm', 'closed': '2026-03-02', 'exit': 60, 'tool': {'d': '2026-01-01', 'v': 'BUY', 's': 'pass', 'buy': True, 'sig': ''}},
+                  {'id': 'c2', 't': 'MSFT', 'opened': '2026-01-02', 'entry': 100, 'shares': 1, 'setup': 'longterm', 'closed': '2026-03-02', 'exit': 90, 'tool': {'d': '2026-01-01', 'v': 'WATCH', 's': 'pass', 'buy': False, 'sig': ''}}]
+        pg, errs = await page_with(ctx, base, fresh, {'journal': {'v': 1, 'trades': closed, 'backup': None}})
+        await pg.click('#nav button:has-text("Journal")')
+        await pg.wait_for_timeout(900)
+        res = await pg.inner_text('section[aria-label="Your results"]')
+        check('Trades the tool agreed with when you bought: 1 (average +20.0% a trade); trades against it: 1 (average -10.0%)' in res, f'journal: results with the tool and against it: {res[-300:]!r}')
+        check(not errs, f'no page errors in the with-or-against results {errs}')
+        await pg.close()
+
         # ---- stale data warning on the home page
         pg, errs = await page_with(ctx, base, weekday_back(6))
         check(await pg.locator('.hint.stale').count() == 1, 'old data shows a warning')

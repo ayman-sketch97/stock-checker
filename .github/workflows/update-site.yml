@@ -34,8 +34,35 @@ jobs:
       # formula checks: a failing test stops the publish, so a broken calculation never reaches the site
       - name: Test the formulas
         run: node --test test/formulas.test.mjs
+      # the permanent record of every call (lib/records.js): an append-only branch, one file per day. If it exists but
+      # cannot be read tonight, it is left out (never started again from nothing)
+      - name: Get the permanent record
+        env:
+          URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          set +e; git ls-remote --exit-code --heads "$URL" records > /dev/null; rc=$?; set -e
+          if [ $rc -eq 0 ]; then
+            git clone -q --depth 1 --branch records "$URL" records || { rm -rf records; echo "::warning::Could not read the permanent record; it is not updated tonight."; }
+          elif [ $rc -eq 2 ]; then
+            git init -q -b records records && echo "The permanent record starts tonight."
+          else
+            echo "::warning::Could not reach the permanent record; it is not updated tonight."
+          fi
       - name: Analyze companies and build the site
         run: node tools/build-site.mjs
+      # adds today's files and refuses to push if any existing file would change or disappear. The site is published
+      # either way, and says so if tonight's record was not saved
+      - name: Save today's record
+        id: record
+        continue-on-error: true
+        env:
+          PUSH_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: bash tools/save-record.sh records
+      - name: Note that tonight's record was not saved
+        if: steps.record.outcome == 'failure'
+        run: |
+          node -e "const fs=require('fs');const f='site/data/record-summary.json';if(fs.existsSync(f)){const s=JSON.parse(fs.readFileSync(f,'utf8'));s.saved=false;fs.writeFileSync(f,JSON.stringify(s))}"
+          echo "::error::Tonight's permanent record was not saved; see the step above."
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

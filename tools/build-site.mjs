@@ -19,6 +19,7 @@ const { analyze } = await import('../lib/engine.js');
 const { prepare, analyzeTechnical, techContextFrom, TECH_VERSION } = await import('../lib/technical.js');
 const BT = await import('../lib/backtest.js');
 const SG = await import('../lib/signals.js');
+const REC = await import('../lib/records.js');
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const args = process.argv.slice(2);
@@ -516,6 +517,7 @@ fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: start
 }
 
 // track record: live signal log (stocks not processed this run keep their records unchanged)
+let finalSignalRecords = null; // for the permanent record, below
 {
   const log = { ...prevLog, records: [] };
   for (const [t, recs] of logByTicker) if (!newLog.has(t)) log.records.push(...recs);
@@ -535,6 +537,7 @@ fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: start
   // days after costs, for enough months? (lib/signals.js, liveProof)
   log.proof = SG.liveProof(log, M ? { dates: M.dates, C: M.C } : null);
   fs.writeFileSync(path.join(dataDir, 'signals.json'), JSON.stringify(log));
+  finalSignalRecords = log.records;
   // the stock, shortlist and portfolio pages read the gate from the backtest summary (written earlier in this run)
   const sp = path.join(dataDir, 'backtest-summary.json');
   if (fs.existsSync(sp)) {
@@ -571,4 +574,47 @@ if (failed.length) console.log('failed:', failed.slice(0, 40).map((f) => `${f.t}
 if (!ONLY.length && items.length < universe.length * 0.8) {
   console.error('Too many failures; not publishing this run.');
   process.exit(1);
+}
+
+// the permanent record (lib/records.js): today's changes are added to the "records" branch, which the workflow checks
+// out in ./records and pushes afterwards, refusing any change to an existing file. Today is compared with the last
+// state saved in the record (not with yesterday's site), so a missed day loses nothing: its changes are recorded the
+// next time. A failure here is reported but does not stop the site from updating.
+const RECORDS_DIR = process.env.RECORDS_DIR || path.resolve('records');
+const RECORDS_URL = 'https://github.com/ayman-sketch97/stock-checker/tree/records';
+const recordOut = path.join(dataDir, 'record-summary.json');
+if (!ONLY.length && !LIMIT && priceDate && !fs.existsSync(RECORDS_DIR)) {
+  fs.writeFileSync(recordOut, JSON.stringify({ skipped: 'not read', url: RECORDS_URL }));
+  console.log('permanent record: not checked out, so not updated tonight');
+} else if (!ONLY.length && !LIMIT && priceDate) {
+  try {
+    const idxOf = new Map(btStocks.map((s, i) => [s[0], i]));
+    const toCloses = (dates, C) => ({ d: Int32Array.from(dates, (x) => Number(x.replace(/-/g, ''))), c: Float64Array.from(C) });
+    // companies with calls in the record but no prices tonight (no longer analysed, or a failed download): only their
+    // prices are fetched, so a company that fell does not drop out of the results
+    const extra = new Map();
+    const want = REC.followedTickers(RECORDS_DIR).filter((t) => !idxOf.has(t));
+    await pool(want, 4, async (t) => {
+      try {
+        const hist = await historyFor(t);
+        const P = hist?.daily?.length ? prepare(hist.daily) : null;
+        if (P) extra.set(t, toCloses(P.dates, P.C));
+      } catch { /* left out tonight, and counted as such */ }
+    });
+    const summary = REC.updateRecord({
+      dir: RECORDS_DIR,
+      date: priceDate,
+      built: started.toISOString(),
+      rows: REC.rowsOf({ fields: SCREEN_FIELDS, rows: screen }),
+      signals: { before: prevLog.records, after: finalSignalRecords || [] },
+      closesOf: (t) => (idxOf.has(t) ? rsData[idxOf.get(t)] : extra.get(t) || null),
+      spy: M ? toCloses(M.dates, M.C) : null,
+      url: RECORDS_URL,
+    });
+    fs.writeFileSync(recordOut, JSON.stringify(summary));
+    console.log(`permanent record: ${summary.days} day files, chain ${summary.chain.ok ? 'intact' : `BROKEN at ${summary.chain.at} (${summary.chain.why})`}, today ${JSON.stringify(summary.today)}, kinds ${JSON.stringify(summary.kinds)}, prices only for ${extra.size} of ${want.length} followed companies not analysed tonight`);
+  } catch (e) {
+    fs.writeFileSync(recordOut, JSON.stringify({ skipped: 'error', url: RECORDS_URL }));
+    console.log('permanent record not updated:', e.message);
+  }
 }

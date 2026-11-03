@@ -805,3 +805,47 @@ Read with care: one path through one decade, survivor-only data (failed companie
 risk that limits protect against, so the test cannot credit them for it), and these are results seen after the fact.
 They are a reason to review the 40% sector limit and the trim size with the owner, not a licence to pick the rule set
 that scored best.
+
+### Stage 2: the permanent record
+
+Every nightly update now adds the day's changes in the tool's calls to the `records` branch: verdict changes, halal
+status changes, entries into and out of the long-term buy zone and the trim zone, the Portfolio page's picks coming
+and going, and every swing signal that appears, fills, closes or lapses (`lib/records.js`). The first file holds the
+starting point (every company's verdict that day, and the calls standing then). Each file starts with the SHA-256 of
+the file before it, and every day file has a state file of the same name, so an edited day, a removed day and a
+removed latest day all show; the save script (`tools/save-record.sh`) refuses to push if any existing file would
+change or disappear. Each night is compared with the last state saved in the record, not with the night before, so a
+night that fails to save loses nothing: its changes are recorded the next night. The site is published even if the
+record cannot be read or saved, and the Record page says so.
+
+How each call did is recomputed every night, from the close of the session after the call to 21, 63, 126 and 252
+trading days later, against the S&P 500 over the same dates; it is never written into the record. Rules fixed before
+the first call, so they cannot be tuned to the results:
+
+- A company with no data for a night keeps its last state for up to 30 days, so a failed download is not a sell
+  followed by a new buy call. After 30 days it is dropped, and if it returns it is new.
+- The same call on the same company again within 30 days stays in the record but is not counted again in the
+  results. Without this, a price hovering at the buy price would count many times.
+- Every company with a call is priced each night, even after it drops below the $2B cut-off, so a company that fell
+  does not quietly leave the results. Calls on companies with no prices at all (delisted, bought, a changed ticker)
+  are counted and shown as left out, because leaving out a collapse flatters the results.
+- Halal changes are recorded but not judged by later prices: the screen is a rule to follow, not a forecast.
+
+A dry run on a saved copy of the real site data (16 October 2026, 1,563 companies): a starting file of 2,240 events
+(255 KB, 37 KB compressed) and a state file of 55 KB; the same data the next night adds nothing; one company missing
+and one price halved adds exactly one event (the trim zone left) and keeps the missing company's state.
+
+Tests: the events between two days; a night without data (no call, state and pick kept, dropped after 30 days and new
+when it returns); swing signals that are new, filled, closed between two nights or lapsed, while an old closed one is
+not new; an edit, a removal and a removed latest day each breaking the chain; a second file on the same day sorting
+after the first; the follow-up counting only calls old enough, starting at the next session, a repeat within 30 days
+counted once, the S&P 500 taken on the same dates when its own list misses a day, and calls without prices counted
+as left out; the save script adding a new day and refusing a changed old one; and the nightly step end to end in a
+temporary record (it writes nothing when nothing changed, and catches an edited file on the next run). The Journal now
+keeps what the tool said on the day a trade is logged, and the results show trades with the tool and against it side
+by side. 66 formula tests and 131 page checks pass.
+
+Limits: the record starts on the first night it runs, so the first one-month results arrive about a month later and
+mean little until there are many calls; prices only (no dividends, no costs); results for a call are recomputed from
+the price history each night (about ten years of daily prices), so matured results should be sealed into the record
+too before calls start falling out of that history, which is planned with the better-evidence stage.

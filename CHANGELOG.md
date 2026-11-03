@@ -3,6 +3,18 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: stage 2 of the robo-advisor plan (the permanent record)
+
+- Every night the tool's calls (verdict changes, halal status changes, buy-zone and trim-zone entries, the Portfolio
+  page's picks, swing signals) are added to the `records` branch. Files are only ever added; each carries the
+  fingerprint of the one before, and the save step refuses any change to an old file.
+- The Record page shows how the calls did after 1, 3, 6 and 12 months against the S&P 500, and whether every file
+  still matches its fingerprint. Fixed before the first call: a night of missing data is not a new call, a repeat of
+  the same call within 30 days counts once, companies that fall below the size cut-off are still priced, and calls
+  that can no longer be priced are shown as left out rather than dropped quietly.
+- The Journal keeps what the tool said on the day you log a trade, and your results show trades with the tool and
+  against it.
+
 ## 3 November 2026: stage 1 of the robo-advisor plan (safety)
 
 From the audit of 3 November (the "Stock Checker audit and robo-advisor plan" document). Limits approved by the owner

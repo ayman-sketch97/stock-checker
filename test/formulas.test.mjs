@@ -9,6 +9,7 @@ import { netR, benchmarkTrades, portfolioSim, buyHold } from '../lib/backtest.js
 import { liveProof, LOG_FIELDS, PROOF_H, updateStock } from '../lib/signals.js';
 import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/longterm.js';
 import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS } from '../lib/ltstats.js';
+import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, MISSING_DAYS, REPEAT_DAYS } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -871,4 +872,195 @@ test('company news: notable filings of the last 120 days, with 8-K items and lin
   assert.equal(out[0].accession, 'a1');
   assert.equal(out[0].doc, 'd1.htm');
   assert.deepEqual(notableFilings(undefined), []);
+});
+
+test('permanent record: what changed each day, sealed in a chain that shows any edit', () => {
+  const fields = ['ticker', 'sector', 'price', 'verdict', 'shariah', 'quality', 'health', 'growth', 'fair', 'upside', 'buyBelow', 'trimAbove', 'trend', 'dq'];
+  const row = (o) => fields.map((k) => ({ sector: 'Tech', price: 100, verdict: 'BUY', shariah: 'pass', quality: 80, health: 70, growth: 60, fair: 140, upside: 0.4, buyBelow: 120, trimAbove: 200, trend: 'up', dq: 'high', ...o })[k]);
+  const day1 = rowsOf({ fields, rows: [row({ ticker: 'AAA' }), row({ ticker: 'BBB', verdict: 'WATCH', price: 150 }), row({ ticker: 'CCC', price: 210 })] });
+  assert.deepEqual(stateOf(day1[0]), { v: 'BUY', s: 'pass', buy: true, trim: false });
+  assert.equal(stateOf({ ...day1[0], shariah: 'review' }).buy, false, 'no buy zone without a clear halal pass');
+  // the first day is the starting point: every company's verdict, plus the zones it is in
+  const e1 = dayEvents(null, day1);
+  assert.equal(e1.filter((e) => e.k === 'verdict').length, 3);
+  assert.ok(e1.some((e) => e.k === 'buy_in' && e.t === 'AAA') && e1.some((e) => e.k === 'trim_in' && e.t === 'CCC'));
+  assert.ok(e1.some((e) => e.k === 'pick_in'), 'the Portfolio page picks are recorded too');
+  const s1 = stateFile('2026-11-03', day1);
+  assert.deepEqual(s1.co.AAA, ['BUY', 'pass', 1, 0]);
+  // the next day: AAA weakens, BBB comes under review (and stops being a pick), CCC falls below its trim price but
+  // stays above its buy price; unchanged facts are not repeated
+  const day2 = rowsOf({ fields, rows: [row({ ticker: 'AAA', verdict: 'AVOID_WEAK' }), row({ ticker: 'BBB', verdict: 'WATCH', price: 150, shariah: 'review' }), row({ ticker: 'CCC', price: 190 })] });
+  const e2 = dayEvents(s1, day2, { before: [['AAA', '2026-11-03', 'pullback', 1, 'pending']], after: [['AAA', '2026-11-03', 'pullback', 1, 'open'], ['CCC', '2026-11-04', 'breakout', 2, 'pending']] });
+  const kinds = e2.map((e) => `${e.k}:${e.t}`);
+  assert.ok(kinds.includes('verdict:AAA') && kinds.includes('buy_out:AAA') && kinds.includes('halal:BBB') && kinds.includes('trim_out:CCC') && !kinds.includes('buy_in:CCC') && kinds.includes('pick_out:BBB'), kinds.join(' '));
+  assert.equal(e2.find((e) => e.k === 'verdict').from, 'BUY');
+  assert.equal(e2.filter((e) => e.k === 'signal').length, 2, 'a signal that changed and a new one');
+  assert.equal(groupOf(e2.find((e) => e.k === 'verdict')), 'sell_weak');
+  assert.equal(groupOf(e2.find((e) => e.k === 'halal')), null, 'a move to review is not a sell call');
+  assert.equal(dayEvents(stateFile('2026-11-04', day2), day2).filter((e) => e.k !== 'pick_in' && e.k !== 'pick_out').length, 0, 'nothing new, nothing recorded');
+  // the chain: each file carries the fingerprint of the one before
+  const f1 = dayFile({ date: '2026-11-03', built: 'x', prevHash: null, events: e1, baseline: true });
+  const f2 = dayFile({ date: '2026-11-04', built: 'y', prevHash: sha256(f1), events: e2 });
+  const f3 = dayFile({ date: '2026-11-04', built: 'z', prevHash: sha256(f2), events: [] });
+  const files = [{ name: dayName('2026-11-03'), text: f1 }, { name: dayName('2026-11-04'), text: f2 }, { name: dayName('2026-11-04', 2), text: f3 }];
+  assert.deepEqual(files.map((f) => f.name).slice().sort(), files.map((f) => f.name), 'a second file for the same day sorts after the first');
+  assert.equal(verifyChain(files).ok, true);
+  assert.equal(parseDay(f2).events.length, e2.length);
+  const edited = [files[0], { ...files[1], text: files[1].text.replace('AVOID_WEAK', 'BUY') }, files[2]];
+  assert.deepEqual([verifyChain(edited).ok, verifyChain(edited).at], [false, dayName('2026-11-04', 2)], 'an edited day breaks the chain at the next file');
+  assert.equal(verifyChain([files[0], files[2]]).ok, false, 'a removed day breaks the chain');
+});
+
+test('permanent record: each call is followed from the next session against the S&P 500', () => {
+  const n = 300;
+  const d = Int32Array.from({ length: n }, (_, i) => 20260100 + i); // simple increasing day numbers
+  const up = { d, c: Float64Array.from({ length: n }, (_, i) => 100 * 1.01 ** i) };
+  const flat = { d, c: Float64Array.from({ length: n }, () => 100) };
+  const day = (i) => { const x = String(20260100 + i); return `${x.slice(0, 4)}-${x.slice(4, 6)}-${x.slice(6)}`; };
+  const calls = [
+    { date: day(10), e: { k: 'buy_in', t: 'UP' } },
+    { date: day(10), e: { k: 'trim_in', t: 'UP' } },
+    { date: day(290), e: { k: 'buy_in', t: 'UP' } }, // too recent for a month
+    { date: day(10), e: { k: 'buy_out', t: 'UP' } }, // not a call that is followed
+  ];
+  const r = followUp(calls, (t) => (t === 'UP' ? up : null), flat);
+  assert.equal(r.buy.n, 2);
+  assert.equal(r.buy.h['1m'].n, 1, 'only the call old enough is counted');
+  assert.ok(Math.abs(r.buy.h['1m'].ret - (1.01 ** 21 - 1)) < 1e-4, 'from the close of the next session, 21 trading days');
+  assert.equal(r.buy.h['1m'].spy, 0);
+  assert.equal(r.buy.h['1m'].beat, 1);
+  assert.equal(r.buy.h['12m'].n, 1, 'day 10 + 1 + 252 is still inside the 300 days');
+  assert.equal(r.trim.up, false, 'for a trim call, a rise afterwards counts against it');
+  assert.equal(r.sell_weak.n, 0);
+});
+
+test('permanent record: the save script adds files and refuses to change an old one', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rec-'));
+  const run = (args, opts = {}) => execFileSync(args[0], args.slice(1), { cwd: dir, encoding: 'utf8', ...opts });
+  run(['git', 'init', '-q', '-b', 'records']);
+  const script = path.resolve('tools/save-record.sh');
+  fs.mkdirSync(path.join(dir, 'days', '2026'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'days', '2026', '2026-11-03.ndjson'), 'a\n');
+  run(['bash', script, dir]);
+  assert.equal(run(['git', 'log', '--oneline']).trim().split('\n').length, 1, 'the first day is saved');
+  fs.writeFileSync(path.join(dir, 'days', '2026', '2026-11-04.ndjson'), 'b\n');
+  run(['bash', script, dir]);
+  assert.equal(run(['git', 'log', '--oneline']).trim().split('\n').length, 2, 'a new day is added');
+  fs.writeFileSync(path.join(dir, 'days', '2026', '2026-11-03.ndjson'), 'changed\n');
+  fs.writeFileSync(path.join(dir, 'days', '2026', '2026-11-05.ndjson'), 'c\n');
+  assert.throws(() => run(['bash', script, dir], { stdio: 'pipe' }), 'changing an old day is refused');
+  assert.equal(run(['git', 'log', '--oneline']).trim().split('\n').length, 2, 'and nothing is saved');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('permanent record: the nightly step adds a file only when something changed, and keeps the chain', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'recday-'));
+  const fields = ['ticker', 'sector', 'price', 'verdict', 'shariah', 'quality', 'health', 'growth', 'fair', 'upside', 'buyBelow', 'trimAbove', 'trend', 'dq'];
+  const row = (o) => fields.map((k) => ({ sector: 'Tech', price: 100, verdict: 'BUY', shariah: 'pass', quality: 80, health: 70, growth: 60, fair: 140, upside: 0.4, buyBelow: 120, trimAbove: 200, trend: 'up', dq: 'high', ...o })[k]);
+  const rows = (o2) => rowsOf({ fields, rows: [row({ ticker: 'AAA' }), row({ ticker: 'BBB', ...o2 })] });
+  const r1 = updateRecord({ dir, date: '2026-11-03', built: 't1', rows: rows({}) });
+  assert.deepEqual([r1.days, r1.today.baseline, r1.chain.ok], [1, true, true], 'the empty record gets its starting point');
+  const r2 = updateRecord({ dir, date: '2026-11-04', built: 't2', rows: rows({}) });
+  assert.deepEqual([r2.days, r2.today], [1, null], 'no change, no file');
+  const r3 = updateRecord({ dir, date: '2026-11-04', built: 't3', rows: rows({ verdict: 'AVOID_WEAK' }) });
+  assert.deepEqual([r3.days, r3.today.file, r3.chain.ok, r3.kinds.verdict], [2, '2026-11-04.ndjson', true, 3]);
+  const r4 = updateRecord({ dir, date: '2026-11-04', built: 't4', rows: rows({ verdict: 'AVOID_WEAK', shariah: 'fail' }) });
+  assert.deepEqual([r4.days, r4.today.file, r4.chain.ok], [3, '2026-11-04_2.ndjson', true], 'a second change on the same day gets its own file');
+  assert.equal(r4.kinds.halal, 1, 'the halal fail is in the record');
+  assert.equal(r4.recent[0].g, 'sell_weak', 'but it is not judged by later prices (the screen is a rule, not a forecast)');
+  assert.equal(r4.groups.sell_weak.n, 1, 'the weakened business counts as a sell call');
+  assert.ok(fs.existsSync(path.join(dir, 'state', '2026-11-04_2.json')));
+  // editing an old file is caught on the next run
+  const f = path.join(dir, 'days', '2026', '2026-11-04.ndjson');
+  fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace('AVOID_WEAK', 'BUY'));
+  const r5 = updateRecord({ dir, date: '2026-11-05', built: 't5', rows: rows({ verdict: 'AVOID_WEAK', shariah: 'fail' }) });
+  assert.deepEqual([r5.chain.ok, r5.chain.okBefore, r5.chain.at], [false, false, '2026-11-04_2.ndjson']);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('permanent record: a night without data is not a new call, and lapsed swing signals are recorded', () => {
+  const fields = ['ticker', 'sector', 'price', 'verdict', 'shariah', 'quality', 'health', 'growth', 'fair', 'upside', 'buyBelow', 'trimAbove', 'trend', 'dq'];
+  const row = (o) => fields.map((k) => ({ sector: 'Tech', price: 100, verdict: 'BUY', shariah: 'pass', quality: 80, health: 70, growth: 60, fair: 140, upside: 0.4, buyBelow: 120, trimAbove: 200, trend: 'up', dq: 'high', ...o })[k]);
+  const S = LOG_FIELDS.indexOf('status');
+  const sr = (t, d, status, x = null) => { const r = new Array(LOG_FIELDS.length).fill(null); r[0] = t; r[1] = d; r[S] = status; r[S + 1] = x; return r; };
+  const both = rowsOf({ fields, rows: [row({ ticker: 'AAA' }), row({ ticker: 'BBB', sector: 'Health' })] });
+  const onlyB = rowsOf({ fields, rows: [row({ ticker: 'BBB', sector: 'Health' })] });
+  const sig1 = [sr('AAA', '2026-11-03', 'pending'), sr('OLD', '2026-08-01', 'closed')];
+  const d1 = dayChange(null, both, { after: sig1 }, '2026-11-03');
+  assert.ok(d1.next.picks.long.includes('AAA') && d1.next.co.AAA[2] === 1, 'AAA is a pick in its buy zone');
+  assert.deepEqual(d1.events.filter((e) => e.k === 'signal').map((e) => e.t), ['AAA'], 'the first day: the signals still standing');
+  // AAA has no data tonight: nothing about it is recorded, and its state and pick are kept; its signal order lapsed
+  const sig2 = [sr('CCC', '2026-11-04', 'pending'), sr('OLD', '2026-08-01', 'closed'), sr('DDD', '2026-11-04', 'closed')];
+  const d2 = dayChange(d1.next, onlyB, { after: sig2 }, '2026-11-04');
+  assert.equal(d2.events.filter((e) => e.t === 'AAA' && e.k !== 'signal_lapsed').length, 0, d2.events.map((e) => `${e.k}:${e.t}`).join(' '));
+  assert.deepEqual(d2.next.co.AAA, ['BUY', 'pass', 1, 0, '2026-11-04'], 'kept, with the date it went missing');
+  assert.ok(d2.next.picks.long.includes('AAA'), 'still a pick until it is analysed again');
+  const sk = d2.events.filter((e) => e.k.startsWith('signal')).map((e) => `${e.k}:${e.t}`).sort();
+  assert.deepEqual(sk, ['signal:CCC', 'signal:DDD', 'signal_lapsed:AAA'], 'a new signal, one opened and closed between two nights, a lapsed one; an old closed one is not new');
+  // AAA is back, unchanged: no new call. CCC fills
+  const sig3 = [sr('CCC', '2026-11-04', 'open', '2026-11-05'), sr('OLD', '2026-08-01', 'closed'), sr('DDD', '2026-11-04', 'closed')];
+  const d3 = dayChange(d2.next, both, { after: sig3 }, '2026-11-05');
+  assert.deepEqual(d3.events.map((e) => `${e.k}:${e.t}`), ['signal:CCC'], 'only the fill');
+  assert.deepEqual(d3.next.co.AAA, ['BUY', 'pass', 1, 0]);
+  // missing for longer than MISSING_DAYS: dropped, and a return later is a new company
+  const late = new Date(Date.parse('2026-11-04T00:00:00Z') + (MISSING_DAYS + 1) * 86400000).toISOString().slice(0, 10);
+  const d4 = dayChange(d2.next, onlyB, { after: sig2 }, late);
+  assert.equal(d4.next.co.AAA, undefined);
+  assert.ok(d4.events.some((e) => e.k === 'pick_out' && e.t === 'AAA' && e.gone), 'the pick is dropped, marked gone');
+  const d5 = dayChange(d4.next, both, { after: sig2 }, late);
+  assert.ok(d5.events.some((e) => e.k === 'verdict' && e.t === 'AAA' && e.from === null) && d5.events.some((e) => e.k === 'buy_in' && e.t === 'AAA'));
+});
+
+test('permanent record: a repeat within a month counts once, the S&P 500 is taken on the same days, and missing prices are counted', () => {
+  const dates = [];
+  for (let t = Date.parse('2026-01-02T00:00:00Z'); dates.length < 320; t += 86400000) {
+    const w = new Date(t).getUTCDay();
+    if (w !== 0 && w !== 6) dates.push(new Date(t).toISOString().slice(0, 10));
+  }
+  const num = (d) => Number(d.replace(/-/g, ''));
+  const X = { d: Int32Array.from(dates, num), c: Float64Array.from(dates, () => 50) };
+  // the S&P 500 misses one day (day 30), and rises 1% a trading day
+  const sd = dates.filter((_, i) => i !== 30);
+  const spy = { d: Int32Array.from(sd, num), c: Float64Array.from(sd, (_, i) => 100 * 1.01 ** i) };
+  const calls = [
+    { date: dates[5], e: { k: 'buy_in', t: 'X' } },
+    { date: dates[15], e: { k: 'buy_in', t: 'X' } }, // 14 days later: a repeat
+    { date: dates[40], e: { k: 'buy_in', t: 'X' } }, // more than 30 days after the first: a new call
+    { date: dates[5], e: { k: 'buy_in', t: 'GONE' } }, // no prices tonight
+  ];
+  const r = followUp(calls, (t) => (t === 'X' ? X : null), spy);
+  assert.deepEqual([r.buy.n, r.buy.rep, r.buy.gone], [3, 1, 1]);
+  assert.ok(REPEAT_DAYS === 30);
+  // the first call: filled at dates[6], a month later is dates[27]; both are before the missing day, so the S&P 500
+  // index is the same. The second counted call: dates[41] -> dates[62], one index lower in the S&P 500's own list
+  const exp = (a, b) => (100 * 1.01 ** b) / (100 * 1.01 ** a) - 1;
+  const want = (exp(6, 27) + exp(40, 61)) / 2;
+  assert.ok(Math.abs(r.buy.h['1m'].spy - want) < 1e-4, `${r.buy.h['1m'].spy} vs ${want}`);
+  // the same company in two groups is two calls
+  const r2 = followUp([{ date: dates[5], e: { k: 'buy_in', t: 'X' } }, { date: dates[6], e: { k: 'pick_in', pool: 'long', t: 'X' } }], () => X, spy);
+  assert.deepEqual([r2.buy.n, r2.pick_long.n, r2.buy.rep], [1, 1, 0]);
+});
+
+test('permanent record: removing the latest day shows, and the companies with calls stay followed', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'recgap-'));
+  const fields = ['ticker', 'sector', 'price', 'verdict', 'shariah', 'quality', 'health', 'growth', 'fair', 'upside', 'buyBelow', 'trimAbove', 'trend', 'dq'];
+  const row = (o) => fields.map((k) => ({ sector: 'Tech', price: 100, verdict: 'BUY', shariah: 'pass', quality: 80, health: 70, growth: 60, fair: 140, upside: 0.4, buyBelow: 120, trimAbove: 200, trend: 'up', dq: 'high', ...o })[k]);
+  updateRecord({ dir, date: '2026-11-03', built: 't1', rows: rowsOf({ fields, rows: [row({ ticker: 'AAA' })] }) });
+  const r2 = updateRecord({ dir, date: '2026-11-04', built: 't2', rows: rowsOf({ fields, rows: [row({ ticker: 'AAA', price: 210 }), row({ ticker: 'ZZZ', price: 300 })] }) });
+  assert.deepEqual([r2.days, r2.chain.ok], [2, true]);
+  assert.deepEqual(followedTickers(dir), ['AAA', 'ZZZ'], 'every company with a call is priced each night, even outside the companies analysed');
+  fs.rmSync(path.join(dir, 'days', '2026', '2026-11-04.ndjson'));
+  const r3 = updateRecord({ dir, date: '2026-11-05', built: 't3', rows: rowsOf({ fields, rows: [row({ ticker: 'AAA', price: 210 }), row({ ticker: 'ZZZ', price: 300 })] }) });
+  assert.deepEqual([r3.chain.ok, r3.chain.why, r3.chain.at, r3.chain.okBefore], [false, 'missing', '2026-11-04', false]);
+  fs.rmSync(dir, { recursive: true, force: true });
 });
