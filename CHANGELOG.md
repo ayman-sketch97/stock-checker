@@ -3,6 +3,16 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: a premium look
+
+- A soft aurora and dot grid behind every page, cards with a gradient edge, a glass navigation bar with a lit pill
+  for the current page, and buttons with a sheen.
+- A company now opens on a quote card: the price, its change, the last six months as a line and the 52-week range.
+- Quality, growth and the balance sheet are shown as score rings; valuation and the halal screen as badges.
+- List rows carry a thin stripe in the colour of the verdict, page titles the brand's gradient bar.
+- Things rise into place when a page opens and the rings fill once. All motion is off when the phone asks for less
+  motion, and every colour still comes from the light and dark themes.
+
 ## 3 November 2026: the Portfolio plan judged on many five-year periods (stage 6, part 1)
 
 - One ten-year path depends on which stocks happened to be bought first. The 10-year test now also runs the plan over
