@@ -192,3 +192,48 @@ The re-run uses the same replay data as the last published run. Version 1 and th
 by side in `VALIDATION.md`. Whatever the comparison shows, these rules stay (they are policy, decided by the owner).
 If the money split of section 5 moves, the site shows the new evidence, and keeps it separate from the owner's own
 choice of 70% stocks and 30% fund, which is a personal risk decision and is never presented as a test result.
+
+## 7. How the system is judged: decision quality from the permanent record (3 November 2026)
+
+Written on 3 November 2026, when the record held two days and no result had matured (the first one-month results are
+due in early December). The owner asked for the permanent record to be the main source of truth for judging the
+system, and for the system never to be tuned to improve its historical results after the outcomes are seen. These
+measures are fixed before any outcome exists. Any later change gets a new version number and a date, and the old
+version keeps being reported next to it.
+
+Common rules, as in stage 2: a call counts from the first close after it was published, against the S&P 500 (SPY) over
+the same dates, prices only; a repeat within 30 days counts once; halal changes are recorded but not judged by later
+prices. A call has matured when its 12 months (252 trading days) are complete; 1, 3 and 6 months are early reads,
+never the verdict. A measure is reported once at least 30 calls have matured for it; until then the page says how
+many there are.
+
+1. **False buys:** calls to buy (entered the long-term buy zone, or a new Portfolio page pick) whose stock trailed
+   the S&P 500 by more than 10 percentage points over the next 12 months, as a share of the matured buy calls.
+2. **False sells:** "business weakened: sell" calls whose stock beat the S&P 500 by more than 10 points over the next
+   12 months; and, reported apart, the same for "reached the trim price" (a partial sale).
+3. **Broken theses caught:** from stage 5, when each holding has a dated thesis with conditions that would break it:
+   the share of broken theses the system flagged before the price fell 20% from the day the thesis was written. Not
+   measured before stage 5.
+4. **Sales avoided:** a new kind of call, recorded from the first nightly run after this section is in the code: a
+   company with a sound verdict that falls 20% or more below the price of its buy call while the verdict stays sound
+   (the rule says hold, not sell). Judged by whether it then beat the S&P 500 over the next 12 months.
+5. **Oversized positions prevented:** in the 10-year test, the buys the size and sector limits cut or blocked and the
+   trims they made, per year. On a device, the Portfolio page counts the buy suggestions it blocked; that count stays
+   on the device, because holdings never leave it.
+6. **Advice paused on late data:** trading days on which the site's data was two or more trading days late, counted
+   from the gaps between the record's day files and the nightly health reports.
+7. **Valuation error:** for buy calls with a fair value: the share of the gap between the price and the fair value
+   that had closed 12 and 36 months later (the median), and the bias, the median of (price 36 months later divided by
+   the fair value at the call, minus 1). A fair value that is right on average has a bias near zero.
+8. **Opportunities missed:** halal-pass companies the tool covered that were not in the buy zone at a month-end and
+   beat the S&P 500 by more than 20 points over the next 12 months, as a share of all such companies, next to the same
+   share among the buy calls. If the calls do not show a higher share, the buy zone adds little.
+9. **Against the S&P 500:** for each kind of call, the average return minus the S&P 500's over the same dates at 1,
+   3, 6 and 12 months, and the share of calls that beat it.
+10. **Risk-adjusted:** a model portfolio holding each buy call in equal parts for 12 months, valued every month: the
+    yearly return, the volatility, the worst fall, and the return per unit of volatility with 0% as the base (no
+    interest), next to the S&P 500 over the same months. Reported once there are 12 monthly values.
+
+What is never done: the rules that make the calls are not changed because of these measures except through a review
+written down beforehand, as in sections 3 to 6. If a review changes a rule, the calls made under the old rule stay in
+the record labelled with that rule's version, and every measure is reported per version.
