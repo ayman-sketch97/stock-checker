@@ -358,7 +358,8 @@ async def main():
         check('You let the 10-year test decide' in mix and '50%' in mix and 'the long-term picks on this page' in mix, f'portfolio: the test of the page\'s own picks sets stocks to 50%: {mix[:300]!r}')
         check('Short-term picks get no real money' in mix and 'short term' not in mix.split('Your stocks')[1].split('\n')[0], 'portfolio: untested short-term picks get no real money, their share goes to the long term')
         hp = await pg.inner_text('section[aria-label="Holding periods"]')
-        check('In the 10-year test: its ideas were ahead of the average halal stock by 8.1% a year' in hp and 'beat random picks in one half' in hp, f'portfolio: each holding period shows what the test found: {hp[:400]!r}')
+        check('In the 10-year test: its ideas were ahead of the average halal stock by 8.1% a year' in hp and 'beat random picks in one half' in hp
+              and 'Over 59 five-year periods (starting each month from Dec 2016 to Oct 2021), it beat random picks in 60% of them and the S&P 500 in 40%.' in hp, f'portfolio: each holding period shows what the test found: {hp[:600]!r}')
         check(not errs, f'no page errors on the brief, watchlist and portfolio {errs}')
         await pg.close()
 
@@ -373,6 +374,9 @@ async def main():
         check('The picks the Portfolio page buys' in ltc and 'Half in stocks' in ltc and 'The money split follows the long-term picks' in ltc and 'Short-term picks cannot be tested yet' in ltc,
               'record: the test of the Portfolio page\'s own picks, which sets the split')
         check('The same, with the rules before your limits of 3 Nov 2026' in ltc and '+11.7%' in ltc and '+22.9%' in ltc, 'record: the old rules\' result is shown next to the new one')
+        check('Five-year periods (59, starting each month from Dec 2016 to Oct 2021): beat random picks / beat the S&P 500' in ltc and '60% / 40%' in ltc
+              and 'Result on one 10-year path' in ltc and 'Mostly in the fund' in ltc and 'Since 3 Nov 2026 the test result comes from the five-year periods' in ltc and '+12.4% / +18.7%' in ltc,
+              f'record: the plan judged on many five-year periods, with the single path next to it: {ltc[-1500:]!r}')
         check(not errs, f'no page errors on the record page with the long-term test {errs}')
         await pg.close()
 

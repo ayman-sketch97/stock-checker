@@ -866,3 +866,45 @@ Limits: the record starts on the first night it runs, so the first one-month res
 mean little until there are many calls; prices only (no dividends, no costs); results for a call are recomputed from
 the price history each night (about ten years of daily prices), so matured results should be sealed into the record
 too before calls start falling out of that history, which is planned with the better-evidence stage.
+
+### Stage 6, part 1: the Portfolio plan judged on many five-year periods
+
+The money split rule judged the plan on one ten-year path, and one path depends on which stocks happened to be bought
+first: 100 random portfolios with the same rules ended between 8.3% and 19.5% a year (10th to 90th percentile). The
+re-run of 3 November had the two measures disagreeing (the long-term ideas +8.1% a year ahead of the average halal
+stock, the single path behind random picks). Section 5 of `PREREGISTERED.md` (committed in b9952cd before anything
+below was computed) judges each kind of pick on overlapping five-year periods, one starting at each month-end, against
+50 random portfolios with the same rules and the S&P 500 (`planWindows`, `decideWindows` in `lib/ltstats.js`).
+
+Results on the replay of 27 October (2,638 companies, December 2016 to October 2026):
+
+| | Long term | Medium term |
+| --- | --- | --- |
+| Ideas against the average halal stock, 1 year later | +8.1% (t 2.1) | +3.5% (t 1.4) |
+| Same, first half / second half | +1.3% / +16.8% | -1.8% / +10.1% |
+| Same, 2 years later (in total) | +11.1% (t 1.4) | +3.1% (t 0.8) |
+| Same, 3 years later (in total) | +16.7% (t 1.0) | +3.0% (t 0.4) |
+| One 10-year path: plan / random median / S&P 500, a year | 9.3% / 13.1% / 13.9% | 20.8% / 14.6% / 13.9% |
+| 59 five-year periods: beat random picks / beat the S&P 500 | 64% / 68% | 92% / 93% |
+| Middle period: plan / random / S&P 500, a year | 16.9% / 11.6% / 13.5% | 19.5% / 13.0% / 13.5% |
+| Middle period against the S&P 500 (worst to best) | +3.5% (-8.0% to +17.9%) | +7.3% (-2.3% to +16.4%) |
+| Result on one path (rule 1) | fund (20% in stocks) | mixed (50%) |
+| Result on the five-year periods (section 5) | mixed (50%) | mixed (50%) |
+
+What it means: the single path of the long-term plan started at an unlucky moment; most five-year periods did better
+than random picks and the S&P 500. By the pass marks written down beforehand, the evidence supports about half of
+the money in stocks, not 70%: the long-term plan beat random picks in 64% of the periods where 75% was needed, and
+its ideas' lead over the average stock came almost entirely from 2022 on (first half +1.3%, t 0.3). The medium-term
+plan was stronger as a portfolio (it sells at fair value), but its ideas trailed the average stock in the first half,
+so it is "mixed" too. The split if you let the test decide moves from 20% stocks to 50%.
+
+Limits: the periods overlap and all come from one decade, so they remove the luck of the starting month, not of the
+decade; and the data holds only companies still listed today, which flatters every stock portfolio against the S&P
+500. Still open from section 3: on one path the list (rule 1: mixed) did better than the page's long-term picks (rule 1:
+fund), so the run does not agree with the fixed choice to use the page's picks (`review.agrees` false); judging the
+list on the same five-year periods comes first, before any change.
+
+Tests: the periods are counted and dated right, a plan of rising stocks wins every period against random picks and
+a rising S&P 500, each pass mark is checked on its own edge (t just below 2, one half behind, 74% of periods, 49%
+against the S&P 500 or random picks, ideas behind the average, no periods at all), and the report keeps the single-path
+result and the 2- and 3-year results next to the periods. 68 formula tests and 135 page checks pass.

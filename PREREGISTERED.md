@@ -151,4 +151,3 @@ Limits of this measure: the periods overlap and come from one decade, so the sha
 starting month, not the luck of the decade, and it is not a test of significance. The data still holds only
 companies listed today, which flatters every stock portfolio against the S&P 500 (less so against random picks drawn
 from the same companies).
-

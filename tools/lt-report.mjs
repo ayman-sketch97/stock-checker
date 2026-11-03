@@ -47,7 +47,10 @@ for (const [k, p] of Object.entries(R.plan)) {
     const x = p.portfolio[per];
     console.log(`    ${per} ${x.from}..${x.to}: plan ${pc(x.shortlist.yearly)} (value ${x.shortlist.finalValue} of ${x.shortlist.deposited}, worst ${pc(x.shortlist.worstFall)}, fund ${pc(x.shortlist.fundShare)}) | random median ${pc(x.random.yearly.median)} (p10 ${pc(x.random.yearly.p10)}, p90 ${pc(x.random.yearly.p90)}) | SPY ${pc(x.spy.yearly)}`);
   }
-  console.log(`    rule 1: ${JSON.stringify(p.decision)}`);
+  const W = p.windows || {};
+  if (W.n) console.log(`    ${W.n} five-year periods (${W.first}..${W.last}): beat random ${pc(W.beatRandom)}, beat SPY ${pc(W.beatSpy)} | middle: plan ${pc(W.plan)}, random ${pc(W.random)}, SPY ${pc(W.spy)}, vs SPY ${pc(W.vsSpy)} (${pc(W.worstVsSpy)} to ${pc(W.bestVsSpy)})`);
+  if (p.forward.h24 && p.forward.h36) console.log(`    ideas vs avg after 2 and 3 years (in total): ${pc(p.forward.h24.vsUniverse.mean)} (t ${p.forward.h24.vsUniverse.t}), ${pc(p.forward.h36.vsUniverse.mean)} (t ${p.forward.h36.vsUniverse.t})`);
+  console.log(`    rule 1 on one path: ${JSON.stringify(p.decisionSinglePath)} | the five-year periods (section 5): ${JSON.stringify(p.decision)}`);
 }
 console.log('What the rules say on this run:', JSON.stringify(R.review), '| pools with money:', JSON.stringify(R.pools));
 console.log('Decision:', JSON.stringify(R.decision));

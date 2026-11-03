@@ -8,7 +8,7 @@ import { analyze, dcf, fiscalYearOf, yearsBetween, businessScreen, FAIR_MAX_RATI
 import { netR, benchmarkTrades, portfolioSim, buyHold } from '../lib/backtest.js';
 import { liveProof, LOG_FIELDS, PROOF_H, updateStock } from '../lib/signals.js';
 import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/longterm.js';
-import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS } from '../lib/ltstats.js';
+import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS, planWindows, decideWindows, WINDOW_MONTHS } from '../lib/ltstats.js';
 import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, MISSING_DAYS, REPEAT_DAYS } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
@@ -854,6 +854,45 @@ test('long-term backtest: the Portfolio page picks, tested with its own buying a
   // the report judges each kind of pick by rule 1
   const rep = report(D, { randomRuns: 10 });
   assert.ok(rep.plan.long && rep.plan.mid && rep.plan.long.decision.verdict && rep.decision.method && rep.review && rep.pools, 'the report carries the Portfolio page test and the split it sets');
+});
+
+test('long-term backtest: the plan judged on many five-year periods (PREREGISTERED.md, section 5)', () => {
+  const months = 48;
+  const date = (k) => `20${String(10 + Math.floor(k / 12)).padStart(2, '0')}-${String((k % 12) + 1).padStart(2, '0')}-28`;
+  const sectors = ['Tech', 'Health', 'Energy'];
+  const row = (k, o) => SNAP_FIELDS.map((f) => ({ date: date(k), verdict: 'BUY', quality: 80, health: 70, valuation: 'U', fair: 200, buyBelow: 100, trimAbove: 400, dq: 'H', shariah: 'pass', price: 100, upside: 0.3, confidence: 'High', cap: 5000, growth: 60, trend: 'up', ...o })[f]);
+  const stock = (j, drift, snap) => {
+    const px = Array.from({ length: months }, (_, k) => 100 * (1 + drift) ** k);
+    return JSON.stringify({ t: 'S' + j, sector: sectors[j % 3], rows: px.map((x, k) => row(k, { price: x, ...snap(k, x) })), px: px.map((x, k) => [date(k), x, x]) });
+  };
+  // the S&P 500 rises 0.5% a month; S0..S9 have the best scores and rise 2% a month; S10..S29 are flat
+  const spyPx = (k) => 100 * 1.005 ** k;
+  const lines = [JSON.stringify({ t: '$SPY', px: Array.from({ length: months }, (_, k) => [date(k), spyPx(k), spyPx(k)]) })];
+  for (let j = 0; j < 30; j++) lines.push(stock(j, j < 10 ? 0.02 : 0, () => ({ quality: j < 10 ? 95 : 72, growth: j < 10 ? 80 : 55 })));
+  const D = loadData(lines);
+  const W = planWindows(D, { from: 0, to: months - 1, pool: 'long', len: 24, runs: 5 });
+  assert.equal(W.n, months - 24, 'one period starting at each month-end that has 24 months after it');
+  assert.deepEqual([W.first, W.last], [D.months[0], D.months[months - 1 - 24]]);
+  assert.deepEqual([W.beatRandom, W.beatSpy], [1, 1], `the rising stocks win in every period here: ${JSON.stringify(W)}`);
+  assert.ok(W.vsSpy > 0 && W.worstVsSpy > 0 && W.plan > W.random);
+  assert.equal(WINDOW_MONTHS, 60);
+  // the pass marks
+  const f = (mean, t) => ({ vsUniverse: { mean, t } });
+  const strong = { fwd12: f(0.05, 2.5), half1: f(0.01, 0.5), half2: f(0.02, 1) };
+  assert.equal(decideWindows({ W, ...strong }).verdict, 'stocks');
+  assert.equal(decideWindows({ W, ...strong }).stocks, 0.7);
+  assert.equal(decideWindows({ W, ...strong, fwd12: f(0.05, 1.9) }).verdict, 'mixed', 'a t below 2 is not enough for 70%');
+  assert.equal(decideWindows({ W, ...strong, half1: f(-0.01, -0.5) }).verdict, 'mixed', 'behind the average stock in one half');
+  assert.equal(decideWindows({ W: { ...W, beatRandom: 0.74 }, ...strong }).verdict, 'mixed', 'under three quarters of the periods');
+  assert.equal(decideWindows({ W: { ...W, beatSpy: 0.49 }, ...strong }).verdict, 'mixed', 'behind the S&P 500 in most periods');
+  assert.equal(decideWindows({ W: { ...W, beatRandom: 0.49 }, ...strong }).verdict, 'fund', 'behind random picks in most periods');
+  assert.equal(decideWindows({ W, ...strong, fwd12: f(-0.01, -1) }).verdict, 'fund', 'ideas behind the average stock');
+  assert.equal(decideWindows({ W: { n: 0 }, ...strong }).verdict, 'fund', 'no periods, no evidence');
+  // the report keeps the single-path result next to the periods
+  const rep = report(D, { randomRuns: 5 });
+  assert.equal(rep.plan.long.windows.n, 0, 'four years of data hold no five-year period');
+  assert.equal(rep.plan.long.decision.verdict, 'fund');
+  assert.ok(rep.plan.long.decisionSinglePath.verdict && rep.plan.long.forward.h24 && rep.plan.long.forward.h36, 'rule 1 on one path, and the ideas 2 and 3 years on');
 });
 
 test('company news: notable filings of the last 120 days, with 8-K items and links', async () => {

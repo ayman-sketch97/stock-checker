@@ -3,6 +3,15 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: the Portfolio plan judged on many five-year periods (stage 6, part 1)
+
+- One ten-year path depends on which stocks happened to be bought first. The 10-year test now also runs the plan over
+  59 overlapping five-year periods, one starting each month, against random picks and the S&P 500, with pass marks
+  written down before the run (`PREREGISTERED.md`, section 5).
+- The long-term plan beat random picks in 64% of the periods and the S&P 500 in 68%; the medium-term plan in 92% and
+  93%. The split if you let the test decide moves from 20% in stocks (one path) to 50%.
+- The Record page shows the periods next to the single path, and how the ideas did 2 and 3 years later.
+
 ## 3 November 2026: the permanent record counts each call from the first close after it was published
 
 - The first file of the record is dated 30 October (the latest closes the data had) but was published on the evening
