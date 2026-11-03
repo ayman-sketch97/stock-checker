@@ -3,6 +3,13 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: the permanent record counts each call from the first close after it was published
+
+- The first file of the record is dated 30 October (the latest closes the data had) but was published on the evening
+  of 2 November. Its calls now count from 3 November's close; before, they were credited with 2 November's, which had
+  already happened. The record's files are unchanged: only how results are worked out from them.
+- On the first days, the Record page no longer shows an empty table of new calls.
+
 ## 3 November 2026: stage 2 of the robo-advisor plan (the permanent record)
 
 - Every night the tool's calls (verdict changes, halal status changes, buy-zone and trim-zone entries, the Portfolio

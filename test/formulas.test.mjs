@@ -9,7 +9,7 @@ import { netR, benchmarkTrades, portfolioSim, buyHold } from '../lib/backtest.js
 import { liveProof, LOG_FIELDS, PROOF_H, updateStock } from '../lib/signals.js';
 import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/longterm.js';
 import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS } from '../lib/ltstats.js';
-import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, MISSING_DAYS, REPEAT_DAYS } from '../lib/records.js';
+import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, MISSING_DAYS, REPEAT_DAYS } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -1063,4 +1063,29 @@ test('permanent record: removing the latest day shows, and the companies with ca
   const r3 = updateRecord({ dir, date: '2026-11-05', built: 't3', rows: rowsOf({ fields, rows: [row({ ticker: 'AAA', price: 210 }), row({ ticker: 'ZZZ', price: 300 })] }) });
   assert.deepEqual([r3.chain.ok, r3.chain.why, r3.chain.at, r3.chain.okBefore], [false, 'missing', '2026-11-04', false]);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('permanent record: a call counts from the first close after it was published', () => {
+  // the nightly runs: 03:15 UTC (after the New York close) and 10:45 UTC (before the open) both act on that day's close
+  assert.equal(actFrom('2026-11-03T03:15:00Z'), 20261103);
+  assert.equal(actFrom('2026-11-03T10:45:00Z'), 20261103);
+  // published on Monday evening in New York (00:45 UTC Tuesday): Monday's close has passed, so Tuesday's counts
+  assert.equal(actFrom('2026-11-03T00:45:00Z'), 20261103);
+  // published mid-afternoon in New York, too close to the close: the next day's
+  assert.equal(actFrom('2026-11-03T19:00:00Z'), 20261104);
+  assert.equal(actFrom(undefined), 0, 'no time known: the session after the call');
+  // a call dated with Friday's closes but published on Monday evening: filled at Tuesday's close, not Monday's
+  const dates = ['2026-10-29', '2026-10-30', '2026-11-02', '2026-11-03'];
+  for (let t = Date.parse('2026-11-04T00:00:00Z'); dates.length < 40; t += 86400000) {
+    const w = new Date(t).getUTCDay();
+    if (w !== 0 && w !== 6) dates.push(new Date(t).toISOString().slice(0, 10));
+  }
+  const num = (d) => Number(d.replace(/-/g, ''));
+  const jump = { d: Int32Array.from(dates, num), c: Float64Array.from(dates, (d) => (d >= '2026-11-03' ? 120 : 100)) };
+  const flat = { d: Int32Array.from(dates, num), c: Float64Array.from(dates, () => 100) };
+  const call = { date: '2026-10-30', e: { k: 'buy_in', t: 'J' } };
+  const lagged = followUp([{ ...call, built: '2026-11-03T00:45:00Z' }], () => jump, flat);
+  const plain = followUp([call], () => jump, flat);
+  assert.ok(Math.abs(lagged.buy.h['1m'].ret) < 1e-9, 'entered at 120 on Tuesday, after the jump');
+  assert.ok(Math.abs(plain.buy.h['1m'].ret - 0.2) < 1e-9, 'without a publication time it would have been credited with the jump');
 });

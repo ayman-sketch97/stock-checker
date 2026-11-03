@@ -818,9 +818,15 @@ change or disappear. Each night is compared with the last state saved in the rec
 night that fails to save loses nothing: its changes are recorded the next night. The site is published even if the
 record cannot be read or saved, and the Record page says so.
 
-How each call did is recomputed every night, from the close of the session after the call to 21, 63, 126 and 252
-trading days later, against the S&P 500 over the same dates; it is never written into the record. Rules fixed before
-the first call, so they cannot be tuned to the results:
+How each call did is recomputed every night, from the first close after the call was published to 21, 63, 126 and
+252 trading days later, against the S&P 500 over the same dates; it is never written into the record. Rules fixed
+before the first results, so they cannot be tuned to them:
+
+- A call is filled at the first close after both its date and its publication: the day file's start time plus 5 hours
+  15 minutes (4 hours from UTC to New York plus the longest build) gives the first New York day whose close is surely
+  later. Normally that is the next session. The first live file shows why it matters: it is dated 30 October (the
+  latest closes the data had) but was published on the evening of 2 November, so its calls count from 3 November's
+  close, not from 2 November's, which had already happened.
 
 - A company with no data for a night keeps its last state for up to 30 days, so a failed download is not a sell
   followed by a new buy call. After 30 days it is dropped, and if it returns it is new.
@@ -838,12 +844,16 @@ and one price halved adds exactly one event (the trim zone left) and keeps the m
 Tests: the events between two days; a night without data (no call, state and pick kept, dropped after 30 days and new
 when it returns); swing signals that are new, filled, closed between two nights or lapsed, while an old closed one is
 not new; an edit, a removal and a removed latest day each breaking the chain; a second file on the same day sorting
-after the first; the follow-up counting only calls old enough, starting at the next session, a repeat within 30 days
+after the first; the follow-up counting only calls old enough, starting at the first close after publication (a call published after a close is not credited with it), a repeat within 30 days
 counted once, the S&P 500 taken on the same dates when its own list misses a day, and calls without prices counted
 as left out; the save script adding a new day and refusing a changed old one; and the nightly step end to end in a
 temporary record (it writes nothing when nothing changed, and catches an edited file on the next run). The Journal now
 keeps what the tool said on the day a trade is logged, and the results show trades with the tool and against it side
-by side. 66 formula tests and 131 page checks pass.
+by side. 67 formula tests and 134 page checks pass.
+
+Live check (3 November): the first run wrote the starting point to the `records` branch (2,279 events: 1,559
+verdicts, 41 in the buy zone, 384 above the trim price, 12 picks, 283 open swing signals; one day file of 273 KB and
+its state file), the chain is intact, and the Record page shows the card with every result waiting.
 
 Limits: the record starts on the first night it runs, so the first one-month results arrive about a month later and
 mean little until there are many calls; prices only (no dividends, no costs); results for a call are recomputed from

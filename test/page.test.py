@@ -575,12 +575,18 @@ async def main():
         bad = {**rec_summary, 'chain': {'ok': False, 'at': '2026-11-05', 'why': 'missing', 'okBefore': True}, 'saved': False, 'prices': False, 'repeatDays': 30,
                'groups': {**rec_summary['groups'], 'buy': {**rec_summary['groups']['buy'], 'rep': 2, 'gone': 1}}}
         for fix, want, what in [(bad, ['a day is missing (2026-11-05)', 'could not be saved to GitHub', 'Prices could not be loaded tonight', 'Not counted again: 2 repeats', 'Left out tonight: 1 call'], 'problems'),
-                                ({'skipped': 'not read', 'url': rec_summary['url']}, ['could not be read tonight', 'every file on GitHub'], 'a skipped night')]:
+                                ({'skipped': 'not read', 'url': rec_summary['url']}, ['could not be read tonight', 'every file on GitHub'], 'a skipped night'),
+                                ({**rec_summary, 'days': 1, 'recent': [], 'groups': {k: {**g, 'n': 0, 'h': {h: {'n': 0} for h in g['h']}} for k, g in rec_summary['groups'].items()},
+                                  'standing': {'buy': {**rec_summary['groups']['buy'], 'n': 41, 'h': {h: {'n': 0} for h in rec_summary['groups']['buy']['h']}},
+                                               'sell_weak': {'label': 'Business weakened: sell', 'up': False, 'n': 0, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}}}},
+                                 ['No new calls yet', '41 calls', 'first close after it was published'], 'the first day')]:
             pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': fix})
             await pg.click('#nav button:has-text("Record")')
             await pg.wait_for_timeout(1500)
             rc = await pg.inner_text('section[aria-label="The permanent record"]')
             check(all(w in rc for w in want), f'record: {what} are shown on the card: {rc[:700]!r}')
+            if what == 'the first day':
+                check('Business weakened' not in rc and '0 calls' not in rc, f'record: the first day shows no empty rows: {rc[:700]!r}')
             check(not errs, f'no page errors showing {what} {errs}')
             await pg.close()
         # the journal keeps what the tool said when you logged the trade (KO is rated "watch", outside its buy zone here)
