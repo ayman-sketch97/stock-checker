@@ -1035,3 +1035,26 @@ Tests: 19.99% down is not a call and exactly 20% is; one call per buy call; a we
 call after them; a missing company keeps its wait for 30 days; the list rebuilt from day files equals the one kept
 night by night; the nightly step on a record whose last state has no list; a 2-for-1 split; no closes. 73 formula
 tests and 196 page checks pass.
+
+## 13. Stage 6, part 4: the random-stock yardstick, section 7.1 (3 November 2026)
+
+Pre-registered first (PREREGISTERED.md, section 7.1, its own commit), then built. Every figure on the Record page now
+has the same figure for every company that passed the halal screen on the day of the call (from that day's state
+file), followed from the same close over the same days (`lib/records.js`: `yardstick`, used by `followUp`). Each cell
+says whether the gap is more than noise: a 90% interval from resampling the days of the calls, 2,000 times with a
+fixed seed, and no verdict from calls on fewer than 5 days. Measures 1, 2 and 4 (how often each kind of call went
+wrong over 12 months) are shown from 30 matured calls, next to the same share for the yardstick; until then the page
+says how many calls have had their 12 months. The calls' own figures did not change: the code that follows a call was
+moved into one function shared with the yardstick, and the earlier tests pass unchanged, except that a close of zero
+is now skipped instead of read as a 100% loss.
+
+One known bias: a company that passed the screen on a past day but is no longer analysed and has no call of its own
+has no prices, so it drops out of the yardstick. That leaves out some companies that collapsed or were taken over,
+which makes the yardstick look better than it was: buy and hold calls are then judged a little harshly, sell and trim
+calls a little kindly.
+
+Tests: the yardstick of one day (a company without prices left out, the tail shares), six calls each paired with its
+own day, the gap and an interval above zero when the calls always win, no interval from 4 days, an interval across
+zero when half the calls win and half lose, the same interval from the same record, the nightly step reading each
+day's state file (a company that failed the screen that day is left out), and the page with each verdict and with the
+wrong-call shares. 75 formula tests and 199 page checks pass.

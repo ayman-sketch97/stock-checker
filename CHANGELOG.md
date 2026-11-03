@@ -3,6 +3,16 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: every result next to random halal stocks (stage 6)
+
+- Each figure on the Record page now sits next to the same figure for every halal-pass company on the same days, with
+  a verdict: better than random, worse, or no better so far (from a 90% interval; no verdict from calls on fewer than
+  5 days). Written down first in PREREGISTERED.md, section 7.1, at your request.
+- New: how often each kind of call went wrong over 12 months (a buy, pick or hold that trailed the S&P 500 by more
+  than 10 points; a sell or trim whose stock beat it by more than 10), shown from 30 matured calls next to the random
+  rate. Until then the page counts the calls that have had their 12 months.
+- Display only: no advice changes.
+
 ## 3 November 2026: the record starts the hold calls (stage 6)
 
 - From the next nightly run the record adds the call PREREGISTERED.md, section 7 asked for (measure 4, sales

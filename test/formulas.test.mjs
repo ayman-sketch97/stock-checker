@@ -12,7 +12,7 @@ import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/lo
 import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS, planWindows, decideWindows, WINDOW_MONTHS } from '../lib/ltstats.js';
 import { POLICY_VERSION, POLICY_RULES, buyRoom, trimSale, sectorOpen, worthAnOrder } from '../lib/policy.js';
 import { healthChecks, LT_MAX_DAYS } from '../lib/health.js';
-import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, fallFrom, MISSING_DAYS, REPEAT_DAYS, HOLD_FALL } from '../lib/records.js';
+import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, fallFrom, yardstick, gapInterval, MISSING_DAYS, REPEAT_DAYS, HOLD_FALL, YARD_MIN_DAYS } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -1104,6 +1104,74 @@ test('permanent record: each call is followed from the next session against the 
   assert.equal(r.buy.h['12m'].n, 1, 'day 10 + 1 + 252 is still inside the 300 days');
   assert.equal(r.trim.up, false, 'for a trim call, a rise afterwards counts against it');
   assert.equal(r.sell_weak.n, 0);
+});
+
+test('permanent record: every call next to random halal stocks on the same days (section 7.1)', () => {
+  const n = 300;
+  const d = Int32Array.from({ length: n }, (_, i) => 20260100 + i);
+  const series = (f) => ({ d, c: Float64Array.from({ length: n }, (_, i) => 100 * f ** i) });
+  const C = { UP: series(1.01), FLAT: series(1), DOWN: series(0.995), BIG: series(0.99) };
+  const spy = series(1);
+  const closesOf = (t) => C[t] || C[t.replace(/\d+$/, '')] || null; // UP1, UP2... follow UP (a repeat on one company counts once)
+  const day = (i) => { const x = String(20260100 + i); return `${x.slice(0, 4)}-${x.slice(4, 6)}-${x.slice(6)}`; };
+  // the yardstick of one day: the average of every halal-pass company, and the shares in the tails
+  const Y = yardstick(['FLAT', 'DOWN', 'NOPRICE'], day(10), null, closesOf, spy);
+  const down1m = 0.995 ** 21 - 1;
+  assert.equal(Y[0].n, 2, 'a company without prices is left out');
+  assert.ok(Math.abs(Y[0].rel - down1m / 2) < 1e-12 && Y[0].beat === 0 && Y[0].t10 === 0);
+  const Y12 = Y[3];
+  assert.ok(Math.abs(Y12.t10 - 0.5) < 1e-12, 'DOWN trails by more than 10 points over 12 months (0.995^252 - 1 is about -72%)');
+  // calls on six days, each paired with its own day's yardstick: UP against FLAT and DOWN
+  const yardOf = (c) => yardstick(['FLAT', 'DOWN'], c.date, null, closesOf, spy);
+  const calls = [10, 11, 12, 13, 14, 15].map((i) => ({ date: day(i), e: { k: 'buy_in', t: `UP${i}` } }));
+  const r = followUp(calls, closesOf, spy, { yardOf }).buy.h['1m'];
+  const up1m = 1.01 ** 21 - 1;
+  assert.equal(r.y.n, 6);
+  assert.ok(Math.abs(r.y.diff - down1m / 2) < 1e-4, 'the yardstick over the same calls');
+  assert.ok(Math.abs(r.y.gap - (up1m - down1m / 2)) < 1e-4, 'the gap: calls minus yardstick');
+  assert.ok(r.y.lo !== null && r.y.lo <= r.y.gap + 1e-9 && r.y.hi >= r.y.gap - 1e-9 && r.y.lo > 0, `the same gap every day: a narrow interval above zero ${JSON.stringify(r.y)}`);
+  assert.equal(r.y.days, 6);
+  // fewer than YARD_MIN_DAYS days: no interval
+  const few = followUp(calls.slice(0, YARD_MIN_DAYS - 1), closesOf, spy, { yardOf }).buy.h['1m'].y;
+  assert.deepEqual([few.lo, few.hi, few.days], [null, null, YARD_MIN_DAYS - 1]);
+  // a call no better than its yardstick: the interval includes zero
+  const mixed = [10, 11, 12, 13, 14, 15].map((i, j) => ({ date: day(i), e: { k: 'buy_in', t: `${j % 2 ? 'UP' : 'BIG'}${i}` } }));
+  const m = followUp(mixed, closesOf, spy, { yardOf: (c) => yardstick(['UP', 'BIG'], c.date, null, closesOf, spy) }).buy.h['1m'].y;
+  assert.ok(m.lo < 0 && m.hi > 0, `half better, half worse: ${JSON.stringify(m)}`);
+  // the calls' own tails: BIG trails by more than 10 points at 12 months, UP beats by more than 20
+  const tails = followUp(mixed, closesOf, spy).buy.h['12m'];
+  assert.deepEqual([tails.n, tails.t10, tails.b10, tails.b20, tails.y], [6, 0.5, 0.5, 0.5, undefined], 'without a yardstick, only the calls');
+  // the interval resamples whole days with a fixed seed: the same record gives the same interval
+  const days = [[0.1, 2], [-0.05, 1], [0.02, 3], [0.2, 1], [-0.1, 2], [0.03, 1]];
+  assert.deepEqual(gapInterval(days), gapInterval(days));
+  assert.equal(gapInterval(days.slice(0, 4)), null);
+  const [lo, hi] = gapInterval(days);
+  assert.ok(lo < hi && lo >= -0.1 && hi <= 0.2);
+});
+
+test('permanent record: the nightly step pairs each call with the halal-pass companies of its own day', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'recyard-'));
+  const fields = ['ticker', 'sector', 'price', 'verdict', 'shariah', 'quality', 'health', 'growth', 'fair', 'upside', 'buyBelow', 'trimAbove', 'trend', 'dq'];
+  const row = (o) => fields.map((k) => ({ sector: 'Tech', price: 100, verdict: 'BUY', shariah: 'pass', quality: 80, health: 70, growth: 60, fair: 140, upside: 0.4, buyBelow: 120, trimAbove: 200, trend: 'up', dq: 'high', ...o })[k]);
+  // AAA is in the buy zone; BBB passes the screen but is not a buy (WATCH, above its buy price); CCC fails the screen
+  const rows = rowsOf({ fields, rows: [row({ ticker: 'AAA' }), row({ ticker: 'BBB', verdict: 'WATCH', price: 150 }), row({ ticker: 'CCC', shariah: 'fail' })] });
+  updateRecord({ dir, date: '2026-11-04', built: '2026-11-05T03:30:00Z', rows });
+  const n = 40;
+  const d = Int32Array.from({ length: n }, (_, i) => 20261105 + i);
+  const series = (f) => ({ d, c: Float64Array.from({ length: n }, (_, i) => 100 * f ** i) });
+  const C = { AAA: series(1.01), BBB: series(0.99), CCC: series(1.05), SPY: series(1) };
+  const R = updateRecord({ dir, date: '2026-12-10', built: '2026-12-11T03:30:00Z', rows, closesOf: (t) => C[t] || null, spy: C.SPY });
+  const h1 = R.standing.buy.h['1m'];
+  const a = 1.01 ** 21 - 1;
+  const yard = (a + (0.99 ** 21 - 1)) / 2; // AAA and BBB passed the screen that day; CCC did not, so it is not in it
+  assert.equal(h1.n, 1);
+  assert.ok(Math.abs(h1.diff - a) < 1e-4, JSON.stringify(h1));
+  assert.ok(h1.y && h1.y.n === 1 && Math.abs(h1.y.diff - yard) < 1e-4 && Math.abs(h1.y.gap - (a - yard)) < 1e-4, JSON.stringify(h1.y));
+  assert.deepEqual([h1.y.days, h1.y.lo], [1, null], 'one day of calls: no verdict');
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test('permanent record: the save script adds files and refuses to change an old one', async () => {

@@ -5538,18 +5538,39 @@ table.data tr.me td { background: var(--accent-wash); }
     if (R.saved === false) card.append(h('p', { class: 'note tone-warn', text: 'Tonight’s changes could not be saved to GitHub. The next update adds them, dated that night.' }));
     if (R.prices === false) card.append(h('p', { class: 'note tone-warn', text: 'Prices could not be loaded tonight, so the results wait for the next update.' }));
     const H = [['1m', '1 month'], ['3m', '3 months'], ['12m', '12 months']];
-    const cellEl = (h1) => (h1 && h1.n ? h('td', null, h('b', { text: pctS(h1.diff, 1) }), h('div', { class: 'sm', text: `${h1.n} followed, ${pct(h1.beat, 0)} beat it` })) : h('td', { class: 'muted', text: 'waiting' }));
+    // the yardstick (PREREGISTERED.md, section 7.1): every halal-pass company on the same days, and whether the gap is
+    // more than noise (a 90% interval from resampling the days of the calls)
+    const yardEl = (y, up) => {
+      if (!y) return null;
+      const better = y.lo !== null && (up ? y.lo > 0 : y.hi < 0);
+      const worse = y.lo !== null && (up ? y.hi < 0 : y.lo > 0);
+      const verdict = y.lo === null ? `calls on ${y.days} day${y.days === 1 ? '' : 's'}, too few to judge` : better ? 'better than random halal stocks' : worse ? 'worse than random halal stocks' : 'no better than random halal stocks so far';
+      return h('div', { class: 'sm yard' }, `Random halal stocks, same days: ${pctS(y.diff, 1)} · ${verdict}`);
+    };
+    const cellEl = (h1, up) => (h1 && h1.n ? h('td', null, ...[h('b', { text: pctS(h1.diff, 1) }), h('div', { class: 'sm', text: `${h1.n} followed, ${pct(h1.beat, 0)} beat it` }), yardEl(h1.y, up)].filter(Boolean)) : h('td', { class: 'muted', text: 'waiting' }));
     const ORDER = ['buy', 'pick_long', 'pick_mid', 'trim', 'sell_weak', 'hold_fall'];
     const tableOf = (G, skipEmpty = false) => h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' },
       h('tr', null, ['Call', ...H.map(([, t]) => t)].map((x) => h('th', { text: x }))),
       ORDER.filter((k) => G && G[k] && (!skipEmpty || G[k].n)).map((k) => h('tr', null,
         h('td', null, h('span', { text: G[k].label }), h('div', { class: 'sm', text: `${G[k].n || 0} call${G[k].n === 1 ? '' : 's'}${G[k].up ? '' : ' · lower is better'}` })),
-        ...H.map(([k2]) => cellEl(G[k].h && G[k].h[k2]))))));
+        ...H.map(([k2]) => cellEl(G[k].h && G[k].h[k2], G[k].up))))));
     const anyNew = Object.values(R.groups || {}).some((g) => g.n);
     card.append(h('h3', { text: `Calls made since ${niceDates(R.since)}` }), anyNew
       ? h('p', { class: 'note', text: 'Each column: the stock’s return after the call minus the S&P 500’s over the same days, how many calls are old enough to count, and how often the stock beat the S&P 500.' })
       : h('p', { class: 'note', text: 'No new calls yet. Each night’s changes are added from here on.' }));
     if (anyNew) card.append(tableOf(R.groups));
+    // measures 1, 2 and 4 of section 7: how often each kind of call went wrong over 12 months, from 30 matured calls
+    if (anyNew) {
+      const MATURE = 30;
+      const items = ORDER.filter((k) => R.groups[k] && R.groups[k].n).map((k) => {
+        const g = R.groups[k];
+        const x = (g.h && g.h['12m']) || { n: 0 };
+        const key = g.up ? 't10' : 'b10';
+        if (!(x.n >= MATURE)) return h('li', { text: `${g.label}: waiting, ${x.n || 0} of ${MATURE} calls have had their 12 months.` });
+        return h('li', null, h('span', null, `${g.label}: `, h('b', { text: `${pct(x[key], 0)} went wrong` }), x.y ? ` (random halal stocks over the same days: ${pct(x.y[key], 0)})` : '', '.'));
+      });
+      if (items.length) card.append(h('h3', { text: 'How often the calls went wrong' }), h('p', { class: 'note', text: `A buy, pick or hold call went wrong if the stock trailed the S&P 500 by more than 10 points over the next 12 months; a sell or trim call, if it beat it by more than 10 points. Shown from ${MATURE} calls that have had their 12 months, next to the same share for every halal-pass company on the same days. Even at random these shares are large: in the 10-year test, 45% of halal stocks trailed the S&P 500 by more than 10 points over a year, and 32% beat it by more than 10 points.` }), h('ul', { class: 'clean' }, items));
+    }
     const sum = (k) => ['groups', 'standing'].reduce((a, w) => a + Object.values(R[w] || {}).reduce((b, g) => b + (g[k] || 0), 0), 0);
     const rep = sum('rep');
     const gone = sum('gone');
