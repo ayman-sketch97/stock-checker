@@ -151,3 +151,44 @@ Limits of this measure: the periods overlap and come from one decade, so the sha
 starting month, not the luck of the decade, and it is not a test of significance. The data still holds only
 companies listed today, which flatters every stock portfolio against the S&P 500 (less so against random picks drawn
 from the same companies).
+
+## 6. The position-size rules made exact (3 November 2026, owner's policy, not a result of the tests)
+
+Written on 3 November 2026, before any result under these rules was computed. The owner asked for the limits of
+section 4 to be defined exactly and applied the same way everywhere, and answered three questions about them:
+
+- **Trim target:** a stock above 15% of the portfolio goes back to 10%, as recorded in section 4 (not to 15%).
+- **Any number of stocks:** the trim applies whether the portfolio holds 3 stocks or 30. Section 4 trimmed only once
+  there were at least the minimum number of stocks (10 for a portfolio that is half or more in stocks).
+- **Buy limit after the buy:** no buy may take a stock above 10% of the portfolio. Section 4 only stopped buys in a
+  stock already at 10%, so a stock at 9.9% could still receive a full month's buy and end well above 10%.
+
+The rules, in `lib/policy.js` (the page carries an identical copy, and a test fails if the two differ):
+
+- Weights are shares of the whole portfolio: stocks, funds, sukuk and cash, including money about to be invested.
+- New buy: amount <= 10% x total - what is held of that stock. A new stock can take up to 10%; a stock at 9.9% has
+  room for 0.1% of the portfolio; at 10% or more, none.
+- Trim: if a stock is above 15% of the total (not at 15%), sell enough to bring it back to 10%.
+- Sector: no new money for a sector that is already 40% or more of the long-term stocks, measured before the buy (a
+  limit after the buy would block the first stock of every new portfolio, which is always 100% of its stocks).
+- Orders: a buy or a sale under $100 is not made. Money that no stock can take goes to the fund, as before.
+- Rounding: a weight within one billionth of a limit counts as at the limit.
+
+What does not change: the halal "pass" for every buy, the judging rules (sections 1, 3 and 5), and the list's own
+simulation (sections 2 and 3), which keeps the cap it was registered with (10% of the portfolio or two months' money).
+
+Three rule sets are kept apart from now on, in the code (`simulatePlan`, option `policy`) and in the results:
+
+- **Original:** the rules before 3 November (`policy: false`); its result stays in the report as `before`.
+- **Approved:** this section (`policy: 2`, the default). Every Portfolio page result on the site uses it.
+- **Version 1:** the limits as first built on 3 November (`policy: 1`), superseded the same day. Kept only to show what
+  this change did; it is not shown on the site.
+
+Anything else run on these data, such as switching one limit off to see what it did, is experimental: it is run after
+results are known, it is labelled experimental wherever it appears, and it is never used as evidence for the strategy
+or to choose rules.
+
+The re-run uses the same replay data as the last published run. Version 1 and the approved rules are compared side
+by side in `VALIDATION.md`. Whatever the comparison shows, these rules stay (they are policy, decided by the owner).
+If the money split of section 5 moves, the site shows the new evidence, and keeps it separate from the owner's own
+choice of 70% stocks and 30% fund, which is a personal risk decision and is never presented as a test result.
