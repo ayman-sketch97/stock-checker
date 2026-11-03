@@ -1,0 +1,11 @@
+{"v":2,"date":"2026-11-02","built":"2026-11-03T21:19:09.518Z","prev":"76575c4b61c07d634c0d42379868abef32fbc7c745ef602a382cf05045d8c05a","n":10,"baseline":false}
+{"k":"trim_in","t":"VRTX","px":553.15,"v":"WATCH","s":"pass","fair":376.42,"bb":319.96,"tr":510.26}
+{"k":"verdict","t":"CPNG","px":14.7,"v":"SPECULATIVE","s":"pass","fair":null,"bb":null,"tr":null,"from":"AVOID_WEAK"}
+{"k":"verdict","t":"ZBRA","px":361.13,"v":"BUY","s":"pass","fair":317.08,"bb":269.52,"tr":454.3,"from":"AVOID_WEAK"}
+{"k":"trim_out","t":"ZBRA","px":361.13,"v":"BUY","s":"pass","fair":317.08,"bb":269.52,"tr":454.3}
+{"k":"trim_out","t":"CORT","px":80.46,"v":"WATCH","s":"pass","fair":70.53,"bb":59.95,"tr":93.65}
+{"k":"verdict","t":"PACS","px":45.58,"v":"CONTRARIAN","s":"pass","fair":73.23,"bb":62.25,"tr":99.87,"from":"BUY"}
+{"k":"buy_out","t":"PACS","px":45.58,"v":"CONTRARIAN","s":"pass","fair":73.23,"bb":62.25,"tr":99.87}
+{"k":"halal","t":"RYTM","px":93.44,"v":"SPECULATIVE","s":"pass","fair":null,"bb":null,"tr":null,"from":"review"}
+{"k":"pick_in","pool":"mid","t":"MCK","px":998.38,"v":"BUY_STRONG","s":"pass","fair":1382.72,"bb":1175.31,"tr":1921.58}
+{"k":"pick_out","pool":"mid","t":"PACS","px":45.58,"v":"CONTRARIAN","s":"pass","fair":73.23,"bb":62.25,"tr":99.87}
