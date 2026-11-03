@@ -12,6 +12,9 @@ checked is in `VALIDATION.md`.
   GitHub, so a problem is visible before you read any result.
 - Display only: it changes no advice. Late data already pauses advice on its own, and a run that analyses under 80% of
   the companies is not published.
+- Corrected the same evening: the first night counted every company on the earnings calendar (3,255, more than the
+  2,013 the site follows); it now counts only the companies analysed. The halal line now also shows the companies the
+  tool cannot screen, so its four numbers add up to the companies analysed.
 
 ## 3 November 2026: the position-size rules made exact, your split next to the evidence, holdings by hand
 

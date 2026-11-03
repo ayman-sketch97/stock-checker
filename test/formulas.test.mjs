@@ -944,7 +944,7 @@ test('system health: what the nightly run could and could not do', () => {
   const base = {
     builtAt: '2026-11-04T03:30:00Z', priceDate: '2026-11-03', commit: 'abc1234def', universe: 2000, analysed: 1990,
     failed: [{ t: 'AAA', err: 'timeout' }], noHistory: 20, historyOff: false, verdicts: { BUY: 100, UNRELIABLE: 50, 'NA:foreign': 300 },
-    shariah: { pass: 900, review: 80, fail: 1000, other: 10 }, earnings: { companies: 700, failures: 0 }, spyDate: '2026-11-03',
+    shariah: { pass: 900, review: 80, fail: 1000, other: 10 }, earnings: { companies: 700, failures: 0, days: 60 }, spyDate: '2026-11-03',
     lt: { generated: '2026-11-03T16:08:42Z', to: '2026-10', rulesVersion: 2 }, policyVersion: 2, record: { days: 3, chain: { ok: true } },
   };
   const by = (H) => Object.fromEntries(H.checks.map((c) => [c.id, c]));
@@ -954,7 +954,11 @@ test('system health: what the nightly run could and could not do', () => {
   assert.equal(c.coverage.status, 'ok');
   assert.ok(c.coverage.text.includes('1,990 of 2,000 (99.5%)') && c.coverage.text.includes('1 could not be downloaded tonight (AAA)'), c.coverage.text);
   assert.ok(c.withheld.status === 'info' && c.withheld.text.startsWith('350 companies get no verdict'), c.withheld.text);
-  assert.ok(c.halal.text.includes('80 unresolved'), c.halal.text);
+  assert.ok(c.halal.text.includes('900 pass, 1,000 fail, 80 unresolved and 10 not screened'), `the four groups add up to the companies analysed: ${c.halal.text}`);
+  assert.ok(!by(healthChecks({ ...base, shariah: { pass: 900, review: 80, fail: 1010, other: 0 } })).halal.text.includes('not screened'), 'no empty group');
+  // report dates are counted among the companies analysed, never the whole calendar (it lists more companies than the site follows)
+  assert.ok(c.earnings.text.startsWith('700 of the 1,990 companies analysed report in the next 12 weeks.'), c.earnings.text);
+  assert.ok(by(healthChecks({ ...base, earnings: { companies: 700, failures: 1, days: 60 } })).earnings.text.includes('1 day of the calendar could not be read'), 'one day, singular');
   assert.equal(c.lt.status, 'ok');
   assert.ok(c.lt.text.includes('with your approved rules'), c.lt.text);
   assert.equal(H.commit, 'abc1234def');

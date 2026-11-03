@@ -641,7 +641,7 @@ if (!ONLY.length && !LIMIT && priceDate && !fs.existsSync(RECORDS_DIR)) {
     historyOff,
     verdicts: counts,
     shariah,
-    earnings: { companies: earnings.byTicker.size, failures: earnings.failures },
+    earnings: { companies: screen.filter((row) => earnings.byTicker.has(row[F.ticker])).length, failures: earnings.failures, days: earnings.days },
     spyDate: market.spy?.date || null,
     lt: ltInfo,
     policyVersion: POLICY_VERSION,
