@@ -110,3 +110,45 @@ were not chosen by looking at returns, and the judging rules (rule 1 and section
 The page and the 10-year test use the same rules (`POLICY` in `lib/ltstats.js`, `buyCheck` in `index.html`). The
 report keeps the result of the old rules for the full period (`plan.<kind>.portfolio.before`), so the effect of the
 change can be seen. If the re-run moves the money split, the site follows it, as section 1 says.
+
+## 5. The Portfolio plan judged on many five-year periods (3 November 2026)
+
+Written on 3 November 2026, before any of these numbers were computed. Code: `planWindows()` and `decideWindows()`
+in `lib/ltstats.js`.
+
+Why: rule 1 judges the plan on one ten-year path and its two halves, and one path depends heavily on which stocks
+happened to be bought first. On the same data, 100 portfolios of random halal stocks built with the same rules ended
+between 8.3% and 19.5% a year (10th to 90th percentile), so a single path can land anywhere in a wide band by luck.
+The re-run of 3 November showed the two measures disagreeing: the long-term ideas were well ahead of the average
+halal stock over the next 12 months (+8.1% a year), while the plan's single path trailed random picks (9.3% a year
+against a median of 13.1%). One path cannot settle which is right. That disagreement prompted this change; the pass
+marks below are set without knowing how the plan does over many periods.
+
+What is measured, for each kind of pick the Portfolio page buys (long term and medium term):
+
+- Overlapping five-year periods, one starting at each month-end from the first month of the test to the last month
+  that has five full years of data after it, with 1,000 AED a month and the page's rules, including the limits of
+  3 November (section 4).
+- In each period: the plan's yearly return, the median yearly return of 50 random portfolios built by the same rules
+  from halal stocks the page could suggest, and the S&P 500.
+- Also shown, but not part of the rule: the ideas' returns 24 and 36 months later against the average halal stock.
+
+The money split for a kind of pick, from this run on:
+
+- **Stocks (70%):** the plan beats the random median in at least three quarters of the periods and the S&P 500 in
+  at least half of them, and its ideas beat the average halal stock over the next 12 months with a Newey-West t of 2
+  or more, and in both halves (month-ends before December 2021, and from December 2021 on).
+- **Mixed (50%):** it beats the random median in at least half of the periods, and its ideas beat the average halal
+  stock over the next 12 months.
+- **Fund (20%):** anything else.
+
+This replaces rule 1 for the kinds of pick the Portfolio page buys. The result of rule 1 on the single path stays in
+the report (`decisionSinglePath`) so the two can be compared. Whether the long-term part uses the page's picks or the
+list (section 3) is still decided with rule 1 on both, so like is compared with like. The site keeps following
+`LONG_METHOD` and `POOLS_WITH_MONEY`, which change only after a review.
+
+Limits of this measure: the periods overlap and come from one decade, so the share of periods removes the luck of the
+starting month, not the luck of the decade, and it is not a test of significance. The data still holds only
+companies listed today, which flatters every stock portfolio against the S&P 500 (less so against random picks drawn
+from the same companies).
+
