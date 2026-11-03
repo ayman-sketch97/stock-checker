@@ -265,3 +265,83 @@ for sell and trim calls, the opposite.
 Unchanged: measure 3 is judged against each thesis's own conditions, 5 and 6 are counts, 7 compares the price with
 the fair value, and 10 already compares with the S&P 500. Companies without prices that night are left out of the
 yardstick, as they are of the calls.
+
+### 7.2 Frozen before the first result: how each call is measured, and when a kind of call passes or fails (measures, version 3)
+
+Written on the evening of 3 November 2026 (UTC), at the owner's request, when the record held four days and no call
+had reached even its first month. These definitions are frozen and will not be changed after any result is seen. The
+owner may still change them before the first one-month results (due in early December 2026); any such change is
+added here as a dated amendment, and nothing after that. Sections 7 and 7.1 stay as written; where this section is
+more precise, it decides.
+
+**Kinds of call, each reported separately:** entered the long-term buy zone (buy); new long-term pick; new
+medium-term pick; fell 20% with the business still sound (hold); business weakened (sell); reached the trim price
+(trim). Halal changes are recorded but not judged by later prices. Swing signals are judged in their own paper record.
+
+**Entry and horizons:** a call is entered at the first close after both its date and its publication (stage 2). Its
+horizons are 21, 63, 126 and 252 trading sessions of the S&P 500 (SPY) after the entry session; the stock's price at
+a horizon is its last close on or before that session. 252 sessions (12 months) gives the verdict; the others are
+early reads.
+
+**Returns:** total returns, with dividends reinvested at the close of the ex-dividend day, for the stock and for SPY
+over exactly the same sessions, when the dividend histories of both were read from the site's price sources;
+otherwise prices only for both, and the page counts the calls measured on prices only. No costs or taxes.
+
+**Companies that stop trading** (taken over, merged, delisted, bankrupt): from the first nightly run with this
+section in the code, the record keeps each night's closing price of every company that is in a call or in a
+yardstick, so a company that disappears from the price source is still followed. Its return runs to its last close
+and is 0% after that (held as cash) until the horizon; it counts at that return, and the page shows how many calls
+ended this way. A company counts as stopped once it has had no close for 10 sessions of SPY.
+
+**Unpriceable calls:** a call with no close after it (so no entry price), or whose prices can be read neither from the
+source nor from the record's own archive when its horizon comes, is unpriceable. It counts as a wrong call whatever
+the kind, is left out of the average returns, and is counted on the page. Missing data never counts as a success.
+
+**Wrong calls (measures 1, 2 and 4):** a buy, pick or hold call is wrong if its 12-month total return trails SPY's by
+more than 10 percentage points; a sell or trim call is wrong if the stock's 12-month total return beats SPY's by more
+than 10 points; an unpriceable call is wrong.
+
+**Shown for each kind at 12 months, from 30 matured calls** (until then, the number that have matured): the number of
+calls; their average 12-month return; SPY's average over the same days; the difference; the yardstick's difference
+(section 7.1); the gap between the calls and the yardstick with its 90% interval; the share of wrong calls next to
+the yardstick's share under the same rule; and the counts of calls that stopped trading, were measured on prices
+only, or were unpriceable. The 1, 3 and 6 month reads are shown the same way, labelled early.
+
+**When a kind of call passes or fails** (from 30 matured calls made on at least 5 different days):
+
+- passes if the 90% interval of its gap to the yardstick lies wholly on the good side (above zero for buy, pick and
+  hold calls; below zero for sell and trim calls) and its share of wrong calls is no higher than the yardstick's;
+- fails if that interval lies wholly on the bad side;
+- otherwise it is undecided: no better than random halal stocks so far.
+
+A pass or a fail from fewer than 100 matured calls is shown as provisional. A fail never changes a rule by itself: it
+starts a review written down beforehand (section 7), and calls made under an old rule keep that rule's label.
+
+**The other measures:**
+
+- 3, broken theses caught (from stage 5): a thesis is broken when one of its own written conditions is met; it was
+  caught if the system flagged it before the price fell 20% below its price on the day the thesis was written.
+  Passes if at least half of 10 or more broken theses were caught: catching fewer means the warnings mostly come too
+  late to act on.
+- 5, oversized positions prevented: counts per year from the 10-year test (buys capped or blocked, trims made) and
+  their effect on return and worst fall against the original rules. A description of what the rules do, with no
+  pass or fail.
+- 6, advice paused on late data: fails if more than 10 trading days in any 12 months had data two or more trading
+  days late. More than about one day in 25 makes the daily advice unreliable to follow.
+- 7, valuation error: for buy calls with a fair value, passes if at 36 months the median call has closed at least
+  half of the gap between its price and its fair value and the bias is within 15% either way. A fair value the price
+  never approaches, or one off by more than 15% on average, should not set buy prices.
+- 8, opportunities missed: the buy zone adds value if the share of buy calls that beat SPY by more than 20 points over
+  12 months is higher than the same share among the halal-pass companies outside the buy zone at the same
+  month-ends, with a 90% interval above zero (month-ends resampled, 2,000 times, fixed seed).
+- 9, against the S&P 500: shown for every kind at every horizon; the yardstick comparison above decides pass or fail.
+- 10, risk-adjusted: the model portfolio passes if its return per unit of volatility is at least SPY's over the same
+  months and its worst fall is no more than 10 points deeper. Shown from 12 monthly values, judged from 36.
+
+**Why these numbers.** In the 10-year data (halal-pass companies, 72,335 stock-months, prices only, companies still
+listed today), a stock's 12-month return minus SPY's had quartiles of -27.6, -5.9 and +18.0 points; 45% trailed by
+more than 10 points, 32% beat by more than 10, 23.5% beat by more than 20, and 23% were within 10 points either way.
+The average of 30 random stock-months ranged from -13.2 to +21.7 points (5th to 95th percentile of 2,000 draws), so
+30 calls can show only a large effect. That is why a verdict rests on the interval against the yardstick, not on a
+fixed share, and why it stays provisional until 100 calls. The 10-point line is the one written in section 7; with
+the yardstick's share beside it, what decides is whether the calls are wrong less often than random halal stocks.
