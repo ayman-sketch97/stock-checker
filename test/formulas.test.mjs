@@ -897,6 +897,10 @@ test('permanent record: what changed each day, sealed in a chain that shows any 
   assert.equal(e2.filter((e) => e.k === 'signal').length, 2, 'a signal that changed and a new one');
   assert.equal(groupOf(e2.find((e) => e.k === 'verdict')), 'sell_weak');
   assert.equal(groupOf(e2.find((e) => e.k === 'halal')), null, 'a move to review is not a sell call');
+  // a weak verdict that only shows because the halal fail or the data problem went away is not a new sell call
+  assert.equal(groupOf({ k: 'verdict', t: 'X', v: 'AVOID_WEAK', from: 'AVOID_SHARIAH' }), null);
+  assert.equal(groupOf({ k: 'verdict', t: 'X', v: 'SPECULATIVE', from: 'UNRELIABLE' }), null);
+  assert.equal(groupOf({ k: 'verdict', t: 'X', v: 'AVOID_WEAK', from: 'WATCH' }), 'sell_weak');
   assert.equal(dayEvents(stateFile('2026-11-04', day2), day2).filter((e) => e.k !== 'pick_in' && e.k !== 'pick_out').length, 0, 'nothing new, nothing recorded');
   // the chain: each file carries the fingerprint of the one before
   const f1 = dayFile({ date: '2026-11-03', built: 'x', prevHash: null, events: e1, baseline: true });

@@ -9,6 +9,8 @@ checked is in `VALIDATION.md`.
   of 2 November. Its calls now count from 3 November's close; before, they were credited with 2 November's, which had
   already happened. The record's files are unchanged: only how results are worked out from them.
 - On the first days, the Record page no longer shows an empty table of new calls.
+- "Business weakened: sell" now counts only a move to "avoid" from a verdict that judged the business sound. A move
+  from "not halal" to "avoid" only reveals a verdict that was hidden, and was being counted as a new sell call.
 
 ## 3 November 2026: stage 2 of the robo-advisor plan (the permanent record)
 

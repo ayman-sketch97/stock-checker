@@ -836,6 +836,10 @@ before the first results, so they cannot be tuned to them:
   does not quietly leave the results. Calls on companies with no prices at all (delisted, bought, a changed ticker)
   are counted and shown as left out, because leaving out a collapse flatters the results.
 - Halal changes are recorded but not judged by later prices: the screen is a rule to follow, not a forecast.
+- "Business weakened: sell" counts only a move to "avoid" or "speculative" from a verdict that judged the business
+  sound enough to hold (strong buy, buy, possible bargain, watchlist, worth a look, pass). The second night showed
+  why: it had 6 such moves, all from "not halal" (5 to "avoid", 1 to "speculative"): the halal status changed and
+  revealed the business verdict that was there all along. None came from a sound business. Fixed on 3 November, before any result existed.
 
 A dry run on a saved copy of the real site data (16 October 2026, 1,563 companies): a starting file of 2,240 events
 (255 KB, 37 KB compressed) and a state file of 55 KB; the same data the next night adds nothing; one company missing
@@ -853,7 +857,10 @@ by side. 67 formula tests and 134 page checks pass.
 
 Live check (3 November): the first run wrote the starting point to the `records` branch (2,279 events: 1,559
 verdicts, 41 in the buy zone, 384 above the trim price, 12 picks, 283 open swing signals; one day file of 273 KB and
-its state file), the chain is intact, and the Record page shows the card with every result waiting.
+its state file), the chain is intact, and the Record page shows the card with every result waiting. The second run
+(2 November's closes) added a second day of 406 events on top of the first, chained to it: 306 swing signal changes,
+34 verdict changes, 27 halal changes (earnings season brings new quarterly balance sheets), 11 lapsed signals, 3 buy
+zone entries, 9 trim zone entries and 5 new picks.
 
 Limits: the record starts on the first night it runs, so the first one-month results arrive about a month later and
 mean little until there are many calls; prices only (no dividends, no costs); results for a call are recomputed from
