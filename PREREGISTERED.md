@@ -345,3 +345,60 @@ The average of 30 random stock-months ranged from -13.2 to +21.7 points (5th to 
 30 calls can show only a large effect. That is why a verdict rests on the interval against the yardstick, not on a
 fixed share, and why it stays provisional until 100 calls. The 10-point line is the one written in section 7; with
 the yardstick's share beside it, what decides is whether the calls are wrong less often than random halal stocks.
+
+## 8. Study: a discount rate linked to the 10-year Treasury yield (3 November 2026, before any run)
+
+Asked for by the owner: research and test a Treasury-linked discount rate on a separate branch, compare it with the
+fixed rates on identical data and assumptions, with sensitivity tests, extreme interest-rate scenarios and checks for
+valuation instability, and change nothing until he has reviewed and approved the comparison. Written before any run.
+
+**A, the current rule (stays unless the owner approves a change):** 8% for strong businesses, 9% for typical ones,
+10% for weaker or small ones (lib/engine.js), terminal growth 2.5%.
+
+**B, the variant tested:** the 10-year Treasury yield plus 4, 5 or 6 points for the same three kinds of business, so
+the fixed rates read as a 4% risk-free rate plus a premium. The yield is the monthly average (FRED, series GS10) of
+the month before each valuation date, so no later data is used. Floor 5.5% (3 points above terminal growth, so the
+terminal value stays finite and stable); cap 15%.
+
+**Identical everything else:** the same companies, filings, prices, month-ends, approved plan rules (version 2) and
+costs; only the discount rate differs. The study runs from its own branch and writes to its own output; the live
+site, the record and the published 10-year results are not touched.
+
+**Sensitivity runs** (all reported; none can be adopted on its own):
+
+- S1, centred: the premium raised by 1.06 points, so the average rate over the test's months (mean yield 2.94%,
+  December 2016 to October 2026) equals the fixed rates. This separates moving with rates from a lower average rate.
+- S2, half link: the fixed rate plus half of (yield minus 4%).
+- S3, smoothed: the 12-month average yield instead of the month's.
+- S4, higher floor: 6.5%.
+- S5 and S6: the premium 1 point lower and 1 point higher.
+
+**Extreme rate scenarios** (on today's companies and their latest filings): fair values with the 10-year yield at
+0.5%, 2%, 4%, 5.13% (October 2026), 8%, 10% and 15% (near the 1981 high of 15.32%): the median change in fair value
+against the fixed rates, the share of halal-pass companies in the buy zone, and how many hit the floor or the cap.
+B fails if, anywhere between 2% and 8%, a 1-point move in the yield changes the median fair value by more than 50%.
+
+**Valuation instability** (A against B over the test's months):
+
+- I1, the median and 95th percentile of the monthly change in each company's fair value;
+- I2, buy-zone churn: entries plus exits per company per year;
+- I3, the median change in fair value for a 1-point change in the discount rate, for each kind of business.
+
+B fails the stability check if I2 is more than 25% above A's, or the 95th percentile of I1 is more than 1.5 times A's:
+advice that flips with every move in rates cannot be followed.
+
+**B can be proposed for adoption only if all of these hold** (otherwise the fixed rates stay):
+
+1. On the five-year periods of the 10-year test, B's final value beats A's in more periods than it loses.
+2. B's shares of periods beating random halal stocks and beating the S&P 500 are not lower than A's.
+3. B's worst fall is no more than 2 points deeper than A's.
+4. 1 to 3 hold in both halves of the starting months (December 2016 to April 2019, and May 2019 to October 2021).
+5. The extreme-scenario and stability checks pass.
+6. At least three of S1 to S4 also meet 1 and 3, so the result does not hang on one setting.
+
+Even then the change is shown to the owner and made only with his approval. Every run, its settings and its results
+are kept, whatever they show.
+
+**Known limits:** the 10-year data misses the companies that disappeared (VALIDATION.md, section 14), equally for A
+and B; and one decade with one big rate cycle (0.62% in July 2020 to 5.13% in October 2026) is a small sample, so a
+pass is evidence, not proof.
