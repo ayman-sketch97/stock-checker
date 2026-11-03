@@ -622,14 +622,17 @@ async def main():
         # ---- stage 2 (3 Nov 2026): the permanent record on the Record page, and the tool's view kept with each trade
         rec_summary = {'version': 1, 'since': '2026-11-03', 'days': 4, 'chain': {'ok': True, 'at': None, 'okBefore': True}, 'today': None, 'kinds': {'verdict': 1500, 'buy_in': 40},
                        'groups': {'buy': {'label': 'Entered the long-term buy zone', 'up': True, 'n': 12, 'h': {'1m': {'n': 5, 'ret': 0.03, 'spy': 0.01, 'diff': 0.02, 'beat': 0.6}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}},
-                                  'trim': {'label': 'Reached the trim price', 'up': False, 'n': 3, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}}},
-                       'standing': {}, 'recent': [{'d': '2026-11-05', 't': 'KO', 'g': 'buy', 'px': 60, 'v': 'BUY'}], 'url': 'https://github.com/ayman-sketch97/stock-checker/tree/records'}
+                                  'trim': {'label': 'Reached the trim price', 'up': False, 'n': 3, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}},
+                                  'hold_fall': {'label': 'Fell 20% with the business still sound: hold', 'up': True, 'n': 1, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}}},
+                       'standing': {}, 'recent': [{'d': '2026-11-06', 't': 'MSFT', 'g': 'hold_fall', 'px': 320, 'v': 'BUY'}, {'d': '2026-11-05', 't': 'KO', 'g': 'buy', 'px': 60, 'v': 'BUY'}], 'url': 'https://github.com/ayman-sketch97/stock-checker/tree/records'}
         pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': rec_summary})
         await pg.click('#nav button:has-text("Record")')
         await pg.wait_for_timeout(1500)
         rc = await pg.inner_text('section[aria-label="The permanent record"]')
         check('every file intact' in rc and '4 days recorded' in rc and '+2.0%' in rc and '5 followed, 60% beat it' in rc and '12 calls' in rc and 'waiting' in rc and 'lower is better' in rc and 'KO, entered the long-term buy zone at $60.00' in rc,
               f'record: the permanent record card shows the chain, the follow-up and the latest calls: {rc[:400]!r}')
+        check('Fell 20% with the business still sound: hold' in rc and '1 call' in rc and 'MSFT, fell 20% with the business still sound: hold at $320.00' in rc and 'the rule says hold, not sell' in rc,
+              f'record: the hold-through-a-fall calls get their own row and are explained: {rc[:900]!r}')
         hrefs = await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"The permanent record\"] a')].map((a) => a.href)")
         check('https://github.com/ayman-sketch97/stock-checker/tree/records' in hrefs, 'record: links to every file on GitHub')
         check(not errs, f'no page errors on the permanent record card {errs}')

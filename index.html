@@ -5539,7 +5539,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (R.prices === false) card.append(h('p', { class: 'note tone-warn', text: 'Prices could not be loaded tonight, so the results wait for the next update.' }));
     const H = [['1m', '1 month'], ['3m', '3 months'], ['12m', '12 months']];
     const cellEl = (h1) => (h1 && h1.n ? h('td', null, h('b', { text: pctS(h1.diff, 1) }), h('div', { class: 'sm', text: `${h1.n} followed, ${pct(h1.beat, 0)} beat it` })) : h('td', { class: 'muted', text: 'waiting' }));
-    const ORDER = ['buy', 'pick_long', 'pick_mid', 'trim', 'sell_weak'];
+    const ORDER = ['buy', 'pick_long', 'pick_mid', 'trim', 'sell_weak', 'hold_fall'];
     const tableOf = (G, skipEmpty = false) => h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' },
       h('tr', null, ['Call', ...H.map(([, t]) => t)].map((x) => h('th', { text: x }))),
       ORDER.filter((k) => G && G[k] && (!skipEmpty || G[k].n)).map((k) => h('tr', null,
@@ -5560,7 +5560,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (R.standing && Object.values(R.standing).some((g) => g.n)) card.append(h('h3', { text: `Calls already standing on ${niceDates(R.since)}` }), h('p', { class: 'note', text: `The starting point: what the tool was saying the day the record began, followed the same way.${anyNew ? '' : ' Each column: the stock’s return after the call minus the S&P 500’s over the same days.'}` }), tableOf(R.standing, true));
     const recent = (R.recent || []).slice(0, 10);
     if (recent.length) card.append(h('h3', { text: 'Latest calls' }), h('ul', { class: 'clean' }, recent.map((c) => h('li', null, h('span', { text: `${niceDates(c.d)}: ${c.t}, ${((R.groups && R.groups[c.g] && R.groups[c.g].label) || c.g).toLowerCase()}${isNum(c.px) ? ` at ${price(c.px)}` : ''}` })))));
-    card.append(h('p', { class: 'note', text: 'A call counts from the first close after it was published (normally the next session’s), so no call is credited with a price you could no longer trade at. Prices only, no dividends, no costs. Halal changes are recorded but not judged by later prices: the screen is a rule to follow, not a forecast. A few months of calls prove little; judge it after a year or more.' }));
+    card.append(h('p', { class: 'note', text: 'A call counts from the first close after it was published (normally the next session’s), so no call is credited with a price you could no longer trade at. Prices only, no dividends, no costs. Halal changes are recorded but not judged by later prices: the screen is a rule to follow, not a forecast. A hold call is recorded when a stock falls 20% below the price of its first buy call while the business still looks sound and the stock still passes the halal screen: the rule says hold, not sell, and the record checks whether holding beat the S&P 500. A few months of calls prove little; judge it after a year or more.' }));
     return card;
   }
   function recordBody(pack, bt, st) {

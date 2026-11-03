@@ -3,6 +3,16 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: the record starts the hold calls (stage 6)
+
+- From the next nightly run the record adds the call PREREGISTERED.md, section 7 asked for (measure 4, sales
+  avoided): when a stock is 20% below the price of its first buy call while its verdict stays sound and it does not
+  fail the halal screen, the rule says hold, not sell, and the record follows whether holding beat the S&P 500. The
+  Record page shows these calls in their own row.
+- The fall is measured on split-adjusted closes, so a stock split is not taken for a fall. Buy calls already in the
+  record count from their own prices. Record files from now on carry version 2.
+- Record only: no advice changes.
+
 ## 3 November 2026: system health on the Record page (stage 6)
 
 - The nightly run now reports what it could and could not do: companies analysed and any failed downloads, price

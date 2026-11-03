@@ -1012,3 +1012,26 @@ reached GitHub. Display only; no advice depends on it.
 Tests: every threshold on its boundary (97.0% and 96.95%, 5% of price histories, 40 days, the rules version, a
 broken chain, a skipped night) and the card on a normal night, with the record not saved, with a broken record, and
 with no report at all. 72 formula tests and 195 page checks pass.
+
+Corrected the same evening, after the first live night: the earnings line counted every company on the calendar
+(3,255, more than the 2,013 analysed). It now counts the companies analysed that report in the next 12 weeks, and the
+halal line shows the companies the tool cannot screen, so its four numbers add up to the companies analysed. Tested
+with the numbers adding up, no empty group, and one failed calendar day.
+
+## 12. Stage 6, part 3: the hold call, measure 4 of section 7 (3 November 2026)
+
+Section 7 of PREREGISTERED.md says this call is recorded from the first nightly run after it is in the code, so it
+comes before the other measures, which can all be worked out later from what the record already keeps. The record
+(`lib/records.js`, now version 2) keeps the first buy call of each company (the buy zone or a Portfolio page pick)
+with its price and date. When the stock is 20% or more below that price while its verdict stays sound (the same
+verdicts that make a later weak verdict a sell call) and it does not fail the halal screen, the record adds a hold
+call, judged like a buy: did it beat the S&P 500 afterwards? A weak verdict or a halal fail ends the wait (the rule is
+then no longer to hold), and so does the hold call itself; a later buy call starts a new one. The fall is measured on
+split-adjusted closes from the close of the buy call's day, so a split is not taken for a fall, and with no closes
+that night no call is made. The record's first three days were written before this list existed, so the list is
+rebuilt from their day files on the first run, with the same rules.
+
+Tests: 19.99% down is not a call and exactly 20% is; one call per buy call; a weak verdict, a halal fail, a new buy
+call after them; a missing company keeps its wait for 30 days; the list rebuilt from day files equals the one kept
+night by night; the nightly step on a record whose last state has no list; a 2-for-1 split; no closes. 73 formula
+tests and 196 page checks pass.

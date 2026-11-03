@@ -12,7 +12,7 @@ import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/lo
 import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS, planWindows, decideWindows, WINDOW_MONTHS } from '../lib/ltstats.js';
 import { POLICY_VERSION, POLICY_RULES, buyRoom, trimSale, sectorOpen, worthAnOrder } from '../lib/policy.js';
 import { healthChecks, LT_MAX_DAYS } from '../lib/health.js';
-import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, MISSING_DAYS, REPEAT_DAYS } from '../lib/records.js';
+import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, fallFrom, MISSING_DAYS, REPEAT_DAYS, HOLD_FALL } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -1154,6 +1154,75 @@ test('permanent record: the nightly step adds a file only when something changed
   fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace('AVOID_WEAK', 'BUY'));
   const r5 = updateRecord({ dir, date: '2026-11-05', built: 't5', rows: rows({ verdict: 'AVOID_WEAK', shariah: 'fail' }) });
   assert.deepEqual([r5.chain.ok, r5.chain.okBefore, r5.chain.at], [false, false, '2026-11-04_2.ndjson']);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('permanent record: a stock 20% below its buy call with the business still sound gets a hold call (section 7, measure 4)', async () => {
+  const fields = ['ticker', 'sector', 'price', 'verdict', 'shariah', 'quality', 'health', 'growth', 'fair', 'upside', 'buyBelow', 'trimAbove', 'trend', 'dq'];
+  const row = (o) => fields.map((k) => ({ sector: 'Tech', price: 100, verdict: 'BUY', shariah: 'pass', quality: 80, health: 70, growth: 60, fair: 140, upside: 0.4, buyBelow: 120, trimAbove: 200, trend: 'up', dq: 'high', ...o })[k]);
+  const day = (o, only = ['AAA', 'BBB', 'CCC']) => rowsOf({ fields, rows: only.map((t) => row({ ticker: t, ...(o[t] || {}) })) });
+  assert.equal(HOLD_FALL, 0.2);
+  // AAA: bought at 100, 80.01 is not yet 20% down, 80 is; one hold call per buy call. BBB: the business weakens (a sell
+  // call ends the wait), then a new buy call at 70 starts a new one, and 56 is 20% below it. CCC: a halal fail ends the
+  // wait; passing again at 60 is a new buy call
+  const steps = [
+    ['2026-11-04', {}],
+    ['2026-11-05', { AAA: { price: 80.01 }, BBB: { price: 90, verdict: 'AVOID_WEAK' }, CCC: { price: 75, shariah: 'fail' } }],
+    ['2026-11-06', { AAA: { price: 80 }, BBB: { price: 70 }, CCC: { price: 70, shariah: 'fail' } }],
+    ['2026-11-09', { AAA: { price: 60 }, BBB: { price: 56 }, CCC: { price: 60 } }],
+  ];
+  let prev = null;
+  const days = [];
+  const out = [];
+  for (const [d, o] of steps) {
+    const { events, next } = dayChange(prev, day(o), null, d);
+    days.push({ head: { date: d }, events });
+    out.push({ holds: events.filter((e) => e.k === 'hold_fall'), fall: next.fall });
+    prev = next;
+  }
+  assert.deepEqual(out[0].fall, { AAA: [100, '2026-11-04'], BBB: [100, '2026-11-04'], CCC: [100, '2026-11-04'] }, 'every buy call waits for a fall');
+  assert.deepEqual([out[1].holds.length, Object.keys(out[1].fall)], [0, ['AAA']], '19.99% down is not yet a hold call; a weak verdict or a halal fail ends the wait');
+  assert.equal(out[2].holds.length, 1);
+  assert.deepEqual([out[2].holds[0].t, out[2].holds[0].px, out[2].holds[0].from, out[2].holds[0].since, out[2].holds[0].v], ['AAA', 80, 100, '2026-11-04', 'BUY'], 'exactly 20% down');
+  assert.deepEqual(out[2].fall, { BBB: [70, '2026-11-06'] }, 'the hold call ends the wait; a new buy call starts one');
+  assert.deepEqual(out[3].holds.map((e) => [e.t, e.from]), [['BBB', 70]], 'AAA at 60 gets no second hold call from the same buy call');
+  assert.deepEqual(out[3].fall, { CCC: [60, '2026-11-09'] });
+  assert.equal(groupOf(out[2].holds[0]), 'hold_fall');
+  // judged like a buy: a rise afterwards is good
+  const fu = followUp([{ date: '2026-11-06', e: out[2].holds[0] }], () => null, null);
+  assert.deepEqual([fu.hold_fall.n, fu.hold_fall.up], [1, true]);
+  // a company missing from tonight's analysis keeps its wait for MISSING_DAYS, like the rest of its state
+  const miss = dayChange(prev, day({}, ['AAA', 'BBB']), null, '2026-11-10').next;
+  assert.deepEqual(miss.fall, { CCC: [60, '2026-11-09'] });
+  assert.deepEqual(dayChange(miss, day({}, ['AAA', 'BBB']), null, '2026-12-15').next.fall, {}, `dropped after ${MISSING_DAYS} days`);
+  // a record made before the list existed: the list is worked out from the day files, with the same result
+  assert.deepEqual(fallFrom(days), out[3].fall);
+  assert.deepEqual(fallFrom(days.slice(0, 2)), out[1].fall);
+  const { fall: _, ...oldState } = dayChange(dayChange(null, day(steps[0][1]), null, '2026-11-04').next, day(steps[1][1]), null, '2026-11-05').next;
+  assert.equal(dayChange(oldState, day(steps[2][1]), null, '2026-11-06').events.filter((e) => e.k === 'hold_fall').length, 0, 'without the list nothing waits');
+  assert.equal(dayChange(oldState, day(steps[2][1]), null, '2026-11-06', fallFrom(days.slice(0, 2))).events.filter((e) => e.k === 'hold_fall').length, 1, 'with it, the same hold call');
+  // and the nightly step does that by itself, for a record whose last state has no list
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rechold-'));
+  updateRecord({ dir, date: '2026-11-04', built: '2026-11-05T03:30:00Z', rows: day({}) });
+  const sf = path.join(dir, 'state', '2026-11-04.json');
+  const st = JSON.parse(fs.readFileSync(sf, 'utf8'));
+  assert.ok(st.fall && st.fall.AAA, 'the state keeps the list');
+  delete st.fall;
+  fs.writeFileSync(sf, JSON.stringify(st)); // as a version 1 state was written
+  // the fall is measured on split-adjusted closes: AAA fell 21%; BBB's price halved in a 2-for-1 split (its adjusted
+  // closes did not move), and CCC has no closes tonight, so it keeps waiting
+  const closes = { AAA: [100, 79], BBB: [50, 50] };
+  const closesOf = (t) => (closes[t] ? { d: Int32Array.from([20261104, 20261105]), c: Float64Array.from(closes[t]) } : null);
+  const r2 = updateRecord({ dir, date: '2026-11-05', built: '2026-11-06T03:30:00Z', rows: day({ AAA: { price: 79 }, BBB: { price: 50 }, CCC: { price: 70 } }), closesOf });
+  assert.deepEqual([r2.kinds.hold_fall, r2.groups.hold_fall.n, r2.recent[0].g, r2.chain.ok], [1, 1, 'hold_fall', true]);
+  const ev2 = parseDay(fs.readFileSync(path.join(dir, 'days', '2026', '2026-11-05.ndjson'), 'utf8')).events.filter((e) => e.k === 'hold_fall');
+  assert.deepEqual(ev2.map((e) => [e.t, e.move]), [['AAA', -0.21]], 'a split is not a fall, and no closes means no call tonight');
+  const st2 = JSON.parse(fs.readFileSync(path.join(dir, 'state', '2026-11-05.json'), 'utf8'));
+  assert.deepEqual([st2.fall.AAA, st2.fall.BBB, st2.fall.CCC, st2.v], [undefined, [100, '2026-11-04'], [100, '2026-11-04'], 2]);
+  assert.ok(followedTickers(dir).includes('AAA'), 'its prices are kept even if the company leaves the companies analysed');
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
