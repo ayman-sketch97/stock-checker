@@ -11,6 +11,7 @@ import { liveProof, LOG_FIELDS, PROOF_H, updateStock } from '../lib/signals.js';
 import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/longterm.js';
 import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS, planWindows, decideWindows, WINDOW_MONTHS } from '../lib/ltstats.js';
 import { POLICY_VERSION, POLICY_RULES, buyRoom, trimSale, sectorOpen, worthAnOrder } from '../lib/policy.js';
+import { healthChecks, LT_MAX_DAYS } from '../lib/health.js';
 import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, MISSING_DAYS, REPEAT_DAYS } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
@@ -937,6 +938,47 @@ test('position-size rules: the 10-year test trims at any number of stocks, and k
   assert.ok(v2.r.sellsSize > 0 && v2.t.some((x) => x.side === 'sell' && x.why === 'size' && x.t === 'S0'), `version 2: S0 is trimmed at 4 stocks: ${JSON.stringify(v2.r)}`);
   assert.deepEqual(run(true).r, v2.r, 'policy: true is the approved version');
   assert.equal(run(false).r.sellsSize, 0, 'the original rules have no size rule at all');
+});
+
+test('system health: what the nightly run could and could not do', () => {
+  const base = {
+    builtAt: '2026-11-04T03:30:00Z', priceDate: '2026-11-03', commit: 'abc1234def', universe: 2000, analysed: 1990,
+    failed: [{ t: 'AAA', err: 'timeout' }], noHistory: 20, historyOff: false, verdicts: { BUY: 100, UNRELIABLE: 50, 'NA:foreign': 300 },
+    shariah: { pass: 900, review: 80, fail: 1000, other: 10 }, earnings: { companies: 700, failures: 0 }, spyDate: '2026-11-03',
+    lt: { generated: '2026-11-03T16:08:42Z', to: '2026-10', rulesVersion: 2 }, policyVersion: 2, record: { days: 3, chain: { ok: true } },
+  };
+  const by = (H) => Object.fromEntries(H.checks.map((c) => [c.id, c]));
+  let H = healthChecks(base);
+  let c = by(H);
+  assert.equal(H.worst, 'ok', 'a normal night is all clear (information lines do not count as problems)');
+  assert.equal(c.coverage.status, 'ok');
+  assert.ok(c.coverage.text.includes('1,990 of 2,000 (99.5%)') && c.coverage.text.includes('1 could not be downloaded tonight (AAA)'), c.coverage.text);
+  assert.ok(c.withheld.status === 'info' && c.withheld.text.startsWith('350 companies get no verdict'), c.withheld.text);
+  assert.ok(c.halal.text.includes('80 unresolved'), c.halal.text);
+  assert.equal(c.lt.status, 'ok');
+  assert.ok(c.lt.text.includes('with your approved rules'), c.lt.text);
+  assert.equal(H.commit, 'abc1234def');
+  // coverage: 97% and up is fine, 90% to 97% a warning, under 90% a problem
+  assert.equal(by(healthChecks({ ...base, analysed: 1940 })).coverage.status, 'ok', '97.0%');
+  assert.equal(by(healthChecks({ ...base, analysed: 1939 })).coverage.status, 'warn', '96.95%');
+  assert.equal(by(healthChecks({ ...base, analysed: 1799 })).coverage.status, 'bad', '89.95%');
+  // price history: off is a problem; more than 5% missing a warning
+  assert.equal(by(healthChecks({ ...base, historyOff: true })).history.status, 'bad');
+  assert.equal(by(healthChecks({ ...base, noHistory: 100 })).history.status, 'warn', '5.03% of 1,990 without history');
+  assert.equal(by(healthChecks({ ...base, noHistory: 99 })).history.status, 'ok', '4.97%');
+  // the 10-year test: missing, run with older rules, or more than LT_MAX_DAYS old is a warning
+  assert.equal(by(healthChecks({ ...base, lt: null })).lt.status, 'warn');
+  const old = by(healthChecks({ ...base, lt: { ...base.lt, rulesVersion: 1 } })).lt;
+  assert.ok(old.status === 'warn' && old.text.includes('older version of your rules'), old.text);
+  assert.equal(by(healthChecks({ ...base, builtAt: '2026-12-14T03:30:00Z' })).lt.status, 'ok', `${LT_MAX_DAYS} days old (40.5, rounded) is still fine`);
+  assert.equal(by(healthChecks({ ...base, builtAt: '2026-12-15T03:30:00Z' })).lt.status, 'warn', `older than ${LT_MAX_DAYS} days`);
+  // the permanent record: a broken chain is a problem, a skipped night a warning
+  const broken = healthChecks({ ...base, record: { days: 3, chain: { ok: false, at: '2026-11-04' } } });
+  assert.ok(broken.worst === 'bad' && by(broken).record.text.includes('2026-11-04'), JSON.stringify(by(broken).record));
+  assert.equal(by(healthChecks({ ...base, record: { skipped: 'not read' } })).record.status, 'warn');
+  // S&P 500 data a day behind, and a calendar with failed days
+  assert.equal(by(healthChecks({ ...base, spyDate: '2026-11-02' })).market.status, 'warn');
+  assert.equal(by(healthChecks({ ...base, earnings: { companies: 600, failures: 2 } })).earnings.status, 'warn');
 });
 
 test('long-term backtest: the plan judged on many five-year periods (PREREGISTERED.md, section 5)', () => {

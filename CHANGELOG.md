@@ -3,6 +3,16 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 3 November 2026: system health on the Record page (stage 6)
+
+- The nightly run now reports what it could and could not do: companies analysed and any failed downloads, price
+  histories, verdicts withheld, the halal screen's counts, earnings dates, the S&P 500 data, the 10-year test (and
+  whether it ran with your approved rules) and the permanent record.
+- The Record page shows it first, together with how late today's prices are and whether last night's record reached
+  GitHub, so a problem is visible before you read any result.
+- Display only: it changes no advice. Late data already pauses advice on its own, and a run that analyses under 80% of
+  the companies is not published.
+
 ## 3 November 2026: the position-size rules made exact, your split next to the evidence, holdings by hand
 
 - No buy may take a stock above 10% of everything you own. Before, a stock at 9.9% could still get a full month's buy

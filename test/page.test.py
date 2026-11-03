@@ -821,6 +821,27 @@ async def main():
         check(not errs, f'no page errors recording holdings on the Portfolio page {errs}')
         await pg.close()
 
+        # ---- system health on the Record page (lib/health.js, written by the nightly build)
+        hl = {'version': 1, 'builtAt': '2026-11-04T03:30:00Z', 'priceDate': fresh, 'commit': 'abc1234def', 'worst': 'ok', 'checks': [
+            {'id': 'coverage', 'status': 'ok', 'label': 'Companies analysed', 'text': '1,990 of 2,000 (99.5%).'},
+            {'id': 'withheld', 'status': 'info', 'label': 'Verdicts withheld', 'text': '350 companies get no verdict.'},
+            {'id': 'record', 'status': 'ok', 'label': 'Permanent record', 'text': '3 days recorded, every file intact.'}]}
+        for what, fix, rs, want in [
+                ('a normal night', hl, {'days': 3, 'chain': {'ok': True}}, ['Everything the nightly run checks is working.', 'Companies analysed. 1,990 of 2,000', 'From the close of', 'Built from version abc1234']),
+                ('a record not saved', hl, {'days': 3, 'chain': {'ok': True}, 'saved': False}, ['Working, with 1 thing to know.', 'could not be saved to GitHub']),
+                ('a broken record', {**hl, 'worst': 'bad', 'checks': hl['checks'][:2] + [{'id': 'record', 'status': 'bad', 'label': 'Permanent record', 'text': 'A file of the record does not match its fingerprint.'}]}, {'days': 3, 'chain': {'ok': False}}, ['1 problem needs attention', 'does not match its fingerprint']),
+                ('no report', None, {'days': 3, 'chain': {'ok': True}}, ['could not be read'])]:
+            extra = {'data/lt-summary.json': LT, 'data/record-summary.json': {**rec_summary, **rs}}
+            if fix is not None:
+                extra['data/health.json'] = fix
+            pg, errs = await page_with(ctx, base, fresh, None, '', None, extra)
+            await pg.click('#nav button:has-text("Record")')
+            await pg.wait_for_timeout(1500)
+            hc = await pg.inner_text('section[aria-label="System health"]')
+            check(all(w in hc for w in want), f'system health ({what}): {hc[:500]!r}')
+            check(not errs, f'no page errors on the system health card ({what}) {errs}')
+            await pg.close()
+
         # ---- stale data warning on the home page
         pg, errs = await page_with(ctx, base, weekday_back(6))
         check(await pg.locator('.hint.stale').count() == 1, 'old data shows a warning')

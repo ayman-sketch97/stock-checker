@@ -992,3 +992,23 @@ Stage 3 no longer reads broker statements. A stock you own is recorded on its pa
 the date you bought it if you like) or on the Portfolio page ("Add a stock you own", which also takes tickers the site
 does not cover, at a price you type). Both write the same Watchlist entry that every page and every limit check reads,
 so nothing is counted twice.
+
+Live check (3 November, 16:10 UTC): the reviewed commit went live unchanged (main fast-forwarded to it), the page
+tests passed in CI, and the 10-year summary was rebuilt in CI with the approved rules from the same replay data. It
+matches the local run exactly: long term 11.8% a year, worst fall -32.9%, 66% / 73% of the five-year periods;
+the evidence still supports half in stocks.
+
+## 11. Stage 6, part 2: system health (3 November 2026)
+
+The nightly build writes `data/health.json` (`lib/health.js`): companies analysed against the list it started from
+(97% and up fine, 90% to 97% a warning, under 90% a problem; under 80% the site is not published at all), failed
+downloads by name, companies without a price history (a warning above 5%, a problem if the source stopped
+answering), verdicts withheld, the halal screen's counts, earnings dates, whether the S&P 500 data is as recent as the
+companies', the 10-year test (a warning if it is missing, more than 40 days old, or run with an older version of the
+rules) and the permanent record (a problem if a file does not match its fingerprint). The Record page shows these
+first, with two checks only the device can make: how late today's prices are, and whether last night's record
+reached GitHub. Display only; no advice depends on it.
+
+Tests: every threshold on its boundary (97.0% and 96.95%, 5% of price histories, 40 days, the rules version, a
+broken chain, a skipped night) and the card on a normal night, with the record not saved, with a broken record, and
+with no report at all. 72 formula tests and 195 page checks pass.

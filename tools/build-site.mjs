@@ -20,6 +20,8 @@ const { prepare, analyzeTechnical, techContextFrom, TECH_VERSION } = await impor
 const BT = await import('../lib/backtest.js');
 const SG = await import('../lib/signals.js');
 const REC = await import('../lib/records.js');
+const { healthChecks } = await import('../lib/health.js');
+const { POLICY_VERSION } = await import('../lib/policy.js');
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const args = process.argv.slice(2);
@@ -554,10 +556,12 @@ let finalSignalRecords = null; // for the permanent record, below
 
 // the long-term test (tools/lt-backtest.mjs, run monthly by its own workflow) lives on the "backtest" branch; the
 // pages read its summary from the site itself
+let ltInfo = null;
 try {
   const r = await fetch('https://raw.githubusercontent.com/ayman-sketch97/stock-checker/backtest/lt-summary.json');
   if (r.ok) {
     const lt = await r.json();
+    ltInfo = { generated: lt.generated || null, to: lt.to || null, rulesVersion: lt.rules?.version ?? 1 };
     fs.writeFileSync(path.join(dataDir, 'lt-summary.json'), JSON.stringify(lt));
     console.log(`long-term test: ${lt.from} to ${lt.to}, ${lt.companies} companies, decision ${lt.decision?.verdict}`);
   } else console.log('long-term test summary not available:', r.status);
@@ -617,4 +621,32 @@ if (!ONLY.length && !LIMIT && priceDate && !fs.existsSync(RECORDS_DIR)) {
     fs.writeFileSync(recordOut, JSON.stringify({ skipped: 'error', url: RECORDS_URL }));
     console.log('permanent record not updated:', e.message);
   }
+}
+
+// the build's own health (lib/health.js), shown on the Record page: what it could and could not do tonight
+{
+  const F = Object.fromEntries(SCREEN_FIELDS.map((f, i) => [f, i]));
+  const shariah = { pass: 0, review: 0, fail: 0, other: 0 };
+  for (const row of screen) { const k = row[F.shariah]; shariah[k in shariah ? k : 'other']++; }
+  let record = null;
+  try { record = JSON.parse(fs.readFileSync(recordOut, 'utf8')); } catch { /* none tonight */ }
+  const health = healthChecks({
+    builtAt: started.toISOString(),
+    priceDate,
+    commit: process.env.GITHUB_SHA || null,
+    universe: universe.length,
+    analysed: items.length,
+    failed: failed.map((f) => ({ t: f.t, err: String(f.err || '').slice(0, 80) })),
+    noHistory: screen.filter((row) => row[F.techScore] === null || row[F.techScore] === undefined).length,
+    historyOff,
+    verdicts: counts,
+    shariah,
+    earnings: { companies: earnings.byTicker.size, failures: earnings.failures },
+    spyDate: market.spy?.date || null,
+    lt: ltInfo,
+    policyVersion: POLICY_VERSION,
+    record,
+  });
+  fs.writeFileSync(path.join(dataDir, 'health.json'), JSON.stringify(health));
+  console.log(`health: ${health.worst}; ${health.checks.map((c) => `${c.id} ${c.status}`).join(', ')}`);
 }

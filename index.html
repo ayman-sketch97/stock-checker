@@ -2657,6 +2657,8 @@ table.data tr.me td { background: var(--accent-wash); }
   const loadLtSummary = () => (HAS_SITE ? getJson('data/lt-summary.json') : Promise.resolve(null));
   // the permanent record of every call and how the calls did (lib/records.js, written by the daily build)
   const loadRecordSummary = () => (HAS_SITE ? getJson('data/record-summary.json') : Promise.resolve(null));
+  // the nightly build's own health (lib/health.js): what it could and could not do
+  const loadHealth = () => (HAS_SITE ? getJson('data/health.json') : Promise.resolve(null));
   // Real money or practice? The daily build follows every filled live signal for 20 trading days and compares it with
   // the S&P 500 over the same days, after costs, month by month (lib/signals.js, liveProof). Until enough months beat
   // the index by more than luck can explain, every swing signal is shown as a paper trade. Missing, old-format or
@@ -5472,7 +5474,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const el = $('#page-record');
     const head = pageHead('Track record', 'Does the tool’s advice work? The long-term list replayed on ten years of past reports and prices, and the swing plan replayed and recorded live.');
     el.replaceChildren(head, loadingBox('Loading the record…'));
-    const [bt, log, lts, rec] = await Promise.all([loadBtSummary(), getJson('data/signals.json'), loadLtSummary(), loadRecordSummary()]);
+    const [bt, log, lts, rec, hl, scrH] = await Promise.all([loadBtSummary(), getJson('data/signals.json'), loadLtSummary(), loadRecordSummary(), loadHealth(), loadScreen()]);
     if (page !== 'record') return;
     if (!bt) { el.replaceChildren(head, errCard('Could not load the track record. Check your connection and try again.')); return; }
     const COSTS = (bt.costs || [bt.cost]).map((c) => [c, `${(c * 100).toFixed(1)}%`]);
@@ -5490,11 +5492,36 @@ table.data tr.me td { background: var(--accent-wash); }
       const pack = st.cost === bt.cost ? bt[st.uni] : bt.byCost && bt.byCost[String(st.cost)] && bt.byCost[String(st.cost)][st.uni];
       body.replaceChildren(...(pack ? recordBody(pack, bt, st) : [errCard('That combination is not available.')]));
     };
-    el.replaceChildren(head, recordCard(rec), ltCard(lts), h('h2', { class: 'page-sec', text: 'The swing plan' }),
+    el.replaceChildren(head, healthCard(hl, scrH, rec), recordCard(rec), ltCard(lts), h('h2', { class: 'page-sec', text: 'The swing plan' }),
       h('div', { class: 'callout' }, h('b', { text: 'How it was tested. ' }),
         `Every trading day of the past ${bt.years} years, on ${bt.stocks.toLocaleString()} stocks, the rules looked only at prices up to that day, wrote the same plan this site shows, and followed it: the order for the next session, the stop, target 1, and the exit rule. One trade per stock at a time. Results are in R: +1R means you made as much as you risked, −1R means the stop was hit.`),
       controls, body, liveCard(log, bt), limitsCard(bt));
     paint();
+  }
+  // System health: the nightly build's checks (data/health.json), plus what only this device can see now (how late the
+  // data is today, and whether last night's record reached GitHub). Display only: the advice pauses on late data by itself.
+  function healthCard(H, scr, R) {
+    const card = h('section', { class: 'card', 'aria-label': 'System health' }, h('h2', { text: 'System health' }));
+    const rows = [];
+    const st = staleOf(scr);
+    if (scr && scr.priceDate) rows.push({ status: st ? 'bad' : 'ok', label: 'Prices', text: st ? staleText(st) : `From the close of ${niceDates(scr.priceDate)}${H && H.builtAt ? `, updated ${niceDates(String(H.builtAt).slice(0, 10))} at ${String(H.builtAt).slice(11, 16)} UTC` : ''}.` });
+    if (!H || !Array.isArray(H.checks)) {
+      rows.push({ status: 'warn', label: 'Nightly checks', text: 'The report of last night’s run could not be read. The rest of the site works as usual.' });
+    } else {
+      for (const c of H.checks) {
+        // the device knows one thing the build cannot: whether the record was pushed to GitHub afterwards
+        if (c.id === 'record' && R && R.saved === false) rows.push({ status: 'warn', label: c.label, text: `${c.text} But last night’s file could not be saved to GitHub; the next run adds it.` });
+        else rows.push(c);
+      }
+    }
+    const order = { bad: 0, warn: 1, info: 2, ok: 3 };
+    const worst = rows.reduce((w, c) => (order[c.status] < order[w] ? c.status : w), 'ok');
+    const n = rows.filter((c) => c.status === 'bad' || c.status === 'warn').length;
+    card.append(h('p', { class: 'sub', text: worst === 'bad' ? `${n} problem${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} attention: read ${n === 1 ? 'it' : 'them'} before trusting today’s advice.` : n ? `Working, with ${n} thing${n === 1 ? '' : 's'} to know.` : 'Everything the nightly run checks is working.' }));
+    const ICON = { ok: 'good', info: 'na', warn: 'ok', bad: 'bad' };
+    card.append(h('ul', { class: 'clean health' }, rows.map((c) => h('li', { class: 'hc-' + c.status }, icon(ICON[c.status] || 'na', c.status === 'ok' ? 'OK' : c.status === 'info' ? 'Information' : c.status === 'warn' ? 'Warning' : 'Problem'), h('span', null, h('b', { text: `${c.label}. ` }), c.text)))));
+    if (H && H.commit) card.append(h('p', { class: 'note', text: `Built from version ${String(H.commit).slice(0, 7)} of the code.` }));
+    return card;
   }
   // the permanent record: every call saved each night in an archive that is only ever added to, and how the calls did
   function recordCard(R) {
