@@ -402,3 +402,66 @@ are kept, whatever they show.
 **Known limits:** the 10-year data misses the companies that disappeared (VALIDATION.md, section 14), equally for A
 and B; and one decade with one big rate cycle (0.62% in July 2020 to 5.13% in October 2026) is a small sample, so a
 pass is evidence, not proof.
+
+### 7.3 The final method, frozen before the first result: confidence, dependence, multiple measures, dividends and missing companies (measures, version 4)
+
+Written on 3 November 2026 (UTC) at the owner's request, before any call has reached its first month. Where it differs
+from sections 7.1 and 7.2, this section decides. It is final: nothing in it changes after a result is seen, and a change
+the owner asks for before the first one-month results (early December 2026) is added as a dated amendment.
+
+**Why 90%, and what replaces it.** Section 7.1 used a 90% two-sided interval, which is the same as a 95% one-sided
+test: the usual level for a question with one direction (is this kind of call better than random?), and quicker to
+show an effect with few calls. It is too lenient for declaring skill, because the calls are not independent and there
+are many measures (both below). So the bar is now set by what each mistake costs:
+
+- A pass (better than random halal stocks) needs a one-sided test at 2.5%, the same as a 95% two-sided interval,
+  after a Holm correction across the six kinds of call, using the more cautious of the two resampling methods below.
+- A warning comes sooner: a 90% interval wholly on the bad side, without correction, marks a kind of call as "worse
+  than random, under review". A false alarm costs a review; a false pass could put money behind calls with no skill.
+
+**Calls that are not independent.** Calls are correlated in three ways: calls made close together share most of their
+measurement period (two 12-month periods a month apart overlap by 11 months); the same company can be called more
+than once (a buy, then a pick, then a hold); and calls on the same day share the market's move. Pairing each call with
+its own day's yardstick removes the shared market move. For the other two, the gap between the calls and the yardstick
+is resampled in two ways, 2,000 times each with a fixed seed:
+
+- by time: calls are grouped by the month they were made, and months are drawn in circular blocks of consecutive
+  months as long as the horizon (12 months for the 12-month result, 1 for the 1-month read), so overlapping periods
+  stay together;
+- by company: companies are drawn with all their calls together.
+
+Each bound uses the more cautious of the two (the lower of the two lower bounds, the higher of the two upper bounds),
+and the test uses the larger of the two one-sided p-values. A result also needs calls in at least twice as many months
+as its horizon (24 months for the 12-month result); with fewer, the page says the record is too short to judge. The
+page shows how many non-overlapping 12-month periods the calls cover, so many calls made in one year are not taken for
+a long record. This replaces the day resampling of section 7.1.
+
+**Many measures.** Six kinds of call, four horizons and the other measures make dozens of comparisons. Tested one by
+one at 5%, about one in twenty would look good by chance; across ten independent tests the chance of at least one
+false pass is 40% (1 - 0.95^10). So only the six 12-month results are tested for a pass, as one family with the Holm
+correction. The 1, 3 and 6-month reads are early reads and never pass. Measures 3 and 5 to 10 keep their thresholds
+from section 7.2 but are supporting evidence: they can raise a warning or agree with a result, never establish skill
+on their own. The 10-year test's five-year periods overlap too: its 59 periods hold about two independent five-year
+spans, so its shares (beat random halal stocks, beat the S&P 500) describe the test; they are not 59 separate results.
+
+**Dividends: never mixed.** Every return shown, for the calls, the random yardstick, the S&P 500, and the 10-year test
+with its random picks, is measured on prices only until one source gives reliable dividend histories for every tracked
+company and the S&P 500. Then every figure switches together, by a dated amendment, with the price-only figures kept
+beside them. This replaces the per-call rule of section 7.2, which could have mixed the two. The page says prices only
+wherever a return is shown.
+
+**Missing companies.** The 10-year test lacks 44% of the companies an investor could have held in mid-2016
+(VALIDATION.md, section 14), so its comparison with random halal stocks is not unbiased, and the gap can push the
+strategy and the random picks in different directions:
+
+- Bankruptcies (3.5%) and other collapses would have lowered the random picks' results; the strategy's quality and
+  debt filters would probably have avoided many of them. Their absence probably understates the strategy's edge.
+- Takeovers (28%) usually come at a premium. A strategy that buys cheap, sound companies may have held more takeover
+  targets than random picks did; their absence may understate its returns, though some takeovers rescue failing firms.
+- Companies that shrank or stopped being listed (8%), the cheap-for-a-reason "value traps": a strategy that buys
+  below fair value is more exposed to them than random picks. Their absence may overstate its edge.
+- Against the S&P 500, which has no such gap, the test's results are probably overstated.
+
+The net direction cannot be measured with free data. The historical results are incomplete evidence: they can show a
+large failure, not prove skill. Only the permanent record, complete from 3 November 2026 thanks to its own price
+archive, can judge the system's skill.
