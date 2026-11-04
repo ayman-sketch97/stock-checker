@@ -12,7 +12,7 @@ import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/lo
 import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS, planWindows, decideWindows, WINDOW_MONTHS } from '../lib/ltstats.js';
 import { POLICY_VERSION, POLICY_RULES, buyRoom, trimSale, sectorOpen, worthAnOrder } from '../lib/policy.js';
 import { healthChecks, LT_MAX_DAYS } from '../lib/health.js';
-import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, fallFrom, yardstick, gapInterval, writePrices, readPrices, trackedTickers, MISSING_DAYS, REPEAT_DAYS, HOLD_FALL, YARD_MIN_DAYS, STOP_SESSIONS } from '../lib/records.js';
+import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, fallFrom, yardstick, gapTest, judgeKinds, writePrices, readPrices, trackedTickers, MISSING_DAYS, REPEAT_DAYS, HOLD_FALL, STOP_SESSIONS, TOTAL_RETURNS, PASS_ALPHA, MIN_MATURED, MONTHS_PER_HORIZON } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -1121,32 +1121,76 @@ test('permanent record: every call next to random halal stocks on the same days 
   assert.ok(Math.abs(Y[0].rel - down1m / 2) < 1e-12 && Y[0].beat === 0 && Y[0].t10 === 0);
   const Y12 = Y[3];
   assert.ok(Math.abs(Y12.t10 - 0.5) < 1e-12, 'DOWN trails by more than 10 points over 12 months (0.995^252 - 1 is about -72%)');
-  // calls on six days, each paired with its own day's yardstick: UP against FLAT and DOWN
+  // calls in two months (these test days number 100 a month), each paired with its own day's yardstick: UP against
+  // FLAT and DOWN
   const yardOf = (c) => yardstick(['FLAT', 'DOWN'], c.date, null, closesOf, spy);
-  const calls = [10, 11, 12, 13, 14, 15].map((i) => ({ date: day(i), e: { k: 'buy_in', t: `UP${i}` } }));
+  const calls = [10, 11, 12, 110, 111, 112].map((i) => ({ date: day(i), e: { k: 'buy_in', t: `UP${i}` } }));
   const r = followUp(calls, closesOf, spy, { yardOf }).buy.h['1m'];
   const up1m = 1.01 ** 21 - 1;
   assert.equal(r.y.n, 6);
   assert.ok(Math.abs(r.y.diff - down1m / 2) < 1e-4, 'the yardstick over the same calls');
   assert.ok(Math.abs(r.y.gap - (up1m - down1m / 2)) < 1e-4, 'the gap: calls minus yardstick');
-  assert.ok(r.y.lo !== null && r.y.lo <= r.y.gap + 1e-9 && r.y.hi >= r.y.gap - 1e-9 && r.y.lo > 0, `the same gap every day: a narrow interval above zero ${JSON.stringify(r.y)}`);
-  assert.equal(r.y.days, 6);
-  // fewer than YARD_MIN_DAYS days: no interval
-  const few = followUp(calls.slice(0, YARD_MIN_DAYS - 1), closesOf, spy, { yardOf }).buy.h['1m'].y;
-  assert.deepEqual([few.lo, few.hi, few.days], [null, null, YARD_MIN_DAYS - 1]);
+  assert.ok(r.y.lo !== null && r.y.lo <= r.y.gap + 1e-9 && r.y.hi >= r.y.gap - 1e-9 && r.y.lo > 0 && r.y.ahead && !r.y.behind, `the same gap every time: a narrow interval above zero ${JSON.stringify(r.y)}`);
+  assert.ok(r.y.p < 0.001, 'and a small p-value');
+  assert.deepEqual([r.y.months, r.y.need, r.y.short], [2, 2, false], 'the 1-month read needs calls in 2 months');
+  // calls in fewer months than twice the horizon: too short to judge
+  const few = followUp(calls.slice(0, 3), closesOf, spy, { yardOf }).buy.h['1m'].y;
+  assert.deepEqual([few.lo, few.hi, few.p, few.months, few.short, few.ahead], [null, null, null, 1, true, false]);
   // a call no better than its yardstick: the interval includes zero
-  const mixed = [10, 11, 12, 13, 14, 15].map((i, j) => ({ date: day(i), e: { k: 'buy_in', t: `${j % 2 ? 'UP' : 'BIG'}${i}` } }));
+  const mixed = [10, 11, 12, 110, 111, 112].map((i, j) => ({ date: day(i), e: { k: 'buy_in', t: `${j % 2 ? 'UP' : 'BIG'}${i}` } }));
   const m = followUp(mixed, closesOf, spy, { yardOf: (c) => yardstick(['UP', 'BIG'], c.date, null, closesOf, spy) }).buy.h['1m'].y;
-  assert.ok(m.lo < 0 && m.hi > 0, `half better, half worse: ${JSON.stringify(m)}`);
+  assert.ok(m.lo < 0 && m.hi > 0 && !m.ahead && !m.behind, `half better, half worse: ${JSON.stringify(m)}`);
   // the calls' own tails: BIG trails by more than 10 points at 12 months, UP beats by more than 20
-  const tails = followUp(mixed, closesOf, spy).buy.h['12m'];
+  const early = [10, 11, 12, 13, 14, 15].map((i, j) => ({ date: day(i), e: { k: 'buy_in', t: `${j % 2 ? 'UP' : 'BIG'}${i}` } }));
+  const tails = followUp(early, closesOf, spy).buy.h['12m'];
   assert.deepEqual([tails.n, tails.t10, tails.b10, tails.b20, tails.y], [6, 0.5, 0.5, 0.5, undefined], 'without a yardstick, only the calls');
-  // the interval resamples whole days with a fixed seed: the same record gives the same interval
-  const days = [[0.1, 2], [-0.05, 1], [0.02, 3], [0.2, 1], [-0.1, 2], [0.03, 1]];
-  assert.deepEqual(gapInterval(days), gapInterval(days));
-  assert.equal(gapInterval(days.slice(0, 4)), null);
-  const [lo, hi] = gapInterval(days);
-  assert.ok(lo < hi && lo >= -0.1 && hi <= 0.2);
+});
+
+test('permanent record: section 7.3, resampling by time and by company, the more cautious deciding', () => {
+  // calls: [month number, company, gap to random halal stocks]
+  const spread = Array.from({ length: 48 }, (_, k) => [24300 + (k % 24), `C${k}`, 0.02 + 0.01 * Math.sin(k)]);
+  const T = gapTest(spread, { horizon: 12, up: true });
+  assert.deepEqual(T, gapTest(spread, { horizon: 12, up: true }), 'a fixed seed: the same record always gives the same answer');
+  assert.deepEqual([T.months, T.need, T.short, T.periods], [24, 24, false, 2], '24 months of calls: two separate 12-month periods');
+  assert.ok(T.lo > 0 && T.p < 0.01, JSON.stringify(T));
+  assert.ok(Math.abs(T.lo - Math.min(T.by.time[0], T.by.company[0])) < 1e-4 && Math.abs(T.hi - Math.max(T.by.time[1], T.by.company[1])) < 1e-4, 'the lower of the two lower bounds, the higher of the two upper bounds');
+  assert.ok(Math.abs(T.p - Math.max(T.by.time[2], T.by.company[2])) < 1e-4, 'and the larger of the two p-values');
+  assert.equal(gapTest(spread.filter((c) => c[0] < 24323), { horizon: 12 }).short, true, '23 months: too short for the 12-month result');
+  assert.equal(gapTest([[0, 'A', 1], [5, 'A', 1], [12, 'A', 1], [13, 'A', 1], [30, 'A', 1]], { horizon: 12 }).periods, 3, 'separate periods: from months 0, 12 and 30');
+  // one company called again and again: resampling by company sees one company, not thirty independent calls
+  const oneCo = [...Array.from({ length: 30 }, (_, k) => [24300 + (k % 12), 'SAME', 0.1]), ...Array.from({ length: 30 }, (_, k) => [24300 + (k % 12), `X${k}`, -0.01])];
+  const C = gapTest(oneCo, { horizon: 1, up: true });
+  assert.ok(C.by.time[2] < 0.01 && C.by.company[2] > 0.2 && C.p > 0.2, `the average gap is +4.5 points, but it all comes from one company: ${JSON.stringify(C)}`);
+  // months together: good calls all in the first year and bad ones in the second spread less evenly than they look
+  const years = Array.from({ length: 48 }, (_, k) => [24300 + (k % 24), `Y${k}`, (k % 24) < 12 ? 0.08 : -0.04]);
+  const Y = gapTest(years, { horizon: 12, up: true });
+  assert.ok(Y.by.time[1] - Y.by.time[0] > Y.by.company[1] - Y.by.company[0], `blocks of 12 months keep a good year and a bad year together: ${JSON.stringify(Y.by)}`);
+  // sell and trim calls: a negative gap is good
+  const down = gapTest(spread.map(([m, t, g]) => [m, t, -g]), { horizon: 12, up: false });
+  assert.ok(down.hi < 0 && down.p < 0.01);
+  assert.deepEqual(MONTHS_PER_HORIZON, { '1m': 1, '3m': 3, '6m': 6, '12m': 12 });
+});
+
+test('permanent record: section 7.3, the six kinds at 12 months tested as one family (Holm)', () => {
+  const kind = (y, x = {}) => ({ n: 40, matured: 40, wrong: 0.3, ...x, y: { t10: 0.45, b10: 0.32, short: false, ahead: false, behind: false, lo: -0.01, hi: 0.05, ...y } });
+  const groups = (k12) => Object.fromEntries(Object.entries(k12).map(([k, v]) => [k, { label: k, h: { '12m': v } }]));
+  const G = judgeKinds(groups({
+    buy: kind({ p: 0.001, ahead: true, lo: 0.01 }),
+    pick_long: kind({ p: 0.01, ahead: true, lo: 0.005 }), // under 2.5% alone, not after five other kinds
+    pick_mid: kind({ p: 0.4 }),
+    trim: kind({ p: 0.6, behind: true, lo: 0.02, hi: 0.06 }, { wrong: 0.2 }), // a sell-side call whose stocks kept rising
+    sell_weak: kind({ p: 0.001 }, { matured: 12, n: 12 }), // too few calls: counted in the family as p = 1
+    hold_fall: kind({ p: 0.002, short: true }),
+  }));
+  const v = (k) => G[k].h['12m'].verdict;
+  assert.deepEqual(['buy', 'pick_long', 'pick_mid', 'trim', 'sell_weak', 'hold_fall'].map(v), ['pass', 'undecided', 'undecided', 'warn', 'waiting', 'short']);
+  assert.deepEqual([G.buy.h['12m'].holm.rank, G.buy.h['12m'].holm.of], [1, 6]);
+  assert.ok(Math.abs(G.buy.h['12m'].holm.alpha - PASS_ALPHA / 6) < 1e-12 && Math.abs(G.pick_long.h['12m'].holm.alpha - PASS_ALPHA / 5) < 1e-12);
+  assert.equal(G.buy.h['12m'].provisional, true, 'provisional under 100 matured calls');
+  // a pass also needs no more wrong calls than random halal stocks
+  const W = judgeKinds(groups({ buy: kind({ p: 0.0001, ahead: true, lo: 0.02 }, { wrong: 0.5 }) }));
+  assert.equal(W.buy.h['12m'].verdict, 'undecided');
+  assert.equal(MIN_MATURED, 30);
 });
 
 test('permanent record: the nightly step pairs each call with the halal-pass companies of its own day', async () => {
@@ -1170,7 +1214,7 @@ test('permanent record: the nightly step pairs each call with the halal-pass com
   assert.equal(h1.n, 1);
   assert.ok(Math.abs(h1.diff - a) < 1e-4, JSON.stringify(h1));
   assert.ok(h1.y && h1.y.n === 1 && Math.abs(h1.y.diff - yard) < 1e-4 && Math.abs(h1.y.gap - (a - yard)) < 1e-4, JSON.stringify(h1.y));
-  assert.deepEqual([h1.y.days, h1.y.lo], [1, null], 'one day of calls: no verdict');
+  assert.deepEqual([h1.y.months, h1.y.short, h1.y.lo], [1, true, null], 'calls in one month: no verdict');
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -1201,16 +1245,21 @@ test('permanent record: section 7.2, sessions, companies that stop trading, unpr
   const late = followUp([call('LATE', n - 25)], (t) => C[t] || null, spy).buy.h['1m']; // its 1-month session comes after its last close
   assert.deepEqual([late.n, late.up || 0], [0, 0], 'waiting, not stopped and not unpriceable');
   assert.equal(STOP_SESSIONS, 10);
-  // dividends, reinvested at the ex-day close, counted only when both histories were read up to the horizon
+  // dividends (section 7.3): one switch for every figure, off for now, so prices only for the call and the S&P 500
+  // alike even when both histories are there
   const flat = { FLAT: cut(n, 1) };
   const div = { asOf: 20260400, div: [[20260120, 2]] }; // 2% paid on session 20
   const spyDiv = { asOf: 20260400, div: [[20260130, 1]] }; // 1% on session 30
-  const tr = followUp([call('FLAT')], (t) => flat[t] || null, spy, { divOf: () => div, spyDiv }).buy.h['1m'];
+  assert.equal(TOTAL_RETURNS, false);
+  const off = followUp([call('FLAT')], (t) => flat[t] || null, spy, { divOf: () => div, spyDiv }).buy.h['1m'];
+  assert.deepEqual([off.ret, off.spy, off.po], [0, 0, 1], 'the switch off: dividends are never used, never mixed');
+  const offYard = yardstick(['FLAT'], day(10), null, (t) => flat[t] || null, spy, () => div, spyDiv)[0];
+  assert.deepEqual([offYard.ret, offYard.spy], [0, 0], 'random halal stocks: prices only too');
+  // with the switch on (a dated amendment), dividends are reinvested at the ex-day close
+  const tr = followUp([call('FLAT')], (t) => flat[t] || null, spy, { divOf: () => div, spyDiv, total: true }).buy.h['1m'];
   assert.ok(Math.abs(tr.ret - 0.02) < 1e-9 && Math.abs(tr.spy - 0.01) < 1e-9 && tr.po === 0, JSON.stringify(tr));
-  const stale = followUp([call('FLAT')], (t) => flat[t] || null, spy, { divOf: () => ({ ...div, asOf: 20260120 }), spyDiv }).buy.h['1m'];
+  const stale = followUp([call('FLAT')], (t) => flat[t] || null, spy, { divOf: () => ({ ...div, asOf: 20260120 }), spyDiv, total: true }).buy.h['1m'];
   assert.deepEqual([stale.ret, stale.spy, stale.po], [0, 0, 1], 'dividends read only up to before the horizon: prices only for both, and counted');
-  const none = followUp([call('FLAT')], (t) => flat[t] || null, spy, { divOf: () => null, spyDiv }).buy.h['1m'];
-  assert.deepEqual([none.ret, none.po], [0, 1], 'no dividend history: prices only');
   // the record's price archive: one file a night, never replaced; a second write that day keeps only what is new
   const fs = await import('node:fs');
   const os = await import('node:os');

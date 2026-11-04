@@ -3214,7 +3214,7 @@ table.data tr.me td { background: var(--accent-wash); }
   // the five-year periods (lib/ltstats.js planWindows, PREREGISTERED.md section 5), in one sentence
   function windowsLine(W) {
     if (!W || !W.n) return '';
-    return ` Over ${W.n} five-year periods (starting each month from ${niceMonth(W.first)} to ${niceMonth(W.last)}), it beat random picks in ${pct(W.beatRandom, 0)} of them and the S&P 500 in ${pct(W.beatSpy, 0)}.`;
+    return ` Over ${W.n} five-year periods (starting each month from ${niceMonth(W.first)} to ${niceMonth(W.last)}), it beat random picks in ${pct(W.beatRandom, 0)} of them and the S&P 500 in ${pct(W.beatSpy, 0)}. The periods overlap: together they hold about two independent five-year spans, and companies that disappeared since 2016 are missing.`;
   }
   function stockIdeasByHold(scr, heldSet, n, wanted) {
     const skip = new Set(heldSet);
@@ -5538,32 +5538,38 @@ table.data tr.me td { background: var(--accent-wash); }
     if (R.saved === false) card.append(h('p', { class: 'note tone-warn', text: 'Tonight’s changes could not be saved to GitHub. The next update adds them, dated that night.' }));
     if (R.prices === false) card.append(h('p', { class: 'note tone-warn', text: 'Prices could not be loaded tonight, so the results wait for the next update.' }));
     const H = [['1m', '1 month'], ['3m', '3 months'], ['12m', '12 months']];
-    // the yardstick (PREREGISTERED.md, section 7.1): every halal-pass company on the same days, and whether the gap is
-    // more than noise (a 90% interval from resampling the days of the calls)
-    const yardEl = (y, up) => {
+    // the yardstick (PREREGISTERED.md, sections 7.1 and 7.3): every halal-pass company on the same days, and whether the
+    // gap is more than noise (a 90% interval, the more cautious of resampling by month and by company). The 1 and
+    // 3-month columns are early reads; only the 12-month results below can pass a kind of call
+    const yardEl = (y, early) => {
       if (!y) return null;
-      const better = y.lo !== null && (up ? y.lo > 0 : y.hi < 0);
-      const worse = y.lo !== null && (up ? y.hi < 0 : y.lo > 0);
-      const verdict = y.lo === null ? `calls on ${y.days} day${y.days === 1 ? '' : 's'}, too few to judge` : better ? 'better than random halal stocks' : worse ? 'worse than random halal stocks' : 'no better than random halal stocks so far';
-      return h('div', { class: 'sm yard' }, `Random halal stocks, same days: ${pctS(y.diff, 1)} · ${verdict}`);
+      const verdict = y.short || !isNum(y.lo) ? `calls in ${y.months || 0} month${y.months === 1 ? '' : 's'}, too few to judge (${y.need || 2} needed)` : y.ahead ? 'ahead of random halal stocks so far' : y.behind ? 'behind random halal stocks so far' : 'no clear difference from random halal stocks so far';
+      return h('div', { class: 'sm yard' }, `Random halal stocks, same days: ${pctS(y.diff, 1)} · ${verdict}${early ? ' (early read)' : ''}`);
     };
-    const cellEl = (h1, up) => (h1 && h1.n ? h('td', null, ...[h('b', { text: pctS(h1.diff, 1) }), h('div', { class: 'sm', text: `${h1.n} followed, ${pct(h1.beat, 0)} beat it` }), yardEl(h1.y, up)].filter(Boolean)) : h('td', { class: 'muted', text: 'waiting' }));
+    const cellEl = (h1, early) => (h1 && h1.n ? h('td', null, ...[h('b', { text: pctS(h1.diff, 1) }), h('div', { class: 'sm', text: `${h1.n} followed, ${pct(h1.beat, 0)} beat it` }), yardEl(h1.y, early)].filter(Boolean)) : h('td', { class: 'muted', text: 'waiting' }));
     const ORDER = ['buy', 'pick_long', 'pick_mid', 'trim', 'sell_weak', 'hold_fall'];
     const tableOf = (G, skipEmpty = false) => h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' },
       h('tr', null, ['Call', ...H.map(([, t]) => t)].map((x) => h('th', { text: x }))),
       ORDER.filter((k) => G && G[k] && (!skipEmpty || G[k].n)).map((k) => h('tr', null,
         h('td', null, h('span', { text: G[k].label }), h('div', { class: 'sm', text: `${G[k].n || 0} call${G[k].n === 1 ? '' : 's'}${G[k].up ? '' : ' · lower is better'}` })),
-        ...H.map(([k2]) => cellEl(G[k].h && G[k].h[k2], G[k].up))))));
+        ...H.map(([k2]) => cellEl(G[k].h && G[k].h[k2], k2 !== '12m'))))));
     const anyNew = Object.values(R.groups || {}).some((g) => g.n);
     card.append(h('h3', { text: `Calls made since ${niceDates(R.since)}` }), anyNew
-      ? h('p', { class: 'note', text: 'Each column: the stock’s return after the call minus the S&P 500’s over the same days, how many calls are old enough to count, and how often the stock beat the S&P 500.' })
+      ? h('p', { class: 'note', text: 'Each column: the stock’s return after the call minus the S&P 500’s over the same days (prices only), how many calls are old enough to count, and how often the stock beat the S&P 500. The 1 and 3-month columns are early reads: they never pass a kind of call.' })
       : h('p', { class: 'note', text: 'No new calls yet. Each night’s changes are added from here on.' }));
     if (anyNew) card.append(tableOf(R.groups));
-    // measures 1, 2 and 4 (PREREGISTERED.md, sections 7 to 7.2): each kind of call over 12 months, from 30 matured
-    // calls: actual returns, the S&P 500, random halal stocks, the wrong calls, and pass, fail or undecided
+    // measures 1, 2 and 4 (PREREGISTERED.md, sections 7 to 7.3): each kind of call over 12 months, from 30 matured
+    // calls: actual returns, the S&P 500, random halal stocks, the wrong calls, and the verdict worked out in
+    // lib/records.js (judgeKinds): the six kinds are tested together, so a pass needs more than one kind's luck
     if (anyNew) {
       const MATURE = 30;
       const FINAL = 100;
+      const VERDICT = {
+        pass: 'passes: better than random halal stocks, by more than luck even with six kinds of call tested together',
+        warn: 'worse than random halal stocks: under review',
+        undecided: 'undecided: no better than random halal stocks so far',
+        noyard: 'no yardstick yet',
+      };
       const items = ORDER.filter((k) => R.groups[k] && R.groups[k].n).map((k) => {
         const g = R.groups[k];
         const x = (g.h && g.h['12m']) || { n: 0 };
@@ -5571,18 +5577,18 @@ table.data tr.me td { background: var(--accent-wash); }
         if (!(m >= MATURE)) return h('li', null, h('span', null, h('b', { text: `${g.label}: ` }), `waiting, ${m} of ${MATURE} calls have had their 12 months.`));
         const y = x.y || null;
         const yWrong = y ? (g.up ? y.t10 : y.b10) : null;
-        const good = y && y.lo !== null && (g.up ? y.lo > 0 : y.hi < 0);
-        const bad = y && y.lo !== null && (g.up ? y.hi < 0 : y.lo > 0);
-        const verdict = !y ? 'no yardstick yet' : y.lo === null ? `too few days of calls (${y.days}) to judge` : good && isNum(yWrong) && x.wrong <= yWrong ? 'passes: better than random halal stocks' : bad ? 'fails: worse than random halal stocks' : 'undecided: no better than random halal stocks so far';
-        const counts = [x.st ? `${x.st} stopped trading (followed to the last price)` : '', x.up ? `${x.up} without prices, counted as wrong` : '', x.po ? `${x.po} measured on prices only` : ''].filter(Boolean).join(' · ');
-        return h('li', null, h('span', null,
-          h('b', { text: `${g.label}: ` }), `${m} calls have had their 12 months${m < FINAL ? ` (provisional until ${FINAL})` : ''}. `,
+        const v = x.verdict || 'undecided';
+        const verdict = v === 'short' ? `too short a record to judge: calls in ${y.months} month${y.months === 1 ? '' : 's'}, ${y.need} needed` : VERDICT[v] || VERDICT.undecided;
+        const span = y && isNum(y.months) ? `Calls made in ${y.months} month${y.months === 1 ? '' : 's'}, ${y.periods} separate 12-month period${y.periods === 1 ? '' : 's'}. ` : '';
+        const counts = [x.st ? `${x.st} stopped trading (followed to the last price)` : '', x.up ? `${x.up} without prices, counted as wrong` : '', R.returns !== 'price' && x.po ? `${x.po} measured on prices only` : ''].filter(Boolean).join(' · ');
+        return h('li', { class: v === 'warn' ? 'tone-warn' : null }, h('span', null,
+          h('b', { text: `${g.label}: ` }), `${m} calls have had their 12 months${m < FINAL ? ` (provisional until ${FINAL})` : ''}. `, span,
           isNum(x.ret) ? `Return ${pctS(x.ret, 1)}, S&P 500 ${pctS(x.spy, 1)} over the same days: ${pctS(x.diff, 1)}${y ? `; random halal stocks ${pctS(y.diff, 1)}` : ''}. ` : '',
           `Wrong calls: ${pct(x.wrong, 0)}${isNum(yWrong) ? ` (random halal stocks ${pct(yWrong, 0)})` : ''}. `,
           counts ? `${counts}. ` : '',
           h('b', { text: verdict.charAt(0).toUpperCase() + verdict.slice(1) + '.' })));
       });
-      if (items.length) card.append(h('h3', { text: 'Each kind of call after 12 months' }), h('p', { class: 'note', text: `Shown from ${MATURE} calls that have had their 12 months. Prices only for now, for the calls and the S&P 500 alike: no free source gives dividend histories reliably, and dividends will count only once one does. A buy, pick or hold call is wrong if the stock trailed the S&P 500 by more than 10 points; a sell or trim call, if it beat it by more than 10 points; a call whose prices cannot be found counts as wrong. A kind of call passes only if the gap to random halal stocks is more than noise (a 90% interval) and it is wrong no more often than they are. Even at random these shares are large: in the 10-year test, 45% of halal stocks trailed the S&P 500 by more than 10 points over a year, and 32% beat it by more than 10 points. Rules fixed on 3 November 2026, before any result (PREREGISTERED.md, section 7.2).` }), h('ul', { class: 'clean' }, items));
+      if (items.length) card.append(h('h3', { text: 'Each kind of call after 12 months' }), h('p', { class: 'note', text: `Shown from ${MATURE} calls that have had their 12 months, provisional until ${FINAL}. Prices only, for the calls, random halal stocks and the S&P 500 alike: no free source gives dividend histories reliably, and dividends will count only when one does, for every figure at once. A buy, pick or hold call is wrong if the stock trailed the S&P 500 by more than 10 points; a sell or trim call, if it beat it by more than 10 points; a call whose prices cannot be found counts as wrong. A kind of call passes only if its lead over random halal stocks is unlikely to be luck even with all six kinds tested together (a one-sided test at 2.5% with a Holm correction, from whichever of two resamplings is more cautious: by month, in 12-month blocks, and by company), and it is wrong no more often than they are. A 90% interval wholly on the bad side puts it under review. A result needs calls made in at least 24 different months: calls close together share most of their 12 months, so many calls in one year are not a long record. Even at random these shares are large: in the 10-year test, 45% of halal stocks trailed the S&P 500 by more than 10 points over a year, and 32% beat it by more than 10 points. Rules fixed on 3 November 2026, before any result (PREREGISTERED.md, sections 7.2 and 7.3).` }), h('ul', { class: 'clean' }, items));
     }
     const sum = (k) => ['groups', 'standing'].reduce((a, w) => a + Object.values(R[w] || {}).reduce((b, g) => b + (g[k] || 0), 0), 0);
     const rep = sum('rep');
@@ -5841,15 +5847,15 @@ table.data tr.me td { background: var(--accent-wash); }
           ['What the evidence supports', ...kinds.map(([k]) => tier(PL[k].decision?.verdict))],
           ...(kinds.some(([k]) => PL[k].decisionSinglePath) ? [['Result on one 10-year path (the rule before 3 Nov 2026)', ...kinds.map(([k]) => (PL[k].decisionSinglePath ? tier(PL[k].decisionSinglePath.verdict) : 'n/a'))]] : []),
         ]),
-        kinds.some(([k]) => PL[k].windows && PL[k].windows.n) ? h('p', { class: 'note', text: 'Since 3 Nov 2026 the test result comes from the five-year periods, not one path. One path depends a lot on which stocks happened to be bought first: random stocks with the same rules end years apart. To get 70% in stocks, the plan must beat random picks in three quarters of the periods and the S&P 500 in half, and its ideas must beat the average stock by more than luck, in both halves. The periods overlap and come from one decade, so they remove the luck of the start date, not of the decade. The pass marks were written down before the periods were run (PREREGISTERED.md, section 5).' }) : null,
+        kinds.some(([k]) => PL[k].windows && PL[k].windows.n) ? h('p', { class: 'note', text: 'Since 3 Nov 2026 the test result comes from the five-year periods, not one path. One path depends a lot on which stocks happened to be bought first: random stocks with the same rules end years apart. To get 70% in stocks, the plan must beat random picks in three quarters of the periods and the S&P 500 in half, and its ideas must beat the average stock by more than luck, in both halves. The periods overlap and come from one decade, so they remove the luck of the start date, not of the decade: together they hold about two independent five-year spans, so their shares describe this test rather than count as separate results. The pass marks were written down before the periods were run (PREREGISTERED.md, sections 5 and 7.3).' }) : null,
         // survivorship (VALIDATION.md, section 14): which companies the test cannot see, measured from SEC filings
-        h('p', { class: 'note' }, h('b', { text: 'Companies the test cannot see. ' }), 'It holds only companies listed today. Of the 1,485 non-financial companies with a public float of $250 million or more in mid-2016, 56% are in it. 34% have since disappeared (28% taken over or merged, 3.5% bankrupt, 2% delisted for other reasons), 5% still file with the SEC but have no listed shares, 3% shrank below its size cut-off, and 2% are missing for other reasons, such as a move to another exchange (SEC filings, counted on 3 Nov 2026). Free price sources do not keep the prices of companies that disappeared, so their results are missing. That most likely flatters the test’s returns. Random halal stocks are drawn from the same companies, so the comparison with them is affected less, but not free of it. The permanent record keeps its own prices, so it does not have this gap.'),
+        h('p', { class: 'note' }, h('b', { text: 'Companies the test cannot see. ' }), 'It holds only companies listed today. Of the 1,485 non-financial companies with a public float of $250 million or more in mid-2016, 56% are in it. 34% have since disappeared (28% taken over or merged, 3.5% bankrupt, 2% delisted for other reasons), 5% still file with the SEC but have no listed shares, 3% shrank below its size cut-off, and 2% are missing for other reasons, such as a move to another exchange (SEC filings, counted on 3 Nov 2026). Free price sources do not keep the prices of companies that disappeared, so their results are missing, and that can push the picks and random halal stocks in different directions. The bankruptcies would have hurt random picks more than picks that screen out weak, indebted businesses, so leaving them out may understate the picks’ edge. Takeovers usually pay a premium, and picks of cheap, sound businesses may have held more of them, which would also understate their returns. But the companies that shrank or were delisted include the cheap-for-a-reason stocks that buying below fair value is drawn to, so leaving them out may overstate the edge. Against the S&P 500, which has no such gap, the results are probably flattered. The net effect cannot be measured with free data, so read the test as incomplete evidence: it can show a large failure, not prove skill. The permanent record keeps its own prices, so it does not have this gap (PREREGISTERED.md, section 7.3).'),
         h('p', { class: 'note', text: `${dec.method === 'list' ? 'The long-term part of the plan buys the list above, which did better in the test, so the money split follows the list' : 'The money split follows the long-term picks, the main part of the plan'}: ${tier(dec.verdict).toLowerCase()}, if you let the test decide. ${L.pools && L.pools.mid === false ? 'Medium-term picks did not beat random picks, so they get no real money. ' : ''}Short-term picks cannot be tested yet (the test lacks their chart data), so they get no real money either.` }),
         (() => { const pf = ADV.load().profile; if (!pf || !pf.focus || pf.focus === 'test') return null; const T = targetMix(pf, false); return h('p', { class: 'note', text: `This is the evidence, not your plan. Your Portfolio page uses your own split, ${pct(T.stocks, 0)} in stocks: a personal risk decision${Math.abs(T.stocks - (dec.stocks ?? T.stocks)) >= 0.05 ? `, ${T.stocks > dec.stocks ? 'more' : 'less'} than the ${pct(dec.stocks, 0)} the test supports` : ' that matches the test'}. The Portfolio page shows the two side by side.` }); })()].filter(Boolean));
     }
     card.append(h('h3', { text: 'Read this before trusting the numbers' }),
       h('ul', { class: 'clean' },
-        h('li', null, h('span', null, h('b', { text: 'Companies that went bust are missing. ' }), 'Only companies still listed today could be tested (including those that shrank). The ones that failed would have hurt cheap-looking picks most, so the real results were worse than these, especially for the list.')),
+        h('li', null, h('span', null, h('b', { text: 'Companies that disappeared are missing. ' }), 'Only companies still listed today could be tested (including those that shrank). Against the S&P 500 the results are probably flattered; against random halal stocks the missing companies can push either way (above), and the net effect cannot be measured with free data.')),
         h('li', null, h('span', null, h('b', { text: 'Prices only. ' }), 'Dividends are left out on every side, which slightly understates both the stocks and the S&P 500.')),
         h('li', null, h('span', null, h('b', { text: 'Nothing was tuned. ' }), 'The list’s rules were written before this test and were not changed to improve these numbers.')),
         h('li', null, h('span', null, h('b', { text: 'The future is not the past. ' }), 'Ten years is one stretch of history; another ten could favour different stocks.'))));

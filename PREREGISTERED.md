@@ -465,3 +465,24 @@ strategy and the random picks in different directions:
 The net direction cannot be measured with free data. The historical results are incomplete evidence: they can show a
 large failure, not prove skill. Only the permanent record, complete from 3 November 2026 thanks to its own price
 archive, can judge the system's skill.
+
+#### 7.3.1 How the code applies section 7.3 (4 November 2026, before any result)
+
+Written when the code was built, before any call had reached its first month. It changes nothing above; it settles
+the details section 7.3 leaves open, so they cannot be chosen after a result is seen.
+
+- The one-sided p-value of a resampling is (1 + the resamples on the wrong side of zero, zero included) / (1 + the
+  resamples). With 2,000 resamples the smallest possible is 0.0005, well under the strictest Holm threshold
+  (2.5% / 6 = 0.42%).
+- Resampling by time covers every month from the first call to the last, months without calls included, so a gap in
+  the record counts as a gap. The time resampling uses seed 20261103 and the company resampling 20261104.
+- The Holm family is always the six kinds of call. A kind that cannot be tested yet (fewer than 30 matured calls, no
+  yardstick, or calls in fewer than 24 months) counts as p = 1, so a kind maturing early never gets an easier bar.
+- From section 7.2, still in force: 30 matured calls before any verdict, provisional until 100, and a pass also needs
+  a share of wrong calls no higher than random halal stocks'.
+- The warning ("worse than random, under review") is given to a kind of call from its 12-month result. The 1, 3 and
+  6-month reads say only ahead of, behind or no clear difference from random halal stocks, labelled early reads, and
+  need calls in twice as many months as their horizon (2, 6 and 12).
+- The separate 12-month periods shown are the most calls whose 12 months do not overlap, counted from the first call.
+- The calls standing on the record's first day are the starting point: shown the same way, but not part of the family
+  tested for a pass.

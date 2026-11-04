@@ -1134,3 +1134,35 @@ read too early (prices only for both), the archive (the first observation of a d
 what is new, dividends merged), the companies tracked, a company followed from the archive after the source dropped
 it, and the page with each verdict. 77 formula tests and 201 page checks pass.
 
+
+## 16. Section 7.3 in the code: how sure a result is, and one switch for dividends (4 November 2026)
+
+Section 7.3 was written down first (its own commit, before any call had reached its first month), and the details
+the code needed were added to it as 7.3.1 before any result. Built in `lib/records.js` on the `stats-7.3` branch,
+for review before it goes live:
+
+- `gapTest` replaces the day resampling of section 7.1. Each call's gap to that day's random halal stocks is
+  resampled 2,000 times by month, in circular blocks of consecutive months as long as the horizon (12 months for the
+  12-month result), and 2,000 times by company, each company with all its calls. The interval shown is the lower of
+  the two lower bounds and the higher of the two upper bounds; the p-value the larger of the two.
+- A result needs calls made in at least twice as many months as its horizon (24 for 12 months); with fewer the page
+  says the record is too short to judge. The page shows how many separate 12-month periods the calls cover.
+- `judgeKinds` gives each kind of call its 12-month verdict, the six kinds tested as one family (Holm, familywise
+  2.5% one-sided; a kind not yet testable counts as p = 1): passes (also needing no more wrong calls than random
+  halal stocks), worse than random and under review (a 90% interval wholly on the bad side), undecided, or too short
+  a record. The 1 and 3-month columns are labelled early reads and never pass.
+- `TOTAL_RETURNS`, off: dividends are used nowhere, for the calls, random halal stocks and the S&P 500 alike, so the
+  two kinds of return are never mixed. The archive keeps any dividend history it reads. Turning it on needs a dated
+  amendment.
+- The page says prices only wherever the record shows a return, explains that the 10-year test's 59 overlapping
+  five-year periods hold about two independent spans, and replaces "affected less" with how the missing companies
+  can push the picks and random halal stocks in different directions.
+
+Tests: the same record gives the same answer (fixed seeds); 23 months of calls is too short for the 12-month result
+and 24 is enough; separate periods counted from the first call; one company called again and again (an average gap of
++4.5 points that all comes from it: resampling by company gives p above 0.2 while resampling by month alone gives
+under 0.01); a good year and a bad year (the 12-month blocks give a wider interval than resampling by company);
+sell-side calls (a negative gap is good); the Holm family (a kind at p = 0.01 passes on its own at 2.5% but not as
+the second of six; a kind with too few calls counts as p = 1; a pass with more wrong calls than random stays
+undecided; a sell-side kind whose stocks kept rising is put under review); and dividends ignored while the switch is
+off, reinvested when it is on. 79 formula tests and 203 page checks pass.

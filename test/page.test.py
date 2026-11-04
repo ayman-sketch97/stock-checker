@@ -417,7 +417,7 @@ async def main():
         check('Short-term picks get no real money' in mix and 'short term' not in mix.split('Your stocks')[1].split('\n')[0], 'portfolio: untested short-term picks get no real money, their share goes to the long term')
         hp = await pg.inner_text('section[aria-label="Holding periods"]')
         check('In the 10-year test: its ideas were ahead of the average halal stock by 8.1% a year' in hp and 'beat random picks in one half' in hp
-              and 'Over 59 five-year periods (starting each month from Dec 2016 to Oct 2021), it beat random picks in 60% of them and the S&P 500 in 40%.' in hp, f'portfolio: each holding period shows what the test found: {hp[:600]!r}')
+              and 'Over 59 five-year periods (starting each month from Dec 2016 to Oct 2021), it beat random picks in 60% of them and the S&P 500 in 40%. The periods overlap: together they hold about two independent five-year spans' in hp, f'portfolio: each holding period shows what the test found: {hp[:600]!r}')
         check(not errs, f'no page errors on the brief, watchlist and portfolio {errs}')
         await pg.close()
 
@@ -426,7 +426,7 @@ async def main():
         await pg.click('#nav button:has-text("Record")')
         await pg.wait_for_timeout(1200)
         ltc = await pg.inner_text('section[aria-label="Long-term list test"]')
-        check('The list did not beat the average stock' in ltc and '17.6%' in ltc and 'Companies that went bust are missing' in ltc, f'record: the long-term test, its verdict and its limits: {ltc[:200]!r}')
+        check('The list did not beat the average stock' in ltc and '17.6%' in ltc and 'Companies that disappeared are missing' in ltc and 'the net effect cannot be measured with free data' in ltc, f'record: the long-term test, its verdict and its limits: {ltc[:200]!r}')
         check('Other ways to build the list' in ltc and 'Ahead, but not clearly more than luck' in ltc and 'Did worse than the average' in ltc and 'None passed every check' in ltc,
               'record: the other methods tried, each with its result in plain words')
         check('The picks the Portfolio page buys' in ltc and 'Half in stocks' in ltc and 'The money split follows the long-term picks' in ltc and 'Short-term picks cannot be tested yet' in ltc,
@@ -436,8 +436,10 @@ async def main():
         check('Five-year periods (59, starting each month from Dec 2016 to Oct 2021): beat random picks / beat the S&P 500' in ltc and '60% / 40%' in ltc
               and 'Result on one 10-year path' in ltc and 'Mostly in the fund' in ltc and 'Since 3 Nov 2026 the test result comes from the five-year periods' in ltc and '+12.4% / +18.7%' in ltc,
               f'record: the plan judged on many five-year periods, with the single path next to it: {ltc[-1500:]!r}')
-        check('Companies the test cannot see. It holds only companies listed today.' in ltc and '34% have since disappeared (28% taken over or merged, 3.5% bankrupt' in ltc and 'Free price sources do not keep the prices of companies that disappeared' in ltc,
-              'record: the 10-year test says which companies it cannot see (survivorship), next to its results')
+        check('Companies the test cannot see. It holds only companies listed today.' in ltc and '34% have since disappeared (28% taken over or merged, 3.5% bankrupt' in ltc and 'Free price sources do not keep the prices of companies that disappeared' in ltc
+              and 'may understate the picks’ edge' in ltc and 'may overstate the edge' in ltc and 'Against the S&P 500, which has no such gap, the results are probably flattered' in ltc and 'it can show a large failure, not prove skill' in ltc and 'affected less' not in ltc
+              and 'about two independent five-year spans' in ltc,
+              'record: the 10-year test says which companies it cannot see, how that can bias each comparison, and that its periods overlap')
         check(not errs, f'no page errors on the record page with the long-term test {errs}')
         await pg.close()
 
@@ -622,10 +624,11 @@ async def main():
         await pg.close()
 
         # ---- stage 2 (3 Nov 2026): the permanent record on the Record page, and the tool's view kept with each trade
-        rec_summary = {'version': 1, 'since': '2026-11-03', 'days': 4, 'chain': {'ok': True, 'at': None, 'okBefore': True}, 'today': None, 'kinds': {'verdict': 1500, 'buy_in': 40},
-                       'groups': {'buy': {'label': 'Entered the long-term buy zone', 'up': True, 'n': 12, 'h': {'1m': {'n': 5, 'ret': 0.03, 'spy': 0.01, 'diff': 0.02, 'beat': 0.6, 'y': {'n': 5, 'diff': 0.01, 'beat': 0.5, 't10': 0.1, 'b10': 0.2, 'b20': 0.1, 'gap': 0.01, 'lo': -0.02, 'hi': 0.04, 'days': 5}}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}},
-                                  'trim': {'label': 'Reached the trim price', 'up': False, 'n': 31, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 31, 'matured': 31, 'wrong': 0.29, 'st': 1, 'po': 2, 'up': 0, 'ret': 0.08, 'spy': 0.1, 'diff': -0.02, 'beat': 0.4, 't10': 0.3, 'b10': 0.29, 'b20': 0.1, 'y': {'n': 31, 'diff': 0.0, 'beat': 0.45, 't10': 0.44, 'b10': 0.32, 'b20': 0.22, 'gap': -0.02, 'lo': None, 'hi': None, 'days': 3}}}},
-                                  'hold_fall': {'label': 'Fell 20% with the business still sound: hold', 'up': True, 'n': 6, 'h': {'1m': {'n': 0}, '3m': {'n': 6, 'ret': 0.05, 'spy': 0.01, 'diff': 0.04, 'beat': 0.67, 'y': {'n': 6, 'diff': -0.01, 'beat': 0.4, 't10': 0.3, 'b10': 0.1, 'b20': 0.05, 'gap': 0.05, 'lo': 0.01, 'hi': 0.09, 'days': 6}}, '6m': {'n': 0}, '12m': {'n': 34, 'matured': 35, 'up': 1, 'st': 0, 'po': 0, 'ret': 0.15, 'spy': 0.1, 'diff': 0.05, 'wrong': 0.3, 'beat': 0.6, 't10': 0.27, 'b10': 0.4, 'b20': 0.2, 'y': {'n': 34, 'diff': -0.02, 'beat': 0.45, 't10': 0.44, 'b10': 0.3, 'b20': 0.2, 'gap': 0.07, 'lo': 0.01, 'hi': 0.12, 'days': 8}}}}},
+        rec_summary = {'version': 2, 'measures': 4, 'returns': 'price', 'since': '2026-11-03', 'days': 4, 'chain': {'ok': True, 'at': None, 'okBefore': True}, 'today': None, 'kinds': {'verdict': 1500, 'buy_in': 40},
+                       'groups': {'buy': {'label': 'Entered the long-term buy zone', 'up': True, 'n': 12, 'h': {'1m': {'n': 5, 'ret': 0.03, 'spy': 0.01, 'diff': 0.02, 'beat': 0.6, 'y': {'n': 5, 'diff': 0.01, 'beat': 0.5, 't10': 0.1, 'b10': 0.2, 'b20': 0.1, 'gap': 0.01, 'lo': -0.02, 'hi': 0.04, 'p': 0.3, 'ahead': False, 'behind': False, 'months': 2, 'need': 2, 'periods': 2, 'short': False}}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0, 'verdict': 'waiting'}}},
+                                  'trim': {'label': 'Reached the trim price', 'up': False, 'n': 31, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 31, 'matured': 31, 'wrong': 0.29, 'st': 1, 'po': 31, 'up': 0, 'ret': 0.08, 'spy': 0.1, 'diff': -0.02, 'beat': 0.4, 't10': 0.3, 'b10': 0.29, 'b20': 0.1, 'verdict': 'short', 'provisional': True, 'y': {'n': 31, 'diff': 0.0, 'beat': 0.45, 't10': 0.44, 'b10': 0.32, 'b20': 0.22, 'gap': -0.02, 'lo': None, 'hi': None, 'p': None, 'ahead': False, 'behind': False, 'months': 3, 'need': 24, 'periods': 1, 'short': True}}}},
+                                  'sell_weak': {'label': 'Business weakened: sell', 'up': False, 'n': 40, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 40, 'matured': 40, 'wrong': 0.45, 'st': 0, 'po': 40, 'up': 0, 'ret': 0.2, 'spy': 0.1, 'diff': 0.1, 'beat': 0.6, 't10': 0.1, 'b10': 0.45, 'b20': 0.3, 'verdict': 'warn', 'provisional': True, 'y': {'n': 40, 'diff': 0.0, 'beat': 0.45, 't10': 0.44, 'b10': 0.32, 'b20': 0.22, 'gap': 0.1, 'lo': 0.03, 'hi': 0.17, 'p': 0.99, 'ahead': False, 'behind': True, 'months': 25, 'need': 24, 'periods': 3, 'short': False}}}},
+                                  'hold_fall': {'label': 'Fell 20% with the business still sound: hold', 'up': True, 'n': 6, 'h': {'1m': {'n': 0}, '3m': {'n': 6, 'ret': 0.05, 'spy': 0.01, 'diff': 0.04, 'beat': 0.67, 'y': {'n': 6, 'diff': -0.01, 'beat': 0.4, 't10': 0.3, 'b10': 0.1, 'b20': 0.05, 'gap': 0.05, 'lo': 0.01, 'hi': 0.09, 'p': 0.01, 'ahead': True, 'behind': False, 'months': 6, 'need': 6, 'periods': 6, 'short': False}}, '6m': {'n': 0}, '12m': {'n': 34, 'matured': 35, 'up': 1, 'st': 0, 'po': 34, 'ret': 0.15, 'spy': 0.1, 'diff': 0.05, 'wrong': 0.3, 'beat': 0.6, 't10': 0.27, 'b10': 0.4, 'b20': 0.2, 'verdict': 'pass', 'provisional': True, 'y': {'n': 34, 'diff': -0.02, 'beat': 0.45, 't10': 0.44, 'b10': 0.3, 'b20': 0.2, 'gap': 0.07, 'lo': 0.01, 'hi': 0.12, 'p': 0.001, 'ahead': True, 'behind': False, 'months': 26, 'need': 24, 'periods': 3, 'short': False}}}}},
                        'standing': {}, 'recent': [{'d': '2026-11-06', 't': 'MSFT', 'g': 'hold_fall', 'px': 320, 'v': 'BUY'}, {'d': '2026-11-05', 't': 'KO', 'g': 'buy', 'px': 60, 'v': 'BUY'}], 'url': 'https://github.com/ayman-sketch97/stock-checker/tree/records'}
         pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': rec_summary})
         await pg.click('#nav button:has-text("Record")')
@@ -635,17 +638,21 @@ async def main():
               f'record: the permanent record card shows the chain, the follow-up and the latest calls: {rc[:400]!r}')
         check('Fell 20% with the business still sound: hold' in rc and '6 calls' in rc and 'MSFT, fell 20% with the business still sound: hold at $320.00' in rc and 'the rule says hold, not sell' in rc,
               f'record: the hold-through-a-fall calls get their own row and are explained: {rc[:900]!r}')
-        # section 7.1: each figure next to random halal stocks on the same days, judged only when the gap is more than noise
-        check('Random halal stocks, same days: +1.0% · no better than random halal stocks so far' in rc and 'Random halal stocks, same days: -1.0% · better than random halal stocks' in rc,
-              f'record: the yardstick and its verdict in each cell: {rc[:1500]!r}')
-        check('calls on 3 days, too few to judge' in rc, 'record: no verdict from calls on fewer than 5 days')
-        # measures 1, 2 and 4: wrong calls, shown from 30 matured calls, next to the yardstick
-        check('Reached the trim price: 31 calls have had their 12 months (provisional until 100).' in rc and 'Return +8.0%, S&P 500 +10.0% over the same days: -2.0%; random halal stocks 0.0%.' in rc
-              and 'Wrong calls: 29% (random halal stocks 32%).' in rc and '1 stopped trading (followed to the last price) · 2 measured on prices only.' in rc and 'Too few days of calls (3) to judge.' in rc
-              and 'Entered the long-term buy zone: waiting, 0 of 30 calls have had their 12 months.' in rc and '45% of halal stocks trailed' in rc,
-              f'record: each kind of call after 12 months: {rc[-2200:]!r}')
-        check('Fell 20% with the business still sound: hold: 35 calls have had their 12 months' in rc and '1 without prices, counted as wrong' in rc and 'Passes: better than random halal stocks.' in rc,
+        # sections 7.1 and 7.3: each figure next to random halal stocks on the same days; the 1 and 3-month columns are
+        # early reads, judged only when the gap is more than noise and the calls span enough months
+        check('Random halal stocks, same days: +1.0% · no clear difference from random halal stocks so far (early read)' in rc and 'Random halal stocks, same days: -1.0% · ahead of random halal stocks so far (early read)' in rc,
+              f'record: the yardstick and its early read in each cell: {rc[:1500]!r}')
+        check('calls in 3 months, too few to judge (24 needed)' in rc and 'better than random' not in rc.split('Each kind of call after 12 months')[0], 'record: no verdict from calls in too few months, and no early read says better')
+        check('(prices only)' in rc and 'The 1 and 3-month columns are early reads' in rc, 'record: the table says prices only and which columns are early reads')
+        # measures 1, 2 and 4: wrong calls, shown from 30 matured calls, next to the yardstick, judged as one family
+        check('Reached the trim price: 31 calls have had their 12 months (provisional until 100).' in rc and 'Calls made in 3 months, 1 separate 12-month period.' in rc and 'Return +8.0%, S&P 500 +10.0% over the same days: -2.0%; random halal stocks 0.0%.' in rc
+              and 'Wrong calls: 29% (random halal stocks 32%).' in rc and '1 stopped trading (followed to the last price).' in rc and 'measured on prices only' not in rc and 'Too short a record to judge: calls in 3 months, 24 needed.' in rc
+              and 'Entered the long-term buy zone: waiting, 0 of 30 calls have had their 12 months.' in rc and '45% of halal stocks trailed' in rc and 'Holm correction' in rc and 'at least 24 different months' in rc,
+              f'record: each kind of call after 12 months: {rc[-2600:]!r}')
+        check('Fell 20% with the business still sound: hold: 35 calls have had their 12 months' in rc and '1 without prices, counted as wrong' in rc and 'Passes: better than random halal stocks, by more than luck even with six kinds of call tested together.' in rc,
               'record: a kind of call that passes, with an unpriceable call counted as wrong')
+        check('Business weakened: sell: 40 calls have had their 12 months' in rc and 'Calls made in 25 months, 3 separate 12-month periods.' in rc and 'Worse than random halal stocks: under review.' in rc,
+              'record: a kind of call worse than random is put under review')
         hrefs = await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"The permanent record\"] a')].map((a) => a.href)")
         check('https://github.com/ayman-sketch97/stock-checker/tree/records' in hrefs, 'record: links to every file on GitHub')
         check(not errs, f'no page errors on the permanent record card {errs}')

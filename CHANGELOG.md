@@ -3,6 +3,20 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 4 November 2026: how sure each result is, with calls that overlap (stage 6, for review)
+
+- A kind of call now passes only if its lead over random halal stocks is unlikely to be luck even with all six kinds
+  tested together (a one-sided test at 2.5% with a Holm correction), from whichever of two resamplings is more
+  cautious: by month, in blocks as long as the horizon, and by company. It also still needs no more wrong calls than
+  random halal stocks. A 90% interval wholly on the bad side puts it under review. Before, a 90% interval decided.
+- A result needs calls made in at least 24 different months, and the page shows how many separate 12-month periods
+  they cover, so many calls in one year are not taken for a long record. The 1 and 3-month columns are early reads.
+- One switch for dividends, off: prices only for the calls, random halal stocks and the S&P 500 alike, never mixed.
+- The 10-year test now says its 59 five-year periods overlap (about two independent spans), and how the companies it
+  cannot see can push its picks and random halal stocks in different directions.
+- Rules: PREREGISTERED.md, sections 7.3 and 7.3.1, written before any result. Record and display only: no advice
+  changes.
+
 ## 3 November 2026: calls measured to the end, and the missing companies disclosed (stage 6)
 
 - Each kind of call (buy zone, long-term pick, medium-term pick, hold, sell, trim) is now shown after 12 months with
