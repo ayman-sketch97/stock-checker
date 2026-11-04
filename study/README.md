@@ -10,7 +10,8 @@ change unless the owner approves the comparison.
   under every rule and the last month-end under the extreme yields. `tools/rate-compare.mjs`: the comparison and
   the six conditions of section 8.
 - A run starts when `run.txt` changes; the results go to the `rate-study-results` branch (`report.json`, the
-  five-year periods of each rule, and the raw shards).
+  five-year periods of each rule, and the raw shards), and each run is tagged `rate-study-run-N` so none is replaced.
+- Run 1 (4 November 2026): B failed all six conditions, so the fixed rates stay. See `RESULTS.md`.
 
 ## Details settled in the code before the first run (4 November 2026)
 

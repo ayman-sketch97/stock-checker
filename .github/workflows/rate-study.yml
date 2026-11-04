@@ -64,3 +64,6 @@ jobs:
           git add -A
           git commit -q -m "Rate study $(date -u +%Y-%m-%dT%H:%MZ) from ${GITHUB_SHA::7}"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" rate-study-results
+          # each run is also tagged, so a later run never replaces an earlier one (section 8: every run is kept)
+          git tag "rate-study-run-${{ github.run_number }}"
+          git push -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "rate-study-run-${{ github.run_number }}"
