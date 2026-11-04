@@ -1,0 +1,66 @@
+name: Rate study
+
+# PREREGISTERED.md, section 8: the Treasury-linked discount rate against the fixed 8%, 9% and 10%. This file exists
+# only on the rate-study branch and runs only when study/run.txt changes there. It writes only to the
+# rate-study-results branch: the live site, the record and the backtest branch are never touched.
+on:
+  push:
+    branches: [rate-study]
+    paths: ['study/run.txt']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rate-study
+  cancel-in-progress: false
+
+jobs:
+  shard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        k: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test the formulas and the study's rules
+        run: node --test test/formulas.test.mjs test/rate-study.test.mjs
+      - name: Value every month-end under each rule (shard ${{ matrix.k }} of 6)
+        run: mkdir -p out && node --max-old-space-size=6144 tools/rate-study.mjs --concurrency 4 --shard ${{ matrix.k }}/6 --out out/shard-${{ matrix.k }}.ndjson
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shard-${{ matrix.k }}
+          path: out/shard-${{ matrix.k }}.ndjson
+          retention-days: 30
+
+  compare:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Compare the rules
+        run: node --max-old-space-size=12288 tools/rate-compare.mjs out/shard-*.ndjson --out results --runs 50
+      - name: Publish to the rate-study-results branch
+        run: |
+          cp study/gs10.csv results/
+          gzip -9 out/shard-*.ndjson && mv out/shard-*.ndjson.gz results/
+          cd results
+          git init -q -b rate-study-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Rate study $(date -u +%Y-%m-%dT%H:%MZ) from ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" rate-study-results

@@ -1,0 +1,1 @@
+Run 1, 4 November 2026: the first full run of the study in PREREGISTERED.md, section 8, with the settings in study/README.md.
