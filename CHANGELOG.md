@@ -3,6 +3,19 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 6 November 2026: a Shariah compliance ledger (stage 4, on its own branch, not yet live)
+
+- A new Shariah page records, for each stock you hold, what Zoya shows: the status, the date you checked it, the source
+  and your evidence. It reminds you to recheck every 90 days, flags a stock that is missing, stale or unclear, detects a
+  move from compliant to not compliant, and counts a 90-day exit deadline from the change date Zoya shows. It tracks
+  the exit and keeps a permanent, append-only history: entries are never edited or deleted, a mistake is struck
+  through by a correction, and an edited or removed entry is detected.
+- Zoya stays the final authority. The ledger never says a company is compliant on its own, and a status that does not
+  come from Zoya counts for nothing. Purification is not calculated: you can record an amount someone gave you, but
+  the calculation stays inactive until a qualified Shariah scholar supplies a method.
+- Nothing about the advice, valuation, buy or sell signals, risk limits or performance changed. The ledger is not
+  connected to the buy rules (VALIDATION.md, section 20).
+
 ## 6 November 2026: a data-problem warning on every advice page, and a way back for every deployment
 
 - Every page that shows investment advice now carries a warning when the nightly health check has a failed item. It

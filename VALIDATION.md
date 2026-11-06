@@ -1349,3 +1349,80 @@ Limits of this check: the drill verified the stored copy file by file immediatel
 site was checked by commit and build time; the live files were not independently downloaded and hashed from outside.
 To repair a deployment that fails again: stop, do not rebuild, re-run only the failed deploy job once, and read the
 deploy log entry. Temporary test branches (`seed-restore-point`, `sim-restore`, `sim-block`) were deleted.
+
+
+## 20. Stage 4: the Shariah compliance ledger (6 November 2026, on branch `stage4-shariah-ledger`, not merged)
+
+This adds a record. It changes no advice, valuation, buy or sell signal, risk limit or performance method, and it
+decides nothing about Shariah compliance: **Zoya stays the final authority**, and the ledger holds what you copied from
+Zoya, with the date, the source and the evidence. It is not connected to the buy rules (see "Decisions for the owner").
+
+**What it does**
+
+1. **Records each holding's status.** Every entry carries the stock, the status shown on Zoya (compliant, non_compliant
+   or questionable), the date it was verified, the source (Zoya app, Zoya website, Zoya report, or "not Zoya") and the
+   evidence in your own words (required). A status from a source that is not Zoya is kept but counts for nothing: it
+   cannot confirm a status, start an exit deadline or reset a recheck.
+2. **Rechecks every 90 days.** The clock runs from the last Zoya check. 14 days or fewer before it is due, the stock is
+   flagged "due soon"; one day past 90 it is flagged stale. A stock you have sold after a completed exit needs no more
+   rechecks.
+3. **Detects compliant to non-compliant.** A Zoya non-compliant check after a Zoya compliant one is a transition. A
+   questionable result neither opens nor closes anything, but compliant to questionable is flagged as a warning.
+4. **Calculates the 90-day exit deadline** from the confirmed status-change date: the date you enter from Zoya, or the
+   check date when no earlier date is given. A first-ever non-compliant record without a change date has **no deadline
+   and is flagged**; the ledger does not guess one. Later non-compliant checks never move the deadline. A later Zoya
+   "compliant" closes the period; the old period and its deadline stay in the history.
+5. **Tracks the exit**: not started, in progress, completed, each with a date and a note. It flags a deadline passed
+   without a completed exit, an exit completed after the deadline, and an exit marked completed while the stock is
+   still in your holdings. An exit cannot be recorded when nothing is non-compliant, before the change date, or in the
+   future.
+6. **Keeps an append-only history.** Entries are only ever added. A mistake is answered with a correction that strikes
+   the wrong entry through (it stays readable, and stops counting). Each entry holds the SHA-256 of the one before it,
+   so a changed, removed, inserted or reordered entry fails the check, and nothing can be added to a ledger that
+   fails it. The number of entries and the last hash are kept as an anchor in a second storage key and in the backup
+   file, because cutting entries off the end leaves a valid chain.
+7. **Flags missing, stale and uncertain data**: no record for a holding, nothing from Zoya, a stale check, a
+   questionable result, a latest entry that is not from Zoya, a missing change date, entries made out of date order.
+8. **Purification: stored, never calculated.** The ledger can store an amount you were given (or paid), with who gave it
+   (required). It contains no purification formula, reads no dividend or interest data, and says "calculation
+   inactive" until a qualified Shariah scholar supplies a method and the owner approves building it. The only
+   arithmetic is adding up the amounts you typed, labelled as such.
+
+**Where it lives.** Holdings are on your device (not in the public repository), so the ledger is too: a new Shariah page
+(Portfolio tab stays highlighted) reached from a summary card on the Portfolio page, saved in the browser like the
+journal and watchlist, and carried in the backup file. Joining a backup never overwrites: if the two copies split (an
+entry on the phone, another on the iPad) the entries only in the backup are added after the local ones, marked with
+where they came from, and loading the same backup again changes nothing. A backup whose ledger fails its check or has
+entries cut off is refused.
+
+**What did not change.** Every file in `lib/` is byte-for-byte the same as on main except the new
+`lib/shariah-ledger.js`; `tools/` is untouched. In `index.html`, 9 existing lines changed, all about the backup file,
+the page list, the highlighted tab and the order of the Portfolio cards; everything else is new. The workflow gains one step that runs the new tests
+(`test/workflow.test.py` checks it is there).
+
+**Evidence**
+
+| Check | Result |
+|---|---|
+| Ledger tests (`test/shariah-ledger.test.mjs`) | 29 of 29: SHA-256 against Node for every length 0 to 200 and non-ASCII text; real-calendar dates; the exit deadline on ten dates across month ends, year ends and the 2028 leap day, checked against separately written date arithmetic; the day-by-day edge (90 left, last day 0, next day overdue); recheck at 15, 14, 0 and -1 days; transitions (Zoya only, questionable, repeat checks, first-ever, back to compliant and a new period); back-dated entries; exit steps and refusals; missing, stale, unconfirmed and questionable data; entry validation (15 refusals, plus capitals and trimming); 12 tampering cases plus a fully re-hashed rewrite caught by the anchor; corrections; joining copies (same, ahead, behind, split, again, damaged, correction numbers after a split); purification (no formula exported, no imports, amounts validated, no effect on any status); no wording that claims compliance; the page's copy equals the library character for character |
+| Do the tests actually fail when the code is wrong? | 18 deliberate breakages of the library (exit window 91 days, recheck 89, deadline from the check date, non-Zoya opening a period, off-by-one at overdue and at 14 days, hash ignoring evidence, no link check, no anchor check, corrections ignored, evidence optional, guessed change date, questionable closing a period, merge overwriting, purification marked active, future dates, exit without a period, append on a broken chain): all 18 were caught |
+| Page tests (`test/page.test.py`) | 330 of 330 (the 292 existing plus 38 new: the form and its refusals, storage, the deadline shown for a real change date, exit steps, correction, tampering by editing and by cutting the end, phone width with no sideways scroll, the backup round trip, refusing an edited or cut backup, no page errors) |
+| Existing node suites | formulas 80 of 80, deploy safety 46 of 46, restore and log 50 of 50, workflow rules all hold |
+| Secret scan | 81 tracked files, no credentials found |
+| Same advice (`same-advice.py`, old = main) | 54 page views compared against main (395 sections, 377,014 characters): 47 identical word for word, and the other 7 differ only by the new Shariah ledger card on the Portfolio page (a whole new section, nothing removed or reworded elsewhere). Two small changes to the check itself, made in this release because main already carries the health banner: a baseline that already shows the banner must show the same words, and a new section with no advice may be added by name |
+| `lib/` files compared with main | 10 of 10 existing files identical by SHA-256; 1 new file |
+
+**Limits.** The chain makes an edited or removed entry visible; it cannot stop someone with access to your device from
+replacing the whole ledger and anchor together (only a backup file kept elsewhere would show that). You type what Zoya
+shows: nothing is fetched from Zoya, so the ledger is only as current as you keep it, which is what the 90-day flags
+are for. The two devices differ until you save a backup on one and load it on the other. Funds, ETFs and sukuk are not
+tracked. The tool's own halal screen is an estimate from SEC filings and is not recorded here.
+
+**Decisions for the owner (nothing was changed for these)**
+
+1. The stock pages and the Portfolio page still show the earlier purification estimate and say "purify dividends with
+   the calculator". The ledger's own purification is inactive, as requested. Should the earlier estimate also be
+   labelled inactive or hidden until a scholar supplies a method?
+2. The buy rules still use the tool's own halal screen. The ledger is not wired into them (that would change policy).
+   Should a stock whose ledger says non-compliant, stale or missing be blocked from new buys?
+3. The purification method, from a qualified Shariah scholar.

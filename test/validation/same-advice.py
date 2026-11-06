@@ -2,7 +2,7 @@
 # section compared sentence by sentence. A record-and-display release must leave every recommendation, buy zone, sell
 # or trim call, position size, valuation and risk-limit message exactly as it was.
 # Allowed: any change inside the cards of the evaluation itself (CHANGES_ALLOWED_IN), and the sentences listed in
-# ADDED_SENTENCES. Anything else is printed as UNEXPECTED and the check fails.
+# ADDED_SENTENCES, and whole new sections that carry no advice (ADDED_SECTIONS). Anything else is printed as UNEXPECTED and the check fails.
 # Run: python3 test/validation/same-advice.py <old index.html> [new index.html, default ./index.html]
 # (old: git show origin/main:index.html > /tmp/old.html)
 import asyncio, datetime as dt, http.server, json, os, re, sys, tempfile, threading
@@ -11,6 +11,9 @@ from playwright.async_api import async_playwright
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FIX = os.path.join(ROOT, 'test', 'fixtures')
 CHANGES_ALLOWED_IN = {'The permanent record', 'Long-term list test', 'Limits of the test'}
+# A whole section that exists only in the new version and carries no advice (stage 4: the Shariah ledger summary card).
+# It is allowed only as an addition: a section of the same name in the old version would be compared like any other.
+ADDED_SECTIONS = {'Shariah ledger'}
 ADDED_SENTENCES = {'The periods overlap: together they hold about two independent five-year spans, and companies that disappeared since 2016 are missing.'}
 
 
@@ -186,8 +189,10 @@ async def main():
                 totals['pages'] += 1
                 # the warning banner is the one thing allowed to differ, and only on a night with a failed ('bad') check
                 want_banner = bool(health) and health['worst'] == 'bad' and page != 'record'
-                if A['banner']:
-                    bad.append(f'{name} / {page}: the old page already shows a banner?')
+                # the baseline may already carry the banner (main has had it since the deployment-safety release): then the new
+                # page must show exactly the same words. Against an older baseline without it, the line below still decides.
+                if A['banner'] and A['banner'] != B['banner']:
+                    bad.append(f'{name} / {page}: the banner words differ between the old and the new page')
                 if bool(B['banner']) != want_banner:
                     bad.append(f'{name} / {page}: banner shown={bool(B["banner"])}, expected {want_banner}')
                 totals['banners'] = totals.get('banners', 0) + (1 if B['banner'] else 0)
@@ -209,6 +214,11 @@ async def main():
                     gone = [s for s in sa if s not in sb]
                     added = [s for s in sb if s not in sa]
                     allowed = k in CHANGES_ALLOWED_IN
+                    if k in ADDED_SECTIONS and k not in a:
+                        for s in sb:
+                            print(f'      + {s[:300]}')
+                        explained.append(f'{name} / {page} / {k} (new section)')
+                        continue
                     for s in gone:
                         print(f'      - {s[:300]}')
                         if not allowed:

@@ -921,6 +921,181 @@ async def main():
             check(not errs, f'no page errors without a health banner ({what}) {errs}')
             await pg.close()
 
+        # ---- Shariah ledger (stage 4): the page, the form, storage, the integrity check and the backup
+        today = dt.date.today()
+        iso = lambda d: d.isoformat()
+        ago = lambda n: iso(today - dt.timedelta(days=n))
+        hold = {'watch': {'v': 1, 'items': [{'t': 'AAA', 'added': '2026-01-01', 'shares': 10, 'cost': 100}, {'t': 'BBB', 'added': '2026-01-01', 'shares': 5, 'cost': 50}], 'snap': None, 'prev': None}}
+
+        async def lg_record(pg, ticker, status, date, source, evidence, change=None):
+            form = pg.locator('#page-shariah form.editbox').first
+            await form.locator('select[aria-label="Ticker"]').select_option(ticker)
+            await form.locator('select[aria-label="Status on Zoya"]').select_option(status)
+            await form.locator('input[type=date]').first.fill(date)
+            await form.locator('select[aria-label="Source"]').select_option(source)
+            await form.locator('textarea').fill(evidence)
+            if change:
+                await form.locator('input[type=date]').nth(1).fill(change)
+            await form.locator('button[type=submit]').click()
+            await pg.wait_for_timeout(400)
+
+        lg_store = lambda pg: pg.evaluate("JSON.parse(localStorage.getItem('shariah') || 'null')")
+        pg, errs = await page_with(ctx, base, fresh, hold, '&p=shariah')
+        txt = await pg.inner_text('#page-shariah')
+        check('Shariah ledger' in txt and 'AAA' in txt and 'BBB' in txt, 'ledger page lists both holdings')
+        check(txt.count('Not recorded') == 2 and 'No Shariah record for this holding' in txt, 'a holding with no record is flagged as missing, not assumed compliant')
+        check('Calculation inactive' in txt and 'qualified Shariah scholar' in txt, 'purification shows as inactive pending a scholar’s method')
+        check(await pg.locator('#nav button[aria-current="page"]').inner_text() == 'Portfolio', 'the Portfolio tab stays highlighted on the ledger page')
+        check(await pg.locator('#page-shariah a[href^="https://zoya.finance/stocks/"]').count() == 2, 'each holding links to its Zoya page')
+
+        # a check without evidence is refused and nothing is stored
+        await lg_record(pg, 'AAA', 'compliant', ago(3), 'zoya_app', '')
+        check('evidence is required' in await pg.inner_text('#page-shariah form.editbox'), 'no evidence: refused with a clear message')
+        check(await lg_store(pg) is None, 'a refused entry is not stored')
+        # a future date is refused
+        await lg_record(pg, 'AAA', 'compliant', iso(today + dt.timedelta(days=1)), 'zoya_app', 'x')
+        check(await lg_store(pg) is None, 'a future date is not stored')
+
+        await lg_record(pg, 'AAA', 'compliant', ago(3), 'zoya_app', 'Zoya app screen, status Compliant')
+        txt = await pg.inner_text('#page-shariah')
+        due = iso(today - dt.timedelta(days=3) + dt.timedelta(days=90))
+        check('Recorded as compliant on Zoya' in txt and f'Recheck due {due}' in txt, f'compliant check shows its 90-day recheck date {due}')
+        st = await lg_store(pg)
+        check(st and len(st['entries']) == 1 and st['entries'][0]['evidence'] == 'Zoya app screen, status Compliant', 'the entry is stored on this device with its evidence')
+        check(await pg.evaluate("JSON.parse(localStorage.getItem('shariah_anchor')).count") == 1, 'the anchor is stored in its own key')
+
+        # unconfirmed source counts for nothing
+        await lg_record(pg, 'BBB', 'compliant', ago(2), 'other', 'a blog post')
+        txt = await pg.inner_text('#page-shariah')
+        check('Unconfirmed: compliant (not from Zoya)' in txt and 'Nothing here comes from Zoya' in txt, 'a status from another source is kept but flagged as unconfirmed')
+
+        # compliant -> not compliant opens the 90-day exit deadline, counted from the change date
+        change = ago(10)
+        await pg.locator('#page-shariah form.editbox').first.locator('select[aria-label="Status on Zoya"]').select_option('non_compliant')
+        await lg_record(pg, 'AAA', 'non_compliant', ago(1), 'zoya_web', 'Zoya site shows Not Compliant', change)
+        txt = await pg.inner_text('#page-shariah')
+        dl = iso(today - dt.timedelta(days=10) + dt.timedelta(days=90))
+        check('Changed from compliant to not compliant' in txt, 'the change from compliant to not compliant is detected')
+        check(f'Exit deadline {dl}' in txt and '80 days left' in txt, f'exit deadline is 90 days from the change date: {dl}, 80 days left')
+        check(not await pg.locator('#page-shariah form.editbox').first.locator('input[type=date]').nth(1).is_visible(), 'the change-date field is hidden again after saving')
+
+        # exit steps
+        card = pg.locator('#page-shariah section[aria-label="AAA"]')
+        await card.locator('button:has-text("Update the exit")').click()
+        xf = card.locator('form.editbox')
+        await xf.locator('select').select_option('in_progress')
+        await xf.locator('input[type=text]').fill('sell order placed')
+        await xf.locator('button[type=submit]').click()
+        await pg.wait_for_timeout(400)
+        txt = await pg.inner_text('#page-shariah section[aria-label="AAA"]')
+        check('Exit: In progress' in txt, 'the exit step is recorded and shown')
+        st = await lg_store(pg)
+        check([e['kind'] for e in st['entries']] == ['check', 'check', 'check', 'exit'], 'entries are only ever added: ' + str([e['kind'] for e in st['entries']]))
+
+        # a correction strikes an entry through and keeps it
+        before = len(st['entries'])
+        card = pg.locator('#page-shariah section[aria-label="BBB"]')
+        await card.locator('summary').click()
+        await card.locator('button.tk:has-text("Correct")').first.click()
+        await card.locator('input[type=text]').first.fill('read the wrong stock')
+        await card.locator('button:has-text("Strike through")').click()
+        await pg.wait_for_timeout(400)
+        st = await lg_store(pg)
+        check(len(st['entries']) == before + 1 and st['entries'][-1]['kind'] == 'correction' and st['entries'][1]['status'] == 'compliant', 'a correction adds an entry and leaves the original in place')
+        check(await pg.locator('#page-shariah section[aria-label="BBB"] .lg-void').count() == 1, 'the corrected entry shows struck through')
+        check('Not recorded' in await pg.inner_text('#page-shariah section[aria-label="BBB"]'), 'after the correction BBB has no counted record again')
+        ok_chain = await pg.evaluate("(() => { const s = JSON.parse(localStorage.getItem('shariah')); return __sc.shariah.verifyLedger(s.entries).ok; })()")
+        check(ok_chain, 'the chain verifies in the browser with the same code as the tests')
+        check('History intact' in await pg.inner_text('#page-shariah'), 'the page says the history is intact')
+        check(not errs, f'no page errors on the ledger page {errs}')
+
+        # the Portfolio summary (profile filled in so the full page renders)
+        full = {**hold, 'advisor': {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'test', 'hold': 'auto', 'swing': 'no', 'broker': 'tiered', 'monthlyAed': 1000}, 'coreName': 'ISDW', 'core': None, 'safe': None, 'hp': {}, 'other': []}}
+        pg, errs = await page_with(ctx, base, fresh, full, '&p=advisor')
+        await pg.wait_for_timeout(800)
+        card = pg.locator('#page-advisor section[aria-label="Shariah ledger"]')
+        check(await card.count() == 1, 'Portfolio page shows the Shariah ledger summary card')
+        if await card.count():
+            check('need' in await card.inner_text() and 'Zoya is the final word' in await card.inner_text(), 'the summary says what needs action and that Zoya is final')
+            await card.locator('button:has-text("Open the ledger")').click()
+            await pg.wait_for_timeout(500)
+            check(await pg.locator('#page-shariah').is_visible(), 'the button opens the ledger page')
+        check(not errs, f'no page errors on the Portfolio page with the ledger card {errs}')
+        await pg.close()
+
+        # tampering with the stored history is caught and blocks adding
+        pg, errs = await page_with(ctx, base, fresh, hold, '&p=shariah')
+        await lg_record(pg, 'AAA', 'compliant', ago(5), 'zoya_app', 'screen')
+        await lg_record(pg, 'BBB', 'compliant', ago(4), 'zoya_app', 'screen')
+        await pg.evaluate("(() => { const s = JSON.parse(localStorage.getItem('shariah')); s.entries[0].status = 'non_compliant'; localStorage.setItem('shariah', JSON.stringify(s)); })()")
+        await pg.goto(base + '?selftest=1&p=shariah')
+        await pg.wait_for_timeout(1000)
+        txt = await pg.inner_text('#page-shariah')
+        check('failed its check' in txt and 'does not match its hash' in txt, 'an edited entry is reported by the page')
+        await lg_record(pg, 'AAA', 'compliant', ago(1), 'zoya_app', 'another')
+        check(len((await lg_store(pg))['entries']) == 2, 'nothing can be added to a ledger that fails its check')
+        await pg.evaluate("(() => { const s = JSON.parse(localStorage.getItem('shariah')); s.entries[0].status = 'compliant'; s.entries.pop(); localStorage.setItem('shariah', JSON.stringify(s)); })()")
+        await pg.goto(base + '?selftest=1&p=shariah')
+        await pg.wait_for_timeout(1000)
+        txt = await pg.inner_text('#page-shariah')
+        check('failed its check' in txt and 'removed' in txt, 'entries cut off the end are caught by the anchor')
+        await pg.close()
+
+        # no horizontal scroll on a phone
+        pg, errs = await page_with(ctx, base, fresh, hold, '&p=shariah')
+        await pg.set_viewport_size({'width': 390, 'height': 844})
+        await lg_record(pg, 'AAA', 'non_compliant', ago(1), 'zoya_app', 'a long piece of evidence ' * 12, ago(2))
+        await pg.wait_for_timeout(300)
+        wide = await pg.evaluate('document.documentElement.scrollWidth - window.innerWidth')
+        check(wide <= 1, f'the ledger page does not scroll sideways on a phone ({wide}px over)')
+        await pg.close()
+
+        # backup round trip: the ledger travels in the backup file, is joined not overwritten, and a damaged copy is refused
+        pg, errs = await page_with(ctx, base, fresh, hold, '&p=shariah')
+        await lg_record(pg, 'AAA', 'compliant', ago(5), 'zoya_app', 'screen')
+        await lg_record(pg, 'BBB', 'non_compliant', ago(2), 'zoya_app', 'screen B', ago(4))
+        await pg.click('#nav button:has-text("Journal")')
+        await pg.wait_for_timeout(800)
+        async with pg.expect_download() as dl:
+            await pg.click('button:has-text("Save backup")')
+        path = await (await dl.value).path()
+        saved = json.load(open(path))
+        check(len(saved['extra']['shariah']['entries']) == 2 and saved['extra']['shariah']['anchor']['count'] == 2, 'the backup file holds the ledger and its anchor')
+        keep = lambda: [e['hash'] for e in saved['extra']['shariah']['entries']]
+        await pg.evaluate('localStorage.clear()')
+        await pg.goto(base + '?selftest=1&p=journal')
+        await pg.wait_for_timeout(900)
+        await pg.set_input_files('#page-journal input[type=file]', path)
+        await pg.wait_for_timeout(900)
+        back = await lg_store(pg)
+        check(back and [e['hash'] for e in back['entries']] == keep(), 'restoring a backup brings the ledger back unchanged')
+        check('Shariah ledger:' in await pg.inner_text('#page-journal'), 'the restore message mentions the ledger')
+        await pg.wait_for_timeout(1500)
+        await pg.set_input_files('#page-journal input[type=file]', path)
+        await pg.wait_for_timeout(600)
+        check(len((await lg_store(pg))['entries']) == 2, 'loading the same backup again adds nothing')
+        await pg.wait_for_timeout(1500)
+        # a backup with an edited entry is not merged
+        bad = json.loads(json.dumps(saved))
+        bad['extra']['shariah']['entries'][0]['status'] = 'non_compliant'
+        bp = os.path.join(tmp, 'bad-backup.json'); json.dump(bad, open(bp, 'w'))
+        await pg.evaluate('localStorage.clear()')
+        await pg.goto(base + '?selftest=1&p=journal')
+        await pg.wait_for_timeout(900)
+        await pg.set_input_files('#page-journal input[type=file]', bp)
+        await pg.wait_for_timeout(600)
+        check(await lg_store(pg) is None and 'does not pass its own check' in await pg.inner_text('#page-journal'), 'a backup whose ledger was edited is refused, nothing is imported')
+        await pg.wait_for_timeout(1500)
+        # a backup with entries cut off the end is not merged
+        cut = json.loads(json.dumps(saved))
+        cut['extra']['shariah']['entries'] = cut['extra']['shariah']['entries'][:1]
+        cp = os.path.join(tmp, 'cut-backup.json'); json.dump(cut, open(cp, 'w'))
+        await pg.set_input_files('#page-journal input[type=file]', cp)
+        await pg.wait_for_timeout(600)
+        check(await lg_store(pg) is None and 'removed' in await pg.inner_text('#page-journal'), 'a backup with entries cut off the end is refused')
+        check(not errs, f'no page errors during the ledger backup tests {errs}')
+        await pg.close()
+
         # ---- stale data warning on the home page
         pg, errs = await page_with(ctx, base, weekday_back(6))
         check(await pg.locator('.hint.stale').count() == 1, 'old data shows a warning')

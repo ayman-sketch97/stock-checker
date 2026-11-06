@@ -656,6 +656,7 @@ table.data.wrap1 td:first-child .sm { font-size: 12px; line-height: 1.4; margin-
 .alert-list { list-style: none; padding: 0; margin: 8px 0 0; }
 .alert-list li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
 .alert-list li:first-child { border-top: 0; }
+.lg-void { text-decoration: line-through; opacity: 0.65; }
 .alert-list .tk { font-weight: 800; cursor: pointer; color: var(--accent-ink); background: none; border: 0; padding: 0; font: inherit; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
 .field { display: grid; gap: 5px; font-size: 13px; color: var(--ink-2); min-width: 0; font-weight: 550; align-content: end; }
@@ -921,6 +922,7 @@ table.data tr.me td { background: var(--accent-wash); }
   <section id="page-record" aria-label="Track record" hidden></section>
   <section id="page-journal" aria-label="Trading journal" hidden></section>
   <section id="page-advisor" aria-label="Portfolio advisor" hidden></section>
+  <section id="page-shariah" aria-label="Shariah ledger" hidden></section>
 
   <section id="how" class="card how" hidden>
     <h2>How Stock Checker works</h2>
@@ -2790,6 +2792,436 @@ table.data tr.me td { background: var(--accent-wash); }
     return amount >= min - POLICY_EPS;
   }
   // ---- policy.js (end)
+  // ---- shariah-ledger.js (start): a copy of lib/shariah-ledger.js, checked by test/formulas.test.mjs
+  // The Shariah compliance ledger (stage 4 of the robo-advisor plan, November 2026).
+  //
+  // What it is: a record of what Zoya shows for each stock you hold, kept by you, with the date, the source and the
+  // evidence. It never decides whether a company is Shariah compliant and never turns a number from this tool into a
+  // compliance claim: Zoya is the final authority, and every status here is one that you copied from Zoya (or marked as
+  // not from Zoya, which then counts for nothing).
+  //
+  // How it behaves:
+  //   - Append-only. An entry is never edited or removed. A mistake is answered with a "correction" entry that voids the
+  //     wrong one (the wrong one stays in the history, struck through). Each entry carries the SHA-256 of the one before
+  //     it, so a changed, removed or reordered entry shows (verifyLedger). Removing the last entries shows only against
+  //     the anchor (anchorOf), which is kept separately and travels with the backup file.
+  //   - Recheck every 90 days after the last Zoya check. Past 90 days the record is stale.
+  //   - A Zoya status moving from compliant to non-compliant opens an exit window: 90 days from the status-change date
+  //     that Zoya shows (the date you enter, or the check date when the change was seen at the check). A first-ever
+  //     non-compliant record without a change date has no deadline: it is flagged, never guessed.
+  //   - Purification is NOT calculated. The ledger can store amounts that you enter, each with the basis that gave it,
+  //     but there is no formula anywhere in this file, and PURIFICATION.active is false until a qualified Shariah scholar
+  //     supplies a method and the owner approves building it.
+  //
+  // index.html carries the same text between the shariah-ledger.js markers (without the word "export"), and
+  // test/formulas.test.mjs fails if the two copies differ in any way. Nothing here touches valuation, buy or sell
+  // signals, risk limits or the performance method.
+  const LEDGER_VERSION = 1;
+  const LEDGER_RULES = Object.freeze({ recheckDays: 90, exitDays: 90, dueSoonDays: 14 });
+  const LEDGER_STATUSES = Object.freeze(['compliant', 'non_compliant', 'questionable']);
+  // the sources: only a Zoya source can confirm a status. Anything else is recorded but counts as unconfirmed.
+  const LEDGER_SOURCES = Object.freeze({ zoya_app: 'Zoya app', zoya_web: 'Zoya website', zoya_report: 'Zoya report', other: 'Not Zoya' });
+  const LEDGER_EXIT = Object.freeze(['not_started', 'in_progress', 'completed']);
+  const LEDGER_KINDS = Object.freeze(['check', 'exit', 'purification', 'correction']);
+  const LEDGER_GENESIS = '0'.repeat(64);
+  const PURIFICATION = Object.freeze({
+    active: false,
+    message: 'Purification calculation is inactive. It stays off until a qualified Shariah scholar supplies a method and you approve building it. This tool will not estimate an amount. You can still record an amount you were given, with who gave it.',
+  });
+
+  // ---------------------------------------------------------------- dates (YYYY-MM-DD, calendar days, UTC)
+  const LG_DAY = 86400000;
+  const lgDayNum = (d) => Math.round(Date.parse(`${d}T00:00:00Z`) / LG_DAY);
+  function addDaysISO(d, n) { return new Date((lgDayNum(d) + n) * LG_DAY).toISOString().slice(0, 10); }
+  function isDateISO(s) {
+    if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+    const ms = Date.parse(`${s}T00:00:00Z`);
+    return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === s;
+  }
+  function daysBetweenISO(a, b) { return lgDayNum(b) - lgDayNum(a); }
+
+  // ---------------------------------------------------------------- SHA-256 (synchronous, so the page and the tests run the same code)
+  const LG_K = [];
+  const LG_H0 = [];
+  (function lgInitSha() {
+    let n = 2;
+    while (LG_K.length < 64) {
+      let prime = true;
+      for (let d = 2; d * d <= n; d++) if (n % d === 0) { prime = false; break; }
+      if (prime) {
+        if (LG_H0.length < 8) LG_H0.push(Math.floor((Math.sqrt(n) % 1) * 4294967296) >>> 0);
+        LG_K.push(Math.floor((Math.cbrt(n) % 1) * 4294967296) >>> 0);
+      }
+      n++;
+    }
+  })();
+  function sha256Hex(text) {
+    const bytes = new TextEncoder().encode(String(text));
+    const len = bytes.length;
+    const total = ((len + 9 + 63) >> 6) << 6;
+    const buf = new Uint8Array(total);
+    buf.set(bytes);
+    buf[len] = 0x80;
+    const dv = new DataView(buf.buffer);
+    dv.setUint32(total - 8, Math.floor((len * 8) / 4294967296));
+    dv.setUint32(total - 4, (len * 8) >>> 0);
+    const H = LG_H0.slice();
+    const w = new Uint32Array(64);
+    const rotr = (x, k) => (x >>> k) | (x << (32 - k));
+    for (let off = 0; off < total; off += 64) {
+      for (let i = 0; i < 16; i++) w[i] = dv.getUint32(off + i * 4);
+      for (let i = 16; i < 64; i++) {
+        const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+        const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+      }
+      let [a, b, c, d, e, f, g, hh] = H;
+      for (let i = 0; i < 64; i++) {
+        const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        const ch = (e & f) ^ (~e & g);
+        const t1 = (hh + S1 + ch + LG_K[i] + w[i]) >>> 0;
+        const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+        const mj = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (S0 + mj) >>> 0;
+        hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+      }
+      H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0;
+      H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + hh) >>> 0;
+    }
+    return H.map((x) => x.toString(16).padStart(8, '0')).join('');
+  }
+  // the same text for the same entry every time: keys sorted, no whitespace
+  function lgCanon(x) {
+    if (x === null || typeof x !== 'object') return JSON.stringify(x);
+    if (Array.isArray(x)) return `[${x.map(lgCanon).join(',')}]`;
+    return `{${Object.keys(x).filter((k) => x[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${lgCanon(x[k])}`).join(',')}}`;
+  }
+  function lgHashOf(entry) {
+    const { hash, ...rest } = entry;
+    return sha256Hex(lgCanon(rest));
+  }
+
+  // ---------------------------------------------------------------- one entry: shape rules
+  const LG_TICKER = /^[A-Z0-9][A-Z0-9-]{0,14}$/;
+  const lgNum = (x) => typeof x === 'number' && Number.isFinite(x);
+  const lgText = (s, max) => typeof s === 'string' && s.trim().length > 0 && s.length <= max;
+  const lgOptText = (s, max) => s === undefined || (typeof s === 'string' && s.length <= max);
+  const LG_FIELDS = {
+    check: ['status', 'checked', 'source', 'evidence', 'changeDate'],
+    exit: ['exitStatus', 'on', 'note'],
+    purification: ['action', 'amount', 'currency', 'asOf', 'basis', 'note'],
+    correction: ['fixes', 'note'],
+  };
+  // problems with the fields of an entry, whatever the situation (an empty list is a well-formed entry)
+  function lgShapeProblems(e) {
+    const p = [];
+    if (!e || typeof e !== 'object') return ['not an entry'];
+    if (!LEDGER_KINDS.includes(e.kind)) return [`unknown kind "${e.kind}"`];
+    if (typeof e.t !== 'string' || !LG_TICKER.test(e.t)) p.push('ticker is missing or not valid');
+    const allowed = new Set(['v', 'n', 'kind', 't', 'recorded', 'prev', 'hash', 'origin', ...LG_FIELDS[e.kind]]);
+    for (const k of Object.keys(e)) if (!allowed.has(k)) p.push(`unexpected field "${k}"`);
+    if (e.kind === 'check') {
+      if (!LEDGER_STATUSES.includes(e.status)) p.push('status must be compliant, non_compliant or questionable');
+      if (!isDateISO(e.checked)) p.push('the verification date is missing or not a real date');
+      if (!Object.prototype.hasOwnProperty.call(LEDGER_SOURCES, e.source)) p.push('the source is missing or unknown');
+      if (!lgText(e.evidence, 600)) p.push('evidence is required (what you saw: the screen, the report and its date, a reference)');
+      if (e.changeDate !== undefined) {
+        if (!isDateISO(e.changeDate)) p.push('the status-change date is not a real date');
+        else if (e.status !== 'non_compliant') p.push('a status-change date only goes with a non_compliant status');
+        else if (isDateISO(e.checked) && e.changeDate > e.checked) p.push('the status-change date cannot be after the verification date');
+      }
+    } else if (e.kind === 'exit') {
+      if (!LEDGER_EXIT.includes(e.exitStatus)) p.push('exit status must be not_started, in_progress or completed');
+      if (!isDateISO(e.on)) p.push('the exit date is missing or not a real date');
+      if (!lgOptText(e.note, 400)) p.push('note is too long');
+    } else if (e.kind === 'purification') {
+      if (e.action !== 'due' && e.action !== 'paid') p.push('purification action must be due or paid');
+      if (!lgNum(e.amount) || !(e.amount > 0)) p.push('the amount must be a number above zero');
+      if (typeof e.currency !== 'string' || !/^[A-Z]{3}$/.test(e.currency)) p.push('the currency must be a 3-letter code');
+      if (!isDateISO(e.asOf)) p.push('the date is missing or not a real date');
+      if (!lgText(e.basis, 300)) p.push('the basis is required: who supplied the method or the amount');
+      if (!lgOptText(e.note, 400)) p.push('note is too long');
+    } else if (e.kind === 'correction') {
+      if (!Number.isInteger(e.fixes) || e.fixes < 0) p.push('the entry being corrected is missing');
+      if (!lgText(e.note, 400)) p.push('a correction needs a reason');
+    }
+    return p;
+  }
+
+  // ---------------------------------------------------------------- the chain
+  function lgBuild(prevEntries, fields, recordedISO) {
+    const n = prevEntries.length;
+    const prev = n ? prevEntries[n - 1].hash : LEDGER_GENESIS;
+    const body = { v: LEDGER_VERSION, n, ...fields, recorded: recordedISO, prev };
+    for (const k of Object.keys(body)) if (body[k] === undefined || body[k] === '') delete body[k];
+    return { ...body, hash: lgHashOf(body) };
+  }
+  const lgIsZoya = (src) => src === 'zoya_app' || src === 'zoya_web' || src === 'zoya_report';
+  const lgTrim = (f) => {
+    const o = { ...f };
+    for (const k of ['evidence', 'note', 'basis']) if (typeof o[k] === 'string') o[k] = o[k].trim();
+    if (typeof o.t === 'string') o.t = o.t.trim().toUpperCase();
+    if (typeof o.currency === 'string') o.currency = o.currency.trim().toUpperCase();
+    if (o.changeDate === '' || o.changeDate === null) delete o.changeDate;
+    if (o.note === '') delete o.note;
+    return o;
+  };
+  // add one entry. Returns { ok, entries, entry, errors }; the array passed in is never changed.
+  // today and nowISO are passed in so that tests can fix them.
+  function appendEntry(entries, fields, today, nowISO) {
+    const f = lgTrim(fields || {});
+    const errors = lgShapeProblems({ ...f });
+    const fail = (...more) => ({ ok: false, entries, entry: null, errors: [...errors, ...more] });
+    if (errors.length) return fail();
+    if (!isDateISO(today)) return fail('today is not a real date');
+    const chain = verifyLedger(entries);
+    if (!chain.ok) return fail('the ledger does not pass its integrity check, so nothing can be added until that is looked at');
+    const dateFields = f.kind === 'check' ? [['checked', f.checked], ['changeDate', f.changeDate]] : f.kind === 'exit' ? [['on', f.on]] : f.kind === 'purification' ? [['asOf', f.asOf]] : [];
+    for (const [name, d] of dateFields) if (d !== undefined && d > today) errors.push(`${name} is in the future`);
+    if (f.kind === 'exit') {
+      const run = lgRuns(entries, f.t).find((r) => !r.closed);
+      if (!run) errors.push(`${f.t} has no open non-compliant record, so there is nothing to exit`);
+      else {
+        if (run.exit && run.exit.exitStatus === 'completed') errors.push('the exit is already completed; use a correction if it was recorded by mistake');
+        if (run.changeDate && f.on < run.changeDate) errors.push('the exit date is before the status-change date');
+      }
+    }
+    if (f.kind === 'correction') {
+      const target = entries[f.fixes];
+      if (!target) errors.push('there is no such entry to correct');
+      else if (target.kind === 'correction') errors.push('a correction cannot be corrected; record the right entry instead');
+      else if (target.t !== f.t) errors.push('the entry belongs to another ticker');
+      else if (entries.some((x) => x.kind === 'correction' && x.fixes === f.fixes)) errors.push('that entry is already corrected');
+    }
+    if (errors.length) return fail();
+    const entry = lgBuild(entries, f, nowISO);
+    return { ok: true, entries: [...entries, entry], entry, errors: [] };
+  }
+  // check the whole chain: numbering, links, hashes, shapes, and that corrections point at real earlier entries
+  function verifyLedger(entries, today) {
+    const problems = [];
+    if (!Array.isArray(entries)) return { ok: false, count: 0, head: null, problems: ['the ledger is not a list'] };
+    let prev = LEDGER_GENESIS;
+    entries.forEach((e, i) => {
+      const at = `entry ${i}`;
+      if (!e || typeof e !== 'object') { problems.push(`${at}: not an entry`); return; }
+      if (e.n !== i) problems.push(`${at}: numbered ${e.n}, so an entry was removed, added or moved`);
+      if (e.prev !== prev) problems.push(`${at}: does not link to the entry before it`);
+      if (lgHashOf(e) !== e.hash) problems.push(`${at}: its content does not match its hash (it was changed)`);
+      for (const s of lgShapeProblems(e)) problems.push(`${at}: ${s}`);
+      if (e.kind === 'correction') {
+        const tg = entries[e.fixes];
+        if (!(e.fixes < i) || !tg || tg.kind === 'correction' || tg.t !== e.t) problems.push(`${at}: corrects an entry that is not an earlier entry of the same ticker`);
+      }
+      if (today && isDateISO(today)) {
+        const ds = e.kind === 'check' ? [e.checked, e.changeDate] : e.kind === 'exit' ? [e.on] : e.kind === 'purification' ? [e.asOf] : [];
+        if (ds.some((d) => isDateISO(d) && d > today)) problems.push(`${at}: dated in the future`);
+      }
+      prev = e.hash;
+    });
+    return { ok: problems.length === 0, count: entries.length, head: entries.length ? entries[entries.length - 1].hash : null, problems };
+  }
+  // the anchor: how many entries there are and the last hash. Kept apart from the entries, so that cutting entries off the
+  // end (which leaves a valid chain) shows when the two are compared (checkAnchor).
+  function anchorOf(entries) {
+    return { v: LEDGER_VERSION, count: entries.length, head: entries.length ? entries[entries.length - 1].hash : LEDGER_GENESIS };
+  }
+  function checkAnchor(entries, anchor) {
+    if (!anchor) return { ok: true, note: 'no anchor saved yet' };
+    if (!Number.isInteger(anchor.count) || anchor.count < 0) return { ok: false, note: 'the saved anchor is not valid' };
+    if (anchor.count > entries.length) return { ok: false, note: `the anchor says ${anchor.count} entries, only ${entries.length} found: entries were removed` };
+    const at = anchor.count ? entries[anchor.count - 1].hash : LEDGER_GENESIS;
+    return at === anchor.head ? { ok: true, note: 'matches the anchor' } : { ok: false, note: 'the entries up to the anchor are not the ones that were saved: history was replaced' };
+  }
+
+  // ---------------------------------------------------------------- reading one ticker
+  const lgVoided = (entries) => new Set(entries.filter((e) => e.kind === 'correction').map((e) => e.fixes));
+  const lgDateOf = (e) => (e.kind === 'check' ? e.checked : e.kind === 'exit' ? e.on : e.asOf);
+  // a status can only be set by a check in date order (a late entry for an earlier date does not become the current one)
+  function lgEvents(entries, t) {
+    const voided = lgVoided(entries);
+    return entries
+      .filter((e) => e.t === t && (e.kind === 'check' || e.kind === 'exit') && !voided.has(e.n))
+      .sort((a, b) => (lgDateOf(a) < lgDateOf(b) ? -1 : lgDateOf(a) > lgDateOf(b) ? 1 : (a.kind === b.kind ? 0 : a.kind === 'check' ? -1 : 1) || a.n - b.n));
+  }
+  // the periods in which Zoya showed a stock as non-compliant. Opened by a Zoya non-compliant check, closed by a Zoya
+  // compliant one. Questionable results and anything not from Zoya neither open nor close a period.
+  function lgRuns(entries, t) {
+    const runs = [];
+    let run = null;
+    let lastConfirmed = null;
+    const transitions = [];
+    for (const e of lgEvents(entries, t)) {
+      if (e.kind === 'check' && lgIsZoya(e.source)) {
+        if (e.status === 'compliant') {
+          if (run) { run.closed = { n: e.n, checked: e.checked }; run = null; }
+          lastConfirmed = 'compliant';
+        } else if (e.status === 'non_compliant') {
+          if (!run) {
+            const fromCompliant = lastConfirmed === 'compliant';
+            run = { startN: e.n, firstSeen: e.checked, fromCompliant, changeDate: e.changeDate || (fromCompliant ? e.checked : null), deadline: null, exits: [], exit: null, closed: null };
+            runs.push(run);
+            if (fromCompliant) transitions.push({ from: 'compliant', to: 'non_compliant', n: e.n, checked: e.checked, changeDate: run.changeDate });
+          } else if (!run.changeDate && e.changeDate) run.changeDate = e.changeDate;
+          lastConfirmed = 'non_compliant';
+        } else if (e.status === 'questionable') {
+          if (lastConfirmed === 'compliant') transitions.push({ from: 'compliant', to: 'questionable', n: e.n, checked: e.checked, changeDate: null });
+        }
+      } else if (e.kind === 'exit' && run) {
+        run.exits.push(e);
+        run.exit = e; // the last one in date order
+      }
+    }
+    for (const r of runs) r.deadline = r.changeDate ? addDaysISO(r.changeDate, LEDGER_RULES.exitDays) : null;
+    runs.transitions = transitions;
+    return runs;
+  }
+  const LG_LEVEL = { bad: 0, warn: 1, info: 2, ok: 3 };
+  // everything the ledger knows about one ticker on a given day. held: whether it is in the holdings now.
+  function holdingState(entries, t, today, held) {
+    const flags = [];
+    const flag = (level, code, text) => flags.push({ level, code, text });
+    const voided = lgVoided(entries);
+    const mine = entries.filter((e) => e.t === t);
+    const checks = lgEvents(entries, t).filter((e) => e.kind === 'check');
+    const latest = checks[checks.length - 1] || null;
+    const zoyaChecks = checks.filter((e) => lgIsZoya(e.source));
+    const latestZoya = zoyaChecks[zoyaChecks.length - 1] || null;
+    const runs = lgRuns(entries, t);
+    const open = runs.find((r) => !r.closed) || null;
+    const transitions = runs.transitions;
+    const S = { compliant: 'compliant', non_compliant: 'not compliant', questionable: 'questionable' };
+
+    // the headline: what the last record says, and how far it can be trusted
+    let status = 'none';
+    let headline = 'Not recorded';
+    if (latest) {
+      status = latest.status;
+      headline = !lgIsZoya(latest.source) ? `Unconfirmed: ${S[latest.status]} (not from Zoya)` : latest.status === 'questionable' ? 'Questionable on Zoya' : `Recorded as ${S[latest.status]} on Zoya`;
+    }
+
+    // the recheck clock runs from the last Zoya check
+    let recheckDue = null;
+    let daysToRecheck = null;
+    let recheck = 'none';
+    if (latestZoya) {
+      recheckDue = addDaysISO(latestZoya.checked, LEDGER_RULES.recheckDays);
+      daysToRecheck = daysBetweenISO(today, recheckDue);
+      recheck = daysToRecheck < 0 ? 'overdue' : daysToRecheck <= LEDGER_RULES.dueSoonDays ? 'due_soon' : 'ok';
+    }
+    const exited = !!(open && open.exit && open.exit.exitStatus === 'completed');
+    const watching = !!held || (open && !exited); // a stock you sold after a completed exit no longer needs rechecks
+
+    if (!latest) {
+      if (held) flag('bad', 'missing', 'No Shariah record for this holding. Look it up on Zoya and record what it shows.');
+    } else {
+      if (!latestZoya) flag('bad', 'no_zoya', 'Nothing here comes from Zoya. A status from any other source is not confirmed, so check Zoya and record it.');
+      else if (watching) {
+        if (recheck === 'overdue') flag('bad', 'stale', `Zoya was last checked on ${latestZoya.checked}, ${-daysToRecheck} day${daysToRecheck === -1 ? '' : 's'} past the ${LEDGER_RULES.recheckDays}-day recheck. The record is stale: check Zoya again.`);
+        else if (recheck === 'due_soon') flag('warn', 'due_soon', daysToRecheck === 0 ? 'Recheck on Zoya is due today.' : `Recheck on Zoya is due on ${recheckDue} (in ${daysToRecheck} day${daysToRecheck === 1 ? '' : 's'}).`);
+      }
+      if (latest.status === 'questionable' && lgIsZoya(latest.source)) flag('warn', 'uncertain', `Zoya showed this as questionable on ${latest.checked}. Treat it as unresolved until a later Zoya check says compliant or not compliant.`);
+      if (latest !== latestZoya && !lgIsZoya(latest.source) && latestZoya) flag('warn', 'unconfirmed_latest', `The latest entry (${latest.checked}) is not from Zoya, so it is not counted. The last Zoya check is ${latestZoya.checked}.`);
+    }
+    for (const tr of transitions) {
+      if (tr.to === 'non_compliant') flag('bad', 'transition', `Changed from compliant to not compliant: confirmed on Zoya ${tr.checked}${tr.changeDate && tr.changeDate !== tr.checked ? `, change date ${tr.changeDate}` : ''}.`);
+      else flag('warn', 'transition', `Zoya moved this from compliant to questionable on ${tr.checked}.`);
+    }
+    if (open) {
+      if (!open.changeDate) flag('bad', 'no_change_date', `Zoya shows this as not compliant (first recorded ${open.firstSeen}) but there is no status-change date, so the ${LEDGER_RULES.exitDays}-day exit deadline cannot be calculated. Find the date Zoya shows for the change and record it.`);
+      const left = open.deadline ? daysBetweenISO(today, open.deadline) : null;
+      const ex = open.exit ? open.exit.exitStatus : 'not_started';
+      if (open.deadline) {
+        if (ex === 'completed') flag(open.exit.on > open.deadline ? 'warn' : 'ok', 'exit_done', open.exit.on > open.deadline ? `Exit completed on ${open.exit.on}, after the ${open.deadline} deadline.` : `Exit completed on ${open.exit.on}, before the ${open.deadline} deadline.`);
+        else if (left < 0) flag('bad', 'exit_overdue', `The exit deadline (${open.deadline}) passed ${-left} day${left === -1 ? '' : 's'} ago and the exit is ${ex === 'in_progress' ? 'only in progress' : 'not started'}.`);
+        else flag(left <= 14 ? 'bad' : 'warn', 'exit_open', `Exit deadline ${open.deadline}: ${left} day${left === 1 ? '' : 's'} left (${LEDGER_RULES.exitDays} days from ${open.changeDate}). Exit ${ex === 'in_progress' ? 'in progress' : 'not started'}.`);
+      } else if (ex === 'completed') flag('info', 'exit_done', `Exit completed on ${open.exit.on}.`);
+      if (exited && held) flag('warn', 'still_held', 'The exit is marked completed but this stock is still in your holdings. Update your holdings, or correct the exit entry.');
+    }
+    if (latestZoya && latestZoya.status === 'compliant' && runs.length && runs[runs.length - 1].closed) flag('info', 'back_to_compliant', `Zoya showed this as compliant again on ${runs[runs.length - 1].closed.checked}; the earlier non-compliant period and its deadline stay in the history.`);
+    const backdated = mine.filter((e) => e.kind === 'check' && !voided.has(e.n) && mine.some((x) => x.kind === 'check' && !voided.has(x.n) && x.n < e.n && x.checked > e.checked));
+    if (backdated.length) flag('info', 'backdated', `${backdated.length} check${backdated.length === 1 ? ' was' : 's were'} entered after a later-dated one. The history keeps the order they were entered; the status follows the check dates.`);
+    const out = flags.filter((f) => f.text);
+    out.sort((a, b) => LG_LEVEL[a.level] - LG_LEVEL[b.level]);
+    const worst = out.length ? out[0].level : latest ? 'ok' : 'info';
+    return {
+      t, held: !!held, status, headline,
+      confirmed: !!(latestZoya && latest === latestZoya),
+      lastCheck: latest ? { n: latest.n, checked: latest.checked, source: latest.source, evidence: latest.evidence } : null,
+      lastZoyaCheck: latestZoya ? { n: latestZoya.n, checked: latestZoya.checked, source: latestZoya.source, evidence: latestZoya.evidence } : null,
+      recheck, recheckDue, daysToRecheck,
+      run: open ? { startN: open.startN, firstSeen: open.firstSeen, fromCompliant: open.fromCompliant, changeDate: open.changeDate, deadline: open.deadline, daysLeft: open.deadline ? daysBetweenISO(today, open.deadline) : null, exitStatus: open.exit ? open.exit.exitStatus : 'not_started', exitDate: open.exit ? open.exit.on : null, exitNote: open.exit ? open.exit.note || null : null } : null,
+      transitions,
+      runs: runs.map((r) => ({ startN: r.startN, changeDate: r.changeDate, deadline: r.deadline, closed: r.closed, exitStatus: r.exit ? r.exit.exitStatus : 'not_started' })),
+      flags: out, worst,
+      history: mine.map((e) => ({ ...e, voided: voided.has(e.n) })),
+    };
+  }
+  // the whole page: one row per held stock, plus any other ticker that has entries, worst first
+  function ledgerView(entries, heldTickers, today) {
+    const heldSet = new Set(heldTickers || []);
+    const tickers = [...new Set([...heldSet, ...entries.map((e) => e.t)])];
+    const rows = tickers.map((t) => holdingState(entries, t, today, heldSet.has(t)));
+    // a stock that is not held and has no open problem is background; held stocks and open problems come first
+    rows.sort((a, b) => LG_LEVEL[a.worst] - LG_LEVEL[b.worst] || (b.held ? 1 : 0) - (a.held ? 1 : 0) || (a.t < b.t ? -1 : 1));
+    const count = (lvl) => rows.filter((r) => r.held && r.worst === lvl).length;
+    return {
+      rows,
+      summary: { held: rows.filter((r) => r.held).length, bad: count('bad'), warn: count('warn'), ok: count('ok') + count('info') },
+      integrity: verifyLedger(entries, today),
+      purification: PURIFICATION,
+    };
+  }
+  // amounts you entered, grouped as entered. Nothing is calculated, estimated or suggested.
+  function purificationRecords(entries, t) {
+    const voided = lgVoided(entries);
+    const rows = entries.filter((e) => e.kind === 'purification' && (!t || e.t === t) && !voided.has(e.n));
+    const sum = {};
+    for (const e of rows) { sum[e.action] = sum[e.action] || {}; sum[e.action][e.currency] = Math.round(((sum[e.action][e.currency] || 0) + e.amount) * 1e6) / 1e6; }
+    return { active: PURIFICATION.active, message: PURIFICATION.message, rows, enteredTotals: sum };
+  }
+
+  // ---------------------------------------------------------------- joining two copies (a backup into this device)
+  // The two copies are chains from the same start. If one holds the other, the longer one wins. If they split (an entry was
+  // added on each device), the entries that are only in the incoming copy are added to the end of this one, each marked with
+  // where it came from, so adding the same backup again changes nothing. Nothing in this copy is ever changed or removed.
+  function mergeLedgers(local, incoming) {
+    const a = verifyLedger(local);
+    const b = verifyLedger(incoming);
+    if (!a.ok) return { ok: false, entries: local, added: 0, note: 'The ledger on this device does not pass its own check, so nothing was merged.' };
+    if (!b.ok) return { ok: false, entries: local, added: 0, note: 'The ledger in the backup does not pass its own check, so nothing was merged.' };
+    let common = 0;
+    while (common < local.length && common < incoming.length && local[common].hash === incoming[common].hash) common++;
+    if (common === incoming.length) return { ok: true, entries: local, added: 0, note: common === local.length ? 'The backup ledger is the same as this one.' : 'This device already has more than the backup.' };
+    if (common === local.length) return { ok: true, entries: incoming.slice(), added: incoming.length - common, note: 'The backup extends this ledger; the new entries were added.' };
+    const known = new Set();
+    for (const e of local) { known.add(e.hash); if (e.origin) known.add(e.origin.hash); }
+    const map = new Map(); // incoming entry number -> number on this device
+    for (let i = 0; i < common; i++) map.set(i, i);
+    let out = local.slice();
+    let added = 0;
+    for (let i = common; i < incoming.length; i++) {
+      const e = incoming[i];
+      if (known.has(e.hash)) {
+        const same = out.find((x) => x.hash === e.hash || (x.origin && x.origin.hash === e.hash));
+        if (same) map.set(i, same.n);
+        continue;
+      }
+      const { n, prev, hash, v, recorded, origin, ...fields } = e;
+      if (e.kind === 'correction') {
+        if (!map.has(e.fixes)) continue;
+        fields.fixes = map.get(e.fixes);
+        if (out.some((x) => x.kind === 'correction' && x.fixes === fields.fixes)) continue;
+      }
+      const next = lgBuild(out, { ...fields, origin: { n: e.n, hash: e.hash } }, recorded);
+      out = [...out, next];
+      map.set(i, next.n);
+      known.add(e.hash);
+      added++;
+    }
+    return { ok: true, entries: out, added, note: added ? `${added} entr${added === 1 ? 'y' : 'ies'} from the backup were added after the ones on this device.` : 'Nothing new in the backup.' };
+  }
+  // ---- shariah-ledger.js (end)
   const LIMIT_DEFAULTS = { buyCap: POLICY_RULES.buyCap, trimAt: POLICY_RULES.trimAt, sectorMax: POLICY_RULES.sectorMax, swingRisk: 0.005 };
   const LIMIT_RANGE = { buyCap: [0.02, 0.5], trimAt: [0.03, 0.6], sectorMax: [0.1, 1], swingRisk: [0.001, 0.02] };
   // a trim goes back to the buy limit, so the trim line must sit above it; a saved pair that breaks this is ignored
@@ -3872,8 +4304,10 @@ table.data tr.me td { background: var(--accent-wash); }
         h('li', { text: 'Once a year, rebalance: if a part is more than 10 points away from its target, sell some of what is over and buy what is under.' }),
         h('li', { text: 'Purify dividends with the calculator on each stock page, and confirm halal status on Zoya or Musaffa before buying.' })),
       h('p', { class: 'note', text: 'This is a rules-based guide built from public data, not personal financial advice. No tool can promise a profit: it can only keep your costs low, your risk matched to you, and your decisions consistent.' })));
+    const shCard = shariahSummaryCard(); // the Shariah ledger (stage 4): a summary and a link; the ledger has its own page
+    if (shCard) parts.push(shCard);
     // the core first: the mix, then the index fund that carries most of it, then this month's buys
-    const ORDER = ['About you', 'Your target mix', ...(T.core > 0 ? ['Best halal funds for you'] : []), 'This month', 'Your portfolio now', 'Advice on what you hold', 'Stocks that fit you', 'Holding periods'];
+    const ORDER = ['About you', 'Your target mix', ...(T.core > 0 ? ['Best halal funds for you'] : []), 'This month', 'Your portfolio now', 'Advice on what you hold', 'Shariah ledger', 'Stocks that fit you', 'Holding periods'];
     const lead = ORDER.map((lab) => parts.find((x) => x && x.getAttribute && x.getAttribute('aria-label') === lab)).filter(Boolean);
     el.replaceChildren(head, ...lead, ...parts.filter((x) => x !== head && !lead.includes(x)));
   }
@@ -3932,7 +4366,8 @@ table.data tr.me td { background: var(--accent-wash); }
   }
   // one backup file holds the journal, the watchlist (with the shares you own) and the Portfolio page
   function backupOf(journal) {
-    return { ...journal, extra: { watch: W.load(), advisor: ADV.load() } };
+    const sh = SHL.load();
+    return { ...journal, extra: { watch: W.load(), advisor: ADV.load(), shariah: { entries: sh.entries, anchor: anchorOf(sh.entries) } } };
   }
   // merge a backup into what is on this device: nothing local is overwritten, missing records are added
   function mergeBackup(local, inc) {
@@ -3953,7 +4388,13 @@ table.data tr.me td { background: var(--accent-wash); }
       for (const o of ex.advisor.other || []) if (o && o.id && !have.has(o.id)) { advisor.other.push(o); have.add(o.id); added.holdings++; }
       for (const [t, v] of Object.entries(ex.advisor.hp || {})) if (!advisor.hp[t]) advisor.hp[t] = v;
     }
-    return { journal, watch, advisor, added };
+    // the Shariah ledger is joined, never overwritten: see mergeLedgers
+    let shariah = null;
+    if (ex.shariah && Array.isArray(ex.shariah.entries)) {
+      const a = checkAnchor(ex.shariah.entries, ex.shariah.anchor);
+      shariah = a.ok ? mergeLedgers((local.shariah && local.shariah.entries) || [], ex.shariah.entries) : { ok: false, entries: (local.shariah && local.shariah.entries) || [], added: 0, note: `The ledger in the backup was not merged: ${a.note}.` };
+    }
+    return { journal, watch, advisor, added, shariah };
   }
   function logTrade(t, plan) {
     journalPrefill = { t, ...plan };
@@ -4259,11 +4700,13 @@ table.data tr.me td { background: var(--accent-wash); }
         try {
           const inc = JSON.parse(String(rd.result));
           if (!inc || !Array.isArray(inc.trades)) throw new Error('bad');
-          const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load() }, inc);
+          const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load(), shariah: SHL.load() }, inc);
           JR.save(m.journal);
           W.save(m.watch);
           ADV.save(m.advisor);
-          bmsg.textContent = `Added ${m.added.trades} trade${m.added.trades === 1 ? '' : 's'}, ${m.added.watch} watchlist stock${m.added.watch === 1 ? '' : 's'} and ${m.added.holdings} portfolio holding${m.added.holdings === 1 ? '' : 's'}. Anything already on this device was kept as it is.`;
+          let lgNote = '';
+          if (m.shariah) { if (m.shariah.ok && m.shariah.added > 0) SHL.save(m.shariah.entries); lgNote = ` Shariah ledger: ${m.shariah.note}`; }
+          bmsg.textContent = `Added ${m.added.trades} trade${m.added.trades === 1 ? '' : 's'}, ${m.added.watch} watchlist stock${m.added.watch === 1 ? '' : 's'} and ${m.added.holdings} portfolio holding${m.added.holdings === 1 ? '' : 's'}. Anything already on this device was kept as it is.${lgNote}`;
           setTimeout(rerender, 1200);
         } catch { bmsg.textContent = 'That file is not a journal backup from this site.'; }
       };
@@ -4274,7 +4717,7 @@ table.data tr.me td { background: var(--accent-wash); }
       h('p', { class: 'sub', text: 'The journal, your watchlist (with the shares you own) and the Portfolio page live in this browser only. Save a backup file now and then (on iPhone it goes to Files, where iCloud can keep it), and load it on your iPad or laptop to see the same data there.' }),
       j.trades.length && old ? h('div', { class: 'callout', text: j.backup ? `Last backup ${shortDate(j.backup)}. Time for a new one.` : 'No backup yet. If the browser’s data is cleared, the journal goes with it.' }) : null,
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn btn-sm', type: 'button', disabled: j.trades.length || W.load().items.length || ADV.load().profile ? null : true, onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`stock-checker-backup-${localISO()}.json`, JSON.stringify(backupOf(k), null, 1), 'application/json'); setTimeout(rerender, 800); } }, 'Save backup'),
+        h('button', { class: 'btn btn-sm', type: 'button', disabled: j.trades.length || W.load().items.length || ADV.load().profile || SHL.load().entries.length ? null : true, onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`stock-checker-backup-${localISO()}.json`, JSON.stringify(backupOf(k), null, 1), 'application/json'); setTimeout(rerender, 800); } }, 'Save backup'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => fileIn.click() }, 'Load a backup'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', disabled: j.trades.length ? null : true, onclick: () => saveFile(`trading-journal-${localISO()}.csv`, journalCsv(JR.load()), 'text/csv') }, 'Export for Excel')),
       fileIn, bmsg,
@@ -4324,14 +4767,195 @@ table.data tr.me td { background: var(--accent-wash); }
   const fillOf = (setup) => (setup === 'breakout' || setup === 'range' ? 'open' : 'stop');
 
   // ------------------------------------------------------------------ pages
-  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor'];
+  // ------------------------------------------------------------------ Shariah ledger (stage 4): storage and page
+  // The rules live in the shariah-ledger.js block above. This part only stores the entries on this device (with the
+  // anchor in a second key, so entries cut off the end show) and draws the page. Zoya is the final word: nothing on
+  // this page decides whether a company is compliant, and nothing here changes a verdict, a signal or a limit.
+  const SHL = {
+    load() {
+      const d = store.get('shariah', null);
+      return { entries: d && Array.isArray(d.entries) ? d.entries : [], anchor: store.get('shariah_anchor', null) };
+    },
+    // true only if what was written can be read back
+    save(entries) {
+      store.set('shariah', { v: 1, entries });
+      store.set('shariah_anchor', anchorOf(entries));
+      const b = this.load();
+      return b.entries.length === entries.length && (!entries.length || b.entries[entries.length - 1].hash === entries[entries.length - 1].hash);
+    },
+    add(fields) {
+      const cur = this.load();
+      const r = appendEntry(cur.entries, fields, localISO(), new Date().toISOString());
+      if (!r.ok) return r;
+      if (!this.save(r.entries)) return { ok: false, entries: cur.entries, entry: null, errors: ['This device would not keep the entry (browser storage is full or blocked), so it was not recorded.'] };
+      return r;
+    },
+  };
+  const SHL_TONE = { bad: 'bad', warn: 'warn', ok: 'good', info: '' };
+  const SHL_STATUS_TEXT = { compliant: 'Compliant', non_compliant: 'Not compliant', questionable: 'Questionable' };
+  const SHL_EXIT_TEXT = { not_started: 'Not started', in_progress: 'In progress', completed: 'Completed' };
+  const zoyaUrl = (t) => `https://zoya.finance/stocks/${encodeURIComponent(t.toLowerCase())}`;
+  function shariahHeld() {
+    const { lt, sw } = holdingsFrom(W.load().items, JR.load().trades);
+    return [...new Set([...lt, ...sw].map((x) => x.t))];
+  }
+  function shariahSummaryCard() {
+    const held = shariahHeld();
+    const cur = SHL.load();
+    if (!held.length && !cur.entries.length) return null;
+    const v = ledgerView(cur.entries, held, localISO());
+    const s = v.summary;
+    const intact = v.integrity.ok && checkAnchor(cur.entries, cur.anchor).ok;
+    const line = !intact ? 'The ledger failed its integrity check. Open it to see why.'
+      : !s.held ? 'No holdings recorded yet.'
+        : s.bad || s.warn ? `${s.bad ? `${s.bad} of ${s.held} holding${s.held === 1 ? '' : 's'} need${s.bad === 1 ? 's' : ''} action` : ''}${s.bad && s.warn ? ', ' : ''}${s.warn ? `${s.warn} due soon or unclear` : ''}.`
+          : `All ${s.held} holding${s.held === 1 ? ' is' : 's are'} recorded and up to date on Zoya.`;
+    return h('section', { class: 'card', 'aria-label': 'Shariah ledger' },
+      h('h2', { text: 'Shariah ledger' }),
+      h('p', { class: 'sub', text: line }),
+      h('p', { class: 'note', text: 'Your record of what Zoya shows for each holding, with recheck and exit dates. Zoya is the final word.' }),
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => navigate('shariah') }, 'Open the ledger')));
+  }
+  function renderShariah() {
+    const el = $('#page-shariah');
+    const rerender = () => renderShariah();
+    const cur = SHL.load();
+    const held = shariahHeld();
+    const today = localISO();
+    const view = ledgerView(cur.entries, held, today);
+    const anchor = checkAnchor(cur.entries, cur.anchor);
+    const parts = [pageHead('Shariah ledger', 'What Zoya shows for each stock you hold, when you checked it, and what to do next. Zoya is the final word: this page records it and reminds you. It never decides, and it never says a company is compliant on its own.')];
+    const fld = (label, input) => h('label', { class: 'field left' }, h('span', { text: label }), input);
+    const opt = (v, t, sel) => h('option', { value: v, selected: sel ? true : null }, t);
+    const showErrors = (box, errors) => box.replaceChildren(...errors.map((e) => h('div', { text: e })));
+
+    // 1. the ledger's own check
+    const okAll = view.integrity.ok && anchor.ok;
+    const s = view.summary;
+    const top = h('section', { class: 'card', 'aria-label': 'Ledger status' }, h('h2', { text: 'Where things stand' }));
+    top.append(h('ul', { class: 'alert-list' },
+      h('li', null, toneIcon(okAll ? 'good' : 'bad'), h('span', { text: okAll ? `History intact: ${cur.entries.length} entr${cur.entries.length === 1 ? 'y' : 'ies'}, each linked to the one before it.` : 'The history failed its check. Do not rely on this ledger until the cause is found.' })),
+      h('li', null, toneIcon(s.bad ? 'bad' : s.warn ? 'warn' : 'good'), h('span', { text: s.held ? `${s.held} holding${s.held === 1 ? '' : 's'}: ${s.bad} need action, ${s.warn} due soon or unclear, ${s.ok} up to date.` : 'No holdings are recorded in your Watchlist or Journal yet.' }))));
+    if (!okAll) top.append(h('div', { class: 'callout' }, ...view.integrity.problems.slice(0, 8).map((p) => h('div', { text: p })), anchor.ok ? null : h('div', { text: anchor.note })));
+    top.append(h('p', { class: 'note', text: `Rules: recheck on Zoya every ${LEDGER_RULES.recheckDays} days. If Zoya moves a stock from compliant to not compliant, the exit deadline is ${LEDGER_RULES.exitDays} days from the date Zoya shows for the change. Entries are never edited or deleted; a mistake is answered with a correction that strikes the wrong entry through.` }));
+    parts.push(top);
+
+    // 2. record a Zoya check
+    const form = h('form', { class: 'editbox', autocomplete: 'off' });
+    const tSel = h('select', { 'aria-label': 'Ticker' }, ...held.map((t) => opt(t, t)), opt('', held.length ? 'Another ticker…' : 'Type a ticker…'));
+    const tIn = h('input', { type: 'text', autocomplete: 'off', autocapitalize: 'characters', placeholder: 'Ticker, e.g. AAPL', hidden: held.length ? true : null });
+    tSel.addEventListener('change', () => { tIn.hidden = tSel.value !== ''; });
+    const stSel = h('select', { 'aria-label': 'Status on Zoya' }, opt('compliant', 'Compliant'), opt('non_compliant', 'Not compliant'), opt('questionable', 'Questionable'));
+    const dateIn = h('input', { type: 'date', value: today, max: today });
+    const srcSel = h('select', { 'aria-label': 'Source' }, ...Object.entries(LEDGER_SOURCES).map(([k, t]) => opt(k, k === 'other' ? 'Not Zoya (unconfirmed, counts for nothing)' : t)));
+    const evIn = h('textarea', { rows: 2, maxlength: 600, placeholder: 'What you saw: the screen, the report and its date, any reference' });
+    const chgIn = h('input', { type: 'date', max: today });
+    const chgBox = fld('Date Zoya shows for the change to not compliant (starts the 90-day exit deadline)', chgIn);
+    chgBox.hidden = true;
+    stSel.addEventListener('change', () => { chgBox.hidden = stSel.value !== 'non_compliant'; });
+    const msg = h('div', { class: 'note', 'aria-live': 'polite' });
+    form.append(fld('Stock', h('div', null, tSel, tIn)), fld('Status shown on Zoya', stSel), fld('Date you checked it', dateIn), fld('Source', srcSel), fld('Evidence (required)', evIn), chgBox,
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Record this check')), msg);
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const r = SHL.add({ kind: 'check', t: tSel.value || tIn.value, status: stSel.value, checked: dateIn.value, source: srcSel.value, evidence: evIn.value, changeDate: stSel.value === 'non_compliant' ? chgIn.value : '' });
+      if (!r.ok) { showErrors(msg, r.errors); return; }
+      rerender();
+    });
+    parts.push(h('section', { class: 'card', 'aria-label': 'Record a check' }, h('h2', { text: 'Record a Zoya check' }), h('p', { class: 'sub', text: 'Look the stock up on Zoya, then record exactly what it shows. Only a check from Zoya counts.' }), form));
+
+    // 3. one card per stock
+    const stockCard = (r) => {
+      const run = r.run;
+      const card = h('section', { class: 'card', 'aria-label': r.t },
+        h('h2', null, r.t, ' ', h('span', { class: 'pill' }, icon(r.worst === 'bad' ? 'bad' : r.worst === 'warn' ? 'ok' : r.worst === 'ok' ? 'good' : 'na'), r.headline)),
+        r.held ? null : h('p', { class: 'note', text: 'Not in your holdings now.' }));
+      const facts = [];
+      if (r.lastZoyaCheck) facts.push(`Last Zoya check ${r.lastZoyaCheck.checked} (${LEDGER_SOURCES[r.lastZoyaCheck.source]}). Recheck due ${r.recheckDue}.`);
+      if (run) facts.push(`Not compliant on Zoya since ${run.changeDate || 'an unknown date'}${run.deadline ? `. Exit deadline ${run.deadline} (${run.daysLeft >= 0 ? `${run.daysLeft} days left` : `${-run.daysLeft} days overdue`}). Exit: ${SHL_EXIT_TEXT[run.exitStatus]}${run.exitDate ? ` on ${run.exitDate}` : ''}.` : '. Exit deadline: cannot be calculated.'}`);
+      if (facts.length) card.append(h('p', { class: 'sub', text: facts.join(' ') }));
+      if (r.flags.length) card.append(h('ul', { class: 'alert-list' }, r.flags.map((f) => h('li', null, toneIcon(SHL_TONE[f.level]), h('span', { text: f.text })))));
+      const acts = h('div', { class: 'row-actions' }, h('a', { class: 'btn btn-outline btn-sm', href: zoyaUrl(r.t), target: '_blank', rel: 'noopener noreferrer' }, 'Open on Zoya'));
+      card.append(acts);
+      // exit step
+      if (run && run.exitStatus !== 'completed') {
+        const xf = h('form', { class: 'editbox', autocomplete: 'off', hidden: true });
+        const xs = h('select', { 'aria-label': 'Exit status' }, ...LEDGER_EXIT.map((k) => opt(k, SHL_EXIT_TEXT[k], k === run.exitStatus)));
+        const xd = h('input', { type: 'date', value: today, max: today });
+        const xn = h('input', { type: 'text', maxlength: 400, placeholder: 'Note (optional), e.g. sell order placed' });
+        const xm = h('div', { class: 'note', 'aria-live': 'polite' });
+        xf.append(fld('Exit status', xs), fld('Date', xd), fld('Note', xn), h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Record exit step')), xm);
+        xf.addEventListener('submit', (e) => { e.preventDefault(); const x = SHL.add({ kind: 'exit', t: r.t, exitStatus: xs.value, on: xd.value, note: xn.value }); if (!x.ok) showErrors(xm, x.errors); else rerender(); });
+        acts.append(h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { xf.hidden = !xf.hidden; } }, 'Update the exit'));
+        card.append(xf);
+      }
+      // history, oldest first, a struck-through entry is one that was corrected
+      const hist = h('details', { class: 'sec' }, h('summary', { text: `History (${r.history.length})` }));
+      if (!r.history.length) hist.append(h('p', { class: 'note', text: 'Nothing recorded yet.' }));
+      const describe = (e) => e.kind === 'check' ? `Check: ${SHL_STATUS_TEXT[e.status]} · ${LEDGER_SOURCES[e.source]} · verified ${e.checked}${e.changeDate ? ` · change date ${e.changeDate}` : ''} · ${e.evidence}`
+        : e.kind === 'exit' ? `Exit: ${SHL_EXIT_TEXT[e.exitStatus]} on ${e.on}${e.note ? ` · ${e.note}` : ''}`
+          : e.kind === 'purification' ? `Purification ${e.action}: ${e.amount} ${e.currency} as of ${e.asOf} · basis: ${e.basis}${e.note ? ` · ${e.note}` : ''}`
+            : `Correction of entry ${e.fixes}: ${e.note}`;
+      const ul = h('ul', { class: 'alert-list' });
+      for (const e of r.history) {
+        const li = h('li', null, h('span', { class: e.voided ? 'lg-void' : null, text: `#${e.n} · recorded ${e.recorded.slice(0, 10)} · ${describe(e)}` }));
+        if (e.kind !== 'correction' && !e.voided) {
+          const box = h('div', { hidden: true });
+          const why = h('input', { type: 'text', maxlength: 400, placeholder: 'Why is this entry wrong?' });
+          const wm = h('div', { class: 'note', 'aria-live': 'polite' });
+          box.append(why, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { const x = SHL.add({ kind: 'correction', t: r.t, fixes: e.n, note: why.value }); if (!x.ok) showErrors(wm, x.errors); else rerender(); } }, 'Strike through'), wm);
+          li.append(h('button', { class: 'tk', type: 'button', onclick: () => { box.hidden = !box.hidden; } }, 'Correct'), box);
+        }
+        ul.append(li);
+      }
+      hist.append(ul);
+      card.append(hist);
+      return card;
+    };
+    for (const r of view.rows) parts.push(stockCard(r));
+
+    // 4. purification: stored, never calculated
+    const pur = h('section', { class: 'card', 'aria-label': 'Purification' }, h('h2', { text: 'Purification' }),
+      h('div', { class: 'callout' }, h('b', { text: 'Calculation inactive. ' }), PURIFICATION.message));
+    const pf = h('form', { class: 'editbox', autocomplete: 'off', hidden: true });
+    const pt = h('input', { type: 'text', autocapitalize: 'characters', placeholder: 'Ticker' });
+    const pa = h('select', { 'aria-label': 'Due or paid' }, opt('due', 'Amount due (given to me)'), opt('paid', 'Amount paid'));
+    const pn = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Amount' });
+    const pc = h('input', { type: 'text', value: 'USD', maxlength: 3, autocapitalize: 'characters' });
+    const pd = h('input', { type: 'date', value: today, max: today });
+    const pb = h('input', { type: 'text', maxlength: 300, placeholder: 'Who gave the method or amount (required)' });
+    const pm = h('div', { class: 'note', 'aria-live': 'polite' });
+    pf.append(fld('Stock', pt), fld('Type', pa), fld('Amount', pn), fld('Currency', pc), fld('Date', pd), fld('Basis', pb), h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Record')), pm);
+    pf.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const amt = Number(String(pn.value).replace(/,/g, ''));
+      const x = SHL.add({ kind: 'purification', t: pt.value, action: pa.value, amount: Number.isFinite(amt) ? amt : NaN, currency: pc.value, asOf: pd.value, basis: pb.value });
+      if (!x.ok) showErrors(pm, x.errors); else rerender();
+    });
+    pur.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { pf.hidden = !pf.hidden; } }, 'Record an amount I was given')), pf);
+    const pr = purificationRecords(cur.entries);
+    if (pr.rows.length) {
+      pur.append(h('ul', { class: 'alert-list' }, pr.rows.map((e) => h('li', null, h('span', { text: `${e.t} · ${e.action === 'paid' ? 'paid' : 'due'} ${e.amount} ${e.currency} · ${e.asOf} · basis: ${e.basis}` })))),
+        h('p', { class: 'note', text: `Totals of the amounts you entered (not calculated by this tool): ${Object.entries(pr.enteredTotals).map(([a, c]) => `${a}: ${Object.entries(c).map(([k, v]) => `${v} ${k}`).join(', ')}`).join('; ')}.` }));
+    }
+    parts.push(pur);
+
+    parts.push(h('section', { class: 'card', 'aria-label': 'About this ledger' }, h('h2', { text: 'What this ledger does not do' }),
+      h('ul', { class: 'alert-list' },
+        ['It does not decide whether a company is Shariah compliant. It records what Zoya shows. A status from any other source is kept but counts for nothing.',
+          'The tool’s own halal screen elsewhere on the site is an estimate from SEC filings. It is not recorded here and does not replace a Zoya check.',
+          'It lives on this device, like your journal and watchlist. The backup file carries it (Portfolio page). The chain shows an edited or removed entry; it cannot stop someone with access to your device from replacing the whole ledger.',
+          'Funds, ETFs and sukuk are not tracked here yet.'].map((t) => h('li', null, h('span', { text: t }))))));
+    el.replaceChildren(...parts);
+  }
+  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor', 'shariah'];
   let page = 'stock';
   function showPage(p) {
     page = p;
     PAGES.forEach((k) => { const el = document.getElementById('page-' + k); if (el) el.hidden = k !== p; });
     const hb = document.getElementById('healthBanner');
     if (hb) hb.hidden = p === 'record' || !hb.firstChild; // the Record page shows the full System health card
-    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === p ? 'page' : 'false'));
+    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === (p === 'shariah' ? 'advisor' : p) ? 'page' : 'false'));
     $('#how').hidden = true;
     hideTip();
     if (p === 'shortlist') renderShortlist();
@@ -4339,6 +4963,7 @@ table.data tr.me td { background: var(--accent-wash); }
     else if (p === 'record') renderRecord();
     else if (p === 'journal') renderJournal();
     else if (p === 'advisor') renderAdvisor();
+    else if (p === 'shariah') renderShariah();
     window.scrollTo(0, 0);
     riseIn(document.getElementById('page-' + p));
   }
@@ -5970,7 +6595,7 @@ table.data tr.me td { background: var(--accent-wash); }
     });
   }
   // test hook for the automated page tests (test/page.test.py); inert unless the page is opened with ?selftest=1
-  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
+  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, SHL }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
 })();
 </script>
 </body>
