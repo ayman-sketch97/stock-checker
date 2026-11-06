@@ -1275,3 +1275,56 @@ all "waiting" since no call has reached 12 months yet. The simulation results ar
 The previous method and its results stay available: the page shows the previous verdict beside each new one, the
 nightly summary keeps its figures (`y.prev` and `previous`), PREREGISTERED.md sections 7.1 and 7.2 are unchanged
 (sections 7.3 to 7.3.3 and 8.1 were only added), and the last version before this release is `594afce`.
+
+## 19. Deployment safety: a way back, a permanent log and a data-problem warning (6 November 2026)
+
+This release changes how the site is published and adds a warning. It changes no advice, valuation, buy zone, sell
+decision, risk limit, Sharia rule or performance method, and it never writes to the recommendation records.
+
+**What it does**
+
+1. **A warning when the nightly data is bad.** Every page that shows advice (stock, shortlist, watchlist, advisor,
+   journal) shows a banner when the health report has a failed item. It names each failed check, says what that can
+   mean for the advice, separates "prices late" from "prices not late", and says plainly that advice is not paused.
+   The Record page already shows the full card, so the banner is not repeated there. Display only.
+2. **A verified restore point before every deployment.** The version that is live is kept as a restore point (a
+   manifest of the commit, the SHA-256 of every file and one fingerprint of the whole folder, plus the files). Before
+   a deployment the pipeline finds the restore point of the live commit through the deploy log, downloads it and
+   re-checks it: every file hash in both directions, the file count, the fingerprint, that the site's own health file
+   names the claimed commit, the same security and integrity checks as a new build, and that the deploy log witnesses
+   it. If any check fails, or none is found, the `restore-point` job fails and the gate blocks the deployment. After a
+   deployment that checks out live, the new live version becomes the next restore point (kept 45 days; the rule is
+   at least 30). If the live check fails after a deployment, the pipeline redeploys the verified restore point.
+   The first restore point is the version live before this release, commit `3506f0f`, made by run 42231862362
+   (fingerprint `321af507b307101dfe7ae3ee7dabd1d9c9e4dfc3fd71c09984892fdb7cd7902a`, 4,059 files).
+3. **A permanent deployment log.** The `deploy-log` branch holds one JSON file per run under `entries/`, each carrying
+   the hash of the one before it. An entry names the analysis commit, the build (time, price date, site fingerprint),
+   the record files written with their hashes, each gate result, the deployment result, the live check, any rollback
+   and the restore point used and made. One field, `status`, says separately whether the recommendations were
+   recorded and whether they were deployed: `recorded_and_deployed`, `recorded_not_deployed`, `not_recorded_deployed`
+   or `neither`. The log is only added to (a check refuses any change to an earlier file), and a GitHub ruleset on the
+   branch refuses deletion and non-fast-forward pushes. Branch runs only rehearse an entry and never push it.
+
+**How to repair and rehearse**
+
+- If a ledger job fails after a deployment, the next run's `restore-point` job blocks (the live version then has no
+  witness). Repair: re-run the failed ledger job; it appends the missing entry.
+- After the first successful deployment from `main`, run the manual workflow `Restore drill`. It finds and verifies the
+  saved version, redeploys it, checks the live site serves that commit, and writes a `drill` entry. Run it again
+  after any change to the pipeline. The next normal run puts the current version back.
+- To remove the ruleset: Settings, Rules, Rulesets, "deploy-log is append-only".
+
+**Checks before release**
+
+| Check | Result |
+| --- | --- |
+| Formula and tool tests, GitHub, commit `38fd4f3` (Update site, run 81) | 176 of 176 (80 formula, 46 gate and site, 50 restore point and log) |
+| Page checks, same run | 292 of 292, including the banner on all 6 pages for 5 bad cases and the no-banner cases |
+| Workflow contract test, same run | passed |
+| Secret scan, same run | passed, 81 tracked files |
+| Same advice, before and after (`test/validation/same-advice.py`) | 54 of 54 scenarios identical; the `lib/` files are byte for byte the same; the only function-level difference is the banner code |
+| Restore point checks, GitHub (Simulate restore protection failures, run 42235226843) | the real restore point verifies; 12 deliberate breaks were each caught (a byte changed, a file deleted, a file added, another commit named, wrong expected commit, wrong expected fingerprint, a manifest hash edited, no manifest, no witness in the log, an edited log entry, a removed log entry, the live site unreadable) |
+| Deploy log, same run | a dry run leaves the log head unchanged; a force push and a branch deletion on `deploy-log` were both refused by the server |
+| Full pipeline on the branch, no breaks (run 42235063378) | every required job passed, the gate passed, deploy, live check and rollback were skipped (branch), the ledger job rehearsed entry 1 and did not push |
+| Deployment blocked when the restore point cannot be verified (run 42237339668, branch `sim-block`, one line changed so the live site is looked up at a page that does not exist) | `restore-point` failed ("No verified restore point for the live version: the live site's data/health.json answered 404"); the other five required jobs passed; the gate printed "BLOCKED restore-point: failure" and failed; deploy, live check and rollback were skipped; the rehearsed log entry was not pushed |
+| Branch testing cannot change permanent state | before and after the run: `records` `768a882`, `main` `3506f0f`, `deploy-log` `a053ff0` and the latest Pages deployment (`3506f0f`) were all unchanged; the record step reported `not_run` |

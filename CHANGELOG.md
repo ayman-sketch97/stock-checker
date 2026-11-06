@@ -3,6 +3,19 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 6 November 2026: a data-problem warning on every advice page, and a way back for every deployment
+
+- Every page that shows investment advice now carries a warning when the nightly health check has a failed item. It
+  names which checks failed and what each can mean for the advice: price history unavailable (charts, swing signals and
+  chart checks are missing or a day old), companies missing (a company may show yesterday's analysis), the track
+  record not trusted, or another data problem. Prices that are late and prices that are merely not late are told
+  apart. The Record page keeps its own full card. The warning is display only: no calculation, signal, risk limit or
+  pause rule changed, and advice is not paused by it.
+- Deployment: a verified copy of the version that is live is required before anything replaces it, and if it cannot be
+  verified nothing is deployed. Every run is written to a permanent, append-only deployment log (the `deploy-log`
+  branch) that says separately whether the night's recommendations were recorded and whether they were deployed.
+  Nothing about the advice, the recommendation records or the performance method changed (VALIDATION.md, section 19).
+
 ## 6 November 2026: how sure each result is, with calls that overlap (stage 6)
 
 - A kind of call now passes only if its lead over random halal stocks is unlikely to be chance even with all six kinds
