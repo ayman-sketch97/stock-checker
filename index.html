@@ -956,7 +956,9 @@ table.data tr.me td { background: var(--accent-wash); }
       <h3>Shortlist, watchlist and track record</h3>
       <p>The Shortlist screens every company each morning: swing buy signals, quality businesses below fair value, stocks near their buy price, market leaders and dividend payers, with halal, sector, size and earnings filters. The Watchlist follows the companies you star (saved on your device only) and flags what changed: the verdict, halal status, new signals, earnings dates, and your own stop and target levels. The Record shows how the exact swing rules did on five years of prices, and a live log of every signal since the site started.</p>
       <h3>Dividends and purification</h3>
-      <p>For dividend payers, the Fundamental tab shows the yield, how much of profit is paid out, and the history, plus a calculator for the impure share to give to charity. It is estimated from interest income; if Zoya or Musaffa show a higher figure, use theirs.</p>
+      <p>For dividend payers, the Fundamental tab shows the yield, how much of profit is paid out, and the history. It does not calculate, estimate or show an amount to purify: purification is switched off until a qualified Shariah scholar gives a method and you approve building it. The Shariah ledger can still keep a record of an amount a scholar or another named source gave you.</p>
+      <h3>The Shariah ledger and new buys</h3>
+      <p>The Portfolio page keeps a ledger of what Zoya shows for each stock you hold: the date, the source and what you saw. Zoya is the final authority; the site never decides whether a company is compliant. A new buy is suggested only for a stock whose newest ledger entry is a Zoya check, no more than 90 days old, that says compliant. A missing, stale, questionable or not compliant record, or one that did not come from Zoya, blocks new buys and the reason is shown. It does not sell anything: if Zoya moves a stock you held as compliant to not compliant, the 90-day exit deadline is counted from the change date you record.</p>
     </div>
     <h3>What it cannot do</h3>
     <ul>
@@ -2806,12 +2808,17 @@ table.data tr.me td { background: var(--accent-wash); }
   //     it, so a changed, removed or reordered entry shows (verifyLedger). Removing the last entries shows only against
   //     the anchor (anchorOf), which is kept separately and travels with the backup file.
   //   - Recheck every 90 days after the last Zoya check. Past 90 days the record is stale.
-  //   - A Zoya status moving from compliant to non-compliant opens an exit window: 90 days from the status-change date
-  //     that Zoya shows (the date you enter, or the check date when the change was seen at the check). A first-ever
-  //     non-compliant record without a change date has no deadline: it is flagged, never guessed.
-  //   - Purification is NOT calculated. The ledger can store amounts that you enter, each with the basis that gave it,
-  //     but there is no formula anywhere in this file, and PURIFICATION.active is false until a qualified Shariah scholar
-  //     supplies a method and the owner approves building it.
+  //   - The 90-day exit countdown starts only when a stock that the ledger holds as compliant (a Zoya check) is later
+  //     confirmed on Zoya as non-compliant AND the status-change date that Zoya shows is recorded. The deadline is 90 days
+  //     from that date. Missing, stale, uncertain (questionable) or non-Zoya data never starts it, and nothing here ever
+  //     sells anything. A first-ever non-compliant record, or one without a change date, has no deadline: it is flagged
+  //     in plain words, never guessed.
+  //   - shariahGate() answers one question for the buy checks: does this stock have a current Zoya check, recorded in
+  //     this ledger, that says compliant? Anything else blocks a new buy and says why. It reads the record; it never
+  //     decides compliance.
+  //   - Purification is NOT calculated, estimated or shown. The ledger can keep an amount that you enter, with the basis
+  //     that gave it, but there is no formula anywhere in this file, and PURIFICATION.active is false until a qualified
+  //     Shariah scholar supplies a method and the owner approves building it.
   //
   // index.html carries the same text between the shariah-ledger.js markers (without the word "export"), and
   // test/formulas.test.mjs fails if the two copies differ in any way. Nothing here touches valuation, buy or sell
@@ -2826,7 +2833,8 @@ table.data tr.me td { background: var(--accent-wash); }
   const LEDGER_GENESIS = '0'.repeat(64);
   const PURIFICATION = Object.freeze({
     active: false,
-    message: 'Purification calculation is inactive. It stays off until a qualified Shariah scholar supplies a method and you approve building it. This tool will not estimate an amount. You can still record an amount you were given, with who gave it.',
+    status: 'pending_scholar_method',
+    message: 'Purification is inactive, pending a method confirmed by a qualified Shariah scholar. This tool does not calculate, estimate or show purification amounts, and it stays that way until you supply that method and approve building it. You can still keep a record of an amount a scholar or another named source gave you, with who gave it. Records already kept are preserved.',
   });
 
   // ---------------------------------------------------------------- dates (YYYY-MM-DD, calendar days, UTC)
@@ -3059,7 +3067,7 @@ table.data tr.me td { background: var(--accent-wash); }
         } else if (e.status === 'non_compliant') {
           if (!run) {
             const fromCompliant = lastConfirmed === 'compliant';
-            run = { startN: e.n, firstSeen: e.checked, fromCompliant, changeDate: e.changeDate || (fromCompliant ? e.checked : null), deadline: null, exits: [], exit: null, closed: null };
+            run = { startN: e.n, firstSeen: e.checked, fromCompliant, changeDate: e.changeDate || null, deadline: null, exits: [], exit: null, closed: null };
             runs.push(run);
             if (fromCompliant) transitions.push({ from: 'compliant', to: 'non_compliant', n: e.n, checked: e.checked, changeDate: run.changeDate });
           } else if (!run.changeDate && e.changeDate) run.changeDate = e.changeDate;
@@ -3072,7 +3080,8 @@ table.data tr.me td { background: var(--accent-wash); }
         run.exit = e; // the last one in date order
       }
     }
-    for (const r of runs) r.deadline = r.changeDate ? addDaysISO(r.changeDate, LEDGER_RULES.exitDays) : null;
+    // the countdown: only after a confirmed move from compliant, and only from the change date Zoya shows
+    for (const r of runs) r.deadline = r.fromCompliant && r.changeDate ? addDaysISO(r.changeDate, LEDGER_RULES.exitDays) : null;
     runs.transitions = transitions;
     return runs;
   }
@@ -3124,11 +3133,12 @@ table.data tr.me td { background: var(--accent-wash); }
       if (latest !== latestZoya && !lgIsZoya(latest.source) && latestZoya) flag('warn', 'unconfirmed_latest', `The latest entry (${latest.checked}) is not from Zoya, so it is not counted. The last Zoya check is ${latestZoya.checked}.`);
     }
     for (const tr of transitions) {
-      if (tr.to === 'non_compliant') flag('bad', 'transition', `Changed from compliant to not compliant: confirmed on Zoya ${tr.checked}${tr.changeDate && tr.changeDate !== tr.checked ? `, change date ${tr.changeDate}` : ''}.`);
+      if (tr.to === 'non_compliant') flag('bad', 'transition', `Changed from compliant to not compliant: confirmed on Zoya ${tr.checked}${tr.changeDate ? `, status-change date ${tr.changeDate}` : ', no status-change date recorded yet'}.`);
       else flag('warn', 'transition', `Zoya moved this from compliant to questionable on ${tr.checked}.`);
     }
     if (open) {
-      if (!open.changeDate) flag('bad', 'no_change_date', `Zoya shows this as not compliant (first recorded ${open.firstSeen}) but there is no status-change date, so the ${LEDGER_RULES.exitDays}-day exit deadline cannot be calculated. Find the date Zoya shows for the change and record it.`);
+      if (!open.fromCompliant) flag('bad', 'no_prior_compliant', `Zoya shows this as not compliant (first recorded ${open.firstSeen}), but this ledger has no earlier Zoya check that said compliant, so the ${LEDGER_RULES.exitDays}-day countdown has not started and no deadline is shown. If Zoya showed it as compliant before, record that earlier check with its date and evidence. Otherwise decide the next step with Zoya and your scholar.`);
+      else if (!open.changeDate) flag('bad', 'no_change_date', `Zoya moved this from compliant to not compliant (confirmed ${open.firstSeen}), but the status-change date is not recorded, so the ${LEDGER_RULES.exitDays}-day countdown has not started. Find the date Zoya shows for the change and record it with another check.`);
       const left = open.deadline ? daysBetweenISO(today, open.deadline) : null;
       const ex = open.exit ? open.exit.exitStatus : 'not_started';
       if (open.deadline) {
@@ -3172,13 +3182,35 @@ table.data tr.me td { background: var(--accent-wash); }
       purification: PURIFICATION,
     };
   }
-  // amounts you entered, grouped as entered. Nothing is calculated, estimated or suggested.
+  // The buy gate. May a NEW buy of this stock be suggested, as far as the ledger goes? Yes only when the newest check in the
+  // ledger is from Zoya, says compliant, and is no older than the recheck period. A missing, non-Zoya, questionable,
+  // non-compliant or stale record blocks it, and so does a ledger that failed its own check (intact = false). This reads
+  // the record you made; it never decides whether a company is compliant, and it never asks anything of the tool's own screen.
+  // Selling, holding and the exit countdown are not touched by it.
+  function shariahGate(entries, t, today, intact = true) {
+    const block = (code, reason) => ({ ok: false, code, reason, status: null, checked: null });
+    if (!intact) return block('integrity', 'the Shariah ledger failed its own check, so none of its records can be relied on');
+    const checks = lgEvents(Array.isArray(entries) ? entries : [], t).filter((e) => e.kind === 'check');
+    const latest = checks[checks.length - 1] || null;
+    if (!latest) return block('missing', 'it has no record in your Shariah ledger: look it up on Zoya and record what it shows');
+    const zoya = checks.filter((e) => lgIsZoya(e.source));
+    const latestZoya = zoya[zoya.length - 1] || null;
+    const out = (code, reason) => ({ ok: false, code, reason, status: (latestZoya || latest).status, checked: (latestZoya || latest).checked });
+    if (!latestZoya) return out('no_zoya', 'nothing in your Shariah ledger for it comes from Zoya, so its status is not confirmed');
+    if (latest !== latestZoya) return out('unconfirmed_latest', `its newest ledger entry (${latest.checked}) is not from Zoya, so its status is not confirmed: check Zoya and record it`);
+    if (latestZoya.status === 'non_compliant') return out('non_compliant', `Zoya shows it as not compliant (checked ${latestZoya.checked})`);
+    if (latestZoya.status === 'questionable') return out('uncertain', `Zoya showed it as questionable (checked ${latestZoya.checked}): it stays blocked until a later Zoya check says compliant`);
+    if (!isDateISO(today)) return out('no_date', 'today’s date could not be read, so the age of its Zoya check cannot be worked out');
+    const age = daysBetweenISO(latestZoya.checked, today);
+    if (age < 0) return out('future', `its Zoya check is dated ${latestZoya.checked}, which is in the future`);
+    if (age > LEDGER_RULES.recheckDays) return out('stale', `its Zoya check is stale: last checked ${latestZoya.checked}, ${age} days ago, and a recheck is due every ${LEDGER_RULES.recheckDays} days`);
+    return { ok: true, code: 'ok', reason: '', status: 'compliant', checked: latestZoya.checked };
+  }
+  // amounts you entered, exactly as entered. Nothing is added up, calculated, estimated or suggested.
   function purificationRecords(entries, t) {
     const voided = lgVoided(entries);
     const rows = entries.filter((e) => e.kind === 'purification' && (!t || e.t === t) && !voided.has(e.n));
-    const sum = {};
-    for (const e of rows) { sum[e.action] = sum[e.action] || {}; sum[e.action][e.currency] = Math.round(((sum[e.action][e.currency] || 0) + e.amount) * 1e6) / 1e6; }
-    return { active: PURIFICATION.active, message: PURIFICATION.message, rows, enteredTotals: sum };
+    return { active: PURIFICATION.active, status: PURIFICATION.status, message: PURIFICATION.message, rows };
   }
 
   // ---------------------------------------------------------------- joining two copies (a backup into this device)
@@ -3259,6 +3291,21 @@ table.data tr.me td { background: var(--accent-wash); }
     const swVal = sw.reduce((s, x) => s + valOf(x), 0);
     return { byT, bySector, usVal, total: usVal + swVal + otherVal, n: lt.length };
   }
+  // The Shariah gate for new buys (stage 4): the ledger's answer for one stock, from this device's own ledger. It passes only a
+  // current Zoya check that says compliant (lib/shariah-ledger.js, shariahGate). It reads the record you made; it never decides
+  // anything about the company. The ledger is read and checked once per change of storage or day, not once per call.
+  let SHG = { key: null, v: null };
+  function ledgerGate(t) {
+    let raw = '';
+    try { raw = `${localStorage.getItem('shariah') || ''}|${localStorage.getItem('shariah_anchor') || ''}`; } catch { /* no storage: the ledger reads as empty, so every new buy is blocked */ }
+    const today = localISO();
+    const key = `${raw}|${today}`;
+    if (SHG.key !== key) {
+      const cur = SHL.load();
+      SHG = { key, v: { entries: cur.entries, today, intact: verifyLedger(cur.entries, today).ok && checkAnchor(cur.entries, cur.anchor).ok } };
+    }
+    return shariahGate(SHG.v.entries, t, SHG.v.today, SHG.v.intact);
+  }
   // may a new buy of ticker t be suggested? why = what blocks it, in plain words (empty = allowed); room = the most that
   // may go into it in dollars (null when no holdings are recorded, so the size limit cannot be worked out). add = money
   // about to be invested (the monthly plan's), which is part of the portfolio when the buy is made
@@ -3280,7 +3327,11 @@ table.data tr.me td { background: var(--accent-wash); }
       const sec = r && r.sector;
       if (sec && s.usVal > 0 && s.n >= 1 && !sectorOpen(s.bySector.get(sec) || 0, s.usVal, L.sectorMax)) why.push(`${sec} is already ${pct((s.bySector.get(sec) || 0) / s.usVal, 0)} of your stocks; your limit stops new buys in a sector at ${pct(L.sectorMax, 0)}`);
     }
-    return { ok: !why.length, why, room };
+    // the Shariah ledger gate comes last, so the reasons above (data, halal screen, size, sector) keep their place and wording
+    const limitsOk = !why.length;
+    const ledger = ledgerGate(t);
+    if (!ledger.ok) why.push(ledger.reason);
+    return { ok: !why.length, why, room, limitsOk, ledger };
   }
   // how much of a holding the size rule sells (0: none, or under the $100 an order needs)
   function sizeTrim(value, total) {
@@ -3307,7 +3358,8 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!scr) return a;
     const c = buyCheck(d.ticker, scr);
     if (c.ok) return isNum(c.room) ? { ...a, text: `${a.text} Your ${pct(limits().buyCap, 0)} limit for one stock allows up to ${money0(c.room)} more in it now.` } : a;
-    return { tone: 'warn', title: staleOf(scr) ? 'Advice paused' : 'Blocked by your limits', text: `${firstSentence(a.text)} But not for you now: ${c.why.join('; ')}.` };
+    const title = staleOf(scr) ? 'Advice paused' : c.ledger && !c.ledger.ok ? (c.limitsOk ? 'Blocked by the Shariah ledger' : 'Blocked by your limits and the Shariah ledger') : 'Blocked by your limits';
+    return { tone: 'warn', title, text: `${firstSentence(a.text)} But not for you now: ${c.why.join('; ')}.` };
   }
 
   // ------------------------------------------------------------------ what to do now (long term and swing)
@@ -4125,6 +4177,7 @@ table.data tr.me td { background: var(--accent-wash); }
         const under = okHeld.filter((x) => val(x) < each * 0.8);
         const pool = (ideas[hpPick] || []).filter((r) => check(r.ticker).ok);
         const blockedIdeas = (ideas[hpPick] || []).length - pool.length;
+        const ledgerBlockedIdeas = (ideas[hpPick] || []).filter((r) => { const c = check(r.ticker); return !c.ok && c.ledger && !c.ledger.ok; }).length;
         const label = HP[hpPick].label.toLowerCase();
         // in order of preference: a new stock while there are too few, the holdings furthest below their equal share, the
         // smallest holding, then a new idea; the first that can take the money gets it, the rest goes to the next
@@ -4146,7 +4199,7 @@ table.data tr.me td { background: var(--accent-wash); }
           stockLines.push([o.t, amt, `${o.why}${capped}${isNum(p) ? ` About ${fmtShares(amt / p)} shares at ${price(p)}.` : ''} ${costTxt('US', amt, p)}`]);
           rest -= amt;
         }
-        if (!stockLines.length) stockLines.push(['Stocks', alloc.stocks, `${focusOnly ? 'No stock fits right now: keep it in cash until one does.' : 'No stock fits right now: add it to the index fund instead.'}${blockedIdeas ? ` ${blockedIdeas} idea${blockedIdeas === 1 ? ' was' : 's were'} skipped because your limits block ${blockedIdeas === 1 ? 'it' : 'them'} (sector or size).` : ''}`]);
+        if (!stockLines.length) stockLines.push(['Stocks', alloc.stocks, `${focusOnly ? 'No stock fits right now: keep it in cash until one does.' : 'No stock fits right now: add it to the index fund instead.'}${blockedIdeas ? ` ${blockedIdeas} idea${blockedIdeas === 1 ? ' was' : 's were'} skipped because ${ledgerBlockedIdeas ? 'your limits or the Shariah ledger block' : 'your limits block'} ${blockedIdeas === 1 ? 'it' : 'them'} (${ledgerBlockedIdeas ? `${ledgerBlockedIdeas} without a current Zoya check saying compliant in your ledger; the rest sector or size` : 'sector or size'}).` : ''}`]);
         else if (rest > 1) { leftOver = rest; if (!focusOnly) alloc.core += rest; }
       }
       if (alloc.core > 1) {
@@ -4168,6 +4221,9 @@ table.data tr.me td { background: var(--accent-wash); }
         h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
           h('tr', null, ['Buy', 'Amount'].map((x) => h('th', { text: x }))),
           planLines.map(([what, amt, note]) => h('tr', null, h('td', null, h('b', { text: what }), h('span', { class: 'sm', text: note })), h('td', { text: money0(amt) }))))));
+      // held stocks the Shariah ledger keeps from getting new money (whatever the plan would otherwise have said)
+      const noMoney = lt.filter((x) => scr.by.get(x.t) && !ledgerGate(x.t).ok).map((x) => x.t);
+      if (noMoney.length) planCard.append(h('p', { class: 'note', text: `Shariah ledger: no new money goes to ${noMoney.join(', ')} until ${noMoney.length === 1 ? 'it has' : 'each has'} a current Zoya check saying compliant in your ledger (open it from the Shariah ledger card below). Holding and selling are not affected.` }));
       if (movedSmall) planCard.append(h('p', { class: 'note', text: 'This month’s share for stocks is under $100, too small to be worth a separate buy, so it goes to the index fund. The plan starts a stock once the stock part falls further behind.' }));
       if (pf.swing === 'yes' && !(T.swing > 0)) planCard.append(h('p', { class: 'note', text: 'Swing trades: paper only for now (the Record page shows why). Practise them in the Journal; this month’s money goes to the plan above.' }));
       if (T.swing > 0) {
@@ -4288,7 +4344,7 @@ table.data tr.me td { background: var(--accent-wash); }
       ideaCard.append(h('div', { class: 'list' }, list.map((r) => h('button', { class: 'srow', type: 'button', onclick: () => openStock(r.ticker, k === 'short' ? 'tech' : 'fund') },
         h('span', { class: 'top' }, h('span', { class: 'tk', text: r.ticker }), h('span', { class: 'nm', text: r.name || '' }),
           h('span', { class: 'pr' }, price(r.price), isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
-        h('span', { class: 'tags' }, [verdictTag(r.verdict), tagEl(r.sector || 'Other', 'neutral'), buyCheck(r.ticker, scr, snap).ok ? null : tagEl('Blocked by your limits', 'warn')].filter(Boolean)),
+        h('span', { class: 'tags' }, [verdictTag(r.verdict), tagEl(r.sector || 'Other', 'neutral'), ...blockTags(buyCheck(r.ticker, scr, snap))].filter(Boolean)),
         h('span', { class: 'det', text: (() => { const c = buyCheck(r.ticker, scr, snap); return c.ok ? ideaReason(r, k) : `${ideaReason(r, k)}. Not for you now: ${c.why.join('; ')}.`; })() })))));
     }
     parts.push(ideaCard);
@@ -4302,7 +4358,7 @@ table.data tr.me td { background: var(--accent-wash); }
         h('li', { text: 'When you buy, choose its holding period here and note your exit rule in the Journal. Then follow that rule, not your mood.' }),
         h('li', { text: 'Long-term holdings: never sell just because the price fell. Medium term: sell at fair value. Short term: sell when the trend breaks.' }),
         h('li', { text: 'Once a year, rebalance: if a part is more than 10 points away from its target, sell some of what is over and buy what is under.' }),
-        h('li', { text: 'Purify dividends with the calculator on each stock page, and confirm halal status on Zoya or Musaffa before buying.' })),
+        h('li', { text: 'Record what Zoya shows for each stock in the Shariah ledger (below) before you buy it, and again every 90 days. Purification is switched off until a qualified Shariah scholar gives you a method.' })),
       h('p', { class: 'note', text: 'This is a rules-based guide built from public data, not personal financial advice. No tool can promise a profit: it can only keep your costs low, your risk matched to you, and your decisions consistent.' })));
     const shCard = shariahSummaryCard(); // the Shariah ledger (stage 4): a summary and a link; the ledger has its own page
     if (shCard) parts.push(shCard);
@@ -4747,6 +4803,11 @@ table.data tr.me td { background: var(--accent-wash); }
   const ymdIso = (s) => { const t = String(s || ''); return /^\d{8}$/.test(t) ? `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}` : t; };
   const fmtShares = (n) => (n >= 100 ? Math.round(n).toLocaleString('en-US') : String(Math.round(n * 10000) / 10000));
   const tagEl = (text, tone) => h('span', { class: 'tag' + (tone && tone !== 'neutral' ? ' t-' + tone : ''), text });
+  // why the Shariah ledger blocks a new buy, in a few words (the full reason is in the buy check's list and on the ledger page)
+  const LEDGER_TAG = { missing: 'Blocked: no Zoya record', no_zoya: 'Blocked: no Zoya record', unconfirmed_latest: 'Blocked: newest entry not from Zoya', non_compliant: 'Blocked: not compliant on Zoya', uncertain: 'Blocked: questionable on Zoya', stale: 'Blocked: Zoya check stale', future: 'Blocked: check dated in the future', integrity: 'Blocked: ledger failed its check' };
+  const ledgerTagEl = (g) => tagEl(LEDGER_TAG[g.code] || 'Blocked: Shariah ledger', 'warn');
+  // the tags for a buy check that said no: your limits and the Shariah ledger are told apart
+  const blockTags = (c) => [c.limitsOk ? null : tagEl('Blocked by your limits', 'warn'), c.ledger && !c.ledger.ok ? ledgerTagEl(c.ledger) : null];
   const shariahTag = (st) => { const x = SHARIAH_TAG[st]; return x ? tagEl(x[0], x[1]) : null; };
   const verdictTag = (code) => (code ? tagEl(VERDICT_SHORT[code] || code, VERDICT_TONE[code] || 'neutral') : null);
   function setupTag(setup, status) {
@@ -4837,7 +4898,7 @@ table.data tr.me td { background: var(--accent-wash); }
       h('li', null, toneIcon(okAll ? 'good' : 'bad'), h('span', { text: okAll ? `History intact: ${cur.entries.length} entr${cur.entries.length === 1 ? 'y' : 'ies'}, each linked to the one before it.` : 'The history failed its check. Do not rely on this ledger until the cause is found.' })),
       h('li', null, toneIcon(s.bad ? 'bad' : s.warn ? 'warn' : 'good'), h('span', { text: s.held ? `${s.held} holding${s.held === 1 ? '' : 's'}: ${s.bad} need action, ${s.warn} due soon or unclear, ${s.ok} up to date.` : 'No holdings are recorded in your Watchlist or Journal yet.' }))));
     if (!okAll) top.append(h('div', { class: 'callout' }, ...view.integrity.problems.slice(0, 8).map((p) => h('div', { text: p })), anchor.ok ? null : h('div', { text: anchor.note })));
-    top.append(h('p', { class: 'note', text: `Rules: recheck on Zoya every ${LEDGER_RULES.recheckDays} days. If Zoya moves a stock from compliant to not compliant, the exit deadline is ${LEDGER_RULES.exitDays} days from the date Zoya shows for the change. Entries are never edited or deleted; a mistake is answered with a correction that strikes the wrong entry through.` }));
+    top.append(h('p', { class: 'note', text: `Rules: recheck on Zoya every ${LEDGER_RULES.recheckDays} days. If Zoya moves a stock that the ledger holds as compliant to not compliant, the exit deadline is ${LEDGER_RULES.exitDays} days from the status-change date Zoya shows, which you record with the check; until that date is recorded, no countdown starts. A stock with no earlier compliant record, a stale or missing record, or a questionable status never starts one. New buys need a Zoya check, no more than ${LEDGER_RULES.recheckDays} days old, that says compliant. Entries are never edited or deleted; a mistake is answered with a correction that strikes the wrong entry through.` }));
     parts.push(top);
 
     // 2. record a Zoya check
@@ -4850,7 +4911,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const srcSel = h('select', { 'aria-label': 'Source' }, ...Object.entries(LEDGER_SOURCES).map(([k, t]) => opt(k, k === 'other' ? 'Not Zoya (unconfirmed, counts for nothing)' : t)));
     const evIn = h('textarea', { rows: 2, maxlength: 600, placeholder: 'What you saw: the screen, the report and its date, any reference' });
     const chgIn = h('input', { type: 'date', max: today });
-    const chgBox = fld('Date Zoya shows for the change to not compliant (starts the 90-day exit deadline)', chgIn);
+    const chgBox = fld('Date Zoya shows for the change to not compliant (needed to start the 90-day exit deadline)', chgIn);
     chgBox.hidden = true;
     stSel.addEventListener('change', () => { chgBox.hidden = stSel.value !== 'non_compliant'; });
     const msg = h('div', { class: 'note', 'aria-live': 'polite' });
@@ -4872,8 +4933,12 @@ table.data tr.me td { background: var(--accent-wash); }
         r.held ? null : h('p', { class: 'note', text: 'Not in your holdings now.' }));
       const facts = [];
       if (r.lastZoyaCheck) facts.push(`Last Zoya check ${r.lastZoyaCheck.checked} (${LEDGER_SOURCES[r.lastZoyaCheck.source]}). Recheck due ${r.recheckDue}.`);
-      if (run) facts.push(`Not compliant on Zoya since ${run.changeDate || 'an unknown date'}${run.deadline ? `. Exit deadline ${run.deadline} (${run.daysLeft >= 0 ? `${run.daysLeft} days left` : `${-run.daysLeft} days overdue`}). Exit: ${SHL_EXIT_TEXT[run.exitStatus]}${run.exitDate ? ` on ${run.exitDate}` : ''}.` : '. Exit deadline: cannot be calculated.'}`);
+      if (run) facts.push(run.deadline ? `Not compliant on Zoya since ${run.changeDate}. Exit deadline ${run.deadline} (${run.daysLeft >= 0 ? `${run.daysLeft} days left` : `${-run.daysLeft} days overdue`}). Exit: ${SHL_EXIT_TEXT[run.exitStatus]}${run.exitDate ? ` on ${run.exitDate}` : ''}.`
+        : `Not compliant on Zoya. The ${LEDGER_RULES.exitDays}-day countdown has not started: ${run.fromCompliant ? 'the status-change date is not recorded' : 'there is no earlier compliant record in this ledger'}.${run.exitStatus !== 'not_started' ? ` Exit: ${SHL_EXIT_TEXT[run.exitStatus]}${run.exitDate ? ` on ${run.exitDate}` : ''}.` : ''}`);
       if (facts.length) card.append(h('p', { class: 'sub', text: facts.join(' ') }));
+      // what this record means for new buys (the same gate every buy suggestion on the site asks)
+      const gt = shariahGate(cur.entries, r.t, today, okAll);
+      card.append(h('p', { class: 'note', text: gt.ok ? `New buys: the ledger allows them. Its newest entry is a Zoya check from ${gt.checked}, recorded as compliant. Your limits and the site’s other checks still apply.` : `New buys: blocked. ${gt.reason[0].toUpperCase()}${gt.reason.slice(1)}.` }));
       if (r.flags.length) card.append(h('ul', { class: 'alert-list' }, r.flags.map((f) => h('li', null, toneIcon(SHL_TONE[f.level]), h('span', { text: f.text })))));
       const acts = h('div', { class: 'row-actions' }, h('a', { class: 'btn btn-outline btn-sm', href: zoyaUrl(r.t), target: '_blank', rel: 'noopener noreferrer' }, 'Open on Zoya'));
       card.append(acts);
@@ -4914,9 +4979,9 @@ table.data tr.me td { background: var(--accent-wash); }
     };
     for (const r of view.rows) parts.push(stockCard(r));
 
-    // 4. purification: stored, never calculated
+    // 4. purification: kept as records only, never calculated, estimated or shown as a figure
     const pur = h('section', { class: 'card', 'aria-label': 'Purification' }, h('h2', { text: 'Purification' }),
-      h('div', { class: 'callout' }, h('b', { text: 'Calculation inactive. ' }), PURIFICATION.message));
+      h('div', { class: 'callout' }, h('b', { text: 'Inactive: pending a scholar-approved method. ' }), PURIFICATION.message));
     const pf = h('form', { class: 'editbox', autocomplete: 'off', hidden: true });
     const pt = h('input', { type: 'text', autocapitalize: 'characters', placeholder: 'Ticker' });
     const pa = h('select', { 'aria-label': 'Due or paid' }, opt('due', 'Amount due (given to me)'), opt('paid', 'Amount paid'));
@@ -4925,19 +4990,17 @@ table.data tr.me td { background: var(--accent-wash); }
     const pd = h('input', { type: 'date', value: today, max: today });
     const pb = h('input', { type: 'text', maxlength: 300, placeholder: 'Who gave the method or amount (required)' });
     const pm = h('div', { class: 'note', 'aria-live': 'polite' });
-    pf.append(fld('Stock', pt), fld('Type', pa), fld('Amount', pn), fld('Currency', pc), fld('Date', pd), fld('Basis', pb), h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Record')), pm);
+    pf.append(h('p', { class: 'note', text: 'Only an amount a scholar or another named source gave you. This tool never works one out.' }), fld('Stock', pt), fld('Type', pa), fld('Amount', pn), fld('Currency', pc), fld('Date', pd), fld('Basis', pb), h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Record')), pm);
     pf.addEventListener('submit', (e) => {
       e.preventDefault();
       const amt = Number(String(pn.value).replace(/,/g, ''));
       const x = SHL.add({ kind: 'purification', t: pt.value, action: pa.value, amount: Number.isFinite(amt) ? amt : NaN, currency: pc.value, asOf: pd.value, basis: pb.value });
       if (!x.ok) showErrors(pm, x.errors); else rerender();
     });
-    pur.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { pf.hidden = !pf.hidden; } }, 'Record an amount I was given')), pf);
+    pur.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { pf.hidden = !pf.hidden; } }, 'Record an amount a scholar gave me')), pf);
+    // earlier records are kept untouched. Their amounts show only in each stock's history, exactly as entered; no total is made.
     const pr = purificationRecords(cur.entries);
-    if (pr.rows.length) {
-      pur.append(h('ul', { class: 'alert-list' }, pr.rows.map((e) => h('li', null, h('span', { text: `${e.t} · ${e.action === 'paid' ? 'paid' : 'due'} ${e.amount} ${e.currency} · ${e.asOf} · basis: ${e.basis}` })))),
-        h('p', { class: 'note', text: `Totals of the amounts you entered (not calculated by this tool): ${Object.entries(pr.enteredTotals).map(([a, c]) => `${a}: ${Object.entries(c).map(([k, v]) => `${v} ${k}`).join(', ')}`).join('; ')}.` }));
-    }
+    if (pr.rows.length) pur.append(h('p', { class: 'note', text: `${pr.rows.length} record${pr.rows.length === 1 ? '' : 's'} kept, exactly as entered, in the history of the stock${new Set(pr.rows.map((e) => e.t)).size === 1 ? '' : 's'} concerned. Nothing is added up, and no amount is calculated or suggested.` }));
     parts.push(pur);
 
     parts.push(h('section', { class: 'card', 'aria-label': 'About this ledger' }, h('h2', { text: 'What this ledger does not do' }),
@@ -4945,7 +5008,9 @@ table.data tr.me td { background: var(--accent-wash); }
         ['It does not decide whether a company is Shariah compliant. It records what Zoya shows. A status from any other source is kept but counts for nothing.',
           'The tool’s own halal screen elsewhere on the site is an estimate from SEC filings. It is not recorded here and does not replace a Zoya check.',
           'It lives on this device, like your journal and watchlist. The backup file carries it (Portfolio page). The chain shows an edited or removed entry; it cannot stop someone with access to your device from replacing the whole ledger.',
-          'Funds, ETFs and sukuk are not tracked here yet.'].map((t) => h('li', null, h('span', { text: t }))))));
+          'New buys: a stock passes the ledger only when its newest entry is a Zoya check, no more than 90 days old, that says compliant. Anything else blocks new buys, and the reason is shown. This gate never sells, and it does not replace your limits or the site’s other checks.',
+          'The 90-day exit deadline starts only when a stock that this ledger holds as compliant is confirmed on Zoya as not compliant, and only from the status-change date you record. Missing, stale, questionable or non-Zoya records never start it.',
+          'Funds, ETFs and sukuk are not tracked here yet, so the gate covers stocks only.'].map((t) => h('li', null, h('span', { text: t }))))));
     el.replaceChildren(...parts);
   }
   const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor', 'shariah'];
@@ -5079,6 +5144,7 @@ table.data tr.me td { background: var(--accent-wash); }
       const c = buyCheck(it.t, scr, snapB);
       if (c.ok) todo.push(['good', it.t, `Below its buy price (${price(r.buyBelow)}). If it fits this month’s plan (Portfolio page), it is a candidate.`]);
       else if (r.shariah === 'review') todo.push(['warn', it.t, `Below its buy price (${price(r.buyBelow)}), but its halal status is unresolved: check it on Zoya before thinking of buying.`]);
+      else if (c.limitsOk && c.ledger && !c.ledger.ok) todo.push(['warn', it.t, `Below its buy price (${price(r.buyBelow)}), but not for you now: ${c.ledger.reason}.`]);
     }
     const staleB = staleOf(scr);
     const order = { bad: 0, warn: 1, good: 2, info: 3 };
@@ -5109,6 +5175,8 @@ table.data tr.me td { background: var(--accent-wash); }
     if (lts && lts.decision && lts.decision.method === 'list') {
       ideas.long = scr.list.filter((r) => ['BUY_STRONG', 'BUY', 'CONTRARIAN'].includes(r.verdict) && r.shariah === 'pass' && r.dq !== 'insufficient' && !heldSet.has(r.ticker)).sort(SORTS.upside[1]).slice(0, 8);
     }
+    // ideas that only the Shariah ledger holds back (everything else about them passes) are counted, so the gap is explained
+    const ledgerOnly = staleB ? 0 : new Set(Object.keys(ideas).flatMap((k) => ideas[k] || []).filter((r) => { const c = buyCheck(r.ticker, scr, snapB); return c.limitsOk && c.ledger && !c.ledger.ok; }).map((r) => r.ticker)).size;
     for (const k of Object.keys(ideas)) ideas[k] = staleB ? [] : (ideas[k] || []).filter((r) => buyCheck(r.ticker, scr, snapB).ok).slice(0, 2);
     const groups = [['long', 'Long term'], ['mid', 'Medium term']].filter(([k]) => (ideas[k] || []).length);
     if (groups.length) {
@@ -5120,6 +5188,7 @@ table.data tr.me td { background: var(--accent-wash); }
         ? `In the 10-year test, against the average halal stock over the next year: ${parts0.join(', ')}. Ideas, not promises: the Portfolio page says where this month’s money goes, and the Record page has the details.`
         : 'Ideas, not promises: the Portfolio page says where this month’s money goes, and the Record page shows how the picks did in the past.' }));
     }
+    if (ledgerOnly) card.append(h('p', { class: 'note', text: `${ledgerOnly} idea${ledgerOnly === 1 ? ' is' : 's are'} left out: no current Zoya check saying compliant is recorded for ${ledgerOnly === 1 ? 'it' : 'them'} in your Shariah ledger. Look the stock up on Zoya and record what it shows first.` }));
     card.append(h('div', { class: 'ai' },
       h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('watchlist') }, 'Watchlist'),
       h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('advisor') }, 'This month’s plan'),
@@ -5241,11 +5310,19 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!slSnap || slSnap.scr !== scr) slSnap = { scr, s: holdingsSnapshot(scr) };
     if (!(slSnap.s.total > 0)) return null;
     const c = buyCheck(r.ticker, scr, slSnap.s);
-    return c.ok || staleOf(scr) ? null : tagEl('Blocked by your limits', 'warn');
+    return c.limitsOk || staleOf(scr) ? null : tagEl('Blocked by your limits', 'warn');
+  }
+  // a Shortlist row that is rated a buy candidate (or has a live swing signal) but has no current Zoya check saying compliant in your ledger
+  function ledgerTag(r, scr) {
+    if (r.shariah !== 'pass' || staleOf(scr)) return null;
+    const candidate = GOOD_VERDICTS.has(r.verdict) || (r.status === 'active' && TRADED.includes(r.setup));
+    if (!candidate) return null;
+    const g = ledgerGate(r.ticker);
+    return g.ok ? null : ledgerTagEl(g);
   }
   function slRow(r, preset, scr) {
     const P = PRESETS[preset] || PRESETS.value;
-    const tags = [verdictTag(r.verdict), shariahTag(r.shariah), limitTag(r, scr)];
+    const tags = [verdictTag(r.verdict), shariahTag(r.shariah), limitTag(r, scr), ledgerTag(r, scr)];
     if (P.swing) tags.push(setupTag(r.setup, r.status));
     if (P.swing && r.status === 'active' && TRADED.includes(r.setup) && !swingProven()) tags.push(tagEl('Paper trade only', 'paper'));
     const ed = earnDays(r, scr);
@@ -5438,7 +5515,12 @@ table.data tr.me td { background: var(--accent-wash); }
     }
     // buy alerts only for a clear halal pass, and only if the risk check allows a buy (a "review" already warns above)
     if (!held && r.shariah === 'pass') {
-      if (r.status === 'active' && TRADED.includes(r.setup)) a.push(swingProven() ? ['good', `Swing buy signal: ${SETUP_NAME[r.setup] || r.setup}.`] : ['warn', `Swing signal (paper trade only): ${SETUP_NAME[r.setup] || r.setup}.`]);
+      if (r.status === 'active' && TRADED.includes(r.setup)) {
+        const lg = ledgerGate(it.t);
+        if (!swingProven()) a.push(['warn', `Swing signal (paper trade only): ${SETUP_NAME[r.setup] || r.setup}.`]);
+        else if (lg.ok) a.push(['good', `Swing buy signal: ${SETUP_NAME[r.setup] || r.setup}.`]);
+        else a.push(['warn', `Swing signal (${SETUP_NAME[r.setup] || r.setup}), but not for you now: ${lg.reason}.`]);
+      }
       if (GOOD_VERDICTS.has(r.verdict) && isNum(r.buyBelow) && r.price <= r.buyBelow) {
         const c = buyCheck(it.t, scr);
         a.push(c.ok ? ['good', `In the long-term buy zone (below ${price(r.buyBelow)}).`] : ['warn', `In the long-term buy zone, but not for you now: ${c.why.join('; ')}.`]);
@@ -5719,15 +5801,6 @@ table.data tr.me td { background: var(--accent-wash); }
     const bySector = new Map();
     weights.forEach((x) => bySector.set(x.sector, (bySector.get(x.sector) || 0) + x.w));
     const sectors = [...bySector.entries()].sort((a, b) => b[1] - a[1]);
-    let pur = 0;
-    let purMissing = 0;
-    let payers = 0;
-    for (const x of rows) {
-      if (!(x.r.divYield > 0)) continue;
-      payers++;
-      if (!isNum(x.r.impure)) { purMissing++; continue; }
-      pur += x.it.shares * x.r.price * x.r.divYield * x.r.impure;
-    }
     let swingRisk = 0;
     for (const x of rows) if (x.it.swing && isNum(x.it.stop) && x.r.price > x.it.stop) swingRisk += x.it.shares * (x.r.price - x.it.stop);
     // the same limits as every other page: shares of everything you own (funds and cash on the Portfolio page included)
@@ -5738,9 +5811,7 @@ table.data tr.me td { background: var(--accent-wash); }
       stat('Value', price(total), `${rows.length} position${rows.length === 1 ? '' : 's'}`),
       costKnown && cost > 0 ? stat('Gain', moneyS(total - cost), pctS(total / cost - 1, 1)) : stat('Gain', 'n/a', 'add your average costs'),
       stat('Largest', pct((weights[0].w * total) / everything, 0), `${weights[0].t}, of everything you own`),
-      !payers ? stat('Purification', '$0', 'no dividends to purify')
-        : purMissing === payers ? stat('Purification', 'n/a', 'not reported: use Zoya or Musaffa')
-          : stat('Purification', price(pur), purMissing ? `a year, estimate (${purMissing} not reported)` : 'a year, on dividends (estimate)')));
+      stat('Purification', 'Off', 'pending a scholar-approved method')));
     const checks = [];
     const over = rows.filter((x) => !x.it.swing && sizeTrim(snapP.byT.get(x.it.t) || 0, everything)).map((x) => `${x.it.t} (${pct((snapP.byT.get(x.it.t) || 0) / everything, 0)})`);
     if (over.length) checks.push(['warn', `Above your ${pct(LP.trimAt, 0)} limit for one company: ${over.join(', ')}. Trim ${over.length === 1 ? 'it' : 'them'} back to ${pct(LP.buyCap, 0)} of everything you own; the Portfolio page gives the amounts.${snapP.total > total + 1 ? '' : ' (Only these stocks are recorded: add your funds and cash on the Portfolio page, or every stock looks bigger than it is.)'}`]);
@@ -5757,7 +5828,7 @@ table.data tr.me td { background: var(--accent-wash); }
     card.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
       h('tr', null, h('th', { text: 'Sector' }), h('th', { text: 'Weight' })),
       sectors.map(([sname, wv]) => h('tr', null, h('td', { text: sname }), h('td', { text: pct(wv, 0) }))))));
-    card.append(h('p', { class: 'note', text: 'Purification is estimated from the last 12 months of dividends and the impure share of each company’s income' + (purMissing ? ` (${purMissing} holding${purMissing === 1 ? '' : 's'} could not be estimated)` : '') + '. Purify based on the dividends you actually receive.' }));
+    card.append(h('p', { class: 'note', text: 'Purification is switched off: no amount is calculated or estimated until a qualified Shariah scholar gives a method and you approve building it. The Shariah ledger can keep a record of an amount you were given.' }));
     return card;
   }
   function syncCard(w) {
@@ -5898,12 +5969,11 @@ table.data tr.me td { background: var(--accent-wash); }
   }
   function dividendsCard(d) {
     const D = d.dividends;
-    const Pu = d.purification || {};
     if (!D) return null;
     const card = h('section', { class: 'card', id: 'divCard', 'aria-label': 'Dividends and purification' }, h('h2', { text: 'Dividends and purification' }));
-    const fail = d.labels && d.labels.shariah && d.labels.shariah.status === 'fail';
     if (!D.pays) {
-      card.append(h('p', { class: 'sub', text: 'It pays no cash dividend, so there is no dividend income to purify. Some scholars also ask investors to purify part of their gains when they sell; follow the scholar you trust.' }));
+      card.append(h('p', { class: 'sub', text: 'It pays no cash dividend.' }));
+      card.append(h('p', { class: 'note', text: 'Purification is switched off here until a qualified Shariah scholar gives a method and you approve building it. If a scholar tells you to purify, the Shariah ledger can keep a record of the amount you were given.' }));
       return card;
     }
     card.append(h('p', { class: 'sub', text: 'Cash paid to shareholders over the last 12 months, from the cash flow statement.' }));
@@ -5918,36 +5988,9 @@ table.data tr.me td { background: var(--accent-wash); }
     if (isNum(D.growth5y)) notes.push(`The dividend per share ${D.growth5y >= 0 ? 'grew' : 'fell'} about ${pct(Math.abs(D.growth5y), 1)} a year over five years (using 3-year medians, so a one-off special payout does not distort it).`);
     if (isNum(D.payoutFcf) && D.payoutFcf > 0.9) notes.push('Paying out almost all its free cash flow leaves little room to raise the dividend or get through a bad year.');
     if (notes.length) card.append(h('p', { class: 'note', text: notes.join(' ') }));
-    card.append(h('h3', { text: 'Purification calculator' }));
-    if (fail) { card.append(h('div', { class: 'callout', text: 'It fails the Shariah screen. Purifying the dividend does not make holding it permissible; most scholars advise selling.' })); return card; }
-    if (!isNum(Pu.ratio)) { card.append(h('p', { class: 'sub', text: 'Interest income is not reported separately, so the impure share of income cannot be estimated here. Use the purification percentage on Zoya or Musaffa.' })); return card; }
-    card.append(h('p', { class: 'sub' }, Pu.method && Pu.method !== 'reported' ? 'Impure share of income, estimated: about ' : 'Impure share of income: about ', h('b', { text: pct(Pu.ratio, 2) }), ` (${Pu.basis}). The usual method: give that share of every dividend you receive to charity.`));
-    const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n > 0 ? n : 0; };
-    const sh = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'e.g. 10', 'aria-label': 'Shares you hold' });
-    const got = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'optional', 'aria-label': 'Dividends you received, in dollars' });
-    const mine = HAS_SITE ? W.get(d.ticker) : null;
-    if (mine && mine.shares > 0) sh.value = String(mine.shares);
-    const out = h('div', { class: 'out' });
-    const upd = () => {
-      const s = num(sh.value);
-      const g = num(got.value);
-      const rows = [];
-      if (g) rows.push(h('div', null, 'On ', h('b', { text: price(g) }), ' of dividends received, purify about ', h('b', { text: price(g * Pu.ratio) }), '.'));
-      if (s && isNum(D.perShare)) {
-        const yr = s * D.perShare;
-        rows.push(h('div', null, `${fmtShares(s)} shares pay about `, h('b', { text: price(yr) }), ' a year at the current rate, so about ', h('b', { text: price(yr * Pu.ratio) }), ' a year to purify.'));
-      }
-      if (!rows.length) rows.push(h('div', { class: 'muted', text: 'Enter your shares, or the dividends you received.' }));
-      out.replaceChildren(...rows);
-    };
-    sh.addEventListener('input', upd);
-    got.addEventListener('input', upd);
-    upd();
-    card.append(h('div', { class: 'calc' },
-      h('label', null, h('span', { text: 'Shares you hold' }), sh),
-      h('label', null, h('span', { text: 'Dividends received ($)' }), got),
-      out));
-    card.append(h('p', { class: 'note', text: Pu.note }));
+    card.append(h('h3', { text: 'Purification' }));
+    card.append(h('div', { class: 'callout' }, h('b', { text: 'Off, pending a scholar-approved method. ' }), 'This site does not calculate, estimate or show an amount to purify. That stays off until a qualified Shariah scholar gives you a method and you approve building it. If you are given an amount, you can keep a record of it in the Shariah ledger.'));
+    card.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('shariah') }, 'Open the Shariah ledger')));
     return card;
   }
   function peersCard(d) {
@@ -6595,7 +6638,7 @@ table.data tr.me td { background: var(--accent-wash); }
     });
   }
   // test hook for the automated page tests (test/page.test.py); inert unless the page is opened with ?selftest=1
-  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, SHL }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
+  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, shariahGate, ledgerGate, SHL }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
 })();
 </script>
 </body>

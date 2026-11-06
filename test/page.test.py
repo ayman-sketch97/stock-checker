@@ -55,7 +55,15 @@ def weekday_back(n):
     return d.isoformat()
 
 
-async def page_with(ctx, base, price_date, storage=None, path='', stock=None, extra=None, patch=None):
+# A ledger with one current Zoya check that says compliant for each ticker, written by the page's own code. Tests of the
+# buy suggestions, plan and limits start from this, so they test the limits and not the Shariah gate (which has its own tests).
+SEED_LEDGER = r"""(ts) => { const S = window.__sc.shariah; const p = (n) => String(n).padStart(2, '0'); const d = new Date(); d.setDate(d.getDate() - 3);
+  const checked = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; const t0 = new Date(); const today = `${t0.getFullYear()}-${p(t0.getMonth() + 1)}-${p(t0.getDate())}`;
+  let e = []; for (const t of ts) e = S.appendEntry(e, { kind: 'check', t, status: 'compliant', checked, source: 'zoya_app', evidence: 'test fixture: a Zoya screen' }, today, new Date().toISOString()).entries;
+  localStorage.setItem('shariah', JSON.stringify({ v: 1, entries: e })); localStorage.setItem('shariah_anchor', JSON.stringify(S.anchorOf(e))); }"""
+
+
+async def page_with(ctx, base, price_date, storage=None, path='', stock=None, extra=None, patch=None, zoya=None):
     screen = json.load(open(os.path.join(FIX, 'screen.json')))
     index = json.load(open(os.path.join(FIX, 'index.json')))
     screen['priceDate'] = index['priceDate'] = price_date
@@ -89,6 +97,8 @@ async def page_with(ctx, base, price_date, storage=None, path='', stock=None, ex
     await pg.goto(base + '?selftest=1')
     if storage is not None:
         await pg.evaluate('(s) => { localStorage.clear(); for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v)); }', storage)
+        if zoya:
+            await pg.evaluate(SEED_LEDGER, [r[0] for r in screen['rows']] if zoya == 'all' else list(zoya))
         await pg.goto(base + '?selftest=1' + path)
     await pg.wait_for_timeout(1200)
     return pg, errs
@@ -370,7 +380,7 @@ async def main():
         await pg.close()
         # with the rest of the portfolio recorded ($10,000 in cash and funds), no stock is above 15%
         own['advisor'] = {'v': 1, 'profile': None, 'hp': {}, 'other': [{'id': 'o1', 'sym': 'CASH', 'kind': 'cash', 'market': '', 'shares': None, 'value': 10000}]}
-        pg, errs = await page_with(ctx, base, fresh, own, '', None, {'data/lt-summary.json': LT}, with_events)
+        pg, errs = await page_with(ctx, base, fresh, own, '', None, {'data/lt-summary.json': LT}, with_events, zoya='all')
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check('to look at today' in brief and 'Above its trim price' in brief, f'brief: AAPL above its trim price is a thing to look at: {brief[:300]!r}')
         check('Said earlier financial statements can no longer be relied on' in brief, 'brief: a warning filing (8-K item 4.02) on a holding is flagged')
@@ -591,7 +601,7 @@ async def main():
                     r[F['shariah']] = 'review'
         techy = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 2, 'cost': 150}, {'t': 'MSFT', 'added': '2026-01-01', 'shares': 1, 'cost': 300}], 'snap': None, 'prev': None},
                  'advisor': {'v': 1, 'profile': prof, 'hp': {}, 'other': [{'id': 'o1', 'sym': 'ISDW', 'kind': 'fund', 'market': '', 'shares': None, 'value': 5000}]}}
-        pg, errs = await page_with(ctx, base, fresh, techy, '', None, {'data/lt-summary.json': LT}, patch=add_rows)
+        pg, errs = await page_with(ctx, base, fresh, techy, '', None, {'data/lt-summary.json': LT}, patch=add_rows, zoya='all')
         await pg.click('#nav button:has-text("Portfolio")')
         await pg.wait_for_timeout(1800)
         adv = await pg.inner_text('section[aria-label="Advice on what you hold"]')
@@ -726,7 +736,8 @@ async def main():
         check(v['s40'] is False and v['s39'] is True and abs(v['sz50'] - 1000) < 1e-9 and v['szSmall'] == 0, 'page rules: a sector at 40% is closed; a trim under $100 is not worth an order')
         check(v['rules'] == {'buyCap': 0.1, 'trimAt': 0.15, 'trimTo': 0.1, 'sectorMax': 0.4, 'minOrder': 100}, f"page rules: the approved numbers {v['rules']}")
         # the risk check: a stock at 9.9% of a $10,000 portfolio is blocked (room $10), of a $100,000 one allowed (room $100)
-        bc = await pg.evaluate('''() => { const scr = { by: new Map([['AAA', { shariah: 'pass', sector: 'Tech' }]]), priceDate: __sc.screen().priceDate };
+        bc = await pg.evaluate('''() => { __sc.shariah.SHL.add({ kind: 'check', t: 'AAA', status: 'compliant', checked: (() => { const d = new Date(); d.setDate(d.getDate() - 3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(), source: 'zoya_app', evidence: 'test fixture' });
+            const scr = { by: new Map([['AAA', { shariah: 'pass', sector: 'Tech' }]]), priceDate: __sc.screen().priceDate };
             const snap = (v, tot) => ({ byT: new Map([['AAA', v]]), bySector: new Map([['Tech', v]]), usVal: tot * 0.7, total: tot, n: 7 });
             return [__sc.buyCheck('AAA', scr, snap(990, 10000)), __sc.buyCheck('AAA', scr, snap(9900, 100000)), __sc.buyCheck('AAA', scr, snap(1000, 10000)), __sc.buyCheck('AAA', scr, snap(900, 9000), 1000)]; }''')
         check(not bc[0]['ok'] and 'leaves room for $10.00, under the $100.00 an order needs' in bc[0]['why'][0], f"risk check: 9.9% of $10,000 is blocked: {bc[0]}")
@@ -760,7 +771,7 @@ async def main():
         for cash, want, what in [(1500, ['MSFT', 'Capped at $177.23', 'Includes $13.38 your limits leave over'], 'capped'), (500, ['No stock fits right now', 'skipped because your limits block it'], 'too small')]:
             st = book([], cash)
             st['advisor']['profile']['monthlyAed'] = 1000
-            pg, errs = await page_with(ctx, base, fresh, st, '', None, {'data/lt-summary.json': LT})
+            pg, errs = await page_with(ctx, base, fresh, st, '', None, {'data/lt-summary.json': LT}, zoya='all')
             await pg.click('#nav button:has-text("Portfolio")')
             await pg.wait_for_timeout(1500)
             plan = await pg.inner_text('section[aria-label="This month"]')
@@ -768,7 +779,7 @@ async def main():
             check(not errs, f'no page errors in the monthly plan ({what}) {errs}')
             await pg.close()
         # the stock page says how much room is left; the limits card states the rules exactly
-        pg, errs = await page_with(ctx, base, fresh, book([], 10000), '', 'stock-ok')
+        pg, errs = await page_with(ctx, base, fresh, book([], 10000), '', 'stock-ok', zoya='all')
         await pg.goto(base + '?selftest=1&t=KO')
         await pg.wait_for_timeout(1800)
         act = await pg.inner_text('.act-row >> nth=0')
@@ -944,7 +955,7 @@ async def main():
         txt = await pg.inner_text('#page-shariah')
         check('Shariah ledger' in txt and 'AAA' in txt and 'BBB' in txt, 'ledger page lists both holdings')
         check(txt.count('Not recorded') == 2 and 'No Shariah record for this holding' in txt, 'a holding with no record is flagged as missing, not assumed compliant')
-        check('Calculation inactive' in txt and 'qualified Shariah scholar' in txt, 'purification shows as inactive pending a scholar’s method')
+        check('Inactive: pending a scholar-approved method' in txt and 'pending a method confirmed by a qualified Shariah scholar' in txt, 'purification shows as inactive pending a scholar-approved method')
         check(await pg.locator('#nav button[aria-current="page"]').inner_text() == 'Portfolio', 'the Portfolio tab stays highlighted on the ledger page')
         check(await pg.locator('#page-shariah a[href^="https://zoya.finance/stocks/"]').count() == 2, 'each holding links to its Zoya page')
 
@@ -1094,6 +1105,165 @@ async def main():
         await pg.wait_for_timeout(600)
         check(await lg_store(pg) is None and 'removed' in await pg.inner_text('#page-journal'), 'a backup with entries cut off the end is refused')
         check(not errs, f'no page errors during the ledger backup tests {errs}')
+        await pg.close()
+
+        # ---- stage 4, decisions of 6 November: purification is off, new buys need a current Zoya check in the ledger, the
+        # 90-day countdown starts only from a confirmed move from compliant. The tests above use a compliant ledger; these use every other state.
+        SEED_SPEC = r"""(specs) => { const S = window.__sc.shariah; const p = (n) => String(n).padStart(2, '0');
+          const iso = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+          let e = []; for (const x of specs) { const f = x.kind === 'purification' ? { kind: 'purification', t: x.t, action: 'due', amount: x.amount, currency: 'USD', asOf: iso(x.ago), basis: 'Scholar X, fixture' }
+              : { kind: 'check', t: x.t, status: x.status, checked: iso(x.ago), source: x.source || 'zoya_app', evidence: 'test fixture' };
+            if (x.change != null) f.changeDate = iso(x.change);
+            const r = S.appendEntry(e, f, iso(0), new Date().toISOString()); if (!r.ok) throw new Error(r.errors.join('; ')); e = r.entries; }
+          localStorage.setItem('shariah', JSON.stringify({ v: 1, entries: e })); localStorage.setItem('shariah_anchor', JSON.stringify(window.__sc.shariah.anchorOf(e))); }"""
+
+        async def ko_action(specs, tamper=False, st=None):
+            pg, errs = await page_with(ctx, base, fresh, st or book([], 10000), '', 'stock-ok')
+            if specs is not None:
+                await pg.evaluate(SEED_SPEC, specs)
+            if tamper:
+                await pg.evaluate("() => { const d = JSON.parse(localStorage.getItem('shariah')); d.entries[0].evidence = 'edited afterwards'; localStorage.setItem('shariah', JSON.stringify(d)); }")
+            await pg.goto(base + '?selftest=1&t=KO')
+            await pg.wait_for_timeout(1500)
+            act = await pg.inner_text('.act-row >> nth=0')
+            await pg.close()
+            return act, errs
+
+        ALLOW = 'Your 10% limit for one stock allows up to $1,000.00 more in it now'
+        gate_cases = [
+            ('no ledger at all', None, 'Blocked by the Shariah ledger', 'no record in your Shariah ledger'),
+            ('empty ledger', [], 'Blocked by the Shariah ledger', 'no record in your Shariah ledger'),
+            ('only another ticker has a record', [{'t': 'AAPL', 'status': 'compliant', 'ago': 3}], 'Blocked by the Shariah ledger', 'no record in your Shariah ledger'),
+            ('compliant on Zoya, 3 days ago', [{'t': 'KO', 'status': 'compliant', 'ago': 3}], None, None),
+            ('compliant on Zoya, 89 days ago', [{'t': 'KO', 'status': 'compliant', 'ago': 89}], None, None),
+            ('compliant on Zoya, 90 days ago (the recheck day)', [{'t': 'KO', 'status': 'compliant', 'ago': 90}], None, None),
+            ('compliant on Zoya, 91 days ago: stale', [{'t': 'KO', 'status': 'compliant', 'ago': 91}], 'Blocked by the Shariah ledger', 'is stale: last checked'),
+            ('compliant on Zoya, 400 days ago: stale', [{'t': 'KO', 'status': 'compliant', 'ago': 400}], 'Blocked by the Shariah ledger', 'is stale: last checked'),
+            ('not compliant on Zoya', [{'t': 'KO', 'status': 'compliant', 'ago': 60}, {'t': 'KO', 'status': 'non_compliant', 'ago': 5, 'change': 8}], 'Blocked by the Shariah ledger', 'Zoya shows it as not compliant'),
+            ('questionable on Zoya', [{'t': 'KO', 'status': 'compliant', 'ago': 60}, {'t': 'KO', 'status': 'questionable', 'ago': 5}], 'Blocked by the Shariah ledger', 'questionable'),
+            ('compliant, but not from Zoya', [{'t': 'KO', 'status': 'compliant', 'ago': 3, 'source': 'other'}], 'Blocked by the Shariah ledger', 'nothing in your Shariah ledger for it comes from Zoya'),
+            ('Zoya compliant, then a newer entry that is not from Zoya', [{'t': 'KO', 'status': 'compliant', 'ago': 30}, {'t': 'KO', 'status': 'compliant', 'ago': 3, 'source': 'other'}], 'Blocked by the Shariah ledger', 'not from Zoya, so its status is not confirmed'),
+            ('back to compliant after not compliant', [{'t': 'KO', 'status': 'compliant', 'ago': 60}, {'t': 'KO', 'status': 'non_compliant', 'ago': 20, 'change': 22}, {'t': 'KO', 'status': 'compliant', 'ago': 2}], None, None),
+        ]
+        for name, specs, title, reason in gate_cases:
+            act, errs = await ko_action(specs)
+            if title is None:
+                check(ALLOW in act and 'Blocked' not in act, f'new-buy gate, {name}: the buy is allowed: {act[:260]!r}')
+            else:
+                check(title in act and reason in act and ALLOW not in act, f'new-buy gate, {name}: blocked, with the reason: {act[:300]!r}')
+            check(not errs, f'no page errors in the new-buy gate case {name} {errs}')
+        act, errs = await ko_action([{'t': 'KO', 'status': 'compliant', 'ago': 3}], tamper=True)
+        check('Blocked by the Shariah ledger' in act and 'failed its own check' in act and ALLOW not in act, f'new-buy gate, ledger edited afterwards: blocked, with the reason: {act[:300]!r}')
+
+        # the same gate on the Portfolio page: the plan gives a blocked stock no money and says why; a held stock is not sold for it
+        gl_state = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 2, 'cost': 150}, {'t': 'MSFT', 'added': '2026-01-01', 'shares': 1, 'cost': 300}, {'t': 'KO', 'added': '2026-03-01'}], 'snap': None, 'prev': None},
+                    'advisor': {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'test', 'hold': 'auto', 'swing': 'no', 'broker': 'tiered', 'monthlyAed': 1000}, 'hp': {}, 'other': [{'id': 'o1', 'sym': 'ISDW', 'kind': 'fund', 'market': '', 'shares': None, 'value': 5000}]}}
+
+        async def advice(specs):
+            pg, errs = await page_with(ctx, base, fresh, gl_state, '', None, {'data/lt-summary.json': LT}, with_events)
+            if specs is not None:
+                await pg.evaluate(SEED_SPEC, specs)
+            await pg.goto(base + '?selftest=1&p=advisor')
+            await pg.wait_for_timeout(1800)
+            rows = await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"Advice on what you hold\"] .srow')].map((e) => e.innerText)")
+            plan = await pg.inner_text('section[aria-label="This month"]')
+            full = await pg.inner_text('#page-advisor')
+            await pg.close()
+            return {r.split('\n')[0].strip(): r for r in rows}, plan, full, errs
+        every = [{'t': t, 'status': 'compliant', 'ago': 3} for t in ('AAPL', 'MSFT', 'KO')]
+        base_rows, base_plan, base_full, e0 = await advice(every)
+        for name, specs in [('no ledger', None), ('stale', [{'t': t, 'status': 'compliant', 'ago': 120} for t in ('AAPL', 'MSFT', 'KO')]),
+                            ('non-compliant, never recorded as compliant', [{'t': t, 'status': 'non_compliant', 'ago': 3, 'change': 5} for t in ('AAPL', 'MSFT', 'KO')]),
+                            ('questionable', [{'t': t, 'status': 'questionable', 'ago': 3} for t in ('AAPL', 'MSFT', 'KO')])]:
+            rows, plan, full, errs = await advice(specs)
+            acts = {t: (r.split('\n')[1] if '\n' in r else '') for t, r in rows.items()}
+            base_acts = {t: (r.split('\n')[1] if '\n' in r else '') for t, r in base_rows.items()}
+            moved = {t: (base_acts.get(t), acts.get(t)) for t in set(acts) | set(base_acts) if acts.get(t) != base_acts.get(t)}
+            check(all(b == 'Add' and a == 'Hold' for b, a in moved.values()), f'ledger {name}: the only change to what you hold is that an Add becomes a Hold, never a sale: {moved}')
+            check(not any(a in ('Sell', 'Trim', 'Take profit') and base_acts.get(t) != a for t, a in acts.items()), f'ledger {name}: nothing is sold or trimmed because of it')
+            check('KO' not in plan.split('Shariah ledger:')[0] or 'Shariah ledger' in plan, f'ledger {name}: the plan does not send money to a blocked stock without saying so')
+            check(not errs, f'no page errors on the Portfolio page, ledger {name} {errs}')
+        rows, plan, full, errs = await advice(None)
+        check('Shariah ledger: no new money goes to AAPL, MSFT' in plan, f'portfolio, no ledger: the plan says which stocks get no new money and why: {plan[-500:]!r}')
+        check('Holding and selling are not affected' in plan, 'the plan note says holding and selling are not affected')
+
+        # the Shortlist marks a buy candidate that has no current Zoya check; and the reason is a few words, not a bare "blocked"
+        pg, errs = await page_with(ctx, base, fresh, {}, '&p=shortlist', None, None, with_events)
+        sl_txt = await pg.inner_text('#page-shortlist')
+        check('Blocked: no Zoya record' in sl_txt, f'shortlist: a buy candidate without a Zoya record in the ledger is marked: {sl_txt[:400]!r}')
+        await pg.evaluate(SEED_SPEC, [{'t': 'AAPL', 'status': 'compliant', 'ago': 3}, {'t': 'MSFT', 'status': 'non_compliant', 'ago': 3, 'change': 4}, {'t': 'KO', 'status': 'compliant', 'ago': 100}])
+        await pg.goto(base + '?selftest=1&p=shortlist')
+        await pg.wait_for_timeout(1500)
+        sl_txt = await pg.inner_text('#page-shortlist')
+        check('Blocked: Zoya check stale' in sl_txt or 'Blocked: not compliant on Zoya' in sl_txt or 'KO' not in sl_txt, f'shortlist: stale and non-compliant records are named in the tag: {sl_txt[:400]!r}')
+        check(not errs, f'no page errors on the Shortlist {errs}')
+        await pg.close()
+
+        # ---- the ledger page: the countdown starts only from a confirmed move from compliant, with the change date
+        async def ledger_text(specs, held=('AAA',)):
+            st = {'watch': {'v': 1, 'items': [{'t': t, 'added': '2026-01-01', 'shares': 10, 'cost': 100} for t in held], 'snap': None, 'prev': None}}
+            pg, errs = await page_with(ctx, base, fresh, st, '&p=shariah')
+            await pg.evaluate(SEED_SPEC, specs)
+            await pg.goto(base + '?selftest=1&p=shariah')
+            await pg.wait_for_timeout(900)
+            t = await pg.inner_text('#page-shariah section[aria-label="AAA"]')
+            await pg.close()
+            return t, errs
+        t1, e1 = await ledger_text([{'t': 'AAA', 'status': 'non_compliant', 'ago': 3, 'change': 5}])
+        check('Exit deadline' not in t1 and 'countdown has not started' in t1 and 'no earlier Zoya check that said compliant' in t1, f'ledger page: a first-ever not-compliant record starts no countdown even with a change date: {t1[:500]!r}')
+        t2, e2 = await ledger_text([{'t': 'AAA', 'status': 'compliant', 'ago': 40}, {'t': 'AAA', 'status': 'non_compliant', 'ago': 3}])
+        check('Exit deadline' not in t2 and 'status-change date is not recorded' in t2 and 'countdown has not started' in t2, f'ledger page: a confirmed move without its change date starts no countdown: {t2[:500]!r}')
+        dl2 = (today - dt.timedelta(days=12) + dt.timedelta(days=90)).isoformat()
+        t3, e3 = await ledger_text([{'t': 'AAA', 'status': 'compliant', 'ago': 40}, {'t': 'AAA', 'status': 'non_compliant', 'ago': 3, 'change': 12}])
+        check(f'Exit deadline {dl2}' in t3 and '78 days left' in t3, f'ledger page: compliant then not compliant, with the change date: deadline {dl2}: {t3[:500]!r}')
+        t4, e4 = await ledger_text([{'t': 'AAA', 'status': 'compliant', 'ago': 120}])
+        check('Exit deadline' not in t4 and 'stale' in t4 and 'New buys: blocked' in t4, f'ledger page: a stale record starts no countdown and blocks new buys, and says so: {t4[:500]!r}')
+        t5, e5 = await ledger_text([{'t': 'AAA', 'status': 'compliant', 'ago': 40}, {'t': 'AAA', 'status': 'questionable', 'ago': 3}])
+        check('Exit deadline' not in t5 and 'New buys: blocked' in t5 and 'questionable' in t5, f'ledger page: a questionable record starts no countdown and blocks new buys: {t5[:500]!r}')
+        t6, e6 = await ledger_text([{'t': 'AAA', 'status': 'compliant', 'ago': 3}])
+        check('New buys: the ledger allows them' in t6 and 'Your limits and the site’s other checks still apply' in t6, f'ledger page: a current Zoya compliant record says new buys are allowed, and that the other checks still apply: {t6[:500]!r}')
+        check(not (e1 or e2 or e3 or e4 or e5 or e6), f'no page errors on the ledger page cases {[e1, e2, e3, e4, e5, e6]}')
+
+        # ---- purification is off: no amount, estimate or calculator anywhere, and the old records are kept
+        div_extra = json.load(open(os.path.join(FIX, 'stock-ok.json')))
+        div_extra['dividends'] = {'pays': True, 'yield': 0.031, 'perShare': 1.84, 'paidPerShare': 1.84, 'payoutProfit': 0.62, 'payoutFcf': 0.7, 'yearsPaid': 12, 'growth5y': 0.05, 'special': False}
+        pg, errs = await page_with(ctx, base, fresh, book([], 10000), '&t=KO', None, {'data/KO.json': div_extra})
+        await pg.wait_for_timeout(1000)
+        dv = await pg.inner_text('#divCard') if await pg.locator('#divCard').count() else ''
+        check('Dividend yield' in dv and '3.10%' in dv, f'dividend card: yield and payout are still shown: {dv[:300]!r}')
+        check('Off, pending a scholar-approved method' in dv and 'does not calculate, estimate or show an amount to purify' in dv, f'dividend card: purification is off, pending a scholar-approved method: {dv[-400:]!r}')
+        check('purify about' not in dv and 'Impure share' not in dv and '0.50%' not in dv and '0.5%' not in dv and await pg.locator('#divCard input').count() == 0, 'dividend card: no calculator, no amount and no percentage to purify')
+        check(await pg.locator('#divCard button:has-text("Open the Shariah ledger")').count() == 1, 'dividend card: a way to the Shariah ledger for keeping a record')
+        whole = await pg.evaluate("document.documentElement.textContent")
+        check('Purify dividends with the calculator' not in whole and 'Purification calculator' not in whole and 'is estimated from interest income' not in whole, 'no text anywhere sends you to a purification calculator or estimate')
+        check(not errs, f'no page errors on the dividend card {errs}')
+        await pg.close()
+        wl = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 2, 'cost': 150}, {'t': 'MSFT', 'added': '2026-01-01', 'shares': 1, 'cost': 300}], 'snap': None, 'prev': None}}
+        pg, errs = await page_with(ctx, base, fresh, wl, '&p=watchlist')
+        wtxt = await pg.inner_text('#page-watchlist')
+        check(re.search(r'(?i)Purification\s+Off\s+pending a scholar-approved method', wtxt) is not None, f'watchlist: the purification figure is replaced by Off, pending a scholar-approved method: {wtxt[:600]!r}')
+        check('Purification is switched off: no amount is calculated or estimated' in wtxt and 'estimated from the last 12 months of dividends' not in wtxt, 'watchlist: the estimate note is replaced')
+        check(not errs, f'no page errors on the watchlist {errs}')
+        await pg.close()
+        pg, errs = await page_with(ctx, base, fresh, gl_state, '&p=advisor', None, {'data/lt-summary.json': LT}, with_events)
+        ptxt = await pg.inner_text('#page-advisor')
+        check('Purification is switched off until a qualified Shariah scholar gives you a method' in ptxt and 'with the calculator' not in ptxt, 'portfolio page: the old "purify with the calculator" step is replaced')
+        await pg.close()
+        # records kept before the change are preserved, exactly as entered, and no total or figure is made from them
+        st = {'watch': {'v': 1, 'items': [{'t': 'AAA', 'added': '2026-01-01', 'shares': 10, 'cost': 100}], 'snap': None, 'prev': None}}
+        pg, errs = await page_with(ctx, base, fresh, st, '&p=shariah')
+        await pg.evaluate(SEED_SPEC, [{'t': 'AAA', 'status': 'compliant', 'ago': 3}, {'kind': 'purification', 't': 'AAA', 'amount': 12.5, 'ago': 2}, {'kind': 'purification', 't': 'AAA', 'amount': 3.25, 'ago': 1}])
+        await pg.goto(base + '?selftest=1&p=shariah')
+        await pg.wait_for_timeout(900)
+        pc = await pg.inner_text('#page-shariah section[aria-label="Purification"]')
+        check('Inactive: pending a scholar-approved method' in pc and 'does not calculate, estimate or show purification amounts' in pc, f'ledger page: purification is marked inactive, pending a scholar-approved method: {pc[:400]!r}')
+        check('2 records kept' in pc and '12.5' not in pc and '3.25' not in pc and 'Totals' not in pc, f'ledger page: records are kept but no amount or total is shown in the purification card: {pc!r}')
+        hist = await pg.evaluate("document.querySelector('#page-shariah section[aria-label=\"AAA\"]').textContent")
+        check('Purification due: 12.5 USD' in hist and 'Purification due: 3.25 USD' in hist and 'basis: Scholar X, fixture' in hist, 'ledger page: both earlier records are still in the stock history, exactly as entered, with their basis')
+        stv = await lg_store(pg)
+        check(len(stv['entries']) == 3 and [e['kind'] for e in stv['entries']] == ['check', 'purification', 'purification'], 'the history is untouched: three entries')
+        check(await pg.evaluate("window.__sc.shariah.verifyLedger(JSON.parse(localStorage.getItem('shariah')).entries).ok"), 'the chain of the earlier records still verifies')
+        check(not errs, f'no page errors on the purification card {errs}')
         await pg.close()
 
         # ---- stale data warning on the home page

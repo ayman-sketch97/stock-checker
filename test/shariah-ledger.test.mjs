@@ -47,7 +47,7 @@ test('dates: real calendar dates only, and adding days crosses months, years and
 test('the exit deadline is exactly 90 days from the status-change date, in every calendar situation', () => {
   const dates = ['2026-01-01', '2026-05-31', '2026-10-15', '2026-11-06', '2027-12-01', '2027-11-30', '2028-01-15', '2026-12-31', '2028-03-01', '2029-12-31'];
   for (const d of dates) {
-    const e = build([chk('AAA', 'compliant', plusDays(d, -20)), chk('AAA', 'non_compliant', d)], '2030-01-01');
+    const e = build([chk('AAA', 'compliant', plusDays(d, -20)), chk('AAA', 'non_compliant', d, { changeDate: d })], '2030-01-01');
     const s = state(e, 'AAA', d);
     assert.equal(s.run.changeDate, d);
     assert.equal(s.run.deadline, plusDays(d, 90), `deadline for ${d}`);
@@ -62,13 +62,17 @@ test('the deadline counts from the change date Zoya shows, not from the day you 
   assert.equal(s.run.changeDate, '2026-10-01');
   assert.equal(s.run.deadline, plusDays('2026-10-01', 90));
   assert.equal(s.run.daysLeft, L.daysBetweenISO('2026-11-06', s.run.deadline));
-  // with no change date the check date is the date the change was seen
+  // with no change date the countdown does not start: the check date is not the change date, and it is never used in its place
   const e2 = build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'non_compliant', '2026-11-05')]);
-  assert.equal(state(e2, 'AAA', '2026-11-06').run.deadline, plusDays('2026-11-05', 90));
+  const s2 = state(e2, 'AAA', '2026-11-06');
+  assert.equal(s2.run.deadline, null);
+  assert.equal(s2.run.daysLeft, null);
+  assert.ok(hasFlag(s2, 'no_change_date', 'bad'));
+  assert.ok(!flagCodes(s2).some((c) => c.startsWith('exit_')), 'no exit deadline flag without a deadline');
 });
 
 test('deadline day by day: 90 days left, the last day, and overdue the day after', () => {
-  const e = build([chk('AAA', 'compliant', '2026-06-01'), chk('AAA', 'non_compliant', '2026-07-01')], '2026-11-06');
+  const e = build([chk('AAA', 'compliant', '2026-06-01'), chk('AAA', 'non_compliant', '2026-07-01', { changeDate: '2026-07-01' })], '2026-11-06');
   const dl = plusDays('2026-07-01', 90); // 2026-09-29
   const at = (today) => state(e, 'AAA', today);
   assert.equal(at('2026-07-01').run.daysLeft, 90);
@@ -127,33 +131,65 @@ test('questionable neither opens nor closes an exit period, but a move from comp
   assert.equal(s.transitions[0].to, 'questionable');
   assert.ok(hasFlag(s, 'uncertain', 'warn') && hasFlag(s, 'transition', 'warn'));
   // inside an open period, a questionable check does not stop the clock
-  const e2 = build([chk('AAA', 'compliant', '2026-06-01'), chk('AAA', 'non_compliant', '2026-07-01'), chk('AAA', 'questionable', '2026-08-01')]);
+  const e2 = build([chk('AAA', 'compliant', '2026-06-01'), chk('AAA', 'non_compliant', '2026-07-01', { changeDate: '2026-07-01' }), chk('AAA', 'questionable', '2026-08-01')]);
   const s2 = state(e2, 'AAA', '2026-11-06');
   assert.equal(s2.run.deadline, plusDays('2026-07-01', 90));
   // and a second non-compliant check does not move the deadline
-  const e3 = build([chk('AAA', 'compliant', '2026-06-01'), chk('AAA', 'non_compliant', '2026-07-01'), chk('AAA', 'non_compliant', '2026-10-01')]);
+  const e3 = build([chk('AAA', 'compliant', '2026-06-01'), chk('AAA', 'non_compliant', '2026-07-01', { changeDate: '2026-07-01' }), chk('AAA', 'non_compliant', '2026-10-01')]);
   assert.equal(state(e3, 'AAA', '2026-11-06').run.deadline, plusDays('2026-07-01', 90));
 });
 
-test('a first record of non-compliant has no deadline unless the change date is given: never guessed', () => {
+test('a first record of non-compliant never starts a countdown, with or without a change date', () => {
   const e = build([chk('AAA', 'non_compliant', '2026-10-01')]);
   const s = state(e, 'AAA', '2026-11-06');
   assert.ok(s.run);
+  assert.equal(s.run.fromCompliant, false);
   assert.equal(s.run.deadline, null);
   assert.equal(s.run.changeDate, null);
-  assert.ok(hasFlag(s, 'no_change_date', 'bad'));
+  assert.ok(hasFlag(s, 'no_prior_compliant', 'bad'));
   assert.equal(s.transitions.length, 0);
+  // even with a change date: there was no earlier compliant record, so this is not a confirmed move from compliant
   const e2 = build([chk('AAA', 'non_compliant', '2026-10-01', { changeDate: '2026-09-10' })]);
   const s2 = state(e2, 'AAA', '2026-11-06');
-  assert.equal(s2.run.deadline, plusDays('2026-09-10', 90));
-  assert.ok(!hasFlag(s2, 'no_change_date'));
-  // a later check that supplies the date fills it in, once
-  const e3 = build([chk('AAA', 'non_compliant', '2026-10-01'), chk('AAA', 'non_compliant', '2026-10-20', { changeDate: '2026-09-10' })]);
-  assert.equal(state(e3, 'AAA', '2026-11-06').run.deadline, plusDays('2026-09-10', 90));
+  assert.equal(s2.run.deadline, null);
+  assert.equal(s2.run.daysLeft, null);
+  assert.ok(hasFlag(s2, 'no_prior_compliant', 'bad'));
+  assert.ok(!flagCodes(s2).some((c) => c.startsWith('exit_')));
+  // recording the earlier Zoya check that said compliant (entered later, dated earlier) is what starts the countdown
+  const e3 = L.appendEntry(e2, chk('AAA', 'compliant', '2026-08-01'), '2026-11-06', NOW).entries;
+  const s3 = state(e3, 'AAA', '2026-11-06');
+  assert.equal(s3.run.fromCompliant, true);
+  assert.equal(s3.run.deadline, plusDays('2026-09-10', 90));
+  assert.ok(!hasFlag(s3, 'no_prior_compliant') && !hasFlag(s3, 'no_change_date'));
+  assert.equal(s3.history.length, 2, 'the original entry is still there');
+});
+
+test('a confirmed move from compliant without a change date waits for the date; a later check that gives it starts the countdown', () => {
+  const e = build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'non_compliant', '2026-10-01')]);
+  const s = state(e, 'AAA', '2026-11-06');
+  assert.equal(s.run.deadline, null);
+  assert.ok(hasFlag(s, 'no_change_date', 'bad'));
+  assert.ok(hasFlag(s, 'transition', 'bad'));
+  const e2 = build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'non_compliant', '2026-10-01'), chk('AAA', 'non_compliant', '2026-10-20', { changeDate: '2026-09-10' })]);
+  assert.equal(state(e2, 'AAA', '2026-11-06').run.deadline, plusDays('2026-09-10', 90));
+});
+
+test('stale, missing, questionable or non-Zoya data never starts a countdown and never marks anything as sold', () => {
+  const none = state(build([]), 'AAA', '2026-11-06');
+  const stale = state(build([chk('AAA', 'compliant', '2026-01-01')]), 'AAA', '2026-11-06');
+  const quest = state(build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'questionable', '2026-10-01')]), 'AAA', '2026-11-06');
+  const other = state(build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'non_compliant', '2026-10-01', { source: 'other', changeDate: '2026-09-01' })]), 'AAA', '2026-11-06');
+  for (const s of [none, stale, quest, other]) {
+    assert.equal(s.run, null);
+    assert.deepEqual(s.runs, []);
+    assert.equal(s.transitions.filter((t) => t.to === 'non_compliant').length, 0);
+    assert.ok(!flagCodes(s).some((c) => c.startsWith('exit_')));
+  }
+  assert.ok(hasFlag(stale, 'stale', 'bad'));
 });
 
 test('back to compliant closes the period; the old deadline stays in the history; a later change opens a new one', () => {
-  const e = build([chk('AAA', 'compliant', '2026-01-10'), chk('AAA', 'non_compliant', '2026-02-01'), chk('AAA', 'compliant', '2026-03-01'), chk('AAA', 'non_compliant', '2026-09-01')]);
+  const e = build([chk('AAA', 'compliant', '2026-01-10'), chk('AAA', 'non_compliant', '2026-02-01', { changeDate: '2026-02-01' }), chk('AAA', 'compliant', '2026-03-01'), chk('AAA', 'non_compliant', '2026-09-01', { changeDate: '2026-09-01' })]);
   const s = state(e, 'AAA', '2026-11-06');
   assert.equal(s.runs.length, 2);
   assert.ok(s.runs[0].closed);
@@ -179,7 +215,7 @@ test('a check entered late for an earlier date does not become the current statu
 });
 
 test('exit tracking: steps, dates, completion before or after the deadline, and refusals', () => {
-  let e = build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'non_compliant', '2026-10-01')]);
+  let e = build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'non_compliant', '2026-10-01', { changeDate: '2026-10-01' })]);
   assert.equal(state(e, 'AAA', '2026-11-06').run.exitStatus, 'not_started');
   const x1 = L.appendEntry(e, { kind: 'exit', t: 'AAA', exitStatus: 'in_progress', on: '2026-10-10', note: 'order placed' }, '2026-11-06', NOW);
   assert.ok(x1.ok); e = x1.entries;
@@ -196,7 +232,7 @@ test('exit tracking: steps, dates, completion before or after the deadline, and 
   // marked completed but still held
   assert.ok(hasFlag(state(e, 'AAA', '2026-11-06', true), 'still_held', 'warn'));
   // completed after the deadline is recorded as late
-  let late = build([chk('BBB', 'compliant', '2026-01-01'), chk('BBB', 'non_compliant', '2026-02-01')]);
+  let late = build([chk('BBB', 'compliant', '2026-01-01'), chk('BBB', 'non_compliant', '2026-02-01', { changeDate: '2026-02-01' })]);
   late = L.appendEntry(late, { kind: 'exit', t: 'BBB', exitStatus: 'completed', on: plusDays('2026-02-01', 95) }, '2026-11-06', NOW).entries;
   assert.ok(hasFlag(state(late, 'BBB', '2026-11-06', false), 'exit_done', 'warn'));
 });
@@ -205,7 +241,7 @@ test('exit entries are refused when there is nothing to exit, when dated before 
   const none = build([chk('AAA', 'compliant', '2026-08-01')]);
   assert.equal(L.appendEntry(none, { kind: 'exit', t: 'AAA', exitStatus: 'in_progress', on: '2026-11-01' }, '2026-11-06', NOW).ok, false);
   assert.equal(L.appendEntry([], { kind: 'exit', t: 'AAA', exitStatus: 'in_progress', on: '2026-11-01' }, '2026-11-06', NOW).ok, false);
-  const e = build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'non_compliant', '2026-10-01')]);
+  const e = build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'non_compliant', '2026-10-01', { changeDate: '2026-10-01' })]);
   assert.equal(L.appendEntry(e, { kind: 'exit', t: 'AAA', exitStatus: 'in_progress', on: '2026-09-30' }, '2026-11-06', NOW).ok, false);
   assert.equal(L.appendEntry(e, { kind: 'exit', t: 'AAA', exitStatus: 'in_progress', on: '2026-11-07' }, '2026-11-06', NOW).ok, false);
   assert.equal(L.appendEntry(e, { kind: 'exit', t: 'AAA', exitStatus: 'sold', on: '2026-11-01' }, '2026-11-06', NOW).ok, false);
@@ -433,7 +469,7 @@ test('joining two copies: the same, ahead, behind, split, again, and refused whe
 
 test('joining keeps corrections pointing at the right entry after a split', () => {
   const base = build([chk('AAA', 'compliant', '2026-08-01')]);
-  const a = L.appendEntry(base, chk('AAA', 'non_compliant', '2026-10-01'), '2026-11-06', NOW).entries; // n1 on device A
+  const a = L.appendEntry(base, chk('AAA', 'non_compliant', '2026-10-01', { changeDate: '2026-10-01' }), '2026-11-06', NOW).entries; // n1 on device A
   const b0 = L.appendEntry(base, chk('BBB', 'compliant', '2026-10-02'), '2026-11-06', NOW).entries; // n1 on device B
   const b = L.appendEntry(b0, { kind: 'correction', t: 'BBB', fixes: 1, note: 'wrong stock' }, '2026-11-06', NOW).entries; // n2 voids n1
   const m = L.mergeLedgers(a, b);
@@ -448,8 +484,10 @@ test('joining keeps corrections pointing at the right entry after a split', () =
 
 test('purification is stored but never calculated, and it cannot change a compliance result', () => {
   assert.equal(L.PURIFICATION.active, false);
+  assert.equal(L.PURIFICATION.status, 'pending_scholar_method');
   assert.match(L.PURIFICATION.message, /inactive/i);
-  assert.match(L.PURIFICATION.message, /qualified Shariah scholar/);
+  assert.match(L.PURIFICATION.message, /pending a method confirmed by a qualified Shariah scholar/);
+  assert.match(L.PURIFICATION.message, /does not calculate, estimate or show/);
   const names = Object.keys(L).join(' ').toLowerCase();
   assert.ok(!/calc|estimat|formula|percent|rate/.test(names.replace('rules', '')), 'no purification function is exported: ' + names);
   const src = fs.readFileSync(new URL('../lib/shariah-ledger.js', import.meta.url), 'utf8');
@@ -460,13 +498,16 @@ test('purification is stored but never calculated, and it cannot change a compli
   const p = (patch) => L.appendEntry([], { kind: 'purification', t: 'AAA', action: 'due', amount: 12.5, currency: 'USD', asOf: '2026-11-01', basis: 'Scholar X, email of 1 Nov', ...patch }, '2026-11-06', NOW);
   assert.ok(p({}).ok);
   for (const patch of [{ basis: '' }, { amount: 0 }, { amount: -1 }, { amount: NaN }, { amount: '12' }, { currency: 'usd1' }, { currency: '' }, { asOf: '2026-12-01' }, { action: 'estimate' }]) assert.equal(p(patch).ok, false, JSON.stringify(patch));
-  // recorded amounts are only listed and added up as entered
+  // recorded amounts are only kept, exactly as entered: nothing is added up or derived from them
   let e = p({}).entries;
   e = L.appendEntry(e, { kind: 'purification', t: 'AAA', action: 'paid', amount: 5, currency: 'USD', asOf: '2026-11-02', basis: 'Paid to charity Y' }, '2026-11-06', NOW).entries;
   e = L.appendEntry(e, { kind: 'purification', t: 'AAA', action: 'due', amount: 3.25, currency: 'AED', asOf: '2026-11-03', basis: 'Scholar X' }, '2026-11-06', NOW).entries;
   const pr = L.purificationRecords(e);
   assert.equal(pr.active, false);
-  eq(pr.enteredTotals, { due: { USD: 12.5, AED: 3.25 }, paid: { USD: 5 } });
+  assert.equal(pr.rows.length, 3);
+  eq(pr.rows.map((r) => r.amount), [12.5, 5, 3.25], 'as entered, in the order entered');
+  assert.deepEqual(Object.keys(pr).sort(), ['active', 'message', 'rows', 'status'], 'no total, rate or estimate is produced');
+  assert.equal(pr.status, 'pending_scholar_method');
   // they change nothing in the compliance state
   const withOnly = state(e, 'AAA', '2026-11-06');
   assert.equal(withOnly.status, 'none');
@@ -475,9 +516,10 @@ test('purification is stored but never calculated, and it cannot change a compli
   const both = L.appendEntry(checks, { kind: 'purification', t: 'AAA', action: 'due', amount: 9, currency: 'USD', asOf: '2026-11-01', basis: 'Scholar X' }, '2026-11-06', NOW).entries;
   const s1 = state(checks, 'AAA', '2026-11-06'); const s2 = state(both, 'AAA', '2026-11-06');
   eq([s2.status, s2.headline, s2.recheckDue, flagCodes(s2)], [s1.status, s1.headline, s1.recheckDue, flagCodes(s1)]);
-  // a struck-through amount no longer counts
+  // a struck-through amount leaves the list of current records, and stays in the history
   const voided = L.appendEntry(both, { kind: 'correction', t: 'AAA', fixes: 1, note: 'wrong amount' }, '2026-11-06', NOW).entries;
-  eq(L.purificationRecords(voided).enteredTotals, {});
+  assert.equal(L.purificationRecords(voided).rows.length, 0);
+  assert.equal(voided.filter((x) => x.kind === 'purification').length, 1, 'the struck-through record is still in the ledger');
   assert.equal(L.ledgerView(e, ['AAA'], '2026-11-06').purification.active, false);
 });
 
@@ -498,6 +540,148 @@ test('Zoya stays the authority: with no Zoya entry nothing is ever shown as comp
     const st = state(build(list), 'A', '2026-11-06'); texts.push(st.headline, ...st.flags.map((f) => f.text));
   }
   for (const t of texts) assert.ok(!/\b(is|are) (shariah |halal )?compliant\b|\bhalal\b|\bpermissible\b/i.test(t), `claims compliance: ${t}`);
+});
+
+const gate = (entries, t, today, intact = true) => L.shariahGate(entries, t, today, intact);
+
+test('the buy gate passes only a current Zoya check that says compliant', () => {
+  const e = build([chk('AAA', 'compliant', '2026-10-01')]);
+  const g = gate(e, 'AAA', '2026-11-06');
+  assert.equal(g.ok, true);
+  eq([g.code, g.reason, g.status, g.checked], ['ok', '', 'compliant', '2026-10-01']);
+  // every Zoya source counts, 'other' does not
+  for (const src of ['zoya_app', 'zoya_web', 'zoya_report']) assert.equal(gate(build([chk('AAA', 'compliant', '2026-10-01', { source: src })]), 'AAA', '2026-11-06').ok, true, src);
+  const other = gate(build([chk('AAA', 'compliant', '2026-10-01', { source: 'other' })]), 'AAA', '2026-11-06');
+  eq([other.ok, other.code], [false, 'no_zoya']);
+});
+
+test('the buy gate blocks a missing record, and says what to do', () => {
+  const g = gate([], 'AAA', '2026-11-06');
+  eq([g.ok, g.code], [false, 'missing']);
+  assert.match(g.reason, /no record in your Shariah ledger/);
+  assert.match(g.reason, /look it up on Zoya/);
+  // a record for another ticker does not help
+  const e = build([chk('BBB', 'compliant', '2026-10-01')]);
+  assert.equal(gate(e, 'AAA', '2026-11-06').code, 'missing');
+  assert.equal(gate(e, 'BBB', '2026-11-06').ok, true);
+  assert.equal(gate(undefined, 'AAA', '2026-11-06').code, 'missing');
+});
+
+test('the buy gate: stale on day 91, still fine on day 90, and blocked again by an old check', () => {
+  const e = build([chk('AAA', 'compliant', '2026-08-01')]);
+  const due = plusDays('2026-08-01', 90); // the recheck day
+  assert.equal(gate(e, 'AAA', plusDays(due, -1)).ok, true);
+  assert.equal(gate(e, 'AAA', due).ok, true, 'on the recheck day the record is still current');
+  const stale = gate(e, 'AAA', plusDays(due, 1));
+  eq([stale.ok, stale.code], [false, 'stale']);
+  assert.match(stale.reason, /last checked 2026-08-01, 91 days ago/);
+  assert.match(stale.reason, /every 90 days/);
+  // it agrees with the ledger page's own idea of stale
+  assert.equal(state(e, 'AAA', plusDays(due, 1)).recheck, 'overdue');
+  assert.notEqual(state(e, 'AAA', due).recheck, 'overdue');
+  // a fresh Zoya check unblocks it
+  const fresh = L.appendEntry(e, chk('AAA', 'compliant', plusDays(due, 1)), plusDays(due, 1), NOW).entries;
+  assert.equal(gate(fresh, 'AAA', plusDays(due, 1)).ok, true);
+});
+
+test('the buy gate blocks not compliant and questionable, and only a later Zoya compliant check lifts it', () => {
+  const nc = build([chk('AAA', 'compliant', '2026-08-01'), chk('AAA', 'non_compliant', '2026-10-30', { changeDate: '2026-10-20' })]);
+  const g = gate(nc, 'AAA', '2026-11-06');
+  eq([g.ok, g.code, g.status, g.checked], [false, 'non_compliant', 'non_compliant', '2026-10-30']);
+  assert.match(g.reason, /Zoya shows it as not compliant \(checked 2026-10-30\)/);
+  // not compliant with no change date and with no earlier record: still blocked (the countdown is a separate matter)
+  assert.equal(gate(build([chk('AAA', 'non_compliant', '2026-10-30')]), 'AAA', '2026-11-06').code, 'non_compliant');
+  const q = build([chk('AAA', 'compliant', '2026-10-01'), chk('AAA', 'questionable', '2026-10-30')]);
+  const gq = gate(q, 'AAA', '2026-11-06');
+  eq([gq.ok, gq.code], [false, 'uncertain']);
+  assert.match(gq.reason, /questionable/);
+  const back = L.appendEntry(nc, chk('AAA', 'compliant', '2026-11-03'), '2026-11-06', NOW).entries;
+  assert.equal(gate(back, 'AAA', '2026-11-06').ok, true);
+  // a completed exit does not make a new buy possible
+  let sold = L.appendEntry(nc, { kind: 'exit', t: 'AAA', exitStatus: 'completed', on: '2026-11-02' }, '2026-11-06', NOW).entries;
+  assert.equal(gate(sold, 'AAA', '2026-11-06').code, 'non_compliant');
+});
+
+test('the buy gate: an entry that is not from Zoya can block but never unblock', () => {
+  // newest entry is not from Zoya: blocked, whatever it says
+  const a = build([chk('AAA', 'compliant', '2026-10-01'), chk('AAA', 'compliant', '2026-10-20', { source: 'other' })]);
+  const ga = gate(a, 'AAA', '2026-11-06');
+  eq([ga.ok, ga.code], [false, 'unconfirmed_latest']);
+  const b = build([chk('AAA', 'non_compliant', '2026-10-01'), chk('AAA', 'compliant', '2026-10-20', { source: 'other' })]);
+  assert.equal(gate(b, 'AAA', '2026-11-06').ok, false);
+  // an older non-Zoya entry is ignored by the gate
+  const c = build([chk('AAA', 'non_compliant', '2026-09-01', { source: 'other' }), chk('AAA', 'compliant', '2026-10-20')]);
+  assert.equal(gate(c, 'AAA', '2026-11-06').ok, true);
+});
+
+test('the buy gate follows corrections: a struck-through entry does not count, and the history stays', () => {
+  const base = build([chk('AAA', 'compliant', '2026-10-01'), chk('AAA', 'non_compliant', '2026-10-20')]);
+  assert.equal(gate(base, 'AAA', '2026-11-06').code, 'non_compliant');
+  const fixed = L.appendEntry(base, { kind: 'correction', t: 'AAA', fixes: 1, note: 'I read the wrong stock' }, '2026-11-06', NOW).entries;
+  assert.equal(gate(fixed, 'AAA', '2026-11-06').ok, true);
+  assert.equal(fixed.length, 3, 'the wrong entry is still in the ledger');
+  const voidedOnly = L.appendEntry(build([chk('AAA', 'compliant', '2026-10-01')]), { kind: 'correction', t: 'AAA', fixes: 0, note: 'wrong stock' }, '2026-11-06', NOW).entries;
+  assert.equal(gate(voidedOnly, 'AAA', '2026-11-06').code, 'missing');
+});
+
+test('the buy gate blocks everything when the ledger failed its own check, and on a bad date', () => {
+  const e = build([chk('AAA', 'compliant', '2026-10-01')]);
+  const g = gate(e, 'AAA', '2026-11-06', false);
+  eq([g.ok, g.code], [false, 'integrity']);
+  assert.match(g.reason, /failed its own check/);
+  // the page passes intact = verifyLedger(...).ok && checkAnchor(...).ok; a tampered entry makes verifyLedger fail
+  const tampered = e.map((x) => ({ ...x, evidence: 'edited' }));
+  assert.equal(L.verifyLedger(tampered, '2026-11-06').ok, false);
+  assert.equal(gate(e, 'AAA', 'not a date').code, 'no_date');
+  assert.equal(gate(e, 'AAA', undefined).ok, false);
+  // a check dated after today
+  assert.equal(gate(e, 'AAA', '2026-09-01').code, 'future');
+});
+
+test('the buy gate against an independent oracle, for every short sequence of checks', () => {
+  const statuses = ['compliant', 'non_compliant', 'questionable'];
+  const sources = ['zoya_app', 'other'];
+  const dates = ['2026-06-01', '2026-09-20', '2026-10-25'];
+  const today = '2026-11-06';
+  let n = 0;
+  let passed = 0;
+  const choices = [];
+  for (const st of statuses) for (const so of sources) for (const d of dates) choices.push({ st, so, d });
+  const oracle = (seq) => {
+    // newest by date (ties: the one entered last); it must be from Zoya, compliant, and 90 days old at most
+    let best = null;
+    seq.forEach((c, i) => { if (!best || c.d > best.d || (c.d === best.d && i > best.i)) best = { ...c, i }; });
+    if (!best) return false;
+    const zoya = seq.filter((c) => c.so !== 'other');
+    if (!zoya.length) return false;
+    return best.so !== 'other' && best.st === 'compliant' && L.daysBetweenISO(best.d, today) <= 90;
+  };
+  const run = (seq) => {
+    let e = [];
+    for (const c of seq) {
+      const r = L.appendEntry(e, chk('AAA', c.st, c.d, { source: c.so }), today, NOW);
+      assert.ok(r.ok, JSON.stringify(c));
+      e = r.entries;
+    }
+    n++;
+    const g = gate(e, 'AAA', today);
+    assert.equal(g.ok, oracle(seq), JSON.stringify(seq));
+    if (g.ok) passed++;
+    assert.equal(g.ok, g.code === 'ok');
+    assert.equal(g.ok, g.reason === '');
+  };
+  run([]);
+  for (const a of choices) { run([a]); for (const b of choices) { run([a, b]); for (const c of choices.filter((_, i) => i % 3 === 0)) run([a, b, c]); } }
+  assert.ok(n > 1000 && passed > 50 && passed < n / 2, `${n} sequences, ${passed} pass`);
+});
+
+test('the gate reads the record only: it never changes the ledger, and its words claim nothing about compliance', () => {
+  const e = build([chk('AAA', 'compliant', '2026-06-01'), chk('BBB', 'non_compliant', '2026-10-30', { source: 'other' })]);
+  const before = JSON.stringify(e);
+  const reasons = [];
+  for (const t of ['AAA', 'BBB', 'CCC']) for (const today of ['2026-11-06', '2026-06-02']) for (const intact of [true, false]) reasons.push(gate(e, t, today, intact).reason);
+  assert.equal(JSON.stringify(e), before);
+  for (const r of reasons.filter(Boolean)) assert.ok(!/\b(is|are) (shariah |halal )?compliant\b|\bhalal\b|\bpermissible\b/i.test(r), `claims compliance: ${r}`);
 });
 
 test('the page carries exactly the same ledger rules as lib/shariah-ledger.js', () => {

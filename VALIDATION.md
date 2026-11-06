@@ -1353,76 +1353,83 @@ deploy log entry. Temporary test branches (`seed-restore-point`, `sim-restore`, 
 
 ## 20. Stage 4: the Shariah compliance ledger (6 November 2026, on branch `stage4-shariah-ledger`, not merged)
 
-This adds a record. It changes no advice, valuation, buy or sell signal, risk limit or performance method, and it
-decides nothing about Shariah compliance: **Zoya stays the final authority**, and the ledger holds what you copied from
-Zoya, with the date, the source and the evidence. It is not connected to the buy rules (see "Decisions for the owner").
+The ledger records what Zoya shows for each stock you hold. After the owner's four decisions of 6 November it also does
+two jobs it did not do before: it **blocks new buys** of a stock without a current Zoya compliant record, and it
+**counts the 90-day exit period** only from a confirmed compliant-to-non-compliant change. It still decides nothing
+about Shariah compliance: **Zoya stays the final authority**. The ledger holds what you copied from Zoya, with the date,
+the source and the evidence, and the gate only reads it.
 
-**What it does**
+**The four decisions, as built**
 
-1. **Records each holding's status.** Every entry carries the stock, the status shown on Zoya (compliant, non_compliant
-   or questionable), the date it was verified, the source (Zoya app, Zoya website, Zoya report, or "not Zoya") and the
-   evidence in your own words (required). A status from a source that is not Zoya is kept but counts for nothing: it
-   cannot confirm a status, start an exit deadline or reset a recheck.
-2. **Rechecks every 90 days.** The clock runs from the last Zoya check. 14 days or fewer before it is due, the stock is
-   flagged "due soon"; one day past 90 it is flagged stale. A stock you have sold after a completed exit needs no more
-   rechecks.
-3. **Detects compliant to non-compliant.** A Zoya non-compliant check after a Zoya compliant one is a transition. A
-   questionable result neither opens nor closes anything, but compliant to questionable is flagged as a warning.
-4. **Calculates the 90-day exit deadline** from the confirmed status-change date: the date you enter from Zoya, or the
-   check date when no earlier date is given. A first-ever non-compliant record without a change date has **no deadline
-   and is flagged**; the ledger does not guess one. Later non-compliant checks never move the deadline. A later Zoya
-   "compliant" closes the period; the old period and its deadline stay in the history.
-5. **Tracks the exit**: not started, in progress, completed, each with a date and a note. It flags a deadline passed
-   without a completed exit, an exit completed after the deadline, and an exit marked completed while the stock is
-   still in your holdings. An exit cannot be recorded when nothing is non-compliant, before the change date, or in the
-   future.
-6. **Keeps an append-only history.** Entries are only ever added. A mistake is answered with a correction that strikes
-   the wrong entry through (it stays readable, and stops counting). Each entry holds the SHA-256 of the one before it,
-   so a changed, removed, inserted or reordered entry fails the check, and nothing can be added to a ledger that
-   fails it. The number of entries and the last hash are kept as an anchor in a second storage key and in the backup
-   file, because cutting entries off the end leaves a valid chain.
-7. **Flags missing, stale and uncertain data**: no record for a holding, nothing from Zoya, a stale check, a
-   questionable result, a latest entry that is not from Zoya, a missing change date, entries made out of date order.
-8. **Purification: stored, never calculated.** The ledger can store an amount you were given (or paid), with who gave it
-   (required). It contains no purification formula, reads no dividend or interest data, and says "calculation
-   inactive" until a qualified Shariah scholar supplies a method and the owner approves building it. The only
-   arithmetic is adding up the amounts you typed, labelled as such.
+1. **Purification is off.** The earlier estimate (the "Purification" figure on the Portfolio page, the calculator on every
+   stock page, the "impure share" text and the "Purify dividends with the calculator" lines) is removed. Where it was,
+   the page says purification is inactive and pending a method confirmed by a qualified Shariah scholar. No purification
+   amount is calculated, estimated or displayed anywhere. The ledger can still store an amount a scholar or other named
+   source gave you, with who gave it; those records are kept exactly as entered, counted but never added up or
+   interpreted. Records already kept are not touched.
+2. **Gate on new buys.** A new buy passes only when the stock's newest ledger check is from Zoya, says compliant, is
+   90 days old or less, and the ledger itself passes its own integrity check. Anything else blocks the buy and the page
+   says why in plain words: no record; nothing from Zoya; a newer entry that is not from Zoya; Zoya shows not
+   compliant; Zoya showed questionable; the check is stale or dated in the future; the date could not be read; or the
+   ledger failed its check. The gate is applied inside the one risk check that every buy surface already uses (the
+   Advisor plan, ideas, holding advice, the stock page long-term and swing answers, the Shortlist and the Watchlist), so
+   no surface can show a buy the gate has blocked. The gate never decides compliance: it only requires that a Zoya
+   record exists, says compliant and is current. It never sells, trims or changes a hold.
+3. **The 90-day exit period.** The countdown starts only for a stock that had a Zoya compliant record and then a Zoya
+   non-compliant one, and only from the confirmed status-change date you entered. A first-ever non-compliant record, a
+   missing change date, a stale check, a questionable result or a record not from Zoya starts no countdown and
+   triggers no sale. The page says "the 90-day countdown has not started" and why. There is no fallback to the check
+   date. The compliance history and every date stay in the append-only ledger.
+4. **Validation** is below. Nothing was merged, and Stage 5 was not started.
 
-**Where it lives.** Holdings are on your device (not in the public repository), so the ledger is too: a new Shariah page
-(Portfolio tab stays highlighted) reached from a summary card on the Portfolio page, saved in the browser like the
-journal and watchlist, and carried in the backup file. Joining a backup never overwrites: if the two copies split (an
-entry on the phone, another on the iPad) the entries only in the backup are added after the local ones, marked with
-where they came from, and loading the same backup again changes nothing. A backup whose ledger fails its check or has
-entries cut off is refused.
+**What it records and flags (unchanged from the first Stage 4 build)**: status (compliant, non_compliant, questionable),
+the date verified, the source (Zoya app, Zoya website, Zoya report, or "not Zoya", which counts for nothing), required
+evidence; a recheck every 90 days with a "due soon" flag 14 days before; transition detection; exit tracking (not
+started, in progress, completed) with flags for a missed deadline, a late exit and an exit marked completed while the
+stock is still held; an append-only SHA-256 hash chain with corrections that strike an entry through; an anchor kept in
+a second key and in the backup; and flags for missing, stale and uncertain data. The ledger lives on your device (saved
+in the browser, carried in the backup file) because holdings are not in the public repository.
 
-**What did not change.** Every file in `lib/` is byte-for-byte the same as on main except the new
-`lib/shariah-ledger.js`; `tools/` is untouched. In `index.html`, 9 existing lines changed, all about the backup file,
-the page list, the highlighted tab and the order of the Portfolio cards; everything else is new. The workflow gains one step that runs the new tests
-(`test/workflow.test.py` checks it is there).
+**What did not change.** Every file in `lib/` is byte for byte the same as on main except the new
+`lib/shariah-ledger.js` (SHA-1 compared, git object hashes). Valuation, recommendation rules, the portfolio risk limits,
+the performance methodology and the policy files are untouched. The only workflow change is one extra step that runs
+the ledger tests (`test/workflow.test.py` checks it). In `index.html` the lines removed from main are: the purification
+estimate and calculator, the text that sent you to the calculator, the buy risk check and the surfaces that show its
+result (which now also report a ledger block), and the lines for the backup, page list and Portfolio card order. No
+formula, threshold, limit or signal was edited. No paid service, subscription, API key or recurring cost was added: the
+ledger is local code with no network call, and the secret scan passes.
 
-**Evidence**
+**Evidence** (all run on the branch before commit)
 
 | Check | Result |
 |---|---|
-| Ledger tests (`test/shariah-ledger.test.mjs`) | 29 of 29: SHA-256 against Node for every length 0 to 200 and non-ASCII text; real-calendar dates; the exit deadline on ten dates across month ends, year ends and the 2028 leap day, checked against separately written date arithmetic; the day-by-day edge (90 left, last day 0, next day overdue); recheck at 15, 14, 0 and -1 days; transitions (Zoya only, questionable, repeat checks, first-ever, back to compliant and a new period); back-dated entries; exit steps and refusals; missing, stale, unconfirmed and questionable data; entry validation (15 refusals, plus capitals and trimming); 12 tampering cases plus a fully re-hashed rewrite caught by the anchor; corrections; joining copies (same, ahead, behind, split, again, damaged, correction numbers after a split); purification (no formula exported, no imports, amounts validated, no effect on any status); no wording that claims compliance; the page's copy equals the library character for character |
-| Do the tests actually fail when the code is wrong? | 18 deliberate breakages of the library (exit window 91 days, recheck 89, deadline from the check date, non-Zoya opening a period, off-by-one at overdue and at 14 days, hash ignoring evidence, no link check, no anchor check, corrections ignored, evidence optional, guessed change date, questionable closing a period, merge overwriting, purification marked active, future dates, exit without a period, append on a broken chain): all 18 were caught |
-| Page tests (`test/page.test.py`) | 330 of 330 (the 292 existing plus 38 new: the form and its refusals, storage, the deadline shown for a real change date, exit steps, correction, tampering by editing and by cutting the end, phone width with no sideways scroll, the backup round trip, refusing an edited or cut backup, no page errors) |
-| Existing node suites | formulas 80 of 80, deploy safety 46 of 46, restore and log 50 of 50, workflow rules all hold |
-| Secret scan | 81 tracked files, no credentials found |
-| Same advice (`same-advice.py`, old = main) | 54 page views compared against main (395 sections, 377,014 characters): 47 identical word for word, and the other 7 differ only by the new Shariah ledger card on the Portfolio page (a whole new section, nothing removed or reworded elsewhere). Two small changes to the check itself, made in this release because main already carries the health banner: a baseline that already shows the banner must show the same words, and a new section with no advice may be added by name |
-| `lib/` files compared with main | 10 of 10 existing files identical by SHA-256; 1 new file |
+| Ledger tests (`test/shariah-ledger.test.mjs`) | 40 of 40 |
+| Do those tests fail when the logic is wrong? | 16 deliberate breakages of the gate, the countdown and purification (stale at 91 or 89 days, integrity check ignored, missing record passes, a status not from Zoya counts, a newer non-Zoya entry ignored, non-compliant or questionable or future-dated or unreadable-date passes, oldest check used, countdown from the check date, countdown without an earlier compliant record, 91-day window, purification marked active, purification records dropped): all 16 caught. The 18 library breakages from the first build were not repeated; the tests that caught them are unchanged except where the countdown rule changed |
+| Page tests (`test/page.test.py`) | 401 of 401: the existing buy-logic tests now run with a seeded compliant Zoya record, plus new tests for every gate outcome on the plan, ideas, holding advice, stock page, Shortlist and Watchlist, the countdown cases on the ledger page, purification off everywhere, and preserved purification records |
+| Other node suites and workflow rules | formulas 80 of 80, deploy safety 46 of 46, restore and log 50 of 50, workflow rules all hold |
+| Secret scan | 83 tracked files, no credentials found |
+| Same advice, ledger current (`same-advice.py --ledger=current`, old = main) | 54 page views compared (395 sections, 378,007 characters): 29 identical word for word; every other section differs only by the purification sentences, the sentences pointing to the ledger, or the new ledger card, checked in order character for character. No unexpected difference |
+| Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (395 sections, 380,743 characters): 22 identical. Every added sentence is about the ledger or purification, and the number of sell, trim and take-profit calls on every page is exactly the old number: the gate holds buys back, it never sells. No unexpected difference |
+| `lib/` files compared with main | all existing files identical; 1 new file |
+| GitHub CI | CI_RESULT |
 
-**Limits.** The chain makes an edited or removed entry visible; it cannot stop someone with access to your device from
-replacing the whole ledger and anchor together (only a backup file kept elsewhere would show that). You type what Zoya
-shows: nothing is fetched from Zoya, so the ledger is only as current as you keep it, which is what the 90-day flags
-are for. The two devices differ until you save a backup on one and load it on the other. Funds, ETFs and sukuk are not
-tracked. The tool's own halal screen is an estimate from SEC filings and is not recorded here.
+**Limits and disclosures**
 
-**Decisions for the owner (nothing was changed for these)**
-
-1. The stock pages and the Portfolio page still show the earlier purification estimate and say "purify dividends with
-   the calculator". The ledger's own purification is inactive, as requested. Should the earlier estimate also be
-   labelled inactive or hidden until a scholar supplies a method?
-2. The buy rules still use the tool's own halal screen. The ledger is not wired into them (that would change policy).
-   Should a stock whose ledger says non-compliant, stale or missing be blocked from new buys?
-3. The purification method, from a qualified Shariah scholar.
+- **An empty ledger blocks every new stock buy.** After this change the monthly plan sends stock money to the index fund
+  until each stock has a current Zoya compliant record in your ledger. That is the rule you set; it means the ledger
+  has to be filled before the stock ideas return.
+- **Stocks only.** Funds, ETFs and sukuk are not tracked or gated.
+- **Swing text for paper trades** (the warning-toned line on a paper-trade swing) is not gated. Live swing buy signals and
+  every long-term buy surface are.
+- **Purification amounts entered before this change** (none exist in the repository; any in a browser) remain visible only
+  in each stock's ledger history, not in a total.
+- **Device-local.** The chain makes an edited or removed entry visible; it cannot stop someone with access to your device
+  from replacing the whole ledger and its anchor together (only a backup kept elsewhere would show that). Two devices
+  differ until you save a backup on one and load it on the other.
+- **You type what Zoya shows.** Nothing is fetched from Zoya, so the ledger and therefore the gate are only as current as
+  you keep them. The 90-day limit is what forces the recheck.
+- **A first-ever non-compliant record starts no countdown.** To start one, record a Zoya compliant check first, or the
+  change date with an earlier compliant record. This is deliberate and follows decision 3.
+- The tool's own halal screen is still shown and still applies; the ledger gate is in addition to it, not instead.
+- Nothing here is financial or Shariah advice. The purification method must come from a qualified Shariah scholar, and
+  no purification feature will be built until you supply it and approve it.

@@ -3,8 +3,13 @@
 # or trim call, position size, valuation and risk-limit message exactly as it was.
 # Allowed: any change inside the cards of the evaluation itself (CHANGES_ALLOWED_IN), and the sentences listed in
 # ADDED_SENTENCES, and whole new sections that carry no advice (ADDED_SECTIONS). Anything else is printed as UNEXPECTED and the check fails.
-# Run: python3 test/validation/same-advice.py <old index.html> [new index.html, default ./index.html]
+# Run: python3 test/validation/same-advice.py <old index.html> [new index.html, default ./index.html] [--ledger=current|empty]
 # (old: git show origin/main:index.html > /tmp/old.html)
+# The new page has a Shariah gate on new buys (stage 4), so it is run in two ledger states:
+#   --ledger=current (default): every ticker has a current Zoya check that says compliant. The gate passes everything, so the new page must say
+#       exactly what the old one said: only the purification sentences and the new ledger card may differ.
+#   --ledger=empty: no ledger at all. Buy suggestions are held back and say why. Every added sentence must be about the ledger or purification,
+#       and the number of sell, trim and take-profit calls on every page must be exactly the old number: the gate never sells.
 import asyncio, datetime as dt, http.server, json, os, re, sys, tempfile, threading
 from playwright.async_api import async_playwright
 
@@ -14,6 +19,13 @@ CHANGES_ALLOWED_IN = {'The permanent record', 'Long-term list test', 'Limits of 
 # A whole section that exists only in the new version and carries no advice (stage 4: the Shariah ledger summary card).
 # It is allowed only as an addition: a section of the same name in the old version would be compared like any other.
 ADDED_SECTIONS = {'Shariah ledger'}
+# Stage 4 (decision of 6 November): purification is switched off. Sentences about purification, and the sentences that point to the ledger instead,
+# may be removed or added; the rest of the section must be the old text, in the same order. Nothing here is about a buy, a sell, a size or a limit.
+PUR_RE = re.compile(r'(?i)purif|impure|dividend income|calculator|^It pays no cash dividend\.$|^Record what Zoya shows for each stock in the Shariah ledger|^Open the Shariah ledger$|^The Shariah ledger can keep a record of an amount you were given\.$|^Off$|^pending a scholar-approved method$')
+PUR_STAT = re.compile(r'(?i)Purification\n[^\n]*\n[^\n]*')
+# an added sentence that only the empty-ledger run may contain: about the ledger or the record of a Zoya check
+LEDGER_RE = re.compile(r'(?i)ledger|Zoya check|^Blocked: |no record|not from Zoya|questionable on Zoya|not compliant on Zoya|^Holding and selling are not affected\.$')
+SALE_RE = re.compile(r'\b(Sell|Trim|Take profit|sell about|Sell about)\b')
 ADDED_SENTENCES = {'The periods overlap: together they hold about two independent five-year spans, and companies that disappeared since 2016 are missing.'}
 
 
@@ -124,7 +136,13 @@ SCENARIOS = [
 PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor']
 
 
-async def grab(ctx, base, price_date, storage, patch, stock, page, health=None):
+SEED = r"""(ts) => { if (!(window.__sc && window.__sc.shariah)) return false; const S = window.__sc.shariah; const p = (n) => String(n).padStart(2, '0'); const d = new Date(); d.setDate(d.getDate() - 3);
+  const checked = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; const t0 = new Date(); const today = `${t0.getFullYear()}-${p(t0.getMonth() + 1)}-${p(t0.getDate())}`;
+  let e = []; for (const t of ts) e = S.appendEntry(e, { kind: 'check', t, status: 'compliant', checked, source: 'zoya_app', evidence: 'validation fixture: a Zoya screen' }, today, new Date().toISOString()).entries;
+  localStorage.setItem('shariah', JSON.stringify({ v: 1, entries: e })); localStorage.setItem('shariah_anchor', JSON.stringify(S.anchorOf(e))); return true; }"""
+
+
+async def grab(ctx, base, price_date, storage, patch, stock, page, health=None, ledger=None):
     scr = LOAD('screen.json')
     idx = LOAD('index.json')
     scr['priceDate'] = idx['priceDate'] = price_date
@@ -148,6 +166,8 @@ async def grab(ctx, base, price_date, storage, patch, stock, page, health=None):
     await pg.route(re.compile(r'.*(/data/|quotes\.json).*'), route)
     await pg.goto(base + '?selftest=1')
     await pg.evaluate('(s) => { localStorage.clear(); for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v)); }', storage)
+    if ledger == 'current':
+        await pg.evaluate(SEED, [r[0] for r in scr['rows']])  # only the new page has the ledger; on the old page this does nothing
     await pg.goto(base + '?selftest=1' + ('&t=KO' if page == 'stock' else ''))
     await pg.wait_for_timeout(1800)
     if page != 'stock':
@@ -172,8 +192,12 @@ def sentences(text):
 
 
 async def main():
-    old = serve(sys.argv[1])
-    new = serve(sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, 'index.html'))
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    mode = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--ledger=')), 'current')
+    assert mode in ('current', 'empty'), 'use --ledger=current or --ledger=empty'
+    print(f'Ledger state for the new page: {mode}')
+    old = serve(args[0])
+    new = serve(args[1] if len(args) > 1 else os.path.join(ROOT, 'index.html'))
     bad = []
     explained = []
     totals = {'pages': 0, 'identical': 0, 'sections': 0, 'chars': 0}
@@ -185,7 +209,12 @@ async def main():
             health = sc[5] if len(sc) > 5 else None
             print(f'== {name} (prices of {date}, KO from {stock})')
             for page in PAGES:
-                (A, ea), (B, eb) = await grab(ctx, old, date, storage, patch, stock, page, health), await grab(ctx, new, date, storage, patch, stock, page, health)
+                (A, ea), (B, eb) = await grab(ctx, old, date, storage, patch, stock, page, health, mode), await grab(ctx, new, date, storage, patch, stock, page, health, mode)
+                # the purification figure on the Watchlist (a label, a value, a line under it) is switched off: it is compared as one unit
+                for X in (A, B):
+                    X['full'] = PUR_STAT.sub('Purification: (figure)', X['full'])
+                    for sec in X['secs']:
+                        sec['text'] = PUR_STAT.sub('Purification: (figure)', sec['text'])
                 totals['pages'] += 1
                 # the warning banner is the one thing allowed to differ, and only on a night with a failed ('bad') check
                 want_banner = bool(health) and health['worst'] == 'bad' and page != 'record'
@@ -208,12 +237,19 @@ async def main():
                 bsec = {s['label']: s['text'] for s in B['secs']}
                 labels = sorted(set(a) | set(bsec), key=lambda k: ([s['label'] for s in B['secs']] + list(a)).index(k))
                 changed = [k for k in labels if a.get(k) != bsec.get(k)]
+                if mode == 'empty':
+                    # the gate holds buys back; it must never add or remove a sale, a trim or a take-profit call
+                    count = lambda secs, skip: sum(len(SALE_RE.findall(x['text'])) for x in secs if x['label'] not in skip)
+                    if count(A['secs'], ()) != count(B['secs'], ADDED_SECTIONS):
+                        bad.append(f'{name} / {page}: the number of sell, trim or take-profit calls changed ({count(A["secs"], ())} -> {count(B["secs"], ADDED_SECTIONS)})')
                 print(f'  {page}: {len(changed)} of {len(labels)} sections differ: {changed}')
                 for k in changed:
                     sa, sb = sentences(a.get(k, '')), sentences(bsec.get(k, ''))
                     gone = [s for s in sa if s not in sb]
                     added = [s for s in sb if s not in sa]
                     allowed = k in CHANGES_ALLOWED_IN
+                    ok_rm = lambda x: bool(PUR_RE.search(x))
+                    ok_add = lambda x: x in ADDED_SENTENCES or bool(PUR_RE.search(x)) or (mode == 'empty' and bool(LEDGER_RE.search(x)))
                     if k in ADDED_SECTIONS and k not in a:
                         for s in sb:
                             print(f'      + {s[:300]}')
@@ -221,24 +257,23 @@ async def main():
                         continue
                     for s in gone:
                         print(f'      - {s[:300]}')
-                        if not allowed:
+                        # with the ledger empty, buy suggestions are held back, so buy sentences go; the sale count above is what must not move
+                        if not allowed and not ok_rm(s) and mode == 'current':
                             bad.append(f'{name} / {page} / {k}: removed: {s}')
                     for s in added:
                         print(f'      + {s[:300]}')
-                        if not allowed and s not in ADDED_SENTENCES:
+                        if not allowed and not ok_add(s):
                             bad.append(f'{name} / {page} / {k}: added: {s}')
-                    # exact: with the listed sentences taken out again, the new text must be the old text, character for character
-                    stripped = bsec.get(k, '')
-                    for s in ADDED_SENTENCES:
-                        stripped = stripped.replace(' ' + s, '')
-                    if not allowed and stripped != a.get(k, ''):
-                        bad.append(f'{name} / {page} / {k}: not the old text once the listed sentences are taken out')
-                    elif not allowed:
-                        explained.append(f'{name} / {page} / {k}')
+                    # exact (ledger current): with the allowed purification and ledger sentences taken out of both, the sections are the same, in the same order
+                    if not allowed and mode == 'current':
+                        if [x for x in sb if not ok_add(x)] != [x for x in sa if not ok_rm(x)]:
+                            bad.append(f'{name} / {page} / {k}: not the old text once the allowed sentences are taken out')
+                        else:
+                            explained.append(f'{name} / {page} / {k}')
     print(f"\n{totals.get('banners', 0)} page views carried the warning banner (bad health nights only); every other word of every page, including each recommendation, buy zone, sell or trim call, position size, valuation and risk-limit message, was compared below")
     print(f"{totals['pages']} page views compared ({totals['sections']} sections, {totals['chars']:,} characters in the new version); {totals['identical']} identical word for word")
     print(f'{len(explained)} sections outside the evaluation cards differ only by the listed sentence(s), checked character for character: {explained}')
-    print('UNEXPECTED differences:' if bad else 'No unexpected difference: outside the evaluation cards, the only change is the added sentence(s) listed in ADDED_SENTENCES.')
+    print('UNEXPECTED differences:' if bad else ('No unexpected difference: outside the evaluation cards, the only changes are the purification sentences, the new ledger card and the listed added sentences.' if mode == 'current' else 'No unexpected difference: with the ledger empty, every added sentence is about the ledger or purification, and no sale, trim or take-profit call was added or removed.'))
     for x in bad:
         print('  ' + x)
     sys.exit(1 if bad else 0)
