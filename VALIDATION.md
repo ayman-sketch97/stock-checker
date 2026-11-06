@@ -1411,7 +1411,7 @@ ledger is local code with no network call, and the secret scan passes.
 | Same advice, ledger current (`same-advice.py --ledger=current`, old = main) | 54 page views compared (395 sections, 378,007 characters): 29 identical word for word; every other section differs only by the purification sentences, the sentences pointing to the ledger, or the new ledger card, checked in order character for character. No unexpected difference |
 | Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (395 sections, 380,743 characters): 22 identical. Every added sentence is about the ledger or purification, and the number of sell, trim and take-profit calls on every page is exactly the old number: the gate holds buys back, it never sells. No unexpected difference |
 | `lib/` files compared with main | all existing files identical; 1 new file |
-| GitHub CI | CI_RESULT |
+| GitHub CI | Passed. Update site, run 85, started by hand (workflow_dispatch) on commit bf3c293 of this branch: formulas, page-tests, security, restore-point, build, verify-site, gate and ledger all succeeded; deploy, verify-live, rollback and keepalive were skipped by design, because a branch other than main never deploys. Nothing was written to the permanent record or the deploy log (its newest entry is older than the run), and main is unchanged. https://github.com/ayman-sketch97/stock-checker/actions/runs/42269437659. The other three workflows (Update prices, Long-term backtest, Restore drill) were not run: they publish the prices and backtest data branches or redeploy the live site (the drill runs only on main), so they are not checks on this change; the tools they run are unchanged from main. |
 
 **Limits and disclosures**
 
