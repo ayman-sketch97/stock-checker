@@ -4160,6 +4160,8 @@ table.data tr.me td { background: var(--accent-wash); }
       // your limit, counting this month's money as part of the portfolio (lib/policy.js; the 10-year test does the same)
       const stockLines = [];
       let leftOver = 0;
+      let gateCash = 0; // stock money the Shariah ledger gate keeps out of stocks: held as cash, never moved to a fund
+      let gateCashWhy = [];
       if (alloc.stocks > 1) {
         // which holding period is furthest behind, then start a new stock there or top up the smallest one
         const stockTarget = T.stocks * after;
@@ -4172,35 +4174,54 @@ table.data tr.me td { background: var(--accent-wash); }
         const each = (T.split[hpPick] * stockTarget) / Math.max(nInHp, inHp.length || 1);
         // the 10-year test follows the same rule (lib/ltstats.js simulatePlan), including the halal "pass" and your limits
         const check = (t) => buyCheck(t, scr, snap, monthlyUsd);
-        const ok = (x) => { const r = scr.by.get(x.t); return r && r.shariah === 'pass' && !['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict) && !(isNum(r.trimAbove) && r.price >= r.trimAbove) && !(hpPick === 'short' && ['down', 'weakening'].includes(r.trend)) && check(x.t).ok; };
-        const okHeld = inHp.filter(ok).sort((p, q) => val(p) - val(q));
-        const under = okHeld.filter((x) => val(x) < each * 0.8);
-        const pool = (ideas[hpPick] || []).filter((r) => check(r.ticker).ok);
-        const blockedIdeas = (ideas[hpPick] || []).length - pool.length;
-        const ledgerBlockedIdeas = (ideas[hpPick] || []).filter((r) => { const c = check(r.ticker); return !c.ok && c.ledger && !c.ledger.ok; }).length;
-        const label = HP[hpPick].label.toLowerCase();
-        // in order of preference: a new stock while there are too few, the holdings furthest below their equal share, the
-        // smallest holding, then a new idea; the first that can take the money gets it, the rest goes to the next
-        const newOnes = pool.map((r) => ({ t: r.ticker, why: `New ${label} position: ${r.name || r.ticker}, the best fit in the list below.` }));
-        const order = [
-          ...(inHp.length < nInHp ? newOnes : []),
-          ...under.map((x) => ({ t: x.t, why: `Top up ${x.t} (${label}): it is the furthest below its equal share.` })),
-          ...okHeld.map((x) => ({ t: x.t, why: `You have enough ${label} stocks and all are near their equal share: add to the smallest, ${x.t}.` })),
-          ...(inHp.length < nInHp ? [] : newOnes.map((o) => ({ ...o, why: `None of your ${label} stocks can take more money right now; this is the best new idea.` }))),
-        ].filter((o, i, a) => a.findIndex((q) => q.t === o.t) === i);
-        let rest = alloc.stocks;
-        for (const o of order) {
-          if (rest < POLICY_RULES.minOrder || stockLines.length >= 3) break;
-          const room = check(o.t).room;
-          const amt = isNum(room) ? Math.min(rest, room) : rest;
-          if (!worthAnOrder(amt)) continue;
-          const p = priceOf(o.t);
-          const capped = amt < rest ? ` Capped at ${money0(amt)}: more would take it past your ${pct(limits().buyCap, 0)} limit for one stock.` : '';
-          stockLines.push([o.t, amt, `${o.why}${capped}${isNum(p) ? ` About ${fmtShares(amt / p)} shares at ${price(p)}.` : ''} ${costTxt('US', amt, p)}`]);
-          rest -= amt;
-        }
-        if (!stockLines.length) stockLines.push(['Stocks', alloc.stocks, `${focusOnly ? 'No stock fits right now: keep it in cash until one does.' : 'No stock fits right now: add it to the index fund instead.'}${blockedIdeas ? ` ${blockedIdeas} idea${blockedIdeas === 1 ? ' was' : 's were'} skipped because ${ledgerBlockedIdeas ? 'your limits or the Shariah ledger block' : 'your limits block'} ${blockedIdeas === 1 ? 'it' : 'them'} (${ledgerBlockedIdeas ? `${ledgerBlockedIdeas} without a current Zoya check saying compliant in your ledger; the rest sector or size` : 'sector or size'}).` : ''}`]);
-        else if (rest > 1) { leftOver = rest; if (!focusOnly) alloc.core += rest; }
+        // The plan is worked out twice: with the Shariah ledger gate, and as if every ledger record were current and compliant.
+        // The ungated run is only a measuring stick (it is never shown): the stock money the gate keeps out of stocks is the
+        // difference. That money is held as cash and never moved to a fund; whatever your size and sector limits leave over is
+        // treated exactly as before.
+        const place = (gateOn) => {
+          const pass = (t) => { const c = check(t); return gateOn ? c.ok : c.limitsOk; };
+          const ok = (x) => { const r = scr.by.get(x.t); return r && r.shariah === 'pass' && !['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict) && !(isNum(r.trimAbove) && r.price >= r.trimAbove) && !(hpPick === 'short' && ['down', 'weakening'].includes(r.trend)) && pass(x.t); };
+          const okHeld = inHp.filter(ok).sort((p, q) => val(p) - val(q));
+          const under = okHeld.filter((x) => val(x) < each * 0.8);
+          const pool = (ideas[hpPick] || []).filter((r) => pass(r.ticker));
+          const label = HP[hpPick].label.toLowerCase();
+          // in order of preference: a new stock while there are too few, the holdings furthest below their equal share, the
+          // smallest holding, then a new idea; the first that can take the money gets it, the rest goes to the next
+          const newOnes = pool.map((r) => ({ t: r.ticker, why: `New ${label} position: ${r.name || r.ticker}, the best fit in the list below.` }));
+          const order = [
+            ...(inHp.length < nInHp ? newOnes : []),
+            ...under.map((x) => ({ t: x.t, why: `Top up ${x.t} (${label}): it is the furthest below its equal share.` })),
+            ...okHeld.map((x) => ({ t: x.t, why: `You have enough ${label} stocks and all are near their equal share: add to the smallest, ${x.t}.` })),
+            ...(inHp.length < nInHp ? [] : newOnes.map((o) => ({ ...o, why: `None of your ${label} stocks can take more money right now; this is the best new idea.` }))),
+          ].filter((o, i, a2) => a2.findIndex((q) => q.t === o.t) === i);
+          let rest = alloc.stocks;
+          const lines = [];
+          for (const o of order) {
+            if (rest < POLICY_RULES.minOrder || lines.length >= 3) break;
+            const room = check(o.t).room;
+            const amt = isNum(room) ? Math.min(rest, room) : rest;
+            if (!worthAnOrder(amt)) continue;
+            const p = priceOf(o.t);
+            const capped = amt < rest ? ` Capped at ${money0(amt)}: more would take it past your ${pct(limits().buyCap, 0)} limit for one stock.` : '';
+            lines.push([o.t, amt, `${o.why}${capped}${isNum(p) ? ` About ${fmtShares(amt / p)} shares at ${price(p)}.` : ''} ${costTxt('US', amt, p)}`]);
+            rest -= amt;
+          }
+          return { lines, rest, pool };
+        };
+        const A = place(true);
+        const B = place(false);
+        const gateHeld = Math.max(0, A.rest - B.rest); // what the gate keeps out of stocks (0 when it changes nothing)
+        stockLines.push(...A.lines);
+        if (gateHeld > 0.01) {
+          // the Shariah ledger keeps this much out of stocks: hold it as cash, and let the limits leftover follow the old rule
+          gateCash = gateHeld;
+          const held = B.lines.map((l) => l[0]).filter((t) => !A.lines.some((l) => l[0] === t));
+          gateCashWhy = held.slice(0, 3).map((t) => `${t}: ${ledgerGate(t).reason}`);
+          if (B.rest > 1) { leftOver = B.rest; if (!focusOnly) alloc.core += B.rest; }
+        } else if (!stockLines.length) {
+          const blockedIdeas = (ideas[hpPick] || []).length - B.pool.length;
+          stockLines.push(['Stocks', alloc.stocks, `${focusOnly ? 'No stock fits right now: keep it in cash until one does.' : 'No stock fits right now: add it to the index fund instead.'}${blockedIdeas ? ` ${blockedIdeas} idea${blockedIdeas === 1 ? ' was' : 's were'} skipped because your limits block ${blockedIdeas === 1 ? 'it' : 'them'} (sector or size).` : ''}`]);
+        } else if (A.rest > 1) { leftOver = A.rest; if (!focusOnly) alloc.core += A.rest; }
       }
       if (alloc.core > 1) {
         const L = fundLive(EQ);
@@ -4216,6 +4237,7 @@ table.data tr.me td { background: var(--accent-wash); }
         }
       }
       planLines.push(...stockLines);
+      if (gateCash > 0.01) planLines.push(['Held as cash: Shariah ledger', gateCash, `${gateCashWhy.length ? `${gateCashWhy.join('. ')}. ` : ''}A current, verified Zoya-compliant record in your Shariah ledger is required before this part of the stock allocation can be used. Until then it stays as cash: it is not moved to ${EQ.t}, a sukuk fund or any other investment, and your target mix is not changed. Once the record is in your ledger and says compliant, the plan uses the stock part for stocks as normal.`]);
       if (leftOver > 1 && focusOnly) planLines.push(['Cash for now', leftOver, `What your ${pct(limits().buyCap, 0)} limit for one stock leaves over this month. It goes to stocks in a later month.`]);
       planCard.append(h('p', { class: 'sub', text: `AED ${pf.monthlyAed.toLocaleString('en-US')} is about ${money0(monthlyUsd)}. It goes where your portfolio is furthest below its target mix, so you rarely have to sell anything.` }),
         h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },

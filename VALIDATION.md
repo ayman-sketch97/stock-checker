@@ -1375,6 +1375,20 @@ the source and the evidence, and the gate only reads it.
    Advisor plan, ideas, holding advice, the stock page long-term and swing answers, the Shortlist and the Watchlist), so
    no surface can show a buy the gate has blocked. The gate never decides compliance: it only requires that a Zoya
    record exists, says compliant and is current. It never sells, trims or changes a hold.
+
+   **Blocked stock money is held as cash (change of 6 November, second round).** The approved allocation is 70% stocks
+   and 30% funds. When the gate keeps stock money out of stocks, the monthly plan no longer sends it to the index fund,
+   a sukuk fund or anything else. It shows a line "Held as cash: Shariah ledger" with the amount, names the stocks held
+   back and the reason for each, and says that a current, verified Zoya-compliant record in the Shariah ledger is
+   required before that part of the stock allocation can be used. The target mix and the portfolio figures are not
+   touched. How it is worked out: the plan is computed twice, once with the gate and once as if every ledger record were
+   current and compliant (a measuring stick, never shown). The stock money the gate keeps out is the difference between
+   the two. Whatever your size and sector limits leave over is treated exactly as before, so with the gate passing
+   nothing changes. The fund amount is therefore the same whether the ledger is empty, stale, non-compliant or
+   compliant, and it can never rise because of a blocked stock buy. When a record is entered and is current and
+   compliant, the normal plan returns (tested to the cent, including on the same page after entering it). The held cash
+   is not tracked between months: it stays your cash, and because stocks stay behind the target the plan keeps pointing
+   new money at them once the record is in.
 3. **The 90-day exit period.** The countdown starts only for a stock that had a Zoya compliant record and then a Zoya
    non-compliant one, and only from the confirmed status-change date you entered. A first-ever non-compliant record, a
    missing change date, a stale check, a questionable result or a record not from Zoya starts no countdown and
@@ -1405,19 +1419,26 @@ ledger is local code with no network call, and the secret scan passes.
 |---|---|
 | Ledger tests (`test/shariah-ledger.test.mjs`) | 40 of 40 |
 | Do those tests fail when the logic is wrong? | 16 deliberate breakages of the gate, the countdown and purification (stale at 91 or 89 days, integrity check ignored, missing record passes, a status not from Zoya counts, a newer non-Zoya entry ignored, non-compliant or questionable or future-dated or unreadable-date passes, oldest check used, countdown from the check date, countdown without an earlier compliant record, 91-day window, purification marked active, purification records dropped): all 16 caught. The 18 library breakages from the first build were not repeated; the tests that caught them are unchanged except where the countdown rule changed |
-| Page tests (`test/page.test.py`) | 401 of 401: the existing buy-logic tests now run with a seeded compliant Zoya record, plus new tests for every gate outcome on the plan, ideas, holding advice, stock page, Shortlist and Watchlist, the countdown cases on the ledger page, purification off everywhere, and preserved purification records |
+| Page tests (`test/page.test.py`) | 466 of 466: the existing buy-logic tests now run with a seeded compliant Zoya record, plus new tests for every gate outcome on the plan, ideas, holding advice, stock page, Shortlist and Watchlist, the countdown cases on the ledger page, purification off everywhere, and preserved purification records; and for the held-cash plan: valid records (stocks bought, nothing held), an empty ledger, a ledger with other tickers only, stale, non-compliant, questionable and non-Zoya records (the whole stock part held as cash, the fund amount unchanged to the cent, the month's total unchanged, the reason and the Zoya requirement shown, no index-fund wording, the target mix and portfolio figures identical), one stock cleared and the others held, the plan returning to the normal one after the record is entered, a plan where the fund has its own share, and a stocks-only plan |
 | Other node suites and workflow rules | formulas 80 of 80, deploy safety 46 of 46, restore and log 50 of 50, workflow rules all hold |
 | Secret scan | 83 tracked files, no credentials found |
 | Same advice, ledger current (`same-advice.py --ledger=current`, old = main) | 54 page views compared (395 sections, 378,007 characters): 29 identical word for word; every other section differs only by the purification sentences, the sentences pointing to the ledger, or the new ledger card, checked in order character for character. No unexpected difference |
-| Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (395 sections, 380,743 characters): 22 identical. Every added sentence is about the ledger or purification, and the number of sell, trim and take-profit calls on every page is exactly the old number: the gate holds buys back, it never sells. No unexpected difference |
+| Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (395 sections, 380,363 characters): 22 identical. Every added sentence is about the ledger or purification, and the number of sell, trim and take-profit calls on every page is exactly the old number: the gate holds buys back, it never sells. No unexpected difference |
+| Does the held-cash test fail when the plan is wrong? | 3 deliberate breakages of the plan: the held money added to the fund, the held-cash line never shown, the gate not measured against the ungated plan: all 3 caught (the fund amount or the held amount came out wrong) |
 | `lib/` files compared with main | all existing files identical; 1 new file |
-| GitHub CI | Passed. Update site, run 85, started by hand (workflow_dispatch) on commit bf3c293 of this branch: formulas, page-tests, security, restore-point, build, verify-site, gate and ledger all succeeded; deploy, verify-live, rollback and keepalive were skipped by design, because a branch other than main never deploys. Nothing was written to the permanent record or the deploy log (its newest entry is older than the run), and main is unchanged. https://github.com/ayman-sketch97/stock-checker/actions/runs/42269437659. The other three workflows (Update prices, Long-term backtest, Restore drill) were not run: they publish the prices and backtest data branches or redeploy the live site (the drill runs only on main), so they are not checks on this change; the tools they run are unchanged from main. |
+| GitHub CI | CI_PENDING |
 
 **Limits and disclosures**
 
-- **An empty ledger blocks every new stock buy.** After this change the monthly plan sends stock money to the index fund
-  until each stock has a current Zoya compliant record in your ledger. That is the rule you set; it means the ledger
-  has to be filled before the stock ideas return.
+- **An empty ledger blocks every new stock buy.** The stock part of the monthly plan is shown as cash held back, not
+  invested, until each stock you would buy has a current Zoya compliant record in your ledger. That is the rule you
+  set; the ledger has to be filled before the stock ideas return, and meanwhile new money is not put to work in stocks.
+- **One existing wording is unchanged.** When your own size and sector limits (not the ledger) leave no stock that can
+  take the money, the plan still says "No stock fits right now: add it to the index fund instead" and shows the amount
+  on a "Stocks" line, as on main. That is the approved limits rule and was not part of this change; say so if you want
+  it held as cash too.
+- **Small stock share.** If the month's stock part is under $100 the plan moves it to the index fund before any ledger
+  check, as on main (a minimum order rule, not a ledger block).
 - **Stocks only.** Funds, ETFs and sukuk are not tracked or gated.
 - **Swing text for paper trades** (the warning-toned line on a paper-trade swing) is not gated. Live swing buy signals and
   every long-term buy surface are.

@@ -11,8 +11,10 @@ checked is in `VALIDATION.md`.
   and an edited or removed entry is detected.
 - New buys are gated. A stock can be suggested for a new buy only when its newest ledger record is from Zoya, says
   compliant and is 90 days old or less. A missing, stale, uncertain, non-Zoya or not-compliant record blocks the buy and
-  the page says why. The gate never sells and never decides compliance itself. Until a stock has a record, new money
-  that would have gone to it goes to the index fund.
+  the page says why. The gate never sells and never decides compliance itself. Stock money the gate keeps out of
+  stocks is shown on the monthly plan as cash held back, with the reason and the need for a current, verified Zoya
+  compliant record. It is never moved to the index fund, a sukuk fund or anything else, and the 70/30 target does not
+  change. When the record is entered, the normal plan returns.
 - The 90-day exit countdown starts only when a stock that was compliant on Zoya is confirmed non-compliant, from the
   status-change date you enter. Missing, stale or uncertain data starts nothing and sells nothing.
 - Purification is switched off. The earlier estimate and the calculator are removed; the page says purification waits for

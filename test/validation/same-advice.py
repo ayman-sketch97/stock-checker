@@ -24,7 +24,7 @@ ADDED_SECTIONS = {'Shariah ledger'}
 PUR_RE = re.compile(r'(?i)purif|impure|dividend income|calculator|^It pays no cash dividend\.$|^Record what Zoya shows for each stock in the Shariah ledger|^Open the Shariah ledger$|^The Shariah ledger can keep a record of an amount you were given\.$|^Off$|^pending a scholar-approved method$')
 PUR_STAT = re.compile(r'(?i)Purification\n[^\n]*\n[^\n]*')
 # an added sentence that only the empty-ledger run may contain: about the ledger or the record of a Zoya check
-LEDGER_RE = re.compile(r'(?i)ledger|Zoya check|^Blocked: |no record|not from Zoya|questionable on Zoya|not compliant on Zoya|^Holding and selling are not affected\.$')
+LEDGER_RE = re.compile(r'(?i)ledger|Zoya check|^Blocked: |no record|not from Zoya|questionable on Zoya|not compliant on Zoya|^Holding and selling are not affected\.$|^Until then it stays as cash')
 SALE_RE = re.compile(r'\b(Sell|Trim|Take profit|sell about|Sell about)\b')
 ADDED_SENTENCES = {'The periods overlap: together they hold about two independent five-year spans, and companies that disappeared since 2016 are missing.'}
 

@@ -1199,6 +1199,83 @@ async def main():
         check(not errs, f'no page errors on the Shortlist {errs}')
         await pg.close()
 
+        # ---- the monthly plan when the Shariah gate keeps stock money out of stocks (change of 6 November): the money is held as cash,
+        # shown, explained, and never moved to the fund, a sukuk fund or any other investment; the 70/30 mix and all other figures stay
+        plan_state = json.loads(json.dumps(gl_state))
+        plan_state['advisor']['other'][0]['value'] = 3000
+        plan_state['advisor']['profile'].update({'focus': 'stocks', 'monthlyAed': 2000})
+        PLAN_JS = """() => { const sec = document.querySelector('section[aria-label="This month"]');
+          const rows = [...sec.querySelectorAll('table tr')].slice(1).map((r) => ({ label: r.querySelector('b').innerText, note: (r.querySelector('.sm') || {}).innerText || '', amt: parseFloat(r.lastElementChild.innerText.replace(/[$,]/g, '')) }));
+          const t = (l) => { const e = document.querySelector(`section[aria-label="${l}"]`); return e ? e.innerText : null; };
+          return { rows, mix: t('Your target mix'), now: t('Your portfolio now'), plan: sec.innerText }; }"""
+
+        async def plan_view(specs, st=None):
+            pg, errs = await page_with(ctx, base, fresh, st or plan_state, '', None, {'data/lt-summary.json': LT}, with_events)
+            if specs is not None:
+                await pg.evaluate(SEED_SPEC, specs)
+            await pg.goto(base + '?selftest=1&p=advisor')
+            await pg.wait_for_timeout(1600)
+            v = await pg.evaluate(PLAN_JS)
+            await pg.close()
+            return v, errs
+        fund_of = lambda v: sum(r['amt'] for r in v['rows'] if 'halal world fund' in r['label'] or 'sukuk' in r['label'])
+        stock_of = lambda v: sum(r['amt'] for r in v['rows'] if r['label'] in ('KO', 'AAPL', 'MSFT'))
+        held_of = lambda v: sum(r['amt'] for r in v['rows'] if r['label'] == 'Held as cash: Shariah ledger')
+        total_of = lambda v: sum(r['amt'] for r in v['rows'])
+        ok_state = [{'t': t, 'status': 'compliant', 'ago': 3} for t in ('AAPL', 'MSFT', 'KO')]
+        good, e0 = await plan_view(ok_state)
+        check(stock_of(good) > 100 and held_of(good) == 0, f'plan, valid compliant records: the stock money is used for stocks as normal and nothing is held: {good["rows"]}')
+        check('Held as cash' not in good['plan'], 'plan, valid compliant records: no held-cash line')
+        check(not e0, f'no page errors in the plan with valid records {e0}')
+        blocked_cases = [
+            ('empty ledger', None, 'no record in your Shariah ledger'),
+            ('ledger with other tickers only', [{'t': 'AAPL', 'status': 'compliant', 'ago': 3}], 'no record in your Shariah ledger'),
+            ('stale records', [{'t': t, 'status': 'compliant', 'ago': 120} for t in ('AAPL', 'MSFT', 'KO')], 'is stale'),
+            ('non-compliant records', [{'t': t, 'status': 'compliant', 'ago': 60} for t in ('AAPL', 'MSFT', 'KO')] + [{'t': t, 'status': 'non_compliant', 'ago': 5, 'change': 8} for t in ('AAPL', 'MSFT', 'KO')], 'not compliant'),
+            ('questionable records', [{'t': t, 'status': 'questionable', 'ago': 3} for t in ('AAPL', 'MSFT', 'KO')], 'questionable'),
+            ('records not from Zoya', [{'t': t, 'status': 'compliant', 'ago': 3, 'source': 'other'} for t in ('AAPL', 'MSFT', 'KO')], 'nothing in your Shariah ledger for it comes from Zoya'),
+        ]
+        for name, specs, why in blocked_cases:
+            v, errs = await plan_view(specs)
+            held = held_of(v)
+            check(abs(held - stock_of(good)) < 0.02, f'plan, {name}: the whole stock part ({stock_of(good):.2f}) is shown as held cash, got {held}: {v["rows"]}')
+            check(stock_of(v) == 0, f'plan, {name}: no stock is bought: {v["rows"]}')
+            check(abs(fund_of(v) - fund_of(good)) < 0.02, f'plan, {name}: the fund amount did not change ({fund_of(good):.2f} -> {fund_of(v):.2f})')
+            check(fund_of(v) <= fund_of(good) + 0.005, f'plan, {name}: the fund amount never goes up because of a blocked stock buy')
+            check(abs(total_of(v) - total_of(good)) < 0.02, f'plan, {name}: every dollar of the month is still accounted for ({total_of(v):.2f} vs {total_of(good):.2f})')
+            row = next((r for r in v['rows'] if r['label'] == 'Held as cash: Shariah ledger'), None)
+            check(row is not None and why in row['note'] and 'current, verified Zoya-compliant record' in row['note'] and 'not moved to' in row['note'], f'plan, {name}: the held cash is explained, with the reason: {row}')
+            check('index fund instead' not in v['plan'] and 'goes to the index fund' not in v['plan'], f'plan, {name}: the plan does not tell you to send the stock money to the index fund')
+            check(v['mix'] == good['mix'] and v['now'] == good['now'], f'plan, {name}: the target mix and the portfolio figures are exactly the same as with valid records')
+            check(not errs, f'no page errors in the plan, {name} {errs}')
+        # one stock cleared, the others not: the cleared stock still gets its money, only the rest is held, the fund never rises
+        some, es = await plan_view([{'t': 'KO', 'status': 'compliant', 'ago': 3}])
+        check(abs(stock_of(some) + held_of(some) - stock_of(good)) < 0.02 and abs(fund_of(some) - fund_of(good)) < 0.02, f'plan, only KO cleared: stock + held cash equals the stock part, the fund is unchanged: {some["rows"]}')
+        # once the record is entered and verified, the normal plan comes back, to the cent
+        back, eb = await plan_view([{'t': 'AAPL', 'status': 'compliant', 'ago': 90}, {'t': 'MSFT', 'status': 'compliant', 'ago': 90}, {'t': 'KO', 'status': 'compliant', 'ago': 90}])
+        check(back['rows'] == good['rows'], f'plan, records entered and current (90 days old, the recheck day): the plan is the normal plan again: {back["rows"]}')
+        pg, errs = await page_with(ctx, base, fresh, plan_state, '', None, {'data/lt-summary.json': LT}, with_events)
+        await pg.goto(base + '?selftest=1&p=advisor'); await pg.wait_for_timeout(1200)
+        before = await pg.evaluate(PLAN_JS)
+        check(held_of(before) > 0, 'plan, the same page before the record is entered holds the cash')
+        await pg.evaluate(SEED_SPEC, ok_state)
+        await pg.goto(base + '?selftest=1&p=advisor'); await pg.wait_for_timeout(1500)
+        after = await pg.evaluate(PLAN_JS)
+        check(after['rows'] == good['rows'] and held_of(after) == 0, f'plan, after the Zoya record is entered in the ledger, the stock part is used for stocks again: {after["rows"]}')
+        await pg.close()
+        # a month where the fund has its own share and the limits leave money over: that old rule is unchanged, and the gate adds nothing to it
+        fund_state = json.loads(json.dumps(plan_state)); fund_state['advisor']['other'][0]['value'] = 800; fund_state['advisor']['profile']['monthlyAed'] = 3500
+        fg, _ = await plan_view(ok_state, fund_state)
+        fb, ef = await plan_view(None, fund_state)
+        check(abs(fund_of(fg) - fund_of(fb)) < 0.005 and abs(total_of(fg) - total_of(fb)) < 0.02, f'plan, fund with its own share: the empty ledger changes neither the fund amount nor the total ({fund_of(fg)} vs {fund_of(fb)})')
+        check(not ef, f'no page errors in the fund-share plan {ef}')
+        # stocks-only plan (no fund): blocked stock money is cash, as before, and says why
+        only_state = json.loads(json.dumps(plan_state)); only_state['advisor']['profile']['focus'] = 'only'
+        og, _ = await plan_view(ok_state, only_state)
+        ob, eo = await plan_view(None, only_state)
+        check(held_of(ob) > 0 and fund_of(ob) == fund_of(og) == 0 and abs(total_of(ob) - total_of(og)) < 0.02, f'plan, stocks only: the held cash is shown and nothing goes to a fund: {ob["rows"]}')
+        check(not eo, f'no page errors in the stocks-only plan {eo}')
+
         # ---- the ledger page: the countdown starts only from a confirmed move from compliant, with the change date
         async def ledger_text(specs, held=('AAA',)):
             st = {'watch': {'v': 1, 'items': [{'t': t, 'added': '2026-01-01', 'shares': 10, 'cost': 100} for t in held], 'snap': None, 'prev': None}}
