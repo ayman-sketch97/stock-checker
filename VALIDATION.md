@@ -1328,3 +1328,24 @@ decision, risk limit, Sharia rule or performance method, and it never writes to 
 | Full pipeline on the branch, no breaks (run 42235063378) | every required job passed, the gate passed, deploy, live check and rollback were skipped (branch), the ledger job rehearsed entry 1 and did not push |
 | Deployment blocked when the restore point cannot be verified (run 42237339668, branch `sim-block`, one line changed so the live site is looked up at a page that does not exist) | `restore-point` failed ("No verified restore point for the live version: the live site's data/health.json answered 404"); the other five required jobs passed; the gate printed "BLOCKED restore-point: failure" and failed; deploy, live check and rollback were skipped; the rehearsed log entry was not pushed |
 | Branch testing cannot change permanent state | before and after the run: `records` `768a882`, `main` `3506f0f`, `deploy-log` `a053ff0` and the latest Pages deployment (`3506f0f`) were all unchanged; the record step reported `not_run` |
+
+### Release outcome: first deployment from main, 6 November 2026
+
+`deploy-safety` was merged into `main` by fast-forward (`3506f0f` to `72047e9`, no merge commit). The first run on
+`main` (Update site, run 42240679957) behaved as follows.
+
+| Step | Result |
+| --- | --- |
+| Attempt 1: tests, security, restore point, build, site check, gate | all passed; the restore point for the live version (`3506f0f`, fingerprint `321af507...`) was verified before anything was replaced |
+| Attempt 1: Pages deployment | **failed**: GitHub Pages stayed in "syncing_files" for the full 10 minutes and the deploy action cancelled it. The live site stayed on `3506f0f`. The cause is not known; it looks like a GitHub Pages delay, not our code, and is not confirmed |
+| Attempt 1: deploy log | entry 1 `recorded_not_deployed` (the night's record was saved, the deployment failed, nothing live changed) |
+| Attempt 2 (re-run of the failed deploy job only, the same gated package, no rebuild, no code change) | deployed in about 4.5 minutes (normal is 9 to 33 seconds); the live check passed, `72047e9`, prices of 5 November, health ok |
+| Attempt 2: deploy log | entry 2 `recorded_and_deployed`; it repeats the record files saved in attempt 1, because attempt 2 wrote none |
+| New restore point | commit `72047e9`, 4,003 files, fingerprint `b8ad70500f6bb8e0f134be67a361521d5d573b47880462c0beacdbe4f3549f63`, made by run 42240679957, kept 45 days |
+| Restore drill (run 42250260119) | found and verified the restore point of the live version (`72047e9`), re-checked every file hash and the fingerprint, redeployed the identical saved files without rebuilding, and the live site served `72047e9` afterwards (built 15:16 UTC, unchanged); entry 3 `drill` `recorded_and_deployed` |
+| Afterwards | deploy log intact (4 entries, add-only); permanent record chain intact (11 day files, every link and every day/state pair checked with the project's own checker; the night's addition was two new files and nothing existing changed); `lib/`, the pre-registered rules and the studies are byte for byte what they were before the merge |
+
+Limits of this check: the drill verified the stored copy file by file immediately before redeploying it, and the live
+site was checked by commit and build time; the live files were not independently downloaded and hashed from outside.
+To repair a deployment that fails again: stop, do not rebuild, re-run only the failed deploy job once, and read the
+deploy log entry. Temporary test branches (`seed-restore-point`, `sim-restore`, `sim-block`) were deleted.
