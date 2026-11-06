@@ -1,0 +1,75 @@
+{
+ "v": 1,
+ "kind": "run",
+ "run": {
+  "id": 42297405563,
+  "attempt": 1,
+  "event": "workflow_dispatch",
+  "ref": "refs/heads/main",
+  "url": "https://github.com/ayman-sketch97/stock-checker/actions/runs/42297405563"
+ },
+ "analysisCommit": "cbb6c1385a72c5440444e61eef86bce4ecd5f730",
+ "build": {
+  "builtAt": "2026-11-06T21:39:35.872Z",
+  "priceDate": "2026-11-05",
+  "siteDigest": "ca6c1e59846be323cbe243ee7dc004fef7aa0afd07c380b332d4e4be467854cf"
+ },
+ "record": {
+  "state": "saved",
+  "headBefore": "21a487104b229b0c0f10e6e63cec8d619bdd1112",
+  "headAfter": "b756fdaf00e967fdb2a3852f85cba46e88f05231",
+  "files": [
+   {
+    "path": "days/2026/2026-11-05_5.ndjson",
+    "sha256": "f61391ca788793b84bc2d3c19a5075d9b44b6ebac668ddec718ca42d620cc52b"
+   },
+   {
+    "path": "prices/2026/2026-11-05_4.json",
+    "sha256": "7ae97c11637038907e8644b72f084ebe426aeca421f2601d052af714eb7d17c8"
+   },
+   {
+    "path": "state/2026-11-05_5.json",
+    "sha256": "0eb4bb50af9f0a180cba545565fcfee30c9b62a4493e5f7d551d8b6f97e1659e"
+   }
+  ]
+ },
+ "gates": {
+  "formulas": "success",
+  "page-tests": "success",
+  "security": "success",
+  "build": "success",
+  "verify-site": "success",
+  "restore-point": "success",
+  "gate": "success"
+ },
+ "deploy": {
+  "result": "success"
+ },
+ "live": {
+  "result": "success",
+  "commit": "cbb6c1385a72c5440444e61eef86bce4ecd5f730"
+ },
+ "rollback": {
+  "result": "skipped"
+ },
+ "restorePoint": {
+  "used": {
+   "commit": "c99218a4bd2b5ab178214433a70de215ae8f3f26",
+   "digest": "d583d52a5a1f93fb3242ad16fe3d6bf8ec7902b5c6a5aff24fe2c2332b10beed",
+   "runId": 42281640175
+  },
+  "created": {
+   "commit": "cbb6c1385a72c5440444e61eef86bce4ecd5f730",
+   "digest": "ca6c1e59846be323cbe243ee7dc004fef7aa0afd07c380b332d4e4be467854cf",
+   "runId": 42297405563,
+   "artifact": "restore-point",
+   "manifestFiles": 4003
+  }
+ },
+ "status": "recorded_and_deployed",
+ "rolledBack": false,
+ "seq": 6,
+ "prev": "b1c7e4d4a5d6de67ec1e3e033399a31ebe6e75d38227c46e8a5b7eb2166b1273",
+ "recordedAt": "2026-11-06T21:52:11.468Z",
+ "hash": "e2f6eb8df23b63b9ed3dc6d853d372816f2a0357203f9a9bb3e766f07f3dbf92"
+}
