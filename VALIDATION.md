@@ -1475,3 +1475,100 @@ session's network rules, so the live check rests on the verify-live job and the 
 page-load check that showed no error.
 
 **Stage 4 is complete.** Stage 5 has not been started and waits for the owner's instruction.
+
+---
+
+## 21. Stage 5: the investment thesis and decision record (7 November 2026, on branch `stage5-thesis-decisions`, not merged)
+
+Stage 5 records why you own or consider each stock, what you expect, what could go wrong and what would prove you wrong;
+keeps every later change as a new version; and saves the buy, hold, trim or sell call the page showed you, with a plain
+explanation and the evidence of that day, so the call can be judged later. It **records and explains. It decides
+nothing**: it quotes the call and the reasons that the existing rules already produced, and it changes no verdict,
+signal, valuation formula, recommendation, risk limit or Shariah gate.
+
+**What was built, against the six requirements**
+
+1. **The reason for owning or considering each stock.** A thesis has a required reason, a position (owned or
+   considering) and a time horizon. The Portfolio page lists every holding with no thesis; any ticker, held or not, can
+   have one (company page or the new Thesis page).
+2. **The original thesis, catalysts, risks and invalidation conditions.** All are required (write "none identified" if
+   that is the honest answer). A condition can be left for you to judge or tied to one of five checks the page can run on
+   the saved data: price at or below, price at or above, business rating Avoid or Speculative, fails the tool's Shariah
+   screen, chart trend down or weakening. The evidence of the day (price, rating, fair value, buy and trim prices, trend,
+   position size and limits result, Shariah screen and ledger result) is saved with the first version.
+3. **Changes over time without overwriting.** A change is a *revision*: a complete new version plus a required reason. The
+   original and every earlier version stay exactly as written; the page shows each version and what changed (was, now). A
+   mistake is struck through by a *correction*, never removed; a thesis that a later revision, decision or closing cites
+   cannot be struck through. Closing a thesis (no longer own or consider) is also an entry, and a new thesis may then be
+   written for the same stock.
+4. **Clear explanations for buy, hold, trim and sell.** A decision report is built from the saved fields only: the
+   headline, the page's own reasons word for word, one line each for fundamentals, valuation, chart, risk and Shariah, and
+   your thesis with each written condition marked met, not met, not checkable or for you to judge. A sale or trim with no
+   condition met says that it comes from the tool's rules, not from your thesis. Missing data says "not available"; nothing
+   is filled in. The wording never says a company is compliant or halal (Zoya has the final word).
+5. **Links to fundamental, valuation, technical, risk and Sharia data.** Every decision stores those five groups as
+   they stood on the page that day (from the same screener row the permanent record uses, the buy check's limits result,
+   and the Shariah ledger gate), with the date of the data.
+6. **The original decision and evidence preserved.** A decision entry holds the call in the page's own words, the four-way
+   action, the reasons, the evidence, a copy of the thesis as it then stood, which conditions were met, the explanation,
+   and when it was really recorded. Decisions can only be saved for today, so they cannot be back-dated. The explanation
+   and the condition results are rebuilt by the integrity check and must match what was saved.
+
+**Append-only.** The record is a SHA-256 hash chain like the Shariah ledger (stage 4), with an anchor kept in a second
+key and in the backup file. Entries are never edited or removed; the chain and the anchor show an edited, removed,
+reordered or cut-off entry; nothing can be added while the check fails; joining a backup never overwrites what is on the
+device (references are translated and the original number and hash kept in `origin`).
+
+**Where it appears.** A new Thesis page (reached from the Portfolio page); a "Thesis and decisions" card on the Portfolio
+page (one line per holding, a decision report on today's call, and a Save button); a "Your thesis" card on each company
+page (a thesis line, and a report on a long-term *buy* call when the page's call is a buy). Calls that are not buy, hold,
+trim or sell (Paused, Review, Check halal, Your call) are named as such and cannot be saved as a decision. "Take profit"
+is saved as a sale, "Add" as a buy.
+
+**What did not change.** Every file in `lib/` is the same as on main except the new `lib/thesis.js` (compared with
+`git diff origin/main -- lib`: one new file). It imports only the hashing and date helpers of `lib/shariah-ledger.js`.
+In `index.html` the only lines removed from main are nine one-line edits: the Advice list's row object (a hidden `dec`
+field was added, which is not displayed), the Portfolio card order, the backup, merge and restore lines, the backup
+button's enabled test, the page list, the navigation highlight and the test hook. No formula, threshold, limit or signal
+was edited. The only workflow change is one extra step that runs the thesis tests (`test/workflow.test.py` checks it).
+No paid service, subscription, API key or recurring cost was added; the record is local code with no network call.
+
+**Evidence** (all run on the branch before commit)
+
+| Check | Result |
+|---|---|
+| Thesis tests (`test/thesis.test.mjs`) | 20 of 20: required fields, strict evidence, written conditions, one open thesis per stock, versions and diffs, tamper checks (edit, remove, reorder, cut off, forged explanation), decisions and explanations for buy, hold, trim and sell, missing data, today-only decisions, corrections, closing, overview, joining backups, wording, and that the page carries exactly the library's code |
+| Do those tests fail when the logic is wrong? | 15 deliberate breakages of the library (price boundary, back-dating allowed, hash not checked, explanation not rebuilt, empty revision accepted, second open thesis accepted, page's reasons not quoted, cited thesis voidable, merge not translating references, caller-supplied explanation honoured, integrity check skipped, missing thesis not stated, met condition dropped, evidence not strict, closing without a reason): 15 of 15 caught |
+| Page tests (`test/page.test.py`) | 511 of 511 (466 before, 45 new): the Portfolio card, writing and revising a thesis through the page, the original kept byte for byte, the history, a decision report that quotes the Advice list's sentences word for word, an edited decision caught on both pages, nothing added to a failed record, late data (paused rows cannot be saved), a met condition shown without changing any advice, the company page (saving a buy; a buy the ledger blocks cannot be saved), backup and merge, and no page errors |
+| Other node suites and workflow rules | formulas 80 of 80, Shariah ledger 40 of 40, deploy safety 46 of 46, restore and log 50 of 50, workflow rules all hold |
+| Same advice, ledger current (`same-advice.py --ledger=current`, old = main `4f74903`) | 54 page views compared (411 sections, 382,399 characters): 38 identical word for word; the only differences are the two new sections ("Thesis and decisions", "Your thesis"), listed in `ADDED_SECTIONS`. No unexpected difference |
+| Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (411 sections, 384,755 characters): 38 identical; only the same new sections differ, and the number of sell, trim and take-profit calls on every page is unchanged. No unexpected difference |
+| Advice and the plan with a record present | Tested on the page: with a thesis, a saved decision or a met condition, the Advice list rows and this month's plan are exactly as without |
+| Secret scan | no credentials found |
+| GitHub CI | CI_PENDING |
+
+**Limits and disclosures**
+
+- **A call is kept only when you press Save.** Nothing is recorded automatically, so calls you do not save are not
+  preserved here. (An automatic record of every change of call would be a design change; it is not built, and it is
+  yours to decide.) The site's own permanent record of its nightly calls (section 7 of `PREREGISTERED.md`) is unchanged.
+- **Device-local.** Holdings are not in the public repository, so the thesis record lives in this browser and in the
+  backup file, like the journal and the Shariah ledger. The chain shows an edited or removed entry; it cannot stop
+  someone with access to your device from replacing the whole record. Two devices differ until you load a backup.
+- **The measure "broken theses caught" is not computed.** `PREREGISTERED.md` (measure 3) needs dated theses with
+  conditions and the price on the day each was written; Stage 5 saves exactly that, but the measure itself lives on the
+  server record and would need the thesis file to leave your device. That is not built and is for you to decide.
+- **Evidence is what the page held.** It is the nightly screen row (rating, scores, fair value, buy and trim prices, trend)
+  as shown that day, not a full set of statements, and not a later correction. A ticker the site does not analyse (an own
+  ticker) has mostly empty evidence, said as such. For judging a call later, use the date and price saved with it.
+- **Which calls can be saved.** The Advice list's Add, Hold, Trim, Sell and Take profit, and a long-term buy on a company
+  page. Swing-trade signals, the monthly plan's lines, ideas, shortlist tags and requests to check something are not
+  decisions in this record.
+- **Written conditions** are compared only with the saved data and only the five listed checks; the rest are yours to
+  judge. A met condition is shown, never acted on: no alert is sent and nothing is sold. An unmet one is not a reason to hold.
+- **A thesis can be written for a date earlier than today** (you may have owned the stock for months); the time it was
+  really recorded is saved separately. Decisions cannot.
+- **The explanations are fixed templates** filled from the saved fields; nothing is generated or estimated.
+- **Your action** on a saved decision is free text you type; it is not checked against your journal or holdings.
+- Nothing here is financial or Shariah advice. Zoya remains the final Shariah authority.
+

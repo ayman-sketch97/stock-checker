@@ -657,6 +657,9 @@ table.data.wrap1 td:first-child .sm { font-size: 12px; line-height: 1.4; margin-
 .alert-list li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
 .alert-list li:first-child { border-top: 0; }
 .lg-void { text-decoration: line-through; opacity: 0.65; }
+.tl-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+.tl-row input[type=text], .tl-row select { flex: 1 1 200px; min-width: 0; }
+.explain h3 { margin: 12px 0 0; font-size: 15px; }
 .alert-list .tk { font-weight: 800; cursor: pointer; color: var(--accent-ink); background: none; border: 0; padding: 0; font: inherit; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
 .field { display: grid; gap: 5px; font-size: 13px; color: var(--ink-2); min-width: 0; font-weight: 550; align-content: end; }
@@ -923,6 +926,7 @@ table.data tr.me td { background: var(--accent-wash); }
   <section id="page-journal" aria-label="Trading journal" hidden></section>
   <section id="page-advisor" aria-label="Portfolio advisor" hidden></section>
   <section id="page-shariah" aria-label="Shariah ledger" hidden></section>
+  <section id="page-thesis" aria-label="Thesis and decisions" hidden></section>
 
   <section id="how" class="card how" hidden>
     <h2>How Stock Checker works</h2>
@@ -1506,6 +1510,7 @@ table.data tr.me td { background: var(--accent-wash); }
     result.append(tech.glance);
     tech.action = h('section', { class: 'card act', 'aria-label': 'What to do now' });
     result.append(tech.action);
+    result.append(thesisStockCard(d)); // the thesis and decision record (stage 5)
     paintGlance();
     {
       const mine = tech;
@@ -3254,6 +3259,537 @@ table.data tr.me td { background: var(--accent-wash); }
     return { ok: true, entries: out, added, note: added ? `${added} entr${added === 1 ? 'y' : 'ies'} from the backup were added after the ones on this device.` : 'Nothing new in the backup.' };
   }
   // ---- shariah-ledger.js (end)
+  // ---- thesis.js (start): a copy of lib/thesis.js, checked by test/thesis.test.mjs
+  // The investment thesis and decision record (stage 5 of the robo-advisor plan, November 2026).
+  //
+  // What it is: your own written reason for owning or considering a stock (the thesis, the catalysts you expect, the
+  // risks, and the conditions that would break it), every later change to that thesis, and a saved copy of each
+  // buy, hold, trim or sell call the page showed you, with the evidence behind it on that day. It records and explains.
+  // It never decides, never changes a verdict, a buy or sell signal, a valuation, a limit or the Shariah gate, and
+  // nothing in it sells or buys anything.
+  //
+  // How it behaves:
+  //   - Append-only. An entry is never edited or removed. A mistake is answered with a "correction" entry that voids the
+  //     wrong one (it stays in the history, struck through). Each entry carries the SHA-256 of the one before it, so a
+  //     changed, removed or reordered entry shows (verifyThesisLog). Entries cut off the end show only against the anchor
+  //     (anchorOf in the ledger block), which is kept apart and travels with the backup file.
+  //   - A change of mind is a "revision": a complete new version of the thesis plus the reason for the change. The
+  //     original and every earlier version stay exactly as written.
+  //   - A decision entry freezes the call as the page showed it (its own wording and reasons), the evidence of that day
+  //     (fundamentals, valuation, chart, risk, Shariah), the thesis as it then stood and which of your written conditions
+  //     were met. The explanation is built from those saved fields by explainDecision; verifyThesisLog rebuilds it and
+  //     fails if it differs. Decisions are only saved for today, so they cannot be back-dated.
+  //   - Your conditions are checked against the saved evidence only where they are numbers or the tool's own labels
+  //     (price, business rating, Shariah screen, chart trend). The rest are marked "for you to judge". A met condition
+  //     is shown to you; it changes no call.
+  //
+  // index.html carries the same text between the thesis.js markers (without the import and export lines), and
+  // test/thesis.test.mjs fails if the two copies differ in any way.
+  const THESIS_VERSION = 1;
+  const THESIS_KINDS = Object.freeze(['thesis', 'revision', 'decision', 'close', 'correction']);
+  const THESIS_STANCES = Object.freeze(['owned', 'considering']);
+  const THESIS_HORIZONS = Object.freeze(['long', 'mid', 'short']);
+  const THESIS_ACTIONS = Object.freeze(['buy', 'hold', 'trim', 'sell']);
+  const THESIS_SOURCES = Object.freeze(['portfolio', 'stock']);
+  // a written condition can name one of these checks, which the page can test against the saved evidence
+  const THESIS_RULE_TYPES = Object.freeze(['price_below', 'price_above', 'business_weakens', 'fails_shariah_screen', 'trend_breaks']);
+  const THESIS_LIMITS = Object.freeze({ reason: 600, thesis: 1200, item: 240, items: 8, change: 400, note: 400, call: 40, userAction: 300, reasons: 12, reasonText: 1500, notes: 6, noteText: 300 });
+  const TH_WEAK_VERDICTS = Object.freeze(['AVOID_WEAK', 'SPECULATIVE']);
+  const TH_BROKEN_TRENDS = Object.freeze(['down', 'weakening']);
+
+  // ---------------------------------------------------------------- small helpers
+  const thNum = (x) => typeof x === 'number' && Number.isFinite(x);
+  const thText = (s, max) => typeof s === 'string' && s.trim().length > 0 && s.length <= max;
+  const thOptText = (s, max) => s === undefined || (typeof s === 'string' && s.length <= max);
+  const thNullNum = (x) => x === null || thNum(x);
+  const thNullText = (x, max) => x === null || (typeof x === 'string' && x.length <= max);
+  const TH_TICKER = /^[A-Z0-9][A-Z0-9-]{0,14}$/;
+  function thCanon(x) {
+    if (x === null || typeof x !== 'object') return JSON.stringify(x);
+    if (Array.isArray(x)) return `[${x.map(thCanon).join(',')}]`;
+    return `{${Object.keys(x).filter((k) => x[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${thCanon(x[k])}`).join(',')}}`;
+  }
+  function thHashOf(entry) {
+    const { hash, ...rest } = entry;
+    return sha256Hex(thCanon(rest));
+  }
+  const thMoney = (x) => `$${x.toFixed(2)}`;
+  const thPct0 = (x) => `${Math.round(x * 100)}%`;
+  const thJoin = (a) => a.join('; ');
+
+  // ---------------------------------------------------------------- the evidence saved with a thesis or a decision
+  // Every key is required and may be null ("not available"); nothing is guessed. Numbers are the tool's own, as shown.
+  const TH_EVIDENCE_SHAPE = {
+    fundamental: ['verdict', 'verdictLabel', 'quality', 'growth', 'health', 'dataQuality'],
+    valuation: ['label', 'fair', 'buyBelow', 'trimAbove', 'upside'],
+    technical: ['trend'],
+    risk: ['weight', 'limitsAllowBuy', 'limitNotes', 'dataPaused'],
+    shariah: ['screen', 'ledgerOk', 'ledgerNote'],
+  };
+  function thEvidenceProblems(ev) {
+    const p = [];
+    if (!ev || typeof ev !== 'object' || Array.isArray(ev)) return ['the evidence is missing'];
+    const top = new Set(['asOf', 'price', ...Object.keys(TH_EVIDENCE_SHAPE)]);
+    for (const k of Object.keys(ev)) if (!top.has(k)) p.push(`unexpected evidence field "${k}"`);
+    if (!(ev.asOf === null || isDateISO(ev.asOf))) p.push('evidence date is not a real date');
+    if (!thNullNum(ev.price)) p.push('evidence price is not a number');
+    for (const [group, keys] of Object.entries(TH_EVIDENCE_SHAPE)) {
+      const g = ev[group];
+      if (!g || typeof g !== 'object' || Array.isArray(g)) { p.push(`evidence "${group}" is missing`); continue; }
+      for (const k of Object.keys(g)) if (!keys.includes(k)) p.push(`unexpected evidence field "${group}.${k}"`);
+      for (const k of keys) if (!(k in g)) p.push(`evidence "${group}.${k}" is missing (use null when not available)`);
+    }
+    if (p.length) return p;
+    const f = ev.fundamental;
+    for (const k of ['quality', 'growth', 'health']) if (!thNullNum(f[k])) p.push(`evidence fundamental.${k} must be a number or null`);
+    for (const k of ['verdict', 'verdictLabel', 'dataQuality']) if (!thNullText(f[k], 80)) p.push(`evidence fundamental.${k} must be text or null`);
+    const v = ev.valuation;
+    for (const k of ['fair', 'buyBelow', 'trimAbove', 'upside']) if (!thNullNum(v[k])) p.push(`evidence valuation.${k} must be a number or null`);
+    if (!thNullText(v.label, 80)) p.push('evidence valuation.label must be text or null');
+    if (!thNullText(ev.technical.trend, 40)) p.push('evidence technical.trend must be text or null');
+    const r = ev.risk;
+    if (!thNullNum(r.weight)) p.push('evidence risk.weight must be a number or null');
+    if (!(r.limitsAllowBuy === null || typeof r.limitsAllowBuy === 'boolean')) p.push('evidence risk.limitsAllowBuy must be true, false or null');
+    if (typeof r.dataPaused !== 'boolean') p.push('evidence risk.dataPaused must be true or false');
+    if (!Array.isArray(r.limitNotes) || r.limitNotes.length > THESIS_LIMITS.notes || r.limitNotes.some((s) => typeof s !== 'string' || s.length > THESIS_LIMITS.noteText)) p.push('evidence risk.limitNotes must be a short list of text');
+    const s = ev.shariah;
+    if (!thNullText(s.screen, 20)) p.push('evidence shariah.screen must be text or null');
+    if (!(s.ledgerOk === null || typeof s.ledgerOk === 'boolean')) p.push('evidence shariah.ledgerOk must be true, false or null');
+    if (!thNullText(s.ledgerNote, THESIS_LIMITS.noteText)) p.push('evidence shariah.ledgerNote must be text or null');
+    return p;
+  }
+
+  // ---------------------------------------------------------------- the thesis itself
+  function thListProblems(list, name, withRule) {
+    const p = [];
+    if (!Array.isArray(list) || list.length < 1) return [`${name}: at least one is required (write "none identified" if that is the honest answer)`];
+    if (list.length > THESIS_LIMITS.items) return [`${name}: at most ${THESIS_LIMITS.items}`];
+    list.forEach((x, i) => {
+      const at = `${name} ${i + 1}`;
+      if (!x || typeof x !== 'object' || Array.isArray(x)) { p.push(`${at}: not valid`); return; }
+      const allowed = new Set(['text', ...(name === 'catalysts' ? ['by'] : []), ...(withRule ? ['rule'] : [])]);
+      for (const k of Object.keys(x)) if (!allowed.has(k)) p.push(`${at}: unexpected field "${k}"`);
+      if (!thText(x.text, THESIS_LIMITS.item)) p.push(`${at}: text is required (up to ${THESIS_LIMITS.item} characters)`);
+      if (x.by !== undefined && !isDateISO(x.by)) p.push(`${at}: the expected date is not a real date`);
+      if (x.rule !== undefined) {
+        const r = x.rule;
+        if (!r || typeof r !== 'object' || !THESIS_RULE_TYPES.includes(r.type)) p.push(`${at}: unknown check`);
+        else {
+          const needsValue = r.type === 'price_below' || r.type === 'price_above';
+          for (const k of Object.keys(r)) if (k !== 'type' && k !== 'value') p.push(`${at}: unexpected field "rule.${k}"`);
+          if (needsValue && !(thNum(r.value) && r.value > 0)) p.push(`${at}: the price must be a number above zero`);
+          if (!needsValue && r.value !== undefined) p.push(`${at}: this check takes no value`);
+        }
+      }
+    });
+    return p;
+  }
+  function thBodyProblems(e) {
+    const p = [];
+    if (!THESIS_STANCES.includes(e.stance)) p.push('stance must be owned or considering');
+    if (!THESIS_HORIZONS.includes(e.horizon)) p.push('horizon must be long, mid or short');
+    if (!thText(e.reason, THESIS_LIMITS.reason)) p.push(`the reason for owning or considering it is required (up to ${THESIS_LIMITS.reason} characters)`);
+    if (!thText(e.thesis, THESIS_LIMITS.thesis)) p.push(`the thesis is required (up to ${THESIS_LIMITS.thesis} characters)`);
+    p.push(...thListProblems(e.catalysts, 'catalysts', false));
+    p.push(...thListProblems(e.risks, 'risks', false));
+    p.push(...thListProblems(e.invalidation, 'invalidation', true));
+    p.push(...thEvidenceProblems(e.evidence));
+    return p;
+  }
+  const TH_BODY = ['stance', 'horizon', 'reason', 'thesis', 'catalysts', 'risks', 'invalidation', 'evidence'];
+  const TH_COPY = ['stance', 'horizon', 'written', 'reason', 'thesis', 'catalysts', 'risks', 'invalidation'];
+  const TH_FIELDS = {
+    thesis: ['written', ...TH_BODY],
+    revision: ['revised', 'revises', 'change', ...TH_BODY],
+    decision: ['decided', 'action', 'call', 'source', 'reasons', 'evidence', 'thesisRef', 'thesisCopy', 'conditions', 'explanation', 'userAction'],
+    close: ['on', 'thesisN', 'note'],
+    correction: ['fixes', 'note'],
+  };
+  const TH_STATES = Object.freeze(['met', 'not_met', 'unknown', 'judge']);
+
+  // ---------------------------------------------------------------- checking a written condition against saved evidence
+  function conditionState(cond, ev) {
+    const r = cond && cond.rule;
+    if (!r) return 'judge';
+    const e = ev || {};
+    const price = thNum(e.price) ? e.price : null;
+    if (r.type === 'price_below') return price === null ? 'unknown' : price <= r.value ? 'met' : 'not_met';
+    if (r.type === 'price_above') return price === null ? 'unknown' : price >= r.value ? 'met' : 'not_met';
+    if (r.type === 'business_weakens') {
+      const v = e.fundamental && e.fundamental.verdict;
+      return !v ? 'unknown' : TH_WEAK_VERDICTS.includes(v) ? 'met' : 'not_met';
+    }
+    if (r.type === 'fails_shariah_screen') {
+      const s = e.shariah && e.shariah.screen;
+      return !s ? 'unknown' : s === 'fail' ? 'met' : 'not_met';
+    }
+    if (r.type === 'trend_breaks') {
+      const t = e.technical && e.technical.trend;
+      return !t ? 'unknown' : TH_BROKEN_TRENDS.includes(t) ? 'met' : 'not_met';
+    }
+    return 'judge';
+  }
+  function conditionStates(thesis, ev) {
+    if (!thesis || !Array.isArray(thesis.invalidation)) return [];
+    return thesis.invalidation.map((c) => ({ text: c.text, state: conditionState(c, ev) }));
+  }
+  const TH_STATE_TEXT = { met: 'met on the saved data', not_met: 'not met on the saved data', unknown: 'cannot be checked: the data was not available', judge: 'for you to judge' };
+
+  // ---------------------------------------------------------------- the explanation of a decision
+  const TH_ACTION_WORD = { buy: 'Buy', hold: 'Hold', trim: 'Trim', sell: 'Sell' };
+  // Built only from what is saved in the decision. The page's own reasons are quoted word for word.
+  function explainDecision(d) {
+    const ev = d.evidence || {};
+    const f = ev.fundamental || {};
+    const v = ev.valuation || {};
+    const rk = ev.risk || {};
+    const sh = ev.shariah || {};
+    const word = TH_ACTION_WORD[d.action] || d.action;
+    const headline = `${word} ${d.t} on ${d.decided}. The page showed “${d.call}”.`;
+    const why = (d.reasons || []).slice();
+    const data = [];
+    const fp = [];
+    if (f.verdictLabel) fp.push(`rated “${f.verdictLabel}”`);
+    if (thNum(f.quality)) fp.push(`business quality ${Math.round(f.quality)} of 100`);
+    if (thNum(f.growth)) fp.push(`growth ${Math.round(f.growth)} of 100`);
+    if (thNum(f.health)) fp.push(`financial health ${Math.round(f.health)} of 100`);
+    if (f.dataQuality) fp.push(`data quality ${f.dataQuality}`);
+    data.push(fp.length ? `Fundamentals: ${fp.join(', ')}.` : 'Fundamentals: not available for this stock.');
+    const vp = [];
+    if (thNum(ev.price)) vp.push(`price ${thMoney(ev.price)}`);
+    if (v.label) vp.push(`valued as “${v.label}”`);
+    if (thNum(v.fair)) vp.push(`fair value ${thMoney(v.fair)}`);
+    if (thNum(v.buyBelow)) vp.push(`buy at or below ${thMoney(v.buyBelow)}`);
+    if (thNum(v.trimAbove)) vp.push(`trim at or above ${thMoney(v.trimAbove)}`);
+    if (thNum(v.upside)) vp.push(`upside to fair value ${thPct0(v.upside)}`);
+    data.push(vp.length ? `Valuation: ${vp.join(', ')}.` : 'Valuation: not available for this stock.');
+    data.push(ev.technical && ev.technical.trend ? `Chart: the trend is ${ev.technical.trend}.` : 'Chart: not available for this stock.');
+    const rp = [];
+    if (thNum(rk.weight)) rp.push(`this stock is ${thPct0(rk.weight)} of your portfolio`);
+    if (rk.limitsAllowBuy === true) rp.push('your size and sector limits allow a new buy');
+    if (rk.limitsAllowBuy === false) rp.push(`your limits do not allow a new buy${rk.limitNotes && rk.limitNotes.length ? ` (${thJoin(rk.limitNotes)})` : ''}`);
+    if (rk.dataPaused) rp.push('the nightly data was late, so advice was paused');
+    data.push(rp.length ? `Risk: ${rp.join(', ')}.` : 'Risk: not available for this stock.');
+    const sp = [];
+    if (sh.screen) sp.push(`the tool’s screen shows “${sh.screen}”`);
+    if (sh.ledgerNote) sp.push(`your Shariah ledger: ${sh.ledgerNote}`);
+    data.push(sp.length ? `Shariah: ${sp.join('; ')}. Zoya has the final word.` : 'Shariah: not available for this stock. Zoya has the final word.');
+    const th = [];
+    const c = d.thesisCopy;
+    if (!c) th.push(`No thesis is recorded for ${d.t}, so this call could not be checked against your own reasons.`);
+    else {
+      const ref = d.thesisRef || {};
+      th.push(`Your thesis (written ${c.written}${ref.of > 1 ? `, version ${ref.version} of ${ref.of}` : ''}), ${c.stance === 'owned' ? 'you own it' : 'you are considering it'}: ${c.reason}`);
+      th.push(`The case: ${c.thesis}`);
+      th.push(`Catalysts you expected: ${thJoin(c.catalysts.map((x) => x.text + (x.by ? ` (by ${x.by})` : '')))}.`);
+      th.push(`Risks you named: ${thJoin(c.risks.map((x) => x.text))}.`);
+      const conds = d.conditions || [];
+      for (const x of conds) th.push(`Would break it: “${x.text}”: ${TH_STATE_TEXT[x.state]}.`);
+      const met = conds.filter((x) => x.state === 'met');
+      if (met.length) th.push('A condition you wrote down as breaking the thesis is met. Review the thesis. This does not change the call above.');
+      else if (d.action === 'sell' || d.action === 'trim') th.push('None of your written conditions is met on the saved data, so this call comes from the tool’s rules, not from your thesis.');
+    }
+    return { headline, why, data, thesis: th };
+  }
+
+  // ---------------------------------------------------------------- shape rules for one entry
+  function thShapeProblems(e) {
+    const p = [];
+    if (!e || typeof e !== 'object') return ['not an entry'];
+    if (!THESIS_KINDS.includes(e.kind)) return [`unknown kind "${e.kind}"`];
+    if (typeof e.t !== 'string' || !TH_TICKER.test(e.t)) p.push('ticker is missing or not valid');
+    const allowed = new Set(['v', 'n', 'kind', 't', 'recorded', 'prev', 'hash', 'origin', ...TH_FIELDS[e.kind]]);
+    for (const k of Object.keys(e)) if (!allowed.has(k)) p.push(`unexpected field "${k}"`);
+    if (e.kind === 'thesis') {
+      if (!isDateISO(e.written)) p.push('the date written is missing or not a real date');
+      p.push(...thBodyProblems(e));
+    } else if (e.kind === 'revision') {
+      if (!isDateISO(e.revised)) p.push('the revision date is missing or not a real date');
+      if (!Number.isInteger(e.revises) || e.revises < 0) p.push('the version being revised is missing');
+      if (!thText(e.change, THESIS_LIMITS.change)) p.push('a revision needs the reason for the change');
+      p.push(...thBodyProblems(e));
+    } else if (e.kind === 'decision') {
+      if (!isDateISO(e.decided)) p.push('the decision date is missing or not a real date');
+      if (!THESIS_ACTIONS.includes(e.action)) p.push('action must be buy, hold, trim or sell');
+      if (!thText(e.call, THESIS_LIMITS.call)) p.push('the page’s own wording of the call is required');
+      if (!THESIS_SOURCES.includes(e.source)) p.push('source must be portfolio or stock');
+      if (!Array.isArray(e.reasons) || e.reasons.length < 1 || e.reasons.length > THESIS_LIMITS.reasons || e.reasons.some((s) => !thText(s, THESIS_LIMITS.reasonText))) p.push('the reasons the page gave are required');
+      p.push(...thEvidenceProblems(e.evidence));
+      if (!thOptText(e.userAction, THESIS_LIMITS.userAction)) p.push('what you did is too long');
+      const hasRef = e.thesisRef !== null && e.thesisRef !== undefined;
+      const hasCopy = e.thesisCopy !== null && e.thesisCopy !== undefined;
+      if (hasRef !== hasCopy) p.push('the thesis link and the saved thesis must go together');
+      if (hasRef) {
+        const r = e.thesisRef;
+        if (!r || !Number.isInteger(r.n) || r.n < 0 || typeof r.hash !== 'string' || !Number.isInteger(r.version) || !Number.isInteger(r.of) || r.version < 1 || r.of < r.version) p.push('the thesis link is not valid');
+        const c = e.thesisCopy;
+        if (!c || typeof c !== 'object') p.push('the saved thesis is not valid');
+        else {
+          for (const k of Object.keys(c)) if (!TH_COPY.includes(k)) p.push(`unexpected field "thesisCopy.${k}"`);
+          if (!THESIS_STANCES.includes(c.stance) || !THESIS_HORIZONS.includes(c.horizon) || !isDateISO(c.written) || !thText(c.reason, THESIS_LIMITS.reason) || !thText(c.thesis, THESIS_LIMITS.thesis)) p.push('the saved thesis is not valid');
+          else p.push(...thListProblems(c.catalysts, 'catalysts', false), ...thListProblems(c.risks, 'risks', false), ...thListProblems(c.invalidation, 'invalidation', true));
+        }
+      }
+      if (!Array.isArray(e.conditions)) p.push('the condition results are missing');
+      else if (e.conditions.some((x) => !x || typeof x.text !== 'string' || !TH_STATES.includes(x.state))) p.push('a condition result is not valid');
+      if (!e.explanation || typeof e.explanation !== 'object') p.push('the explanation is missing');
+    } else if (e.kind === 'close') {
+      if (!isDateISO(e.on)) p.push('the date is missing or not a real date');
+      if (!Number.isInteger(e.thesisN) || e.thesisN < 0) p.push('the thesis being closed is missing');
+      if (!thText(e.note, THESIS_LIMITS.note)) p.push('say why you no longer own or consider it');
+    } else if (e.kind === 'correction') {
+      if (!Number.isInteger(e.fixes) || e.fixes < 0) p.push('the entry being corrected is missing');
+      if (!thText(e.note, THESIS_LIMITS.note)) p.push('a correction needs a reason');
+    }
+    return p;
+  }
+  // the explanation and the condition results are derived from the saved fields, so they can be rebuilt and compared
+  function thDerived(e) {
+    const conditions = e.thesisCopy ? conditionStates(e.thesisCopy, e.evidence) : [];
+    return { conditions, explanation: explainDecision({ ...e, conditions }) };
+  }
+
+  // ---------------------------------------------------------------- reading
+  const thVoided = (entries) => new Set(entries.filter((e) => e.kind === 'correction').map((e) => e.fixes));
+  // everything recorded for one ticker, voided entries left out (they stay in `all` for display)
+  function thesisState(entries, t) {
+    const voided = thVoided(entries);
+    const all = entries.filter((e) => e.t === t);
+    const live = all.filter((e) => !voided.has(e.n) && e.kind !== 'correction');
+    const starts = live.filter((e) => e.kind === 'thesis');
+    const original = starts.length ? starts[starts.length - 1] : null;
+    const closes = original ? live.filter((e) => e.kind === 'close' && e.n > original.n) : [];
+    const versions = original ? [original, ...live.filter((e) => e.kind === 'revision' && e.n > original.n)] : [];
+    const current = versions.length ? versions[versions.length - 1] : null;
+    const status = !original ? 'none' : closes.length ? 'closed' : 'open';
+    return {
+      status,
+      original,
+      versions,
+      current,
+      closed: closes.length ? closes[closes.length - 1] : null,
+      decisions: live.filter((e) => e.kind === 'decision'),
+      earlier: starts.slice(0, -1),
+      voided: all.filter((e) => voided.has(e.n)),
+      all,
+    };
+  }
+  const TH_FIELD_NAMES = { stance: 'owned or considering', horizon: 'time horizon', reason: 'reason for owning or considering it', thesis: 'the case', catalysts: 'catalysts', risks: 'risks', invalidation: 'conditions that would break it' };
+  const thListText = (x) => (Array.isArray(x) ? x.map((i) => i.text + (i.by ? ` (by ${i.by})` : '') + (i.rule ? ` [${i.rule.type}${i.rule.value !== undefined ? ` ${i.rule.value}` : ''}]` : '')).join('; ') : String(x));
+  // what changed from one version to the next, in plain words (the earlier version is never altered)
+  function thesisChanges(a, b) {
+    const out = [];
+    for (const k of ['stance', 'horizon', 'reason', 'thesis', 'catalysts', 'risks', 'invalidation']) {
+      if (thCanon(a[k]) !== thCanon(b[k])) out.push({ field: k, name: TH_FIELD_NAMES[k], before: thListText(a[k]), after: thListText(b[k]) });
+    }
+    return out;
+  }
+  // one line per holding: has it a thesis, and does a written condition show as met on the latest evidence given
+  function thesisOverview(entries, heldTickers, latestEvidence) {
+    const tickers = new Set([...(heldTickers || []), ...entries.filter((e) => e.kind === 'thesis').map((e) => e.t)]);
+    const rows = [];
+    for (const t of [...tickers].sort()) {
+      const s = thesisState(entries, t);
+      const held = (heldTickers || []).includes(t);
+      const ev = latestEvidence && latestEvidence[t];
+      const met = s.status === 'open' && ev ? conditionStates(s.current, ev).filter((x) => x.state === 'met').map((x) => x.text) : [];
+      const level = held && s.status !== 'open' ? 'warn' : met.length ? 'bad' : 'ok';
+      const text = s.status === 'none' ? (held ? 'No thesis recorded for this holding.' : 'No thesis.')
+        : s.status === 'closed' ? (held ? 'The last thesis was closed, but you hold it again: write a new one.' : 'Closed.')
+          : met.length ? `A condition you wrote is met today: ${thJoin(met)}.` : `Thesis recorded${s.versions.length > 1 ? ` (${s.versions.length} versions)` : ''}.`;
+      rows.push({ t, held, status: s.status, versions: s.versions.length, decisions: s.decisions.length, met, level, text });
+    }
+    return rows;
+  }
+
+  // ---------------------------------------------------------------- the chain
+  function thBuild(prevEntries, fields, recordedISO) {
+    const n = prevEntries.length;
+    const prev = n ? prevEntries[n - 1].hash : LEDGER_GENESIS;
+    const body = { v: THESIS_VERSION, n, ...fields, recorded: recordedISO, prev };
+    for (const k of Object.keys(body)) if (body[k] === undefined || body[k] === '') delete body[k];
+    return { ...body, hash: thHashOf(body) };
+  }
+  function thTidyList(list) {
+    if (!Array.isArray(list)) return list;
+    return list.map((x) => {
+      if (!x || typeof x !== 'object') return x;
+      const o = { ...x };
+      if (typeof o.text === 'string') o.text = o.text.trim();
+      if (o.by === '' || o.by === null) delete o.by;
+      if (o.rule === null) delete o.rule;
+      return o;
+    });
+  }
+  const thTrim = (f) => {
+    const o = { ...f };
+    for (const k of ['reason', 'thesis', 'change', 'note', 'call', 'userAction']) if (typeof o[k] === 'string') o[k] = o[k].trim();
+    if (typeof o.t === 'string') o.t = o.t.trim().toUpperCase();
+    if (o.userAction === '') delete o.userAction;
+    for (const k of ['catalysts', 'risks', 'invalidation']) if (k in o) o[k] = thTidyList(o[k]);
+    if (Array.isArray(o.reasons)) o.reasons = o.reasons.map((s) => (typeof s === 'string' ? s.trim() : s));
+    return o;
+  };
+  const thPick = (e, keys) => { const o = {}; for (const k of keys) if (e[k] !== undefined) o[k] = e[k]; return o; };
+  // add one entry. Returns { ok, entries, entry, errors }; the array passed in is never changed.
+  // today and nowISO are passed in so that tests can fix them.
+  function appendThesis(entries, fields, today, nowISO) {
+    const f = thTrim(fields || {});
+    const errors = [];
+    const fail = (...more) => ({ ok: false, entries, entry: null, errors: [...errors, ...more] });
+    // derived fields are never taken from the caller
+    if (f.kind === 'decision') for (const k of ['thesisRef', 'thesisCopy', 'conditions', 'explanation']) delete f[k];
+    if (f.kind === 'close') delete f.thesisN;
+    const chain = verifyThesisLog(entries);
+    if (!chain.ok) return fail('the record does not pass its integrity check, so nothing can be added until that is looked at');
+    if (!isDateISO(today)) return fail('today is not a real date');
+    if (!THESIS_KINDS.includes(f.kind)) return fail(`unknown kind "${f.kind}"`);
+    const st = typeof f.t === 'string' && TH_TICKER.test(f.t) ? thesisState(entries, f.t) : null;
+    const open = !!st && st.status === 'open';
+    let full = f;
+    if (f.kind === 'decision' && open) {
+      // the decision keeps the thesis as it stands now
+      const cur = st.current;
+      full = { ...f, thesisRef: { n: cur.n, hash: cur.hash, version: st.versions.length, of: st.versions.length }, thesisCopy: { ...thPick(cur, TH_COPY), written: st.original.written } };
+    }
+    if (f.kind === 'close') {
+      if (!open) return fail(st ? `${f.t} has no open thesis to close` : 'ticker is missing or not valid');
+      full = { ...f, thesisN: st.current.n };
+    }
+    if (f.kind === 'decision') {
+      errors.push(...thShapeProblems({ ...full, conditions: [], explanation: {} }));
+      if (!errors.length) full = { ...full, ...thDerived(full) };
+    } else errors.push(...thShapeProblems(full));
+    if (errors.length) return fail();
+    const dated = f.kind === 'thesis' ? [['written', f.written]] : f.kind === 'revision' ? [['revised', f.revised]] : f.kind === 'close' ? [['on', f.on]] : [];
+    for (const [name, d] of dated) if (d > today) errors.push(`${name} is in the future`);
+    if (f.kind === 'decision' && f.decided !== today) errors.push('a decision can only be saved for today, so that it cannot be back-dated');
+    if (f.kind === 'thesis' && open) errors.push(`${f.t} already has an open thesis; write a revision instead, or close it first`);
+    if (f.kind === 'revision') {
+      if (!open) errors.push(`${f.t} has no open thesis to revise`);
+      else {
+        if (f.revises !== st.current.n) errors.push('the version being revised is not the latest one; reload and revise the latest');
+        if (!thesisChanges(st.current, f).length) errors.push('nothing in the thesis changed, so there is nothing to record');
+        if (f.revised < (st.current.kind === 'thesis' ? st.current.written : st.current.revised)) errors.push('the revision date is before the version it revises');
+      }
+    }
+    if (f.kind === 'close' && f.on < st.original.written) errors.push('the closing date is before the thesis was written');
+    if (f.kind === 'correction') {
+      const target = entries[f.fixes];
+      if (!target) errors.push('there is no such entry to correct');
+      else if (target.kind === 'correction') errors.push('a correction cannot be corrected; record the right entry instead');
+      else if (target.t !== f.t) errors.push('the entry belongs to another ticker');
+      else if (entries.some((x) => x.kind === 'correction' && x.fixes === f.fixes)) errors.push('that entry is already corrected');
+      else if (target.kind === 'thesis' || target.kind === 'revision') {
+        const voided = thVoided(entries);
+        const later = entries.filter((x) => x.t === f.t && x.n > target.n && !voided.has(x.n));
+        if (later.some((x) => (x.kind === 'revision' && x.revises === target.n) || (x.kind === 'decision' && x.thesisRef && x.thesisRef.n === target.n) || (x.kind === 'close' && x.thesisN === target.n))) errors.push('a later revision, decision or closing refers to this entry; correct those first, or record a revision');
+      }
+    }
+    if (errors.length) return fail();
+    const entry = thBuild(entries, full, nowISO);
+    return { ok: true, entries: [...entries, entry], entry, errors: [] };
+  }
+  // check the whole chain: numbering, links, hashes, shapes, references, and that every explanation can be rebuilt
+  function verifyThesisLog(entries, today) {
+    const problems = [];
+    if (!Array.isArray(entries)) return { ok: false, count: 0, head: null, problems: ['the record is not a list'] };
+    let prev = LEDGER_GENESIS;
+    entries.forEach((e, i) => {
+      const at = `entry ${i}`;
+      if (!e || typeof e !== 'object') { problems.push(`${at}: not an entry`); return; }
+      if (e.n !== i) problems.push(`${at}: numbered ${e.n}, so an entry was removed, added or moved`);
+      if (e.prev !== prev) problems.push(`${at}: does not link to the entry before it`);
+      if (thHashOf(e) !== e.hash) problems.push(`${at}: its content does not match its hash (it was changed)`);
+      const shape = thShapeProblems(e);
+      for (const s of shape) problems.push(`${at}: ${s}`);
+      const at0 = (k) => entries[k];
+      if (!shape.length) {
+        if (e.kind === 'revision') {
+          const tg = at0(e.revises);
+          if (!(e.revises < i) || !tg || tg.t !== e.t || (tg.kind !== 'thesis' && tg.kind !== 'revision')) problems.push(`${at}: revises an entry that is not an earlier version of the same thesis`);
+        }
+        if (e.kind === 'close') {
+          const tg = at0(e.thesisN);
+          if (!(e.thesisN < i) || !tg || tg.t !== e.t || (tg.kind !== 'thesis' && tg.kind !== 'revision')) problems.push(`${at}: closes an entry that is not a version of the same thesis`);
+        }
+        if (e.kind === 'correction') {
+          const tg = at0(e.fixes);
+          if (!(e.fixes < i) || !tg || tg.kind === 'correction' || tg.t !== e.t) problems.push(`${at}: corrects an entry that is not an earlier entry of the same ticker`);
+        }
+        if (e.kind === 'decision') {
+          if (e.thesisRef) {
+            const tg = at0(e.thesisRef.n);
+            if (!(e.thesisRef.n < i) || !tg || tg.t !== e.t || tg.hash !== e.thesisRef.hash || (tg.kind !== 'thesis' && tg.kind !== 'revision')) problems.push(`${at}: its thesis link does not match the entry it names`);
+          }
+          const d = thDerived(e);
+          if (thCanon(d.conditions) !== thCanon(e.conditions)) problems.push(`${at}: the condition results do not match the saved evidence`);
+          if (thCanon(d.explanation) !== thCanon(e.explanation)) problems.push(`${at}: the explanation does not match what was saved`);
+        }
+      }
+      if (today && isDateISO(today)) {
+        const ds = e.kind === 'thesis' ? [e.written] : e.kind === 'revision' ? [e.revised] : e.kind === 'decision' ? [e.decided] : e.kind === 'close' ? [e.on] : [];
+        if (ds.some((d) => isDateISO(d) && d > today)) problems.push(`${at}: dated in the future`);
+      }
+      prev = e.hash;
+    });
+    return { ok: problems.length === 0, count: entries.length, head: entries.length ? entries[entries.length - 1].hash : null, problems };
+  }
+
+  // ---------------------------------------------------------------- joining two copies (a backup into this device)
+  // Nothing on this device is changed or removed: entries only this backup has are added after the ones here, with the
+  // numbers they refer to translated and the original number and hash kept in `origin`.
+  function mergeThesisLogs(local, incoming) {
+    const a = verifyThesisLog(local);
+    const b = verifyThesisLog(incoming);
+    if (!a.ok) return { ok: false, entries: local, added: 0, note: 'The thesis record on this device does not pass its own check, so nothing was merged.' };
+    if (!b.ok) return { ok: false, entries: local, added: 0, note: 'The thesis record in the backup does not pass its own check, so nothing was merged.' };
+    let common = 0;
+    while (common < local.length && common < incoming.length && local[common].hash === incoming[common].hash) common++;
+    if (common === incoming.length) return { ok: true, entries: local, added: 0, note: common === local.length ? 'The backup thesis record is the same as this one.' : 'This device already has more than the backup.' };
+    if (common === local.length) return { ok: true, entries: incoming.slice(), added: incoming.length - common, note: 'The backup extends this record; the new entries were added.' };
+    const known = new Set();
+    for (const e of local) { known.add(e.hash); if (e.origin) known.add(e.origin.hash); }
+    const map = new Map();
+    for (let i = 0; i < common; i++) map.set(i, i);
+    let out = local.slice();
+    let added = 0;
+    for (let i = common; i < incoming.length; i++) {
+      const e = incoming[i];
+      if (known.has(e.hash)) {
+        const same = out.find((x) => x.hash === e.hash || (x.origin && x.origin.hash === e.hash));
+        if (same) map.set(i, same.n);
+        continue;
+      }
+      const { n, prev, hash, v, recorded, origin, ...fields } = e;
+      if (e.kind === 'correction') {
+        if (!map.has(e.fixes)) continue;
+        fields.fixes = map.get(e.fixes);
+        if (out.some((x) => x.kind === 'correction' && x.fixes === fields.fixes)) continue;
+      }
+      if (e.kind === 'revision') {
+        if (!map.has(e.revises)) continue;
+        fields.revises = map.get(e.revises);
+      }
+      if (e.kind === 'close') {
+        if (!map.has(e.thesisN)) continue;
+        fields.thesisN = map.get(e.thesisN);
+      }
+      if (e.kind === 'decision' && e.thesisRef) {
+        if (!map.has(e.thesisRef.n)) continue;
+        fields.thesisRef = { ...e.thesisRef, n: map.get(e.thesisRef.n), hash: out[map.get(e.thesisRef.n)].hash };
+      }
+      const next = thBuild(out, { ...fields, origin: { n: e.n, hash: e.hash } }, recorded);
+      out = [...out, next];
+      map.set(i, next.n);
+      known.add(e.hash);
+      added++;
+    }
+    const check = verifyThesisLog(out);
+    if (!check.ok) return { ok: false, entries: local, added: 0, note: 'Joining the two records would break the integrity check, so nothing was merged.' };
+    return { ok: true, entries: out, added, note: added ? `${added} entr${added === 1 ? 'y' : 'ies'} from the backup were added after the ones on this device.` : 'Nothing new in the backup.' };
+  }
+  // ---- thesis.js (end)
   const LIMIT_DEFAULTS = { buyCap: POLICY_RULES.buyCap, trimAt: POLICY_RULES.trimAt, sectorMax: POLICY_RULES.sectorMax, swingRisk: 0.005 };
   const LIMIT_RANGE = { buyCap: [0.02, 0.5], trimAt: [0.03, 0.6], sectorMax: [0.1, 1], swingRisk: [0.001, 0.02] };
   // a trim goes back to the buy limit, so the trim line must sit above it; a saved pair that breaks this is ignored
@@ -4062,7 +4598,7 @@ table.data tr.me td { background: var(--accent-wash); }
       if (x.hp === 'short' && x.since && daysApart(x.since, localISO()) > 365) why.push('Held over 12 months as a short-term position: review it.');
       if (stale) { act = 'Paused'; tone = 'neutral'; }
       const st = sinceTxt(x);
-      advRows.push({ name: x.t, sub: [HP[x.hp].label, r ? price(r.price) : isNum(x.px) ? price(x.px) : ''].filter(Boolean).join(' · '), act, tone, why: (st ? st[0].toUpperCase() + st.slice(1) + '. ' : '') + why.join(' '), open: r ? x.t : null });
+      advRows.push({ name: x.t, sub: [HP[x.hp].label, r ? price(r.price) : isNum(x.px) ? price(x.px) : ''].filter(Boolean).join(' · '), act, tone, why: (st ? st[0].toUpperCase() + st.slice(1) + '. ' : '') + why.join(' '), open: r ? x.t : null, dec: { why: why.slice(), wgt, bc: { limitsOk: bc.limitsOk, why: bc.why, ledger: bc.ledger } } });
     }
     const coreGap = T.core * total - coreVal;
     const safeGap = T.safe * total - safeVal;
@@ -4384,8 +4920,10 @@ table.data tr.me td { background: var(--accent-wash); }
       h('p', { class: 'note', text: 'This is a rules-based guide built from public data, not personal financial advice. No tool can promise a profit: it can only keep your costs low, your risk matched to you, and your decisions consistent.' })));
     const shCard = shariahSummaryCard(); // the Shariah ledger (stage 4): a summary and a link; the ledger has its own page
     if (shCard) parts.push(shCard);
+    const thCard = thesisPortfolioCard(advRows); // the thesis and decision record (stage 5): a summary and the decision reports
+    if (thCard) parts.push(thCard);
     // the core first: the mix, then the index fund that carries most of it, then this month's buys
-    const ORDER = ['About you', 'Your target mix', ...(T.core > 0 ? ['Best halal funds for you'] : []), 'This month', 'Your portfolio now', 'Advice on what you hold', 'Shariah ledger', 'Stocks that fit you', 'Holding periods'];
+    const ORDER = ['About you', 'Your target mix', ...(T.core > 0 ? ['Best halal funds for you'] : []), 'This month', 'Your portfolio now', 'Advice on what you hold', 'Shariah ledger', 'Thesis and decisions', 'Stocks that fit you', 'Holding periods'];
     const lead = ORDER.map((lab) => parts.find((x) => x && x.getAttribute && x.getAttribute('aria-label') === lab)).filter(Boolean);
     el.replaceChildren(head, ...lead, ...parts.filter((x) => x !== head && !lead.includes(x)));
   }
@@ -4445,7 +4983,8 @@ table.data tr.me td { background: var(--accent-wash); }
   // one backup file holds the journal, the watchlist (with the shares you own) and the Portfolio page
   function backupOf(journal) {
     const sh = SHL.load();
-    return { ...journal, extra: { watch: W.load(), advisor: ADV.load(), shariah: { entries: sh.entries, anchor: anchorOf(sh.entries) } } };
+    const th = THS.load();
+    return { ...journal, extra: { watch: W.load(), advisor: ADV.load(), shariah: { entries: sh.entries, anchor: anchorOf(sh.entries) }, thesis: { entries: th.entries, anchor: anchorOf(th.entries) } } };
   }
   // merge a backup into what is on this device: nothing local is overwritten, missing records are added
   function mergeBackup(local, inc) {
@@ -4472,7 +5011,14 @@ table.data tr.me td { background: var(--accent-wash); }
       const a = checkAnchor(ex.shariah.entries, ex.shariah.anchor);
       shariah = a.ok ? mergeLedgers((local.shariah && local.shariah.entries) || [], ex.shariah.entries) : { ok: false, entries: (local.shariah && local.shariah.entries) || [], added: 0, note: `The ledger in the backup was not merged: ${a.note}.` };
     }
-    return { journal, watch, advisor, added, shariah };
+    // the thesis and decision record is joined the same way: never overwritten, see mergeThesisLogs
+    let thesis = null;
+    if (ex.thesis && Array.isArray(ex.thesis.entries)) {
+      const a = checkAnchor(ex.thesis.entries, ex.thesis.anchor);
+      const have = (local.thesis && local.thesis.entries) || [];
+      thesis = a.ok ? mergeThesisLogs(have, ex.thesis.entries) : { ok: false, entries: have, added: 0, note: `The thesis record in the backup was not merged: ${a.note}.` };
+    }
+    return { journal, watch, advisor, added, shariah, thesis };
   }
   function logTrade(t, plan) {
     journalPrefill = { t, ...plan };
@@ -4778,12 +5324,13 @@ table.data tr.me td { background: var(--accent-wash); }
         try {
           const inc = JSON.parse(String(rd.result));
           if (!inc || !Array.isArray(inc.trades)) throw new Error('bad');
-          const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load(), shariah: SHL.load() }, inc);
+          const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load(), shariah: SHL.load(), thesis: THS.load() }, inc);
           JR.save(m.journal);
           W.save(m.watch);
           ADV.save(m.advisor);
           let lgNote = '';
           if (m.shariah) { if (m.shariah.ok && m.shariah.added > 0) SHL.save(m.shariah.entries); lgNote = ` Shariah ledger: ${m.shariah.note}`; }
+          if (m.thesis) { if (m.thesis.ok && m.thesis.added > 0) THS.save(m.thesis.entries); lgNote += ` Thesis record: ${m.thesis.note}`; }
           bmsg.textContent = `Added ${m.added.trades} trade${m.added.trades === 1 ? '' : 's'}, ${m.added.watch} watchlist stock${m.added.watch === 1 ? '' : 's'} and ${m.added.holdings} portfolio holding${m.added.holdings === 1 ? '' : 's'}. Anything already on this device was kept as it is.${lgNote}`;
           setTimeout(rerender, 1200);
         } catch { bmsg.textContent = 'That file is not a journal backup from this site.'; }
@@ -4795,7 +5342,7 @@ table.data tr.me td { background: var(--accent-wash); }
       h('p', { class: 'sub', text: 'The journal, your watchlist (with the shares you own) and the Portfolio page live in this browser only. Save a backup file now and then (on iPhone it goes to Files, where iCloud can keep it), and load it on your iPad or laptop to see the same data there.' }),
       j.trades.length && old ? h('div', { class: 'callout', text: j.backup ? `Last backup ${shortDate(j.backup)}. Time for a new one.` : 'No backup yet. If the browser’s data is cleared, the journal goes with it.' }) : null,
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn btn-sm', type: 'button', disabled: j.trades.length || W.load().items.length || ADV.load().profile || SHL.load().entries.length ? null : true, onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`stock-checker-backup-${localISO()}.json`, JSON.stringify(backupOf(k), null, 1), 'application/json'); setTimeout(rerender, 800); } }, 'Save backup'),
+        h('button', { class: 'btn btn-sm', type: 'button', disabled: j.trades.length || W.load().items.length || ADV.load().profile || SHL.load().entries.length || THS.load().entries.length ? null : true, onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`stock-checker-backup-${localISO()}.json`, JSON.stringify(backupOf(k), null, 1), 'application/json'); setTimeout(rerender, 800); } }, 'Save backup'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => fileIn.click() }, 'Load a backup'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', disabled: j.trades.length ? null : true, onclick: () => saveFile(`trading-journal-${localISO()}.csv`, journalCsv(JR.load()), 'text/csv') }, 'Export for Excel')),
       fileIn, bmsg,
@@ -5035,14 +5582,334 @@ table.data tr.me td { background: var(--accent-wash); }
           'Funds, ETFs and sukuk are not tracked here yet, so the gate covers stocks only.'].map((t) => h('li', null, h('span', { text: t }))))));
     el.replaceChildren(...parts);
   }
-  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor', 'shariah'];
+  // ------------------------------------------------------------------ Investment thesis and decision record (stage 5): storage and pages
+  // The rules live in the thesis.js block above. This part stores the entries on this device (the anchor in a second
+  // key, so entries cut off the end show), builds the evidence of the day from the data the page already holds, and
+  // draws the pages. Nothing here decides a call: the call and its reasons are quoted from the rules that already exist,
+  // and nothing here changes a verdict, a signal, a valuation, a limit or the Shariah gate.
+  const THS = {
+    load() {
+      const d = store.get('thesis', null);
+      return { entries: d && Array.isArray(d.entries) ? d.entries : [], anchor: store.get('thesis_anchor', null) };
+    },
+    // true only if what was written can be read back
+    save(entries) {
+      store.set('thesis', { v: 1, entries });
+      store.set('thesis_anchor', anchorOf(entries));
+      const b = this.load();
+      return b.entries.length === entries.length && (!entries.length || b.entries[entries.length - 1].hash === entries[entries.length - 1].hash);
+    },
+    add(fields) {
+      const cur = this.load();
+      const r = appendThesis(cur.entries, fields, localISO(), new Date().toISOString());
+      if (!r.ok) return r;
+      if (!this.save(r.entries)) return { ok: false, entries: cur.entries, entry: null, errors: ['This device would not keep the entry (browser storage is full or blocked), so it was not recorded.'] };
+      return r;
+    },
+  };
+  // the page's own call words, mapped to the four decisions of the record. Anything else (Paused, Review, Check halal,
+  // Your call) is not a buy, hold, trim or sell call, so it cannot be saved as one.
+  const THESIS_ACT = { Add: 'buy', Hold: 'hold', Trim: 'trim', Sell: 'sell', 'Take profit': 'sell' };
+  const TH_ACTION_TEXT = { buy: 'Buy', hold: 'Hold', trim: 'Trim', sell: 'Sell' };
+  const TH_STANCE_TEXT = { owned: 'I own it', considering: 'I am considering it' };
+  const TH_CHECK_TEXT = { price_below: 'Price at or below', price_above: 'Price at or above', business_weakens: 'Business rating turns to Avoid or Speculative', fails_shariah_screen: 'Fails the tool’s Shariah screen', trend_breaks: 'Chart trend breaks (down or weakening)' };
+  let thesisFocus = null;
+  // what the page knows about a stock today, frozen into a thesis or a decision. Missing values stay null.
+  function thesisEvidence(t, ctx = {}) {
+    const scr = SCR_NOW;
+    const r = scr && scr.by.get(t);
+    const num = (x) => (isNum(x) ? x : null);
+    const txt = (x, n = 80) => (typeof x === 'string' && x ? x.slice(0, n) : null);
+    const gate = ledgerGate(t);
+    const bc = ctx.bc || null;
+    const notes = bc && bc.limitsOk === false ? bc.why.slice(0, Math.max(0, bc.why.length - (bc.ledger && !bc.ledger.ok ? 1 : 0))).map((s) => String(s).slice(0, THESIS_LIMITS.noteText)).slice(0, THESIS_LIMITS.notes) : [];
+    return {
+      asOf: scr && /^\d{4}-\d{2}-\d{2}$/.test(scr.priceDate || '') ? scr.priceDate : null,
+      price: r ? num(r.price) : null,
+      fundamental: { verdict: r ? txt(r.verdict) : null, verdictLabel: r && VERDICT_SHORT[r.verdict] ? VERDICT_SHORT[r.verdict] : null, quality: r ? num(r.quality) : null, growth: r ? num(r.growth) : null, health: r ? num(r.health) : null, dataQuality: r ? txt(r.dq, 20) : null },
+      valuation: { label: r ? txt(r.valuation) : null, fair: r ? num(r.fair) : null, buyBelow: r ? num(r.buyBelow) : null, trimAbove: r ? num(r.trimAbove) : null, upside: r ? num(r.upside) : null },
+      technical: { trend: r ? txt(r.trend, 40) : null },
+      risk: { weight: isNum(ctx.weight) ? ctx.weight : null, limitsAllowBuy: bc && typeof bc.limitsOk === 'boolean' ? bc.limitsOk : null, limitNotes: notes, dataPaused: !!staleOf(scr) },
+      shariah: { screen: r ? txt(r.shariah, 20) : null, ledgerOk: gate.ok, ledgerNote: (gate.ok ? `the Zoya check of ${gate.checked} says compliant` : gate.reason).slice(0, THESIS_LIMITS.noteText) },
+    };
+  }
+  // a decision as it would be saved today, built from a call the page already made; nothing is saved here
+  function decisionDraft(t, call, reasons, source, ctx) {
+    const action = THESIS_ACT[call];
+    if (!action) return null;
+    return { kind: 'decision', t, decided: localISO(), action, call, source, reasons: reasons.length ? reasons : [`The page’s call is “${call}”.`], evidence: thesisEvidence(t, ctx) };
+  }
+  function explainBlock(x) {
+    const ul = (lines) => h('ul', { class: 'alert-list' }, lines.map((l) => h('li', null, h('span', { text: l }))));
+    return h('div', { class: 'explain' }, h('p', null, h('b', { text: x.headline })), x.why.length ? h('h3', { text: 'Why (the rules, word for word)' }) : null, x.why.length ? ul(x.why) : null,
+      h('h3', { text: 'The data that day' }), ul(x.data), h('h3', { text: 'Your thesis' }), ul(x.thesis));
+  }
+  const thOpt = (v, t, sel) => h('option', { value: v, selected: sel ? true : null }, t);
+  const thFld = (label, input) => h('label', { class: 'field left' }, h('span', { text: label }), input);
+  const thShowErrors = (box, errors) => box.replaceChildren(...errors.map((e) => h('div', { text: e })));
+  // the Portfolio page's holdings, with the call each one got today and what the call was based on
+  function thesisHeld() {
+    const { lt, sw } = holdingsFrom(W.load().items, JR.load().trades);
+    return [...new Set([...lt, ...sw].map((x) => x.t))];
+  }
+  // a short list of written items (catalysts, risks, conditions): one row each, add or remove rows
+  function thListEditor(opts) {
+    const box = h('div', { class: 'tl' });
+    const rows = [];
+    const addRow = (init = {}) => {
+      const text = h('input', { type: 'text', maxlength: THESIS_LIMITS.item, placeholder: opts.hint, value: init.text || '', 'aria-label': opts.label });
+      const by = opts.dates ? h('input', { type: 'date', value: init.by || '', 'aria-label': 'Expected by (optional)' }) : null;
+      let sel = null;
+      let val = null;
+      if (opts.rules) {
+        sel = h('select', { 'aria-label': 'Check it against the data' }, thOpt('', 'I will judge it myself', !init.rule), ...Object.entries(TH_CHECK_TEXT).map(([k, tx]) => thOpt(k, tx, init.rule && init.rule.type === k)));
+        val = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Price', value: init.rule && init.rule.value !== undefined ? String(init.rule.value) : '', hidden: !(init.rule && (init.rule.type === 'price_below' || init.rule.type === 'price_above')) ? true : null, 'aria-label': 'Price' });
+        sel.addEventListener('change', () => { val.hidden = !(sel.value === 'price_below' || sel.value === 'price_above'); });
+      }
+      const item = { text, by, sel, val };
+      const row = h('div', { class: 'tl-row' }, text, by, sel, val, h('button', { class: 'linkbtn', type: 'button', onclick: () => { row.remove(); rows.splice(rows.indexOf(item), 1); if (!rows.length) addRow(); } }, 'Remove'));
+      rows.push(item);
+      box.append(row);
+    };
+    (opts.initial && opts.initial.length ? opts.initial : [{}]).forEach(addRow);
+    return {
+      el: h('div', null, box, h('button', { class: 'linkbtn', type: 'button', onclick: () => { if (rows.length < THESIS_LIMITS.items) addRow(); } }, `Add another ${opts.noun}`)),
+      values() {
+        return rows.filter((r) => r.text.value.trim()).map((r) => {
+          const o = { text: r.text.value };
+          if (r.by && r.by.value) o.by = r.by.value;
+          if (r.sel && r.sel.value) {
+            o.rule = { type: r.sel.value };
+            if (r.sel.value === 'price_below' || r.sel.value === 'price_above') o.rule.value = Number(String(r.val.value).replace(/,/g, ''));
+          }
+          return o;
+        });
+      },
+    };
+  }
+  const thVersionBody = (v) => [
+    ['Reason', v.reason], ['The case', v.thesis], ['Time horizon', { long: 'Long term (3 years or more)', mid: 'Medium term (1 to 3 years)', short: 'Short term (3 to 12 months)' }[v.horizon]], ['Status', TH_STANCE_TEXT[v.stance]],
+    ['Catalysts', v.catalysts.map((x) => x.text + (x.by ? ` (by ${x.by})` : '')).join('; ')], ['Risks', v.risks.map((x) => x.text).join('; ')],
+    ['Would break it', v.invalidation.map((x) => x.text + (x.rule ? ` [${TH_CHECK_TEXT[x.rule.type]}${x.rule.value !== undefined ? ` ${x.rule.value}` : ''}]` : '')).join('; ')],
+  ];
+  // the form for a first thesis, or for the next version of an open one (prefilled with the latest version)
+  function thesisForm(t, st, rerender) {
+    const today = localISO();
+    const v = st.status === 'open' ? st.current : null;
+    const form = h('form', { class: 'editbox', autocomplete: 'off' });
+    const stance = h('select', { 'aria-label': 'Owned or considering' }, ...Object.entries(TH_STANCE_TEXT).map(([k, tx]) => thOpt(k, tx, (v ? v.stance : thesisHeld().includes(t) ? 'owned' : 'considering') === k)));
+    const horizon = h('select', { 'aria-label': 'Time horizon' }, thOpt('long', 'Long term (3 years or more)', !v || v.horizon === 'long'), thOpt('mid', 'Medium term (1 to 3 years)', v && v.horizon === 'mid'), thOpt('short', 'Short term (3 to 12 months)', v && v.horizon === 'short'));
+    const dateIn = h('input', { type: 'date', value: today, max: today });
+    const reason = h('textarea', { rows: 2, maxlength: THESIS_LIMITS.reason, placeholder: 'Why do you own it, or why are you considering it?' }, v ? v.reason : '');
+    const caseIn = h('textarea', { rows: 4, maxlength: THESIS_LIMITS.thesis, placeholder: 'The case in your own words: what the business does well, why the price is sensible, what has to go right' }, v ? v.thesis : '');
+    const cat = thListEditor({ label: 'Catalyst', noun: 'catalyst', hint: 'A catalyst you expect, e.g. a product launch or a result date', dates: true, initial: v ? v.catalysts : [] });
+    const risk = thListEditor({ label: 'Risk', noun: 'risk', hint: 'A risk you see, e.g. a rival, debt, regulation', initial: v ? v.risks : [] });
+    const inv = thListEditor({ label: 'Condition that would break the thesis', noun: 'condition', hint: 'What would make you say the thesis is wrong?', rules: true, initial: v ? v.invalidation : [] });
+    const change = v ? h('textarea', { rows: 2, maxlength: THESIS_LIMITS.change, placeholder: 'Why are you changing it? (required)' }) : null;
+    const msg = h('div', { class: 'note', 'aria-live': 'polite' });
+    form.append(...[thFld('Your position', stance), thFld('Time horizon', horizon), thFld(v ? 'Date of this change' : 'Date you wrote it (today, or earlier if you wrote it down earlier)', dateIn), thFld('Reason for owning or considering it', reason), thFld('The case', caseIn),
+      h('h3', { text: 'Catalysts you expect' }), cat.el, h('h3', { text: 'Risks' }), risk.el,
+      h('h3', { text: 'What would break the thesis' }), h('p', { class: 'note', text: 'Some conditions the page can check against the data (a price, the business rating, the Shariah screen, the chart trend). The rest are for you to judge. A met condition is shown to you; it changes no call and sells nothing.' }), inv.el,
+      change ? thFld('Why it changed', change) : null,
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, v ? 'Save this as a new version' : 'Save the thesis')), msg].filter(Boolean));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const body = { t, stance: stance.value, horizon: horizon.value, reason: reason.value, thesis: caseIn.value, catalysts: cat.values(), risks: risk.values(), invalidation: inv.values(), evidence: thesisEvidence(t, {}) };
+      const r = THS.add(v ? { kind: 'revision', revised: dateIn.value, revises: v.n, change: change.value, ...body } : { kind: 'thesis', written: dateIn.value, ...body });
+      if (!r.ok) { thShowErrors(msg, r.errors); return; }
+      rerender();
+    });
+    return form;
+  }
+  function decisionLine(e) {
+    return `#${e.n} · recorded ${e.recorded.slice(0, 10)} · ${TH_ACTION_TEXT[e.action]} (the page said “${e.call}”) · price ${e.evidence.price !== null ? price(e.evidence.price) : 'not available'} on ${e.evidence.asOf || 'an unknown date'}${e.userAction ? ` · you: ${e.userAction}` : ''}`;
+  }
+  function renderThesis() {
+    const el = $('#page-thesis');
+    const rerender = () => renderThesis();
+    const cur = THS.load();
+    const held = thesisHeld();
+    const today = localISO();
+    const check = verifyThesisLog(cur.entries, today);
+    const anchor = checkAnchor(cur.entries, cur.anchor);
+    const okAll = check.ok && anchor.ok;
+    const parts = [pageHead('Thesis and decisions', 'Why you own or consider each stock, what you expect, what could go wrong and what would prove you wrong. Every change is kept as a new version and every saved call keeps the evidence of the day. This page records and explains. It never decides, and it changes no call.')];
+    const evNow = {};
+    for (const x of [...new Set([...held, ...cur.entries.filter((e) => e.kind === 'thesis').map((e) => e.t)])]) if (SCR_NOW && SCR_NOW.by.get(x)) evNow[x] = thesisEvidence(x, {});
+    const overview = thesisOverview(cur.entries, held, evNow);
+    const top = h('section', { class: 'card', 'aria-label': 'Record status' }, h('h2', { text: 'Where things stand' }),
+      h('ul', { class: 'alert-list' },
+        h('li', null, toneIcon(okAll ? 'good' : 'bad'), h('span', { text: okAll ? `History intact: ${cur.entries.length} entr${cur.entries.length === 1 ? 'y' : 'ies'}, each linked to the one before it.` : 'The history failed its check. Do not rely on this record until it is looked at.' })),
+        ...overview.map((o) => h('li', null, toneIcon(o.level === 'bad' ? 'bad' : o.level === 'warn' ? 'warn' : 'good'), h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => { thesisFocus = o.t; rerender(); } }, o.t), ` ${o.text}${o.decisions ? ` ${o.decisions} saved decision${o.decisions === 1 ? '' : 's'}.` : ''}`)))));
+    if (!okAll) top.append(h('div', { class: 'callout' }, ...check.problems.slice(0, 8).map((p) => h('div', { text: p })), anchor.ok ? null : h('div', { text: anchor.note })));
+    parts.push(top);
+
+    const tickers = [...new Set([...held, ...cur.entries.filter((e) => e.kind === 'thesis').map((e) => e.t)])];
+    if (thesisFocus && !tickers.includes(thesisFocus)) tickers.push(thesisFocus);
+    const sel = h('select', { 'aria-label': 'Stock' }, ...tickers.map((t) => thOpt(t, t, t === thesisFocus)), thOpt('', tickers.length ? 'Another ticker…' : 'Type a ticker…', !thesisFocus));
+    const tIn = h('input', { type: 'text', autocomplete: 'off', autocapitalize: 'characters', placeholder: 'Ticker, e.g. KO', hidden: sel.value !== '' ? true : null });
+    sel.addEventListener('change', () => { tIn.hidden = sel.value !== ''; if (sel.value) { thesisFocus = sel.value; rerender(); } });
+    tIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = tIn.value.trim().toUpperCase(); if (/^[A-Z0-9][A-Z0-9-]{0,14}$/.test(v)) { thesisFocus = v; rerender(); } } });
+    parts.push(h('section', { class: 'card', 'aria-label': 'Choose a stock' }, h('h2', { text: 'Choose a stock' }), thFld('Stock', h('div', null, sel, tIn))));
+
+    if (thesisFocus) {
+      const t = thesisFocus;
+      const st = thesisState(cur.entries, t);
+      const card = h('section', { class: 'card', 'aria-label': `Thesis for ${t}` }, h('h2', null, t, ' ', h('span', { class: 'pill' }, st.status === 'open' ? 'Thesis recorded' : st.status === 'closed' ? 'Closed' : 'No thesis')));
+      if (st.status === 'open') {
+        const v = st.current;
+        const met = conditionStates(v, evNow[t] || thesisEvidence(t, {})).filter((x) => x.state === 'met');
+        card.append(h('p', { class: 'sub', text: `Written ${st.original.written}${st.versions.length > 1 ? `, ${st.versions.length} versions, latest ${v.revised}` : ''}. Evidence saved with the first version: price ${st.original.evidence.price !== null ? price(st.original.evidence.price) : 'not available'} on ${st.original.evidence.asOf || 'an unknown date'}.` }));
+        if (met.length) card.append(h('div', { class: 'callout' }, h('b', { text: 'A condition you wrote down is met on today’s data: ' }), met.map((x) => x.text).join('; '), '. Review the thesis. This changes no call.'));
+        card.append(h('ul', { class: 'alert-list' }, thVersionBody(v).map(([k, tx]) => h('li', null, h('span', null, h('b', { text: `${k}: ` }), tx)))));
+        const revBox = h('div', { hidden: true }, thesisForm(t, st, rerender));
+        const closeBox = h('div', { class: 'editbox', hidden: true });
+        const cDate = h('input', { type: 'date', value: today, max: today });
+        const cNote = h('input', { type: 'text', maxlength: THESIS_LIMITS.note, placeholder: 'Why you no longer own or consider it (required)' });
+        const cMsg = h('div', { class: 'note', 'aria-live': 'polite' });
+        closeBox.append(thFld('Date', cDate), thFld('Reason', cNote), h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { const x = THS.add({ kind: 'close', t, on: cDate.value, note: cNote.value }); if (!x.ok) thShowErrors(cMsg, x.errors); else rerender(); } }, 'Close this thesis')), cMsg);
+        card.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { revBox.hidden = !revBox.hidden; } }, 'Revise the thesis'), h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { closeBox.hidden = !closeBox.hidden; } }, 'I no longer own or consider it')), revBox, closeBox);
+      } else {
+        if (st.status === 'closed') card.append(h('p', { class: 'sub', text: `The last thesis was closed on ${st.closed.on}: ${st.closed.note}` }));
+        card.append(h('p', { class: 'sub', text: 'Write down why you own it or are considering it. The first version is kept exactly as written.' }), thesisForm(t, st, rerender));
+      }
+      parts.push(card);
+
+      // every version, oldest first: the original and each change with its reason, and what changed
+      if (st.versions.length) {
+        const hist = h('section', { class: 'card', 'aria-label': 'Thesis history' }, h('h2', { text: 'How the thesis changed' }));
+        st.versions.forEach((v, i) => {
+          const d = h('details', { class: 'sec' }, h('summary', { text: i === 0 ? `Original, written ${v.written} (#${v.n})` : `Version ${i + 1}, ${v.revised} (#${v.n}): ${v.change}` }));
+          if (i > 0) {
+            const ch = thesisChanges(st.versions[i - 1], v);
+            d.append(h('ul', { class: 'alert-list' }, ch.map((c) => h('li', null, h('span', null, h('b', { text: `${c.name}: ` }), 'was “', c.before, '”, now “', c.after, '”')))));
+          }
+          d.append(h('ul', { class: 'alert-list' }, thVersionBody(v).map(([k, tx]) => h('li', null, h('span', null, h('b', { text: `${k}: ` }), tx)))));
+          hist.append(d);
+        });
+        parts.push(hist);
+      }
+      // saved decisions, newest first, each with the call, the reasons and the evidence of the day
+      const mine = st.all.filter((e) => e.kind === 'decision' || e.kind === 'close' || e.kind === 'correction');
+      const dec = h('section', { class: 'card', 'aria-label': 'Saved decisions' }, h('h2', { text: 'Saved decisions' }));
+      const voided = new Set(st.voided.map((e) => e.n));
+      if (!st.all.some((e) => e.kind === 'decision')) dec.append(h('p', { class: 'sub', text: 'No decision saved for this stock yet. Save one from “Thesis and decisions” on the Portfolio page, or from the company’s page, to keep the call and its evidence.' }));
+      for (const e of mine.slice().reverse()) {
+        if (e.kind === 'decision') {
+          const d = h('details', { class: 'sec' }, h('summary', { class: voided.has(e.n) ? 'lg-void' : null, text: decisionLine(e) }), explainBlock(e.explanation));
+          if (!voided.has(e.n)) {
+            const box = h('div', { hidden: true });
+            const why = h('input', { type: 'text', maxlength: THESIS_LIMITS.note, placeholder: 'Why is this entry wrong?' });
+            const wm = h('div', { class: 'note', 'aria-live': 'polite' });
+            box.append(why, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { const x = THS.add({ kind: 'correction', t, fixes: e.n, note: why.value }); if (!x.ok) thShowErrors(wm, x.errors); else rerender(); } }, 'Strike this entry through'), wm);
+            d.append(h('button', { class: 'tk', type: 'button', onclick: () => { box.hidden = !box.hidden; } }, 'Correct'), box);
+          }
+          dec.append(d);
+        } else if (e.kind === 'close') dec.append(h('p', { class: 'note', text: `#${e.n} · closed ${e.on}: ${e.note}` }));
+        else dec.append(h('p', { class: 'note', text: `#${e.n} · correction of entry ${e.fixes}: ${e.note}` }));
+      }
+      parts.push(dec);
+    }
+
+    parts.push(h('section', { class: 'card', 'aria-label': 'About this record' }, h('h2', { text: 'What this record does not do' }),
+      h('ul', { class: 'alert-list' },
+        ['It does not decide anything. A saved decision quotes the call and the reasons the page gave at that moment, word for word, and keeps the data behind them. It changes no verdict, signal, valuation, limit or Shariah check.',
+          'A call is saved only when you press the button, and only for today. Calls you do not save are not kept here.',
+          'The evidence is what this page held when you saved: the nightly data, not a later correction. For judging a call later, use the date and price saved with it.',
+          'It lives on this device, like your journal and watchlist. The backup file carries it (Portfolio page). The chain shows an edited or removed entry; it cannot stop someone with access to your device from replacing the whole record.',
+          'A condition you wrote that the page can check is compared with the saved data only. It never sells, and an unmet one is not a reason to hold.'].map((tx) => h('li', null, h('span', { text: tx }))))));
+    el.replaceChildren(...parts);
+  }
+  // the Portfolio page: one line per holding with its thesis, and today's call as a decision report you can save
+  function thesisPortfolioCard(rows) {
+    const cur = THS.load();
+    const held = thesisHeld();
+    if (!held.length && !cur.entries.length) return null;
+    const today = localISO();
+    const intact = verifyThesisLog(cur.entries, today).ok && checkAnchor(cur.entries, cur.anchor).ok;
+    const evNow = {};
+    for (const t of held) if (SCR_NOW && SCR_NOW.by.get(t)) evNow[t] = thesisEvidence(t, {});
+    const ov = thesisOverview(cur.entries, held, evNow);
+    const card = h('section', { class: 'card', 'aria-label': 'Thesis and decisions' }, h('h2', { text: 'Thesis and decisions' }));
+    const missing = ov.filter((o) => o.held && o.status !== 'open').length;
+    const metN = ov.filter((o) => o.met.length).length;
+    card.append(h('p', { class: 'sub', text: !intact ? 'The thesis record failed its integrity check. Open it to see why.' : !held.length ? 'No holdings recorded yet.' : missing || metN ? `${missing ? `${missing} holding${missing === 1 ? ' has' : 's have'} no thesis` : ''}${missing && metN ? ', ' : ''}${metN ? `${metN} ${metN === 1 ? 'has a written condition that is met' : 'have written conditions that are met'}` : ''}.` : `All ${held.length} holding${held.length === 1 ? ' has' : 's have'} a thesis, and no written condition is met on today’s data.` }));
+    card.append(h('p', { class: 'note', text: 'Your reason for each holding, and the day’s call kept with its evidence. A decision report explains today’s call from the same rules as above; saving it keeps the call and the data behind it so it can be judged later.' }));
+    const list = h('div', { class: 'list' });
+    for (const o of ov.filter((x) => x.held)) {
+      const row = rows.find((y) => y.name === o.t && y.dec);
+      const line = h('div', { class: 'srow' }, h('span', { class: 'top' }, h('span', { class: 'tk', text: o.t }), h('span', { class: 'nm', text: o.text }), row ? h('span', { class: 'pr' }, tagEl(row.act, row.tone)) : null));
+      const acts = h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { thesisFocus = o.t; navigate('thesis'); } }, o.status === 'open' ? 'Open the thesis' : 'Write the thesis'));
+      const panel = h('div', { class: 'editbox', hidden: true });
+      if (row) {
+        acts.prepend(h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { if (panel.hidden) fillPanel(); panel.hidden = !panel.hidden; } }, 'Decision report'));
+      }
+      function fillPanel() {
+        const c = THS.load();
+        const draft = decisionDraft(o.t, row.act, row.dec.why, 'portfolio', { weight: row.dec.wgt, bc: row.dec.bc });
+        if (!draft) { panel.replaceChildren(h('p', { class: 'note', text: `Today’s call for ${o.t} is “${row.act}”, which is not a buy, hold, trim or sell call, so there is no decision to save.` })); return; }
+        const pre = appendThesis(c.entries, draft, localISO(), new Date().toISOString());
+        if (!pre.ok) { panel.replaceChildren(h('div', { class: 'callout' }, pre.errors.map((e) => h('div', { text: e })))); return; }
+        const did = h('input', { type: 'text', maxlength: THESIS_LIMITS.userAction, placeholder: 'What you did or plan to do (optional)' });
+        const msg = h('div', { class: 'note', 'aria-live': 'polite' });
+        panel.replaceChildren(explainBlock(pre.entry.explanation), thFld('Your action', did),
+          h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => {
+            const x = THS.add({ ...draft, userAction: did.value });
+            if (!x.ok) { thShowErrors(msg, x.errors); return; }
+            msg.textContent = `Saved as #${x.entry.n}. It cannot be edited; a mistake can be struck through on the thesis page.`;
+          } }, 'Save this decision')), msg);
+      }
+      line.append(acts, panel);
+      list.append(line);
+    }
+    card.append(list, h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { thesisFocus = null; navigate('thesis'); } }, 'Open all theses')));
+    return card;
+  }
+  // the company page: its thesis in a line, and today's long-term buy call (if it is one) as a decision report
+  function thesisStockCard(d) {
+    const t = d.ticker;
+    const card = h('section', { class: 'card', 'aria-label': 'Your thesis' });
+    const paint = () => {
+      const cur = THS.load();
+      const st = thesisState(cur.entries, t);
+      const kids = [h('h2', { text: 'Your thesis' })];
+      kids.push(h('p', { class: 'sub', text: st.status === 'open' ? `${st.current.reason} (written ${st.original.written}${st.versions.length > 1 ? `, ${st.versions.length} versions` : ''})` : st.status === 'closed' ? `The last thesis was closed on ${st.closed.on}.` : 'No thesis recorded for this stock.' }));
+      const panel = h('div', { class: 'editbox', hidden: true });
+      const acts = h('div', { class: 'row-actions' },
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { thesisFocus = t; navigate('thesis'); } }, st.status === 'open' ? 'Open the thesis' : 'Write the thesis'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => {
+          panel.hidden = !panel.hidden;
+          if (panel.hidden) return;
+          const px = liveQuote(t, stockBase(tech).date, stockBase(tech).close);
+          const call = guardBuy(longTermNow(d, px ? px.p : d.price), d, SCR_NOW);
+          if (!call || call.tone !== 'good') { panel.replaceChildren(h('p', { class: 'note', text: `There is no long-term buy call to save for ${t} right now${call ? ` (the page says “${call.title}”)` : ''}. Decisions to hold, trim or sell are saved from the Portfolio page.` })); return; }
+          const bcNow = SCR_NOW ? buyCheck(t, SCR_NOW) : null;
+          const snap = SCR_NOW ? holdingsSnapshot(SCR_NOW) : null;
+          const draft = { kind: 'decision', t, decided: localISO(), action: 'buy', call: call.title, source: 'stock', reasons: [call.text], evidence: thesisEvidence(t, { weight: snap && snap.total > 0 ? (snap.byT.get(t) || 0) / snap.total : null, bc: bcNow }) };
+          const pre = appendThesis(THS.load().entries, draft, localISO(), new Date().toISOString());
+          if (!pre.ok) { panel.replaceChildren(h('div', { class: 'callout' }, pre.errors.map((e) => h('div', { text: e })))); return; }
+          const did = h('input', { type: 'text', maxlength: THESIS_LIMITS.userAction, placeholder: 'What you did or plan to do (optional)' });
+          const msg = h('div', { class: 'note', 'aria-live': 'polite' });
+          panel.replaceChildren(explainBlock(pre.entry.explanation), thFld('Your action', did), h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => {
+            const x = THS.add({ ...draft, userAction: did.value });
+            if (!x.ok) { thShowErrors(msg, x.errors); return; }
+            msg.textContent = `Saved as #${x.entry.n}. It cannot be edited.`;
+          } }, 'Save this decision')), msg);
+        } }, 'Decision report for a buy'));
+      kids.push(acts, panel);
+      card.replaceChildren(...kids);
+    };
+    paint();
+    return card;
+  }
+  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis'];
   let page = 'stock';
   function showPage(p) {
     page = p;
     PAGES.forEach((k) => { const el = document.getElementById('page-' + k); if (el) el.hidden = k !== p; });
     const hb = document.getElementById('healthBanner');
     if (hb) hb.hidden = p === 'record' || !hb.firstChild; // the Record page shows the full System health card
-    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === (p === 'shariah' ? 'advisor' : p) ? 'page' : 'false'));
+    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === (p === 'shariah' || p === 'thesis' ? 'advisor' : p) ? 'page' : 'false'));
     $('#how').hidden = true;
     hideTip();
     if (p === 'shortlist') renderShortlist();
@@ -5051,6 +5918,7 @@ table.data tr.me td { background: var(--accent-wash); }
     else if (p === 'journal') renderJournal();
     else if (p === 'advisor') renderAdvisor();
     else if (p === 'shariah') renderShariah();
+    else if (p === 'thesis') renderThesis();
     window.scrollTo(0, 0);
     riseIn(document.getElementById('page-' + p));
   }
@@ -6660,7 +7528,7 @@ table.data tr.me td { background: var(--accent-wash); }
     });
   }
   // test hook for the automated page tests (test/page.test.py); inert unless the page is opened with ?selftest=1
-  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, shariahGate, ledgerGate, SHL }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
+  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, shariahGate, ledgerGate, SHL }, thesis: { appendThesis, verifyThesisLog, thesisState, thesisOverview, thesisChanges, explainDecision, conditionStates, mergeThesisLogs, THS, thesisEvidence, decisionDraft }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
 })();
 </script>
 </body>

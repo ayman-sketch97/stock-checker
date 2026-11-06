@@ -3,6 +3,21 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 7 November 2026: why you own each stock, and a saved record of each call (stage 5, on its own branch, not yet live)
+
+- A new Thesis page records, for any stock you own or consider, your reason, the case, the catalysts you expect, the
+  risks, and the conditions that would prove you wrong, with the price and the data of the day it was written. Holdings
+  with no thesis are listed on the Portfolio page.
+- A change of mind is a new version with its reason. The original and every earlier version stay exactly as written, and
+  the page shows what changed. A mistake is struck through, never removed, and an edited or removed entry is detected
+  (the same tamper-evident chain as the Shariah ledger).
+- A "Decision report" on the Portfolio page and on a company page explains a buy, hold, trim or sell call: the page's own
+  reasons word for word, the fundamental, valuation, chart, risk and Shariah data of the day, and your thesis, with each
+  condition you wrote marked met, not met or for you to judge. Press Save to keep the call and its evidence for judging
+  it later. Decisions can only be saved for today.
+- It records and explains only. No call, verdict, valuation, limit or Shariah check changed: the same-advice comparison
+  against the current site is identical apart from the two new cards. It lives on this device and in the backup file.
+
 ## 6 November 2026: a Shariah compliance ledger that gates new buys (stage 4, merged into main and live on 6 November 2026)
 
 - A new Shariah page records, for each stock you hold, what Zoya shows: the status, the date you checked it, the source

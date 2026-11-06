@@ -1276,6 +1276,203 @@ async def main():
         check(held_of(ob) > 0 and fund_of(ob) == fund_of(og) == 0 and abs(total_of(ob) - total_of(og)) < 0.02, f'plan, stocks only: the held cash is shown and nothing goes to a fund: {ob["rows"]}')
         check(not eo, f'no page errors in the stocks-only plan {eo}')
 
+        # ---- Stage 5: the investment thesis and decision record. It records and explains; it never changes a call.
+        TH_SEED = [{'t': t, 'status': 'compliant', 'ago': 3} for t in ('AAPL', 'MSFT', 'KO')]
+
+        async def th_page(path='&p=advisor', st=None, specs=TH_SEED, late=None, prime=None):
+            pg, errs = await page_with(ctx, base, late or fresh, st or gl_state, '', None, {'data/lt-summary.json': LT}, with_events)
+            if specs is not None:
+                await pg.evaluate(SEED_SPEC, specs)
+            if prime:
+                await pg.evaluate(prime)
+            await pg.goto(base + '?selftest=1' + path)
+            await pg.wait_for_timeout(1800)
+            return pg, errs
+
+        async def th_rows(pg):
+            return await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"Advice on what you hold\"] .srow')].map((e) => e.innerText)")
+        TH_FILL = r"""(o) => { const f = document.querySelector('section[aria-label="Thesis for ' + o.t + '"] form');
+          const set = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+          const ta = f.querySelectorAll('textarea');
+          set(ta[0], o.reason); set(ta[1], o.thesis);
+          set(f.querySelector('[aria-label="Catalyst"]'), o.catalyst);
+          set(f.querySelector('[aria-label="Risk"]'), o.risk);
+          set(f.querySelector('[aria-label="Condition that would break the thesis"]'), o.cond);
+          if (o.rule) { const s = f.querySelector('[aria-label="Check it against the data"]'); set(s, o.rule); if (o.value) set(f.querySelector('[aria-label="Price"]'), o.value); }
+          if (o.change) set(ta[2], o.change);
+          f.requestSubmit(); }"""
+
+        # the Portfolio page: the new card is there, lists each holding without a thesis, and the advice above it is untouched
+        pg, errs = await th_page()
+        rows0 = await th_rows(pg)
+        card = await pg.inner_text('section[aria-label="Thesis and decisions"]')
+        check('have no thesis' in card or 'has no thesis' in card, f'portfolio: the card says which holdings have no thesis: {card[:300]!r}')
+        check('No thesis recorded for this holding.' in card and 'Write the thesis' in card, 'portfolio: each holding without a thesis offers to write one')
+        check(await pg.locator('section[aria-label="Thesis and decisions"] button:has-text("Decision report")').count() >= 1, 'portfolio: a holding with a call has a decision report')
+        plan0 = await pg.inner_text('section[aria-label="This month"]')
+        check(not errs, f'no page errors on the Portfolio page with the thesis card {errs}')
+        await pg.close()
+
+        # write a thesis through the page, then the page shows it, keeps it intact, and the advice is exactly as before
+        pg, errs = await th_page()
+        await pg.click('section[aria-label="Thesis and decisions"] .srow:has-text("AAPL") button:has-text("Write the thesis")')
+        await pg.wait_for_timeout(600)
+        check(await pg.locator('section[aria-label="Thesis for AAPL"] form').count() == 1, 'thesis page: opened on the stock, with the form to write the thesis')
+        await pg.evaluate(TH_FILL, {'t': 'AAPL', 'reason': 'Cash machine with a loyal customer base.', 'thesis': 'Services growth lifts margins; buybacks shrink the share count.', 'catalyst': 'New services pricing', 'risk': 'Regulation of the app store', 'cond': 'Falls to $50 or lower', 'rule': 'price_below', 'value': '50'})
+        await pg.wait_for_timeout(500)
+        txt = await pg.inner_text('#page-thesis')
+        check('Thesis recorded' in txt and 'Cash machine with a loyal customer base.' in txt and 'History intact: 1 entry' in txt, f'thesis page: the thesis is saved and shown: {txt[:500]!r}')
+        st1 = await pg.evaluate("JSON.parse(localStorage.getItem('thesis')).entries")
+        check(len(st1) == 1 and st1[0]['kind'] == 'thesis' and st1[0]['evidence']['price'] is not None and st1[0]['evidence']['shariah']['ledgerOk'] is True, 'thesis page: the entry keeps the price of the day and the Shariah ledger result in its evidence')
+        ok_v = await pg.evaluate("window.__sc.thesis.verifyThesisLog(JSON.parse(localStorage.getItem('thesis')).entries).ok")
+        check(ok_v, 'thesis page: the stored record passes its own check')
+        # revise it: a new version with a reason; the original stays word for word
+        await pg.click('button:has-text("Revise the thesis")')
+        await pg.evaluate(TH_FILL, {'t': 'AAPL', 'reason': 'Cash machine, and now also a growing dividend.', 'thesis': 'Services growth lifts margins; buybacks shrink the share count.', 'catalyst': 'New services pricing', 'risk': 'Regulation of the app store', 'cond': 'Falls to $50 or lower', 'rule': 'price_below', 'value': '50', 'change': 'The dividend started growing faster than I expected.'})
+        await pg.wait_for_timeout(500)
+        st2 = await pg.evaluate("JSON.parse(localStorage.getItem('thesis')).entries")
+        check(len(st2) == 2 and st2[1]['kind'] == 'revision' and st2[1]['revises'] == 0, 'thesis page: a revision is a new entry that names the version it changes')
+        check(st2[0] == st1[0], 'thesis page: the original entry is byte for byte what it was')
+        txt = await pg.inner_text('#page-thesis')
+        check('How the thesis changed' in txt and 'Version 2' in txt and 'The dividend started growing faster than I expected.' in txt and 'Original, written' in txt, f'thesis page: the history shows the original and the change with its reason: {txt[-900:]!r}')
+        await pg.click('section[aria-label="Thesis history"] details:nth-of-type(2) summary')
+        txt = await pg.inner_text('section[aria-label="Thesis history"]')
+        check('was “Cash machine with a loyal customer base.”' in txt and 'now “Cash machine, and now also a growing dividend.”' in txt, 'thesis page: the change is shown as what it was and what it is now')
+        check(not errs, f'no page errors on the thesis page {errs}')
+        # the Portfolio advice and the plan are exactly as before the record existed
+        await pg.goto(base + '?selftest=1&p=advisor')
+        await pg.wait_for_timeout(1800)
+        check(await th_rows(pg) == rows0, 'a thesis changes no advice on what you hold')
+        check(await pg.inner_text('section[aria-label="This month"]') == plan0, 'a thesis changes nothing in this month’s plan')
+        await pg.close()
+
+        # a decision report quotes the page's own reasons word for word, saves the data of the day, and cannot be edited
+        pg, errs = await th_page(prime=None)
+        rows = await th_rows(pg)
+        who = None
+        for r in rows:
+            parts_ = r.split('\n')
+            if len(parts_) > 2 and parts_[2] in ('Hold', 'Add', 'Trim', 'Sell', 'Take profit'):
+                who = (parts_[0].strip(), parts_[2], r)
+                break
+        check(who is not None, f'portfolio: at least one holding has a buy, hold, trim or sell call to report on: {rows!r}')
+        if who:
+            t_, call_, row_text = who
+            await pg.click(f'section[aria-label="Thesis and decisions"] .srow:has-text("{t_}") button:has-text("Decision report")')
+            await pg.wait_for_timeout(500)
+            panel = await pg.inner_text(f'section[aria-label="Thesis and decisions"] .srow:has-text("{t_}") .editbox')
+            check(panel.startswith(('Buy', 'Hold', 'Trim', 'Sell')), f'decision report: opens with the decision and the date: {panel[:200]!r}')
+            check('Fundamentals:' in panel and 'Valuation:' in panel and 'Chart:' in panel and 'Risk:' in panel and 'Shariah:' in panel, 'decision report: covers fundamentals, valuation, chart, risk and Shariah')
+            check('No thesis is recorded for ' + t_ in panel, 'decision report: says plainly when there is no thesis to check the call against')
+            await pg.fill(f'section[aria-label="Thesis and decisions"] .srow:has-text("{t_}") .editbox input', 'I left it alone.')
+            await pg.click(f'section[aria-label="Thesis and decisions"] .srow:has-text("{t_}") button:has-text("Save this decision")')
+            await pg.wait_for_timeout(400)
+            ent = await pg.evaluate("JSON.parse(localStorage.getItem('thesis')).entries")
+            check(len(ent) == 1 and ent[0]['kind'] == 'decision' and ent[0]['call'] == call_ and ent[0]['userAction'] == 'I left it alone.', f'decision report: saved with the page’s own wording of the call ({call_}) and what you did: {ent!r}'[:300])
+            check(all(rs in row_text for rs in ent[0]['reasons']), 'decision report: every saved reason is a sentence the Advice list shows, word for word')
+            check(ent[0]['evidence']['asOf'] is not None and ent[0]['evidence']['price'] is not None, 'decision report: the date and price of the data are saved')
+            check(await pg.evaluate("window.__sc.thesis.verifyThesisLog(JSON.parse(localStorage.getItem('thesis')).entries).ok"), 'decision report: the record still passes its check')
+            check(await th_rows(pg) == rows, 'saving a decision changes no advice on what you hold')
+            # a saved entry cannot be edited: changing it is caught
+            await pg.evaluate("() => { const d = JSON.parse(localStorage.getItem('thesis')); d.entries[0].action = 'sell'; localStorage.setItem('thesis', JSON.stringify(d)); }")
+            await pg.goto(base + '?selftest=1&p=advisor')
+            await pg.wait_for_timeout(1500)
+            card = await pg.inner_text('section[aria-label="Thesis and decisions"]')
+            check('failed its integrity check' in card, f'an edited decision is caught on the Portfolio page: {card[:200]!r}')
+            await pg.evaluate("(t) => { window.__scT = t; }", t_)
+            await pg.click('section[aria-label="Thesis and decisions"] button:has-text("Open all theses")')
+            await pg.wait_for_timeout(700)
+            top_ = await pg.inner_text('section[aria-label="Record status"]')
+            check('The history failed its check' in top_, f'an edited decision is caught on the thesis page: {top_[:200]!r}')
+            res = await pg.evaluate("(() => { const r = window.__sc.thesis.THS.add({ kind: 'close', t: 'AAPL', on: '2026-11-06', note: 'x' }); return r.ok; })()")
+            check(res is False, 'nothing can be added to a record that fails its check')
+        check(not errs, f'no page errors on the decision report {errs}')
+        await pg.close()
+
+        # late data: the page pauses its advice, and a paused row is not a call that can be saved
+        pg, errs = await th_page(late=weekday_back(6))
+        panel_btn = pg.locator('section[aria-label="Thesis and decisions"] button:has-text("Decision report")')
+        n_btn = await panel_btn.count()
+        if n_btn:
+            await panel_btn.first.click()
+            await pg.wait_for_timeout(400)
+            ptxt = await pg.inner_text('section[aria-label="Thesis and decisions"] .editbox:not([hidden])')
+            check('there is no decision to save' in ptxt and await pg.locator('button:has-text("Save this decision")').count() == 0, f'late data: a paused call cannot be saved as a decision: {ptxt[:240]!r}')
+        else:
+            check(True, 'late data: no decision report is offered for a paused row')
+        check(not errs, f'no page errors with late data {errs}')
+        await pg.close()
+
+        # a condition you wrote that is met shows, and only shows
+        pg, errs = await th_page(prime="""() => { }""")
+        await pg.evaluate("""() => { const S = window.__sc.thesis; const today = (() => { const n = new Date(); return new Date(n.getTime() - n.getTimezoneOffset() * 60000).toISOString().slice(0, 10); })();
+          const scr = window.__sc.screen(); const r = scr.by.get('AAPL'); const ev = S.thesisEvidence('AAPL', {});
+          const e = S.appendThesis([], { kind: 'thesis', t: 'AAPL', written: today, stance: 'owned', horizon: 'long', reason: 'r', thesis: 'c', catalysts: [{ text: 'x' }], risks: [{ text: 'y' }],
+            invalidation: [{ text: 'Price is above $1', rule: { type: 'price_above', value: 1 } }], evidence: ev }, today, new Date().toISOString());
+          S.THS.save(e.entries); }""")
+        await pg.goto(base + '?selftest=1&p=advisor')
+        await pg.wait_for_timeout(1800)
+        rows1 = await th_rows(pg)
+        card = await pg.inner_text('section[aria-label="Thesis and decisions"]')
+        check('A condition you wrote is met today: Price is above $1' in card, f'a written condition that is met is shown: {card[:400]!r}')
+        check(rows1 == rows0, 'a met condition changes no advice on what you hold')
+        check(not errs, f'no page errors with a met condition {errs}')
+        await pg.close()
+
+        # the company page: its thesis in a line, and a buy report only when the page's long-term call is a buy
+        pg, errs = await page_with(ctx, base, fresh, {}, '&t=KO', 'stock-ok', None, with_events)
+        await pg.wait_for_timeout(1500)
+        sc_ = await pg.inner_text('section[aria-label="Your thesis"]')
+        check('No thesis recorded for this stock.' in sc_ and 'Write the thesis' in sc_ and 'Decision report for a buy' in sc_, f'company page: the thesis card is there: {sc_[:300]!r}')
+        await pg.click('section[aria-label="Your thesis"] button:has-text("Decision report for a buy")')
+        await pg.wait_for_timeout(500)
+        sc_ = await pg.inner_text('section[aria-label="Your thesis"]')
+        check('Save this decision' in sc_ or 'no long-term buy call to save' in sc_, f'company page: the report either offers to save a buy call or says there is none: {sc_[-400:]!r}')
+        check(not errs, f'no page errors on the company page {errs}')
+        await pg.close()
+
+        # the company page: a long-term buy call is saved with its evidence when the page's call is a buy, and not when the Shariah ledger blocks it
+        pg, errs = await page_with(ctx, base, fresh, book([], 10000), '', 'stock-ok')
+        await pg.evaluate(SEED_SPEC, [{'t': 'KO', 'status': 'compliant', 'ago': 3}])
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1500)
+        call_txt = await pg.inner_text('.act-row >> nth=0')
+        await pg.click('section[aria-label="Your thesis"] button:has-text("Decision report for a buy")')
+        await pg.wait_for_timeout(500)
+        panel = await pg.inner_text('section[aria-label="Your thesis"] .editbox')
+        check(panel.startswith('Buy KO') and 'Save this decision' in panel, f'company page: a buy call is offered for saving with its explanation: {panel[:240]!r}')
+        await pg.click('section[aria-label="Your thesis"] button:has-text("Save this decision")')
+        await pg.wait_for_timeout(400)
+        ent = await pg.evaluate("JSON.parse(localStorage.getItem('thesis')).entries")
+        check(len(ent) == 1 and ent[0]['action'] == 'buy' and ent[0]['source'] == 'stock' and ent[0]['call'] in call_txt and ent[0]['reasons'][0] in call_txt, f'company page: the saved buy keeps the page’s own title and sentence: {ent[0]["call"]!r} {ent[0]["reasons"]!r}')
+        check(ent[0]['evidence']['shariah']['ledgerOk'] is True and ent[0]['evidence']['valuation']['buyBelow'] is not None and ent[0]['evidence']['risk']['limitsAllowBuy'] is True, 'company page: the saved buy keeps the buy price, the limits result and the Shariah ledger result of the day')
+        check(not errs, f'no page errors saving a buy call {errs}')
+        await pg.close()
+        pg, errs = await page_with(ctx, base, fresh, book([], 10000), '', 'stock-ok')
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1500)
+        await pg.click('section[aria-label="Your thesis"] button:has-text("Decision report for a buy")')
+        await pg.wait_for_timeout(400)
+        panel = await pg.inner_text('section[aria-label="Your thesis"] .editbox')
+        check('no long-term buy call to save' in panel and 'Blocked by the Shariah ledger' in panel and 'Save this decision' not in panel, f'company page: a buy the Shariah ledger blocks cannot be saved as a buy: {panel[:240]!r}')
+        check(await pg.evaluate("localStorage.getItem('thesis')") is None, 'company page: nothing was saved')
+        await pg.close()
+
+        # backups carry the record, and joining one never overwrites what is here
+        pg, errs = await th_page()
+        res = await pg.evaluate("""() => { const S = window.__sc.thesis; const today = (() => { const n = new Date(); return new Date(n.getTime() - n.getTimezoneOffset() * 60000).toISOString().slice(0, 10); })();
+          const ev = S.thesisEvidence('AAPL', {}); const mk = (reason) => ({ kind: 'thesis', t: 'AAPL', written: today, stance: 'owned', horizon: 'long', reason, thesis: 'c', catalysts: [{ text: 'x' }], risks: [{ text: 'y' }], invalidation: [{ text: 'z' }], evidence: ev });
+          const local = S.appendThesis([], mk('local reason'), today, new Date().toISOString()).entries;
+          const other = S.appendThesis([], mk('other reason'), today, new Date().toISOString()).entries;
+          S.THS.save(local);
+          const b = window.__sc.backupOf({ trades: [], backup: null });
+          const m = window.__sc.mergeBackup({ journal: { trades: [] }, watch: { items: [] }, advisor: { other: [], hp: {} }, shariah: { entries: [] }, thesis: { entries: local } }, { trades: [], extra: { thesis: { entries: other, anchor: null } } });
+          return { inBackup: b.extra.thesis.entries.length, mergedOk: m.thesis.ok, kept: m.thesis.entries[0].reason, added: m.thesis.added, verifies: S.verifyThesisLog(m.thesis.entries).ok }; }""")
+        check(res['inBackup'] == 1, 'backup: the backup file carries the thesis record')
+        check(res['mergedOk'] and res['kept'] == 'local reason' and res['verifies'], f'backup: joining another copy keeps this device’s entries first: {res}')
+        check(not errs, f'no page errors in the backup test {errs}')
+        await pg.close()
+
         # ---- the ledger page: the countdown starts only from a confirmed move from compliant, with the change date
         async def ledger_text(specs, held=('AAA',)):
             st = {'watch': {'v': 1, 'items': [{'t': t, 'added': '2026-01-01', 'shares': 10, 'cost': 100} for t in held], 'snap': None, 'prev': None}}
