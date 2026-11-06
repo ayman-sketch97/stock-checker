@@ -1,0 +1,21 @@
+{
+ "v": 1,
+ "kind": "genesis",
+ "note": "Start of the deploy log. The version live on 2026-11-06 (main commit 3506f0f, built by run 42206281154) was saved as the first restore point by run 42231862362 from that run's GitHub Pages artifact, before the gated pipeline existed. No recommendation record is described here; the records branch is separate and is never changed by this log.",
+ "analysisCommit": "3506f0feb9c9f649c836ab582a865bcca51a0902",
+ "status": "neither",
+ "restorePoint": {
+  "created": {
+   "commit": "3506f0feb9c9f649c836ab582a865bcca51a0902",
+   "digest": "321af507b307101dfe7ae3ee7dabd1d9c9e4dfc3fd71c09984892fdb7cd7902a",
+   "runId": 42231862362,
+   "artifact": "restore-point",
+   "manifestFiles": 4059,
+   "source": "Pages artifact of run 42206281154"
+  }
+ },
+ "seq": 0,
+ "prev": null,
+ "recordedAt": "2026-11-06T14:19:47.000Z",
+ "hash": "07e4549276f335f018d36be5e5a30b69fb9b7a60e155f722ab59086bc0f9d08b"
+}
