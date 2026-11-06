@@ -1264,8 +1264,13 @@ stocks, beat rates, wrong calls, the counts and the previous 90% interval, which
 | Run | Formula tests | Page checks |
 | --- | ---: | ---: |
 | On this computer, before merging | 80 of 80 | 206 of 206 |
+| GitHub, on the release commit `10ab6c3` (Update site, run 71) | 80 of 80 | 206 of 206 |
 
-The simulation results are in section 16.
+Run 71 then built and deployed the site, with the build, the page tests and the deploy all passing and the night's
+record saved with its chain intact. The live page is the release commit's `index.html` byte for byte, apart from the
+three changes every build makes (static mode, the safe-area padding and the no-indexing tag). The live
+`record-summary.json` carries measures version 4, the thresholds above and a verdict only on the six 12-month kinds,
+all "waiting" since no call has reached 12 months yet. The simulation results are in section 16.
 
 The previous method and its results stay available: the page shows the previous verdict beside each new one, the
 nightly summary keeps its figures (`y.prev` and `previous`), PREREGISTERED.md sections 7.1 and 7.2 are unchanged
