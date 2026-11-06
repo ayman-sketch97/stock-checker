@@ -1,0 +1,9 @@
+{"v":2,"date":"2026-11-05","built":"2026-11-06T19:47:46.065Z","prev":"20ef83df4bba2655cb5e9f2fdf9f9a1a5326a173442e3c75521936c89f1a76a4","n":8,"baseline":false}
+{"k":"trim_out","t":"YUM","px":166.09,"v":"AVOID_SHARIAH","s":"fail","fair":127.34,"bb":108.24,"tr":191.03}
+{"k":"verdict","t":"G","px":41.1,"v":"BUY_STRONG","s":"pass","fair":57.56,"bb":48.92,"tr":80.68,"from":"CONTRARIAN"}
+{"k":"buy_in","t":"G","px":41.1,"v":"BUY_STRONG","s":"pass","fair":57.56,"bb":48.92,"tr":80.68}
+{"k":"trim_in","t":"DK","px":62.49,"v":"AVOID_SHARIAH","s":"fail","fair":0.63,"bb":0.53,"tr":15.5}
+{"k":"verdict","t":"SHOO","px":38.99,"v":"UNRELIABLE","s":"review","fair":null,"bb":null,"tr":null,"from":"CONTRARIAN"}
+{"k":"halal","t":"SHOO","px":38.99,"v":"UNRELIABLE","s":"review","fair":null,"bb":null,"tr":null,"from":"pass"}
+{"k":"pick_in","pool":"mid","t":"G","px":41.1,"v":"BUY_STRONG","s":"pass","fair":57.56,"bb":48.92,"tr":80.68}
+{"k":"pick_out","pool":"mid","t":"ANF","px":157.59,"v":"BUY","s":"pass","fair":224.81,"bb":191.09,"tr":303.47}
