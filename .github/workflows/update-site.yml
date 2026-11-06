@@ -1,6 +1,16 @@
 name: Update site
 
 # Re-analyzes every US company worth $2B+ and publishes the site to GitHub Pages.
+#
+# Deployment safety. The site is published only if every required check passed, on the exact commit being built:
+#   formulas, page-tests, security  ->  build  ->  verify-site  ->  gate  ->  deploy  ->  verify-live
+# * Any failed, skipped, cancelled or missing required job blocks the deploy (the gate job, tools/deploy-gate.mjs).
+# * The Pages artifact is created only by verify-site, from the folder that passed tools/check-site.mjs.
+# * A failed or blocked run never touches the live site: GitHub Pages replaces it only when a deployment succeeds.
+# * verify-live reads the live site and checks it serves this commit; if not, rollback redeploys the last version
+#   that was verified live (artifact "last-good-site").
+# * Runs on any branch other than main stop before deploy (a dry run) and never write to the permanent record.
+# The rules are tested in test/deploy-safety.test.mjs and test/workflow.test.py.
 on:
   schedule:
     - cron: '15 3 * * 2-6' # Tue-Sat 03:15 UTC (11:15pm New York, 7:15am UAE), once the day's closing prices are published
@@ -11,29 +21,86 @@ on:
     paths-ignore: ['.keepalive', 'README.md']
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  # ------------------------------------------------------------------ required checks (no network needed)
+  formulas:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # a failing test stops the publish, so a broken calculation never reaches the site
+      - name: Test the formulas
+        run: node --test test/formulas.test.mjs
+      - name: Test the deployment safety tools
+        run: node --test test/deploy-safety.test.mjs
+
+  page-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright
+        run: pip install playwright==1.48.0 && python -m playwright install --with-deps chromium
+      - name: Run the page tests
+        run: python test/page.test.py
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: No credentials in any tracked file
+        run: node tools/scan-repo.mjs
+      - name: The workflow still enforces the deployment rules
+        run: pip install pyyaml==6.0.2 && python test/workflow.test.py
+
+  # ------------------------------------------------------------------ build (analysis of every company)
+  build:
+    needs: [formulas, page-tests, security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: write # the permanent record is pushed to its own branch (main runs only)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       # the Technical tab's chart library (TradingView Lightweight Charts, Apache-2.0), served from this site
       - name: Install the chart library
         run: npm install --no-save --no-audit --no-fund lightweight-charts@5.2.1
-      # formula checks: a failing test stops the publish, so a broken calculation never reaches the site
-      - name: Test the formulas
-        run: node --test test/formulas.test.mjs
       # the permanent record of every call (lib/records.js): an append-only branch, one file per day. If it exists but
       # cannot be read tonight, it is left out (never started again from nothing)
       - name: Get the permanent record
@@ -54,6 +121,8 @@ jobs:
       # either way, and says so if tonight's record was not saved
       - name: Save today's record
         id: record
+        # only the real run on main writes to the permanent record; a test run on another branch never does
+        if: github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
           PUSH_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
@@ -63,13 +132,187 @@ jobs:
         run: |
           node -e "const fs=require('fs');const f='site/data/record-summary.json';if(fs.existsSync(f)){const s=JSON.parse(fs.readFileSync(f,'utf8'));s.saved=false;fs.writeFileSync(f,JSON.stringify(s))}"
           echo "::error::Tonight's permanent record was not saved; see the step above."
+      # the built folder is handed on as it is; only verify-site may turn it into the Pages artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-built
+          path: site
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  # ------------------------------------------------------------------ security and data-integrity checks on the built site
+  verify-site:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      digest: ${{ steps.check.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-built
+          path: site
+      - name: Check the built site (credentials, required files, valid data, pinned library, this commit)
+        id: check
+        run: node tools/check-site.mjs site --commit "${{ github.sha }}"
+      # reached only if the check passed: this is the folder that gets published
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+
+  # ------------------------------------------------------------------ the gate
+  gate:
+    needs: [formulas, page-tests, security, build, verify-site]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Every required check must have succeeded
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          REQUIRED: formulas,page-tests,security,build,verify-site
+        run: node tools/deploy-gate.mjs
+      - name: Say what happens next
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "Gate passed for ${{ github.sha }}: deploying." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Gate passed for ${{ github.sha }} on ${{ github.ref_name }}: dry run, nothing is deployed from a branch other than main." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ------------------------------------------------------------------ deploy (main only, only after the gate)
+  deploy:
+    needs: gate
+    if: ${{ needs.gate.result == 'success' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ------------------------------------------------------------------ after the deploy: is the live site the commit we deployed?
+  verify-live:
+    needs: [deploy, verify-site]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: The live site serves this commit
+        run: node tools/verify-live.mjs "${{ needs.deploy.outputs.page_url || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}" "${{ github.sha }}" --wait 360
+      # verified live: keep exactly these bytes as the version to return to
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-built
+          path: site
+      - name: These are the bytes that were checked
+        run: |
+          node tools/check-site.mjs site --commit "${{ github.sha }}" | tee check.log
+          grep -q "${{ needs.verify-site.outputs.digest }}" check.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: last-good-site
+          path: site
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  # ------------------------------------------------------------------ if the live site is not what was deployed, put back the last verified version
+  rollback:
+    needs: [deploy, verify-live]
+    if: ${{ always() && needs.deploy.result == 'success' && needs.verify-live.result == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Find the last version that was verified live
+        id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          row=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=last-good-site&per_page=50" \
+            --jq '[.artifacts[] | select(.expired == false) | select(.workflow_run.head_branch == "main") | select(.workflow_run.id != ${{ github.run_id }})][0] | "\(.workflow_run.id) \(.workflow_run.head_sha)"')
+          if [ -z "$row" ] || [ "$row" = "null null" ]; then
+            echo "::error::No earlier verified version is stored, so nothing can be put back automatically. Fix or redeploy by hand."
+            exit 1
+          fi
+          echo "run_id=${row%% *}" >> "$GITHUB_OUTPUT"
+          echo "commit=${row##* }" >> "$GITHUB_OUTPUT"
+          echo "Last verified version: run ${row%% *}, commit ${row##* }"
+      - uses: actions/download-artifact@v4
+        with:
+          name: last-good-site
+          path: restore
+          run-id: ${{ steps.last.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: The stored version is intact and is the commit it claims to be
+        run: node tools/check-site.mjs restore --commit "${{ steps.last.outputs.commit }}"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          name: rollback-pages
+          path: restore
+      - id: redeploy
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: rollback-pages
+      - name: The live site is the restored version
+        run: node tools/verify-live.mjs "${{ steps.redeploy.outputs.page_url }}" "${{ steps.last.outputs.commit }}" --wait 360
+
+  # ------------------------------------------------------------------ housekeeping, only after a verified deploy
+  keepalive:
+    needs: verify-live
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
       # GitHub pauses scheduled workflows after 60 days without repository activity.
       # A tiny commit every ~6 weeks keeps the daily update running.
       - name: Keep the daily schedule alive
-        if: github.event_name == 'schedule'
         run: |
           last=$(git log -1 --format=%ct)
           if [ $(( ($(date +%s) - last) / 86400 )) -ge 40 ]; then
@@ -78,29 +321,5 @@ jobs:
             date -u +%Y-%m-%d > .keepalive
             git add .keepalive
             git commit -m "Keep the daily update running"
-            git push
+            git push || echo "::warning::Could not add the keep-alive commit; the next run tries again."
           fi
-
-  page-tests:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install Playwright
-        run: pip install playwright==1.48.0 && python -m playwright install --with-deps chromium
-      - name: Run the page tests
-        run: python test/page.test.py
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
