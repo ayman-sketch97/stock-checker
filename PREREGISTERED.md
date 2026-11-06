@@ -403,6 +403,16 @@ are kept, whatever they show.
 and B; and one decade with one big rate cycle (0.62% in July 2020 to 5.13% in October 2026) is a small sample, so a
 pass is evidence, not proof.
 
+#### 8.1 Result of run 1, and the study closed (6 November 2026)
+
+Run 1 (4 November 2026, code at commit 60d29ee on the `rate-study` branch, results tagged `rate-study-run-1`) found
+that B fails all six conditions: it won 12 of the 59 five-year periods against A; it beat random halal stocks in 29% of
+them and the S&P 500 in 24% (A: 63% and 73%); its worst fall was 5.7 points deeper; it failed in both halves; its
+buy-zone churn was 38% higher than A's; and none of S1 to S4 met conditions 1 and 3. On 6 November 2026 the owner
+closed this line of research: the fixed 8%, 9% and 10% stay, and no variant is adopted, the 6.5% floor (S4) included.
+The study's code stays on its own branch and never reached the live site; the write-up and the comparison's output are
+kept in `studies/rate-study-2026-11/`, and the raw data under the tag.
+
 ### 7.3 The final method, frozen before the first result: confidence, dependence, multiple measures, dividends and missing companies (measures, version 4)
 
 Written on 3 November 2026 (UTC) at the owner's request, before any call has reached its first month. Where it differs
@@ -486,3 +496,54 @@ the details section 7.3 leaves open, so they cannot be chosen after a result is 
 - The separate 12-month periods shown are the most calls whose 12 months do not overlap, counted from the first call.
 - The calls standing on the record's first day are the starting point: shown the same way, but not part of the family
   tested for a pass.
+
+#### 7.3.2 Amendment, 6 November 2026: neutral wording on the missing companies (the owner's request, before any result)
+
+The owner asked that the missing companies be described without claiming more than the evidence shows. This replaces
+the four points under "Missing companies" in section 7.3, and any earlier wording in this file that gives the effect a
+direction; the text above stays as written.
+
+- Measured from SEC filings (VALIDATION.md, section 14): 44% of the companies an investor could have held in mid-2016
+  are missing from the 10-year test: 28.4% taken over or merged, 3.5% bankrupt, 2.2% delisted for other reasons, 5.3%
+  still filing with no listed shares, 2.6% shrunk below the size cut-off and 2.0% missing for other reasons.
+- How the gap can affect the strategy and random halal stocks differently: both are drawn from the same surviving
+  companies, so the effect on each depends on which of the missing companies it would have held and how those did.
+  Leaving out companies that later failed flatters whichever side would have held more of them; leaving out companies
+  that were taken over removes their deal prices from whichever side would have held more of those. Which side would
+  have held more of either is not known.
+- Published research on delisting returns (Shumway, 1997; Shumway and Warther, 1999) finds that the returns missing
+  when companies are delisted for poor performance are large and negative. It does not cover takeovers, the largest
+  missing group here. How the two balance, against random halal stocks or against the S&P 500 (which has no such gap),
+  is not measured.
+- So neither the direction nor the size of the effect can be measured with free data. The historical results are
+  incomplete evidence: they can show a large failure, not prove skill. Only the permanent record, complete from
+  3 November 2026 thanks to its own price archive, can judge the system's skill.
+
+#### 7.3.3 Amendment, 6 November 2026: one test for calls close together and companies called again (approved by the owner, before any result)
+
+Before release, section 7.3 was checked on simulated records with no skill at all but with the dependence real calls
+have: calls made close together share most of their 12 months, and the same company is called again and again. The two
+resamplings of section 7.3 (months in 12-month blocks, and companies) passed at least one of the six kinds by chance in
+10% to 46% of such records, against the 2.5% this section promises. With overlapping 12-month periods, a few years of
+calls hold only a few independent periods, and resampling them understates how uncertain the average is. The owner
+approved this replacement on 6 November 2026, before any call had reached its first month:
+
+- The average gap between the calls and random halal stocks is tested once, allowing for both kinds of dependence at
+  the same time. Its variance is the cluster-robust variance over cohorts of call months as long as the horizon
+  (consecutive 12-month cohorts for the 12-month result, from the first call), raised by a third because neighbouring
+  cohorts share on average a sixth of their measurement months, plus the cluster-robust variance over companies, each
+  company with all its calls.
+- The one-sided p-value and the 90% interval come from Student's t, with the smaller of the effective numbers of cohorts
+  and of companies, less one, as degrees of freedom (at least one). The effective number is (the sum of the calls)
+  squared, divided by the sum of each cohort's or company's calls squared, so a few cohorts or companies holding most
+  of the calls count as few.
+- Everything else in sections 7.3 to 7.3.2 stands: the six 12-month kinds as one Holm family at 2.5% (the strictest
+  threshold 0.42%), a kind not yet testable counting as p = 1, calls in at least twice as many months as the horizon,
+  30 matured calls before a verdict, provisional below 100, a pass also needing no more wrong calls than random halal
+  stocks, the warning from a 90% interval wholly on the bad side, and early reads that never pass. This replaces the
+  resampling, its seeds and its p-value formula in sections 7.3 and 7.3.1.
+- Checked the same way (test/validation/stats73-null.mjs, VALIDATION.md section 16): no more than 1% of records with no
+  skill pass a kind by chance, in every case tried. The cost is power: a kind with a true edge of 10 points a year
+  passes in about a quarter of ten-year records, 15 points in about three quarters, and almost never within five
+  years. Until then most kinds will read "undecided", which is the honest answer.
+- The previous method (sections 7.1 and 7.2) is still worked out and shown beside each verdict, for comparison only.

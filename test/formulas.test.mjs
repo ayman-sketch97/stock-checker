@@ -12,7 +12,7 @@ import { monthEnds, pxRows, replaySplits, trendAt, SNAP_FIELDS } from '../lib/lo
 import { loadData, forwardTest, simulate, simulateSpy, xirrMonthly, nwMean, momentum, pctRanks, topShare, altPicks, ALTERNATIVES, report, planIdeas, simulatePlan, PLAN_POOLS, planWindows, decideWindows, WINDOW_MONTHS } from '../lib/ltstats.js';
 import { POLICY_VERSION, POLICY_RULES, buyRoom, trimSale, sectorOpen, worthAnOrder } from '../lib/policy.js';
 import { healthChecks, LT_MAX_DAYS } from '../lib/health.js';
-import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, fallFrom, yardstick, gapTest, judgeKinds, writePrices, readPrices, trackedTickers, MISSING_DAYS, REPEAT_DAYS, HOLD_FALL, STOP_SESSIONS, TOTAL_RETURNS, PASS_ALPHA, MIN_MATURED, MONTHS_PER_HORIZON } from '../lib/records.js';
+import { rowsOf, stateOf, picksOf, stateFile, dayEvents, dayChange, dayFile, parseDay, dayName, verifyChain, sha256, groupOf, followUp, updateRecord, followedTickers, actFrom, fallFrom, yardstick, gapTest, judgeKinds, dayInterval, tUpper, tQuantile, OVERLAP_FACTOR, writePrices, readPrices, trackedTickers, MISSING_DAYS, REPEAT_DAYS, HOLD_FALL, STOP_SESSIONS, TOTAL_RETURNS, PASS_ALPHA, MIN_MATURED, FINAL_MATURED, MONTHS_PER_HORIZON, THRESHOLDS, PREV_MIN_DAYS, GROUPS, MEASURES_VERSION } from '../lib/records.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b}, got ${a}`);
 
@@ -1144,30 +1144,46 @@ test('permanent record: every call next to random halal stocks on the same days 
   const early = [10, 11, 12, 13, 14, 15].map((i, j) => ({ date: day(i), e: { k: 'buy_in', t: `${j % 2 ? 'UP' : 'BIG'}${i}` } }));
   const tails = followUp(early, closesOf, spy).buy.h['12m'];
   assert.deepEqual([tails.n, tails.t10, tails.b10, tails.b20, tails.y], [6, 0.5, 0.5, 0.5, undefined], 'without a yardstick, only the calls');
+  // the previous method (section 7.1), kept for comparison only: whole days resampled with the same seed, exactly as
+  // before (these values are what the code on main gave on 6 Nov 2026), none under 5 days
+  const days = [[0.1, 2], [-0.05, 1], [0.02, 3], [0.2, 1], [-0.1, 2], [0.03, 1]];
+  assert.deepEqual(dayInterval(days), [-0.017, 0.06875]);
+  assert.equal(dayInterval(days.slice(0, PREV_MIN_DAYS - 1)), null);
+  assert.deepEqual([r.y.prev.days, r.y.prev.lo !== null], [6, true], 'the record keeps the previous interval beside the new one');
 });
 
-test('permanent record: section 7.3, resampling by time and by company, the more cautious deciding', () => {
+test('permanent record: section 7.3 as amended (7.3.3), one test for calls close together and companies called again', () => {
+  // Student's t, against published values
+  const near = (a, b, e = 2e-4) => Math.abs(a - b) < e;
+  assert.ok(near(tQuantile(0.95, 1), 6.3138) && near(tQuantile(0.95, 2), 2.92) && near(tQuantile(0.95, 10), 1.8125) && near(tQuantile(0.95, 1e5), 1.6449));
+  assert.ok(near(tUpper(2, 10), 0.036694, 1e-6) && near(tUpper(3, 5), 0.01505, 1e-5) && near(tUpper(-1, 4), 0.81305, 1e-5) && tUpper(0, 7) === 0.5);
+  assert.equal(OVERLAP_FACTOR, 4 / 3, 'neighbouring cohorts share a sixth of their months: the cohort variance is raised by a third');
   // calls: [month number, company, gap to random halal stocks]
   const spread = Array.from({ length: 48 }, (_, k) => [24300 + (k % 24), `C${k}`, 0.02 + 0.01 * Math.sin(k)]);
   const T = gapTest(spread, { horizon: 12, up: true });
-  assert.deepEqual(T, gapTest(spread, { horizon: 12, up: true }), 'a fixed seed: the same record always gives the same answer');
-  assert.deepEqual([T.months, T.need, T.short, T.periods], [24, 24, false, 2], '24 months of calls: two separate 12-month periods');
-  assert.ok(T.lo > 0 && T.p < 0.01, JSON.stringify(T));
-  assert.ok(Math.abs(T.lo - Math.min(T.by.time[0], T.by.company[0])) < 1e-4 && Math.abs(T.hi - Math.max(T.by.time[1], T.by.company[1])) < 1e-4, 'the lower of the two lower bounds, the higher of the two upper bounds');
-  assert.ok(Math.abs(T.p - Math.max(T.by.time[2], T.by.company[2])) < 1e-4, 'and the larger of the two p-values');
+  assert.deepEqual(T, gapTest(spread, { horizon: 12, up: true }), 'the same record always gives the same answer');
+  assert.deepEqual([T.months, T.need, T.short, T.periods, T.cohorts, T.companies, T.df], [24, 24, false, 2, 2, 48, 1], '24 months of calls: two cohorts, so one degree of freedom');
+  assert.ok(T.lo > 0 && T.p > PASS_ALPHA / 6, `ahead every month, but two years are two observations: no pass yet (p ${T.p})`);
+  const tenYears = Array.from({ length: 240 }, (_, k) => [24300 + (k % 120), `C${k}`, 0.02 + 0.01 * Math.sin(k)]);
+  const L = gapTest(tenYears, { horizon: 12, up: true });
+  assert.ok(L.df === 9 && L.p < PASS_ALPHA / 6, `the same edge for ten years passes (p ${L.p})`);
   assert.equal(gapTest(spread.filter((c) => c[0] < 24323), { horizon: 12 }).short, true, '23 months: too short for the 12-month result');
   assert.equal(gapTest([[0, 'A', 1], [5, 'A', 1], [12, 'A', 1], [13, 'A', 1], [30, 'A', 1]], { horizon: 12 }).periods, 3, 'separate periods: from months 0, 12 and 30');
-  // one company called again and again: resampling by company sees one company, not thirty independent calls
+  // one company called again and again: it counts as about one company, not thirty independent calls
   const oneCo = [...Array.from({ length: 30 }, (_, k) => [24300 + (k % 12), 'SAME', 0.1]), ...Array.from({ length: 30 }, (_, k) => [24300 + (k % 12), `X${k}`, -0.01])];
+  const manyCo = oneCo.map(([m, , g], i) => [m, `Z${i}`, g]);
   const C = gapTest(oneCo, { horizon: 1, up: true });
-  assert.ok(C.by.time[2] < 0.01 && C.by.company[2] > 0.2 && C.p > 0.2, `the average gap is +4.5 points, but it all comes from one company: ${JSON.stringify(C)}`);
-  // months together: good calls all in the first year and bad ones in the second spread less evenly than they look
+  const M = gapTest(manyCo, { horizon: 1, up: true });
+  assert.ok(C.p > 0.1 && M.p < 0.001 && C.df < M.df, `the same gaps: from one company p ${C.p}, from sixty p ${M.p}`);
+  // a good year then a bad year is two observations that disagree, not 48 calls
   const years = Array.from({ length: 48 }, (_, k) => [24300 + (k % 24), `Y${k}`, (k % 24) < 12 ? 0.08 : -0.04]);
+  const mixed = Array.from({ length: 48 }, (_, k) => [24300 + (k % 24), `Y${k}`, k % 2 ? 0.08 : -0.04]);
   const Y = gapTest(years, { horizon: 12, up: true });
-  assert.ok(Y.by.time[1] - Y.by.time[0] > Y.by.company[1] - Y.by.company[0], `blocks of 12 months keep a good year and a bad year together: ${JSON.stringify(Y.by)}`);
+  const X = gapTest(mixed, { horizon: 12, up: true });
+  assert.ok(Y.lo < 0 && Y.hi > 0 && Y.hi - Y.lo > 5 * (X.hi - X.lo), `the same calls, sorted into a good and a bad year, are far less certain: ${JSON.stringify([Y.lo, Y.hi, X.lo, X.hi])}`);
   // sell and trim calls: a negative gap is good
-  const down = gapTest(spread.map(([m, t, g]) => [m, t, -g]), { horizon: 12, up: false });
-  assert.ok(down.hi < 0 && down.p < 0.01);
+  const down = gapTest(tenYears.map(([m, t, g]) => [m, t, -g]), { horizon: 12, up: false });
+  assert.ok(down.hi < 0 && down.p < PASS_ALPHA / 6);
   assert.deepEqual(MONTHS_PER_HORIZON, { '1m': 1, '3m': 3, '6m': 6, '12m': 12 });
 });
 
@@ -1191,6 +1207,45 @@ test('permanent record: section 7.3, the six kinds at 12 months tested as one fa
   const W = judgeKinds(groups({ buy: kind({ p: 0.0001, ahead: true, lo: 0.02 }, { wrong: 0.5 }) }));
   assert.equal(W.buy.h['12m'].verdict, 'undecided');
   assert.equal(MIN_MATURED, 30);
+  // the previous method's verdict is kept beside the new one, for comparison only: here the old 90% interval over days
+  // was wholly above zero, while the new test is not convinced
+  const P = judgeKinds(groups({ buy: kind({ p: 0.2, prev: { lo: 0.004, hi: 0.06, days: 40 } }), trim: kind({ p: 0.9, behind: true, prev: { lo: 0.01, hi: 0.08, days: 40 } }), pick_mid: kind({ p: 0.9, prev: { lo: null, hi: null, days: 3 } }) }));
+  assert.deepEqual([P.buy.h['12m'].verdict, P.buy.h['12m'].previous.verdict], ['undecided', 'pass']);
+  assert.deepEqual([P.trim.h['12m'].verdict, P.trim.h['12m'].previous.verdict], ['warn', 'fail']);
+  assert.deepEqual([P.pick_mid.h['12m'].previous.verdict, P.pick_mid.h['12m'].previous.version], ['short', 3]);
+  // one source for the numbers the page shows
+  assert.deepEqual([THRESHOLDS.family, THRESHOLDS.alpha, THRESHOLDS.minMatured, THRESHOLDS.finalMatured, THRESHOLDS.monthsPerHorizon['12m'] * 2, FINAL_MATURED, MEASURES_VERSION], [6, 0.025, 30, 100, 24, 100, 4]);
+});
+
+test('permanent record: section 7.3, every pass is exactly what an independent Holm step-down allows', () => {
+  const kinds = Object.keys(GROUPS);
+  assert.deepEqual(kinds, ['buy', 'pick_long', 'pick_mid', 'trim', 'sell_weak', 'hold_fall'], 'the family is these six kinds of call, nothing else');
+  // a reference Holm step-down, written separately from lib/records.js
+  const holmRef = (ps, alpha) => {
+    const idx = ps.map((p, i) => i).sort((a, b) => ps[a] - ps[b]);
+    const rejected = new Set();
+    for (let j = 0; j < idx.length; j++) { if (ps[idx[j]] <= alpha / (idx.length - j)) rejected.add(idx[j]); else break; }
+    return rejected;
+  };
+  let seed = 12345;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  let agree = 0;
+  let passes = 0;
+  const trials = 3000;
+  for (let t = 0; t < trials; t++) {
+    // tiny, borderline and large p-values, and some kinds not testable yet (too few matured calls)
+    const ps = kinds.map(() => { const r = rnd(); return r < 0.3 ? rnd() * 0.006 : r < 0.5 ? 0.0035 + rnd() * 0.003 : rnd(); });
+    const testable = kinds.map(() => rnd() > 0.2);
+    const G = Object.fromEntries(kinds.map((k, i) => [k, { label: k, h: { '12m': { n: 40, matured: testable[i] ? 40 : 29, wrong: 0.1, y: { p: ps[i], t10: 0.5, b10: 0.5, short: false, ahead: true, behind: false, lo: 0.01, hi: 0.05 } } } }]));
+    judgeKinds(G);
+    const ref = holmRef(kinds.map((k, i) => (testable[i] ? ps[i] : 1)), 0.025);
+    const got = kinds.map((k, i) => (G[k].h['12m'].verdict === 'pass' ? i : -1)).filter((i) => i >= 0);
+    if (got.length === ref.size && got.every((i) => ref.has(i))) agree++;
+    passes += got.length;
+  }
+  assert.equal(agree, trials, 'the same kinds pass as under the reference, in every trial');
+  assert.ok(passes > 500, `the trials include passes (${passes}), so the comparison is not empty`);
+  assert.ok(Math.abs(PASS_ALPHA / kinds.length - 0.0041667) < 1e-6, 'the strictest threshold: 2.5% / 6 = 0.42%');
 });
 
 test('permanent record: the nightly step pairs each call with the halal-pass companies of its own day', async () => {
@@ -1215,6 +1270,14 @@ test('permanent record: the nightly step pairs each call with the halal-pass com
   assert.ok(Math.abs(h1.diff - a) < 1e-4, JSON.stringify(h1));
   assert.ok(h1.y && h1.y.n === 1 && Math.abs(h1.y.diff - yard) < 1e-4 && Math.abs(h1.y.gap - (a - yard)) < 1e-4, JSON.stringify(h1.y));
   assert.deepEqual([h1.y.months, h1.y.short, h1.y.lo], [1, true, null], 'calls in one month: no verdict');
+  // section 7.3: only the 12-month results of the calls made since the start get a verdict; the starting point and the
+  // 1, 3 and 6-month reads never do
+  for (const g of Object.keys(GROUPS)) {
+    assert.equal(R.groups[g].h['12m'].verdict, 'waiting');
+    for (const h of ['1m', '3m', '6m']) assert.equal(R.groups[g].h[h].verdict, undefined, `${g} ${h}`);
+    for (const h of ['1m', '3m', '6m', '12m']) assert.equal(R.standing[g].h[h].verdict, undefined, `standing ${g} ${h}`);
+  }
+  assert.deepEqual([R.measures, R.previousMeasures, R.returns, R.thresholds], [4, 3, 'price', THRESHOLDS]);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

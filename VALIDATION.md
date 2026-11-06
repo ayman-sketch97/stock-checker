@@ -1101,6 +1101,14 @@ shown, so it would be compared and shown first, as any decision-changing change 
 Sources: [Shumway (1997), The Delisting Bias in CRSP Data](https://econpapers.repec.org/RePEc:bla:jfinan:v:52:y:1997:i:1:p:327-40);
 [Shumway and Warther (1999), The Delisting Bias in CRSP's Nasdaq Data](https://ideas.repec.org/a/bla/jfinan/v54y1999i6p2361-2379.html).
 
+Correction, 6 November 2026: the sentences above that call the test's own returns "most likely flattered" and the
+comparison with random halal stocks "affected less" go further than the evidence. The research cited covers delistings
+for poor performance, not takeovers, the largest missing group (28%), and nothing measures which missing companies the
+picks or random picks would have held. The wording now used everywhere (PREREGISTERED.md, section 7.3.2) says that
+neither the direction nor the size of the effect can be measured with free data, and explains how it can differ
+between the picks and random halal stocks. The same applies to earlier sections of this file that give the missing
+companies a direction.
+
 ## 15. Section 7.2 in the code: every call measured to the end (3 November 2026)
 
 Written down first (PREREGISTERED.md, section 7.2, its own commit), then built in `lib/records.js`:
@@ -1135,34 +1143,130 @@ what is new, dividends merged), the companies tracked, a company followed from t
 it, and the page with each verdict. 77 formula tests and 201 page checks pass.
 
 
-## 16. Section 7.3 in the code: how sure a result is, and one switch for dividends (4 November 2026)
+## 16. Section 7.3 in the code: how sure a result is, and one switch for dividends (6 November 2026)
 
-Section 7.3 was written down first (its own commit, before any call had reached its first month), and the details
-the code needed were added to it as 7.3.1 before any result. Built in `lib/records.js` on the `stats-7.3` branch,
-for review before it goes live:
+Section 7.3 was written down first (its own commit, 3 November, before any call had reached its first month); the
+details the code needed were added as 7.3.1, the owner's neutral wording on the missing companies as 7.3.2, and the
+test that replaced the resampling as 7.3.3, all before any result. Built in `lib/records.js`; record and display only.
 
-- `gapTest` replaces the day resampling of section 7.1. Each call's gap to that day's random halal stocks is
-  resampled 2,000 times by month, in circular blocks of consecutive months as long as the horizon (12 months for the
-  12-month result), and 2,000 times by company, each company with all its calls. The interval shown is the lower of
-  the two lower bounds and the higher of the two upper bounds; the p-value the larger of the two.
-- A result needs calls made in at least twice as many months as its horizon (24 for 12 months); with fewer the page
-  says the record is too short to judge. The page shows how many separate 12-month periods the calls cover.
-- `judgeKinds` gives each kind of call its 12-month verdict, the six kinds tested as one family (Holm, familywise
-  2.5% one-sided; a kind not yet testable counts as p = 1): passes (also needing no more wrong calls than random
-  halal stocks), worse than random and under review (a 90% interval wholly on the bad side), undecided, or too short
-  a record. The 1 and 3-month columns are labelled early reads and never pass.
-- `TOTAL_RETURNS`, off: dividends are used nowhere, for the calls, random halal stocks and the S&P 500 alike, so the
-  two kinds of return are never mixed. The archive keeps any dividend history it reads. Turning it on needs a dated
+**The final checks before release, and what showed each one:**
+
+| Check (the owner's, 6 November) | How it was confirmed |
+| --- | --- |
+| Only the six 12-month kinds can pass | `judgeKinds` gives verdicts only to the 12-month results of the calls made since the start; tests check that the 1, 3 and 6-month reads and the calls standing on day one never get one, and that the family is exactly buy, long-term pick, medium-term pick, trim, sell and hold |
+| The Holm correction is right | 3,000 random sets of six p-values (tiny, borderline and large, some kinds not testable): the kinds that pass are exactly those an independent Holm step-down at 2.5% allows, every time; the strictest threshold is 2.5% / 6 = 0.42% |
+| Company and time dependence are allowed for | Failed at first, then fixed (below) |
+| At least 24 distinct months | 23 months is too short, 24 is enough (tests) |
+| 30 matured calls, provisional below 100 | one set of numbers (`THRESHOLDS`) in the record and on the page; tests check both |
+| A 90% warning is never shown as skill | the warning reads "under review (a warning, not a verdict on skill)"; early reads say "early read, not a test of skill"; the 12-month column shows each kind's tested verdict, never the 90% interval's direction (page checks) |
+
+**The dependence check, and why the method changed before going live.** `test/validation/stats73-null.mjs` builds
+records with no skill at all but with the dependence real calls have (a company's lasting difference from random stocks,
+what calls in the same 12 months share, call-by-call luck; about four calls a month; a few companies called far more
+often), in six versions from mild to harsh, over 36, 60 and 120 months, and judges them exactly as the Record page does.
+The resampling first approved (months in 12-month blocks and companies, the larger p-value) passed at least one of the
+six kinds by chance in 10% to 46% of records, against the 2.5% section 7.3 promises: with overlapping 12-month periods,
+a few years of calls hold only a few independent periods, and resampling them understates the uncertainty. The two-way
+test of section 7.3.3 (cohorts of call months and companies together, Student's t with the smaller effective number of
+cohorts or companies, less one, as degrees of freedom) passed a kind by chance in 0% to 1% of records, in every version
+(300 records a cell), and in at most 1.7% over 120 and 240 months (1,000 records a cell: `node
+test/validation/stats73-null.mjs 1000 20261106 120,240 live`). With no skill, it put 1.4% to 1.5% of kinds under review
+over 60 months (about 5% expected from a 90% interval). Its price is power: a true edge of 10 points a year in one kind
+passes in 27% to 28% of ten-year records and in under 1% of five-year ones; 15 points, in 71% to 76% of ten-year records.
+
+| Records with no skill: a kind passes by chance | 36 months | 60 months | 120 months |
+| --- | ---: | ---: | ---: |
+| Live test (7.3.3), harshest version | 0.0% | 0.0% | 1.0% |
+| Resampling approved on 3 November, replaced | 10% to 46% | 11% to 31% | 10% to 24% |
+
+**Also in this release:**
+
+- The previous method (sections 7.1 and 7.2: the 90% interval from resampling the days of the calls, a pass when it is
+  wholly on the good side and the wrong calls are no more common than random halal stocks') is still worked out each
+  night and shown beside each 12-month verdict, labelled "for comparison only". On a simulated record its figures match
+  the code it replaces exactly (472 of 472 figures, and the same verdicts).
+- `TOTAL_RETURNS`, off: dividends are used nowhere, for the calls, random halal stocks and the S&P 500 alike, so the two
+  kinds of return are never mixed. The archive keeps any dividend history it reads. Turning it on needs a dated
   amendment.
-- The page says prices only wherever the record shows a return, explains that the 10-year test's 59 overlapping
-  five-year periods hold about two independent spans, and replaces "affected less" with how the missing companies
-  can push the picks and random halal stocks in different directions.
+- The missing companies are described neutrally everywhere on the page (section 7.3.2): measured gap, how it can
+  affect the picks and random halal stocks differently, and that neither its direction nor its size can be measured
+  with free data. Section 14 has a dated correction. The 10-year test's 59 overlapping five-year periods are said to
+  hold about two independent spans.
+- Calls whose prices are missing tonight are described as the rule treats them (counted, and wrong at every horizon
+  that has come), instead of "left out".
 
-Tests: the same record gives the same answer (fixed seeds); 23 months of calls is too short for the 12-month result
-and 24 is enough; separate periods counted from the first call; one company called again and again (an average gap of
-+4.5 points that all comes from it: resampling by company gives p above 0.2 while resampling by month alone gives
-under 0.01); a good year and a bad year (the 12-month blocks give a wider interval than resampling by company);
-sell-side calls (a negative gap is good); the Holm family (a kind at p = 0.01 passes on its own at 2.5% but not as
-the second of six; a kind with too few calls counts as p = 1; a pass with more wrong calls than random stays
-undecided; a sell-side kind whose stocks kept rising is put under review); and dividends ignored while the switch is
-off, reinvested when it is on. 79 formula tests and 203 page checks pass.
+Not changed: anything that makes or sizes a recommendation. The calls themselves (what is recorded each night),
+valuations, buy zones, sell and trim decisions, the halal screen and the risk limits come from code this release does
+not touch (section 18).
+
+Tests: 80 formula tests and the page checks pass (section 18 has the run).
+
+## 17. The Treasury-linked discount rate study, closed (6 November 2026)
+
+Pre-registered in PREREGISTERED.md, section 8, run once on its own branch, with the result and the owner's decision in
+section 8.1. Before the run, the fixed-rate side of the study was checked against the published 10-year test: the
+study's job and the 10-year job gave the same rows for MSFT and KO (120 months each, byte for byte), and on the
+10-year data of 3 November the comparison gave the fixed rates exactly the published plan result (11.84% a year,
+worst fall 32.88%, the same 59 five-year periods). Run 1 (4 November) valued every month-end of 2,634 companies under
+the fixed rates, the linked rate and six sensitivity rules, and the linked rate failed all six conditions. On
+6 November the owner closed the study: the fixed 8%, 9% and 10% stay, and no variant is adopted, the 6.5% floor
+included. The study's code never left its branch; the write-up, the comparison's full output and the yields it used
+are kept in `studies/rate-study-2026-11/`, and the raw data under the tag `rate-study-run-1`.
+
+## 18. Release checks: section 7.3 changes the evaluation only (6 November 2026)
+
+The owner approved section 7.3 for release as an evaluation-only update: it must not change recommendations, buy
+zones, sell decisions, valuations or risk limits. Four checks against the version live before it (main at
+`594afce`), each a script in `test/validation/` that can be run again.
+
+**1. Which code changed** (`changed-code.mjs`: every function parsed, named by where it sits, and its own code
+compared with the code of the functions inside it set apart, so a change is pinned to the function that holds it).
+
+| File | Result |
+| --- | --- |
+| `lib/engine.js`, `policy.js`, `longterm.js`, `ltstats.js`, `data.js`, `health.js`, `signals.js`, `technical.js`, `backtest.js` | identical |
+| `tools/` (all seven files) and the three workflows | identical |
+| `index.html` | 9 of its 989 functions changed, none added or removed; the markup and the constants unchanged |
+| `lib/records.js` | the follow-up and the nightly summary changed; the test, the verdicts and the previous method added |
+
+The nine functions in the page: the permanent-record card (`recordCard` and four functions inside it), the notes of
+the 10-year test card (`ltCard`) and of "Read this before trusting the numbers" (`limitsCard`), and `windowsLine`,
+which gains one sentence on the five-year periods. None of them makes, sizes or pauses a recommendation.
+`lib/records.js` feeds nothing that gives advice: only the nightly build imports it, to write
+`data/record-summary.json`, and the page reads that file only on the Record page, for the health card (unchanged)
+and the permanent record. In it, `gapInterval` became `dayInterval` with its code unchanged; `trail`, `yardstick`
+and `followUp` gained the dividends switch, off; `finish` and `updateRecord` add the test of section 7.3.3 and the
+verdicts.
+
+**2. Same data, same advice** (`same-advice.py`): the live page and the new page given identical data in five
+situations, with every page opened in each: holdings with new filings; a profile with limits, a sector already full
+and a stock under halal review; half in stocks with swing trades; prices six trading days late, so advice is paused;
+unreliable company data. 30 page views, 217 sections, about 209,000 characters.
+
+- The Stock, Shortlist, Watchlist and Journal pages are identical word for word in all five situations, and so is
+  the Portfolio page without a profile: 21 of the 30 page views.
+- The Record page: only the three evaluation cards differ (the permanent record, the 10-year test card and "Read this
+  before trusting the numbers"); its other ten sections are identical.
+- The Portfolio page: "Your target mix" and "Holding periods" differ only by the added sentence ("The periods overlap:
+  together they hold about two independent five-year spans, and companies that disappeared since 2016 are missing.").
+  With it taken out, all six such sections are identical character for character.
+- The check catches a real change: with the trim target made 10% lower in one function, it failed at once ("sell
+  about $561.66" became "$573.89").
+
+**3. Same record, same figures** (`same-figures.mjs`): one synthetic record of 400 nights (60 companies whose prices
+wander and whose verdicts change: 490 calls, 182 of them with their 12 months) run through the live `lib/records.js`
+and the new one. All 837 figures the live version reports come out the same: returns, the S&P 500, random halal
+stocks, beat rates, wrong calls, the counts and the previous 90% interval, which is now kept beside the new test
+(`y.prev`). What the release adds is new; nothing already measured is rewritten.
+
+**4. Tests**
+
+| Run | Formula tests | Page checks |
+| --- | ---: | ---: |
+| On this computer, before merging | 80 of 80 | 206 of 206 |
+
+The simulation results are in section 16.
+
+The previous method and its results stay available: the page shows the previous verdict beside each new one, the
+nightly summary keeps its figures (`y.prev` and `previous`), PREREGISTERED.md sections 7.1 and 7.2 are unchanged
+(sections 7.3 to 7.3.3 and 8.1 were only added), and the last version before this release is `594afce`.

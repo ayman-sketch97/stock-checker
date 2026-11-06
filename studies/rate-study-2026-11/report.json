@@ -1,0 +1,5301 @@
+{
+ "generated": "2026-11-04T09:05:14.811Z",
+ "companies": 2634,
+ "from": "2016-12",
+ "to": "2026-11",
+ "mid": "2021-12",
+ "runs": 50,
+ "variants": {
+  "B": {
+   "plan": {
+    "yearly": 0.0901,
+    "finalValue": 51424,
+    "worstFall": -0.3863
+   },
+   "halves": {
+    "h1": {
+     "yearly": 0.2146,
+     "finalValue": 27844,
+     "worstFall": -0.3002
+    },
+    "h2": {
+     "yearly": 0.1845,
+     "finalValue": 25244,
+     "worstFall": -0.194
+    }
+   },
+   "conditions": {
+    "all": {
+     "n": 59,
+     "wins": 12,
+     "losses": 47,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.6271,
+      "V": 0.2881
+     },
+     "beatSpy": {
+      "A": 0.7288,
+      "V": 0.2373
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.4039
+     },
+     "c2": false,
+     "c3": false
+    },
+    "h1": {
+     "n": 29,
+     "wins": 10,
+     "losses": 19,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.3103,
+      "V": 0.069
+     },
+     "beatSpy": {
+      "A": 0.5862,
+      "V": 0.1724
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.4039
+     },
+     "c2": false,
+     "c3": false
+    },
+    "h2": {
+     "n": 30,
+     "wins": 2,
+     "losses": 28,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.9333,
+      "V": 0.5
+     },
+     "beatSpy": {
+      "A": 0.8667,
+      "V": 0.3
+     },
+     "worstFall": {
+      "A": -0.3461,
+      "V": -0.3742
+     },
+     "c2": false,
+     "c3": false
+    },
+    "worstFall": {
+     "A": -0.3288,
+     "V": -0.3863
+    },
+    "c3": false,
+    "c4": false
+   },
+   "rows": {
+    "fairRatio": {
+     "n": 104818,
+     "p25": 0.9629,
+     "median": 1.164,
+     "p75": 1.4868
+    },
+    "fairRatioByYear": {
+     "2016": 1.4661,
+     "2017": 1.399,
+     "2018": 1.24,
+     "2019": 1.4238,
+     "2020": 1.9158,
+     "2021": 1.7498,
+     "2022": 1.2458,
+     "2023": 1.0438,
+     "2024": 0.9655,
+     "2025": 0.9463,
+     "2026": 0.9287
+    },
+    "decisions": {
+     "trim>hold": 10290,
+     "trim>trim": 26502,
+     "hold>hold": 101953,
+     "hold>buy": 2428,
+     "trim>buy": 437,
+     "hold>trim": 2399,
+     "sell>sell": 49325,
+     "buy>buy": 1288,
+     "buy>hold": 1837,
+     "sell>hold": 249,
+     "hold>sell": 11
+    },
+    "decisionsByHalf": {
+     "first": {
+      "trim>hold": 8937,
+      "trim>trim": 9442,
+      "hold>hold": 40823,
+      "hold>buy": 1823,
+      "trim>buy": 409,
+      "sell>sell": 20880,
+      "hold>trim": 980,
+      "buy>hold": 1235,
+      "sell>hold": 195,
+      "buy>buy": 118
+     },
+     "second": {
+      "hold>buy": 605,
+      "hold>hold": 61130,
+      "trim>hold": 1353,
+      "trim>trim": 17060,
+      "hold>trim": 1419,
+      "sell>sell": 28445,
+      "buy>buy": 1170,
+      "buy>hold": 602,
+      "sell>hold": 54,
+      "trim>buy": 28,
+      "hold>sell": 11
+     }
+    },
+    "I1": {
+     "A": {
+      "median": 0,
+      "p95": 0.4615
+     },
+     "V": {
+      "median": 0.033,
+      "p95": 0.472
+     }
+    },
+    "I2": {
+     "A": 0.1342,
+     "V": 0.1849
+    },
+    "decisionChangesPerYear": {
+     "A": 0.9409,
+     "V": 0.9559
+    },
+    "smallMoveFlips": {
+     "n": 4273,
+     "steps": 194711,
+     "smallMoveSteps": 157931,
+     "shareWhenSmallMove": 0.0271,
+     "shareAllSteps": 0.0281,
+     "examples": [
+      {
+       "t": "A",
+       "d": "2017-05-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": -0.0018
+      },
+      {
+       "t": "A",
+       "d": "2017-06-30",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0
+      },
+      {
+       "t": "A",
+       "d": "2017-08-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0013
+      },
+      {
+       "t": "A",
+       "d": "2017-09-29",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0011
+      },
+      {
+       "t": "A",
+       "d": "2017-10-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": -0.0001
+      },
+      {
+       "t": "A",
+       "d": "2017-12-29",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0001
+      },
+      {
+       "t": "A",
+       "d": "2018-01-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0005
+      },
+      {
+       "t": "A",
+       "d": "2018-11-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0015
+      },
+      {
+       "t": "A",
+       "d": "2019-12-31",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": 0.001
+      },
+      {
+       "t": "A",
+       "d": "2020-06-30",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": 0.0001
+      },
+      {
+       "t": "A",
+       "d": "2021-03-31",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": 0.0018
+      },
+      {
+       "t": "A",
+       "d": "2021-06-30",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": -0.0002
+      }
+     ]
+    }
+   },
+   "latest": {
+    "companies": 1060,
+    "decisionChanges": 146,
+    "largest": [
+     {
+      "t": "EVH",
+      "date": "2026-11-03",
+      "price": 4.3,
+      "fairA": 1.38,
+      "fairB": 0.06,
+      "change": -0.9565,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "AMTM",
+      "date": "2026-11-03",
+      "price": 22.38,
+      "fairA": 2.48,
+      "fairB": 0.14,
+      "change": -0.9435,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "CC",
+      "date": "2026-11-03",
+      "price": 13.09,
+      "fairA": 3.32,
+      "fairB": 0.29,
+      "change": -0.9127,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "ULBI",
+      "date": "2026-11-03",
+      "price": 15.63,
+      "fairA": 0.41,
+      "fairB": 0.05,
+      "change": -0.878,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "pass"
+     },
+     {
+      "t": "HROW",
+      "date": "2026-11-03",
+      "price": 28.54,
+      "fairA": 1.24,
+      "fairB": 0.22,
+      "change": -0.8226,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "FCX",
+      "date": "2026-11-03",
+      "price": 61.77,
+      "fairA": 2.82,
+      "fairB": 0.63,
+      "change": -0.7766,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "ALIT",
+      "date": "2026-11-03",
+      "price": 10.12,
+      "fairA": 13.29,
+      "fairB": 3.37,
+      "change": -0.7464,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     },
+     {
+      "t": "CLX",
+      "date": "2026-11-03",
+      "price": 93.8,
+      "fairA": 8.44,
+      "fairB": 2.22,
+      "change": -0.737,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "LIND",
+      "date": "2026-11-03",
+      "price": 32.76,
+      "fairA": 1.48,
+      "fairB": 0.4,
+      "change": -0.7297,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "TDAY",
+      "date": "2026-11-03",
+      "price": 5.72,
+      "fairA": 0.89,
+      "fairB": 0.25,
+      "change": -0.7191,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "BV",
+      "date": "2026-11-03",
+      "price": 11.78,
+      "fairA": 2.06,
+      "fairB": 0.59,
+      "change": -0.7136,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "TBCH",
+      "date": "2026-11-03",
+      "price": 15.82,
+      "fairA": 0.69,
+      "fairB": 0.2,
+      "change": -0.7101,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "UCTT",
+      "date": "2026-11-03",
+      "price": 48.02,
+      "fairA": 2.74,
+      "fairB": 1.04,
+      "change": -0.6204,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "CAG",
+      "date": "2026-11-03",
+      "price": 14.41,
+      "fairA": 3.92,
+      "fairB": 1.51,
+      "change": -0.6148,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "LUMN",
+      "date": "2026-11-03",
+      "price": 4.75,
+      "fairA": 3.04,
+      "fairB": 1.34,
+      "change": -0.5592,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     }
+    ],
+    "changedHalal": [
+     {
+      "t": "USPH",
+      "date": "2026-11-03",
+      "price": 84.74,
+      "fairA": 58.65,
+      "fairB": 45.6,
+      "change": -0.2225,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MAS",
+      "date": "2026-11-03",
+      "price": 82.18,
+      "fairA": 56.37,
+      "fairB": 44.62,
+      "change": -0.2084,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "HUBB",
+      "date": "2026-11-03",
+      "price": 449.27,
+      "fairA": 339.81,
+      "fairB": 271.69,
+      "change": -0.2005,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "WMS",
+      "date": "2026-11-03",
+      "price": 136,
+      "fairA": 183.98,
+      "fairB": 147.31,
+      "change": -0.1993,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "PODD",
+      "date": "2026-11-03",
+      "price": 154.86,
+      "fairA": 123.79,
+      "fairB": 99.2,
+      "change": -0.1986,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "SYK",
+      "date": "2026-11-03",
+      "price": 310.55,
+      "fairA": 270.59,
+      "fairB": 216.84,
+      "change": -0.1986,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "BR",
+      "date": "2026-11-03",
+      "price": 183.76,
+      "fairA": 251.89,
+      "fairB": 203.11,
+      "change": -0.1937,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "DGX",
+      "date": "2026-11-03",
+      "price": 247.06,
+      "fairA": 191.14,
+      "fairB": 154.65,
+      "change": -0.1909,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "DOV",
+      "date": "2026-11-03",
+      "price": 213.57,
+      "fairA": 166.33,
+      "fairB": 134.57,
+      "change": -0.1909,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RS",
+      "date": "2026-11-03",
+      "price": 443.84,
+      "fairA": 547.68,
+      "fairB": 443.3,
+      "change": -0.1906,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "SLB",
+      "date": "2026-11-03",
+      "price": 52.13,
+      "fairA": 72.72,
+      "fairB": 58.9,
+      "change": -0.19,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "IEX",
+      "date": "2026-11-03",
+      "price": 237.36,
+      "fairA": 175.88,
+      "fairB": 142.48,
+      "change": -0.1899,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "META",
+      "date": "2026-11-03",
+      "price": 621.03,
+      "fairA": 837.58,
+      "fairB": 678.76,
+      "change": -0.1896,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "SCCO",
+      "date": "2026-11-03",
+      "price": 173.49,
+      "fairA": 281.4,
+      "fairB": 228.07,
+      "change": -0.1895,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "TEL",
+      "date": "2026-11-03",
+      "price": 219.77,
+      "fairA": 271.71,
+      "fairB": 220.26,
+      "change": -0.1894,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "NVDA",
+      "date": "2026-11-03",
+      "price": 206.69,
+      "fairA": 247.67,
+      "fairB": 200.91,
+      "change": -0.1888,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "TER",
+      "date": "2026-11-03",
+      "price": 269.35,
+      "fairA": 231.75,
+      "fairB": 188.28,
+      "change": -0.1876,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "INTU",
+      "date": "2026-11-03",
+      "price": 344.72,
+      "fairA": 650.75,
+      "fairB": 528.83,
+      "change": -0.1874,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "UI",
+      "date": "2026-11-03",
+      "price": 545.42,
+      "fairA": 679.19,
+      "fairB": 552.74,
+      "change": -0.1862,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "TPR",
+      "date": "2026-11-03",
+      "price": 121.02,
+      "fairA": 215.92,
+      "fairB": 175.9,
+      "change": -0.1853,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "AME",
+      "date": "2026-11-03",
+      "price": 248.58,
+      "fairA": 218.88,
+      "fairB": 178.35,
+      "change": -0.1852,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MSFT",
+      "date": "2026-11-03",
+      "price": 520.99,
+      "fairA": 452.77,
+      "fairB": 368.98,
+      "change": -0.1851,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MCK",
+      "date": "2026-11-03",
+      "price": 999.62,
+      "fairA": 1382.72,
+      "fairB": 1127.26,
+      "change": -0.1848,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "CW",
+      "date": "2026-11-03",
+      "price": 497.76,
+      "fairA": 392.27,
+      "fairB": 320.02,
+      "change": -0.1842,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "VLTO",
+      "date": "2026-11-03",
+      "price": 116.32,
+      "fairA": 87.77,
+      "fairB": 71.62,
+      "change": -0.184,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     }
+    ]
+   }
+  },
+  "S1": {
+   "plan": {
+    "yearly": 0.1139,
+    "finalValue": 58249,
+    "worstFall": -0.4235
+   },
+   "halves": {
+    "h1": {
+     "yearly": 0.1331,
+     "finalValue": 22813,
+     "worstFall": -0.2389
+    },
+    "h2": {
+     "yearly": 0.2298,
+     "finalValue": 28119,
+     "worstFall": -0.248
+    }
+   },
+   "conditions": {
+    "all": {
+     "n": 59,
+     "wins": 11,
+     "losses": 48,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.6271,
+      "V": 0.6102
+     },
+     "beatSpy": {
+      "A": 0.7288,
+      "V": 0.6102
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3847
+     },
+     "c2": false,
+     "c3": true
+    },
+    "h1": {
+     "n": 29,
+     "wins": 3,
+     "losses": 26,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.3103,
+      "V": 0.2759
+     },
+     "beatSpy": {
+      "A": 0.5862,
+      "V": 0.2759
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3847
+     },
+     "c2": false,
+     "c3": true
+    },
+    "h2": {
+     "n": 30,
+     "wins": 8,
+     "losses": 22,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.9333,
+      "V": 0.9333
+     },
+     "beatSpy": {
+      "A": 0.8667,
+      "V": 0.9333
+     },
+     "worstFall": {
+      "A": -0.3461,
+      "V": -0.3443
+     },
+     "c2": true,
+     "c3": true
+    },
+    "worstFall": {
+     "A": -0.3288,
+     "V": -0.4235
+    },
+    "c3": false,
+    "c4": false
+   },
+   "rows": {
+    "fairRatio": {
+     "n": 106693,
+     "p25": 0.8154,
+     "median": 0.9936,
+     "p75": 1.1833
+    },
+    "fairRatioByYear": {
+     "2016": 1.1624,
+     "2017": 1.1164,
+     "2018": 1.0081,
+     "2019": 1.1342,
+     "2020": 1.5265,
+     "2021": 1.3449,
+     "2022": 1.0069,
+     "2023": 0.86,
+     "2024": 0.8132,
+     "2025": 0.7964,
+     "2026": 0.7795
+    },
+    "decisions": {
+     "trim>hold": 5501,
+     "trim>trim": 31703,
+     "hold>hold": 98622,
+     "hold>buy": 1799,
+     "hold>trim": 6331,
+     "sell>sell": 49482,
+     "buy>hold": 1919,
+     "buy>buy": 1206,
+     "sell>hold": 92,
+     "hold>sell": 39,
+     "trim>buy": 25
+    },
+    "decisionsByHalf": {
+     "first": {
+      "trim>hold": 4501,
+      "trim>trim": 14262,
+      "hold>hold": 41985,
+      "hold>buy": 1047,
+      "sell>sell": 21002,
+      "buy>hold": 741,
+      "buy>buy": 612,
+      "hold>trim": 594,
+      "sell>hold": 73,
+      "trim>buy": 25
+     },
+     "second": {
+      "hold>hold": 56637,
+      "hold>buy": 752,
+      "trim>hold": 1000,
+      "trim>trim": 17441,
+      "hold>trim": 5737,
+      "sell>sell": 28480,
+      "buy>hold": 1178,
+      "buy>buy": 594,
+      "sell>hold": 19,
+      "hold>sell": 39
+     }
+    },
+    "I1": {
+     "A": {
+      "median": 0,
+      "p95": 0.4615
+     },
+     "V": {
+      "median": 0.0301,
+      "p95": 0.481
+     }
+    },
+    "I2": {
+     "A": 0.1342,
+     "V": 0.144
+    },
+    "decisionChangesPerYear": {
+     "A": 0.9409,
+     "V": 0.9695
+    },
+    "smallMoveFlips": {
+     "n": 4576,
+     "steps": 194711,
+     "smallMoveSteps": 157931,
+     "shareWhenSmallMove": 0.029,
+     "shareAllSteps": 0.0301,
+     "examples": [
+      {
+       "t": "A",
+       "d": "2018-05-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0003
+      },
+      {
+       "t": "A",
+       "d": "2018-06-29",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0011
+      },
+      {
+       "t": "A",
+       "d": "2021-02-26",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0015
+      },
+      {
+       "t": "A",
+       "d": "2021-03-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0018
+      },
+      {
+       "t": "A",
+       "d": "2022-01-31",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": -0.0009
+      },
+      {
+       "t": "ABG",
+       "d": "2020-11-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0011
+      },
+      {
+       "t": "ACM",
+       "d": "2025-02-28",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0024
+      },
+      {
+       "t": "ACM",
+       "d": "2025-03-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0018
+      },
+      {
+       "t": "ACM",
+       "d": "2025-04-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": -0.0017
+      },
+      {
+       "t": "ACM",
+       "d": "2026-05-29",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0007
+      },
+      {
+       "t": "ACM",
+       "d": "2026-08-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0013
+      },
+      {
+       "t": "ADP",
+       "d": "2020-05-29",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": -0.0021
+      }
+     ]
+    }
+   },
+   "latest": {
+    "companies": 1046,
+    "decisionChanges": 251,
+    "largest": [
+     {
+      "t": "LUMN",
+      "date": "2026-11-03",
+      "price": 4.75,
+      "fairA": 3.04,
+      "fairB": 0.1,
+      "change": -0.9671,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "MTN",
+      "date": "2026-11-03",
+      "price": 153.36,
+      "fairA": 26.55,
+      "fairB": 1.4,
+      "change": -0.9473,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "ACI",
+      "date": "2026-11-03",
+      "price": 13.27,
+      "fairA": 6.1,
+      "fairB": 0.44,
+      "change": -0.9279,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "BMRN",
+      "date": "2026-11-03",
+      "price": 55.66,
+      "fairA": 6.19,
+      "fairB": 0.49,
+      "change": -0.9208,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "WLY",
+      "date": "2026-11-03",
+      "price": 50.81,
+      "fairA": 6.91,
+      "fairB": 0.57,
+      "change": -0.9175,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "WLYB",
+      "date": "2026-11-03",
+      "price": 50.82,
+      "fairA": 6.91,
+      "fairB": 0.57,
+      "change": -0.9175,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "SDHC",
+      "date": "2026-11-03",
+      "price": 10.2,
+      "fairA": 2.53,
+      "fairB": 0.29,
+      "change": -0.8854,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "TWI",
+      "date": "2026-11-03",
+      "price": 4.99,
+      "fairA": 2,
+      "fairB": 0.23,
+      "change": -0.885,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "AVNT",
+      "date": "2026-11-03",
+      "price": 43.25,
+      "fairA": 5.46,
+      "fairB": 0.67,
+      "change": -0.8773,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "ITGR",
+      "date": "2026-11-03",
+      "price": 126.55,
+      "fairA": 12.79,
+      "fairB": 1.63,
+      "change": -0.8726,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "IFF",
+      "date": "2026-11-03",
+      "price": 92.18,
+      "fairA": 6.5,
+      "fairB": 0.85,
+      "change": -0.8692,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "pass"
+     },
+     {
+      "t": "CSV",
+      "date": "2026-11-03",
+      "price": 34.26,
+      "fairA": 11.68,
+      "fairB": 1.62,
+      "change": -0.8613,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "CPB",
+      "date": "2026-11-03",
+      "price": 21.96,
+      "fairA": 7.95,
+      "fairB": 1.12,
+      "change": -0.8591,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "FTRE",
+      "date": "2026-11-03",
+      "price": 20.95,
+      "fairA": 2.92,
+      "fairB": 0.45,
+      "change": -0.8459,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "COHR",
+      "date": "2026-11-03",
+      "price": 207.49,
+      "fairA": 3.44,
+      "fairB": 0.54,
+      "change": -0.843,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "pass"
+     }
+    ],
+    "changedHalal": [
+     {
+      "t": "USPH",
+      "date": "2026-11-03",
+      "price": 84.74,
+      "fairA": 58.65,
+      "fairB": 36.12,
+      "change": -0.3841,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MAS",
+      "date": "2026-11-03",
+      "price": 82.18,
+      "fairA": 56.37,
+      "fairB": 36.68,
+      "change": -0.3493,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "HUBB",
+      "date": "2026-11-03",
+      "price": 449.27,
+      "fairA": 339.81,
+      "fairB": 223.94,
+      "change": -0.341,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RPM",
+      "date": "2026-11-03",
+      "price": 105.35,
+      "fairA": 92.3,
+      "fairB": 61.03,
+      "change": -0.3388,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "EFX",
+      "date": "2026-11-03",
+      "price": 187.72,
+      "fairA": 168.79,
+      "fairB": 112.31,
+      "change": -0.3346,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "WMS",
+      "date": "2026-11-03",
+      "price": 136,
+      "fairA": 183.98,
+      "fairB": 122.7,
+      "change": -0.3331,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "SYK",
+      "date": "2026-11-03",
+      "price": 310.55,
+      "fairA": 270.59,
+      "fairB": 180.75,
+      "change": -0.332,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "STLD",
+      "date": "2026-11-03",
+      "price": 247.66,
+      "fairA": 256.42,
+      "fairB": 171.4,
+      "change": -0.3316,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "HEI",
+      "date": "2026-11-03",
+      "price": 337.72,
+      "fairA": 363.15,
+      "fairB": 242.76,
+      "change": -0.3315,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "PODD",
+      "date": "2026-11-03",
+      "price": 154.86,
+      "fairA": 123.79,
+      "fairB": 82.76,
+      "change": -0.3314,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "NXPI",
+      "date": "2026-11-03",
+      "price": 262.79,
+      "fairA": 244.23,
+      "fairB": 163.34,
+      "change": -0.3312,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "LII",
+      "date": "2026-11-03",
+      "price": 346.49,
+      "fairA": 332.81,
+      "fairB": 222.82,
+      "change": -0.3305,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "DGX",
+      "date": "2026-11-03",
+      "price": 247.06,
+      "fairA": 191.14,
+      "fairB": 129.01,
+      "change": -0.325,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "BR",
+      "date": "2026-11-03",
+      "price": 183.76,
+      "fairA": 251.89,
+      "fairB": 170.35,
+      "change": -0.3237,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "KLAC",
+      "date": "2026-11-03",
+      "price": 156.2,
+      "fairA": 160.05,
+      "fairB": 108.66,
+      "change": -0.3211,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "DOV",
+      "date": "2026-11-03",
+      "price": 213.57,
+      "fairA": 166.33,
+      "fairB": 113.21,
+      "change": -0.3194,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "BSX",
+      "date": "2026-11-03",
+      "price": 43.5,
+      "fairA": 43.77,
+      "fairB": 29.81,
+      "change": -0.3189,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RS",
+      "date": "2026-11-03",
+      "price": 443.84,
+      "fairA": 547.68,
+      "fairB": 373.3,
+      "change": -0.3184,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "SLB",
+      "date": "2026-11-03",
+      "price": 52.13,
+      "fairA": 72.72,
+      "fairB": 49.62,
+      "change": -0.3177,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "IEX",
+      "date": "2026-11-03",
+      "price": 237.36,
+      "fairA": 175.88,
+      "fairB": 120.02,
+      "change": -0.3176,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "AIN",
+      "date": "2026-11-03",
+      "price": 73.67,
+      "fairA": 66.32,
+      "fairB": 45.29,
+      "change": -0.3171,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "DAL",
+      "date": "2026-11-03",
+      "price": 83.28,
+      "fairA": 78.5,
+      "fairB": 53.63,
+      "change": -0.3168,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "LECO",
+      "date": "2026-11-03",
+      "price": 284.55,
+      "fairA": 253.61,
+      "fairB": 173.31,
+      "change": -0.3166,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "TEL",
+      "date": "2026-11-03",
+      "price": 219.77,
+      "fairA": 271.71,
+      "fairB": 185.72,
+      "change": -0.3165,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "META",
+      "date": "2026-11-03",
+      "price": 621.03,
+      "fairA": 837.58,
+      "fairB": 572.56,
+      "change": -0.3164,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     }
+    ]
+   }
+  },
+  "S2": {
+   "plan": {
+    "yearly": 0.1196,
+    "finalValue": 60040,
+    "worstFall": -0.2957
+   },
+   "halves": {
+    "h1": {
+     "yearly": 0.2301,
+     "finalValue": 28904,
+     "worstFall": -0.2534
+    },
+    "h2": {
+     "yearly": 0.1769,
+     "finalValue": 24791,
+     "worstFall": -0.2492
+    }
+   },
+   "conditions": {
+    "all": {
+     "n": 59,
+     "wins": 20,
+     "losses": 39,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.6271,
+      "V": 0.6949
+     },
+     "beatSpy": {
+      "A": 0.7288,
+      "V": 0.6271
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3548
+     },
+     "c2": false,
+     "c3": true
+    },
+    "h1": {
+     "n": 29,
+     "wins": 14,
+     "losses": 15,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.3103,
+      "V": 0.4483
+     },
+     "beatSpy": {
+      "A": 0.5862,
+      "V": 0.4483
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3548
+     },
+     "c2": false,
+     "c3": true
+    },
+    "h2": {
+     "n": 30,
+     "wins": 6,
+     "losses": 24,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.9333,
+      "V": 0.9333
+     },
+     "beatSpy": {
+      "A": 0.8667,
+      "V": 0.8
+     },
+     "worstFall": {
+      "A": -0.3461,
+      "V": -0.3539
+     },
+     "c2": false,
+     "c3": true
+    },
+    "worstFall": {
+     "A": -0.3288,
+     "V": -0.2957
+    },
+    "c3": true,
+    "c4": false
+   },
+   "rows": {
+    "fairRatio": {
+     "n": 107493,
+     "p25": 0.9819,
+     "median": 1.0825,
+     "p75": 1.2098
+    },
+    "fairRatioByYear": {
+     "2016": 1.1944,
+     "2017": 1.171,
+     "2018": 1.109,
+     "2019": 1.1817,
+     "2020": 1.3592,
+     "2021": 1.2875,
+     "2022": 1.1132,
+     "2023": 1.0215,
+     "2024": 0.9825,
+     "2025": 0.9725,
+     "2026": 0.9631
+    },
+    "decisions": {
+     "trim>hold": 5438,
+     "trim>trim": 31791,
+     "hold>hold": 103929,
+     "hold>buy": 1559,
+     "sell>sell": 49486,
+     "hold>trim": 1294,
+     "buy>buy": 1985,
+     "buy>hold": 1140,
+     "sell>hold": 88,
+     "hold>sell": 9
+    },
+    "decisionsByHalf": {
+     "first": {
+      "trim>hold": 4716,
+      "trim>trim": 14072,
+      "hold>hold": 41869,
+      "sell>sell": 21017,
+      "hold>buy": 1182,
+      "buy>hold": 814,
+      "buy>buy": 539,
+      "hold>trim": 575,
+      "sell>hold": 58
+     },
+     "second": {
+      "hold>hold": 62060,
+      "hold>buy": 377,
+      "trim>hold": 722,
+      "trim>trim": 17719,
+      "sell>sell": 28469,
+      "hold>trim": 719,
+      "buy>buy": 1446,
+      "buy>hold": 326,
+      "sell>hold": 30,
+      "hold>sell": 9
+     }
+    },
+    "I1": {
+     "A": {
+      "median": 0,
+      "p95": 0.4615
+     },
+     "V": {
+      "median": 0.0174,
+      "p95": 0.4646
+     }
+    },
+    "I2": {
+     "A": 0.1342,
+     "V": 0.1532
+    },
+    "decisionChangesPerYear": {
+     "A": 0.9409,
+     "V": 0.949
+    },
+    "smallMoveFlips": {
+     "n": 3452,
+     "steps": 194711,
+     "smallMoveSteps": 157931,
+     "shareWhenSmallMove": 0.0219,
+     "shareAllSteps": 0.0217,
+     "examples": [
+      {
+       "t": "A",
+       "d": "2018-08-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": -0.0002
+      },
+      {
+       "t": "A",
+       "d": "2018-10-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0011
+      },
+      {
+       "t": "A",
+       "d": "2018-11-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0015
+      },
+      {
+       "t": "A",
+       "d": "2020-11-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0011
+      },
+      {
+       "t": "A",
+       "d": "2021-03-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0018
+      },
+      {
+       "t": "A",
+       "d": "2022-07-29",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0024
+      },
+      {
+       "t": "A",
+       "d": "2022-08-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0024
+      },
+      {
+       "t": "ABG",
+       "d": "2020-11-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0011
+      },
+      {
+       "t": "ACM",
+       "d": "2026-11-03",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0014
+      },
+      {
+       "t": "ADP",
+       "d": "2020-05-29",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": -0.0021
+      },
+      {
+       "t": "ADP",
+       "d": "2020-10-30",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": 0.0003
+      },
+      {
+       "t": "ADP",
+       "d": "2021-05-28",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0003
+      }
+     ]
+    }
+   },
+   "latest": {
+    "companies": 1068,
+    "decisionChanges": 81,
+    "largest": [
+     {
+      "t": "CMCO",
+      "date": "2026-11-03",
+      "price": 18.15,
+      "fairA": 6.94,
+      "fairB": 0.09,
+      "change": -0.987,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     },
+     {
+      "t": "KNF",
+      "date": "2026-11-03",
+      "price": 58.53,
+      "fairA": 2.76,
+      "fairB": 0.46,
+      "change": -0.8333,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "MOS",
+      "date": "2026-11-03",
+      "price": 18.42,
+      "fairA": 1.33,
+      "fairB": 0.23,
+      "change": -0.8271,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "EMN",
+      "date": "2026-11-03",
+      "price": 65.34,
+      "fairA": 3.69,
+      "fairB": 0.78,
+      "change": -0.7886,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "MLKN",
+      "date": "2026-11-03",
+      "price": 21.43,
+      "fairA": 1.65,
+      "fairB": 0.41,
+      "change": -0.7515,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "EPC",
+      "date": "2026-11-03",
+      "price": 27.93,
+      "fairA": 2.27,
+      "fairB": 0.79,
+      "change": -0.652,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "NBR",
+      "date": "2026-11-03",
+      "price": 81.22,
+      "fairA": 20.18,
+      "fairB": 7.56,
+      "change": -0.6254,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "FUL",
+      "date": "2026-11-03",
+      "price": 50.19,
+      "fairA": 4.91,
+      "fairB": 2.09,
+      "change": -0.5743,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "EVH",
+      "date": "2026-11-03",
+      "price": 4.3,
+      "fairA": 1.38,
+      "fairB": 0.67,
+      "change": -0.5145,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "AMTM",
+      "date": "2026-11-03",
+      "price": 22.38,
+      "fairA": 2.48,
+      "fairB": 1.23,
+      "change": -0.504,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "CC",
+      "date": "2026-11-03",
+      "price": 13.09,
+      "fairA": 3.32,
+      "fairB": 1.7,
+      "change": -0.488,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "ULBI",
+      "date": "2026-11-03",
+      "price": 15.63,
+      "fairA": 0.41,
+      "fairB": 0.22,
+      "change": -0.4634,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "pass"
+     },
+     {
+      "t": "HROW",
+      "date": "2026-11-03",
+      "price": 28.54,
+      "fairA": 1.24,
+      "fairB": 0.69,
+      "change": -0.4435,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "FCX",
+      "date": "2026-11-03",
+      "price": 61.77,
+      "fairA": 2.82,
+      "fairB": 1.64,
+      "change": -0.4184,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "ALIT",
+      "date": "2026-11-03",
+      "price": 10.12,
+      "fairA": 13.29,
+      "fairB": 7.99,
+      "change": -0.3988,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     }
+    ],
+    "changedHalal": [
+     {
+      "t": "USPH",
+      "date": "2026-11-03",
+      "price": 84.74,
+      "fairA": 58.65,
+      "fairB": 51.66,
+      "change": -0.1192,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MAS",
+      "date": "2026-11-03",
+      "price": 82.18,
+      "fairA": 56.37,
+      "fairB": 49.95,
+      "change": -0.1139,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "PODD",
+      "date": "2026-11-03",
+      "price": 154.86,
+      "fairA": 123.79,
+      "fairB": 110.33,
+      "change": -0.1087,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "HUBB",
+      "date": "2026-11-03",
+      "price": 449.27,
+      "fairA": 339.81,
+      "fairB": 302.99,
+      "change": -0.1084,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "DOV",
+      "date": "2026-11-03",
+      "price": 213.57,
+      "fairA": 166.33,
+      "fairB": 148.97,
+      "change": -0.1044,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RS",
+      "date": "2026-11-03",
+      "price": 443.84,
+      "fairA": 547.68,
+      "fairB": 490.58,
+      "change": -0.1043,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "IEX",
+      "date": "2026-11-03",
+      "price": 237.36,
+      "fairA": 175.88,
+      "fairB": 157.62,
+      "change": -0.1038,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "SCCO",
+      "date": "2026-11-03",
+      "price": 173.49,
+      "fairA": 281.4,
+      "fairB": 252.2,
+      "change": -0.1038,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "TEL",
+      "date": "2026-11-03",
+      "price": 219.77,
+      "fairA": 271.71,
+      "fairB": 243.57,
+      "change": -0.1036,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "NVDA",
+      "date": "2026-11-03",
+      "price": 206.69,
+      "fairA": 247.67,
+      "fairB": 222.07,
+      "change": -0.1034,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "UI",
+      "date": "2026-11-03",
+      "price": 545.42,
+      "fairA": 679.19,
+      "fairB": 609.97,
+      "change": -0.1019,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "CW",
+      "date": "2026-11-03",
+      "price": 497.76,
+      "fairA": 392.27,
+      "fairB": 352.76,
+      "change": -0.1007,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MEDP",
+      "date": "2026-11-03",
+      "price": 663.49,
+      "fairA": 1084.68,
+      "fairB": 975.5,
+      "change": -0.1007,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "VLTO",
+      "date": "2026-11-03",
+      "price": 116.32,
+      "fairA": 87.77,
+      "fairB": 78.94,
+      "change": -0.1006,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "ADSK",
+      "date": "2026-11-03",
+      "price": 252.32,
+      "fairA": 318.32,
+      "fairB": 286.49,
+      "change": -0.1,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "GD",
+      "date": "2026-11-03",
+      "price": 374.5,
+      "fairA": 443.13,
+      "fairB": 398.97,
+      "change": -0.0997,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "CSL",
+      "date": "2026-11-03",
+      "price": 387.31,
+      "fairA": 278.84,
+      "fairB": 252.04,
+      "change": -0.0961,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RMD",
+      "date": "2026-11-03",
+      "price": 227.08,
+      "fairA": 277.63,
+      "fairB": 251.06,
+      "change": -0.0957,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "KAI",
+      "date": "2026-11-03",
+      "price": 282.79,
+      "fairA": 342.86,
+      "fairB": 310.31,
+      "change": -0.0949,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "TJX",
+      "date": "2026-11-03",
+      "price": 137.63,
+      "fairA": 105.21,
+      "fairB": 95.34,
+      "change": -0.0938,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "FSS",
+      "date": "2026-11-03",
+      "price": 117.14,
+      "fairA": 151.95,
+      "fairB": 137.8,
+      "change": -0.0931,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "ADI",
+      "date": "2026-11-03",
+      "price": 419.79,
+      "fairA": 306.32,
+      "fairB": 277.89,
+      "change": -0.0928,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "STE",
+      "date": "2026-11-03",
+      "price": 231.35,
+      "fairA": 171.63,
+      "fairB": 155.98,
+      "change": -0.0912,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "NOW",
+      "date": "2026-11-03",
+      "price": 109.16,
+      "fairA": 83.97,
+      "fairB": 76.34,
+      "change": -0.0909,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "EW",
+      "date": "2026-11-03",
+      "price": 95.19,
+      "fairA": 72.72,
+      "fairB": 66.13,
+      "change": -0.0906,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     }
+    ]
+   }
+  },
+  "S3": {
+   "plan": {
+    "yearly": 0.1092,
+    "finalValue": 56844,
+    "worstFall": -0.3115
+   },
+   "halves": {
+    "h1": {
+     "yearly": 0.2765,
+     "finalValue": 32304,
+     "worstFall": -0.2588
+    },
+    "h2": {
+     "yearly": 0.1144,
+     "finalValue": 21312,
+     "worstFall": -0.1808
+    }
+   },
+   "conditions": {
+    "all": {
+     "n": 59,
+     "wins": 23,
+     "losses": 36,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.6271,
+      "V": 0.5593
+     },
+     "beatSpy": {
+      "A": 0.7288,
+      "V": 0.4915
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3938
+     },
+     "c2": false,
+     "c3": true
+    },
+    "h1": {
+     "n": 29,
+     "wins": 21,
+     "losses": 8,
+     "c1": true,
+     "beatRandom": {
+      "A": 0.3103,
+      "V": 0.7241
+     },
+     "beatSpy": {
+      "A": 0.5862,
+      "V": 0.8276
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3938
+     },
+     "c2": true,
+     "c3": true
+    },
+    "h2": {
+     "n": 30,
+     "wins": 2,
+     "losses": 28,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.9333,
+      "V": 0.4
+     },
+     "beatSpy": {
+      "A": 0.8667,
+      "V": 0.1667
+     },
+     "worstFall": {
+      "A": -0.3461,
+      "V": -0.3612
+     },
+     "c2": false,
+     "c3": true
+    },
+    "worstFall": {
+     "A": -0.3288,
+     "V": -0.3115
+    },
+    "c3": true,
+    "c4": false
+   },
+   "rows": {
+    "fairRatio": {
+     "n": 104428,
+     "p25": 0.9657,
+     "median": 1.2348,
+     "p75": 1.5286
+    },
+    "fairRatioByYear": {
+     "2016": 1.5829,
+     "2017": 1.4745,
+     "2018": 1.3326,
+     "2019": 1.285,
+     "2020": 1.6912,
+     "2021": 1.8753,
+     "2022": 1.5408,
+     "2023": 1.0893,
+     "2024": 0.9675,
+     "2025": 0.9518,
+     "2026": 0.9539
+    },
+    "decisions": {
+     "trim>hold": 10939,
+     "trim>trim": 25895,
+     "hold>hold": 102070,
+     "hold>buy": 2674,
+     "trim>buy": 395,
+     "hold>trim": 2036,
+     "sell>sell": 49291,
+     "buy>buy": 1147,
+     "buy>hold": 1978,
+     "sell>hold": 283,
+     "hold>sell": 11
+    },
+    "decisionsByHalf": {
+     "first": {
+      "trim>hold": 8957,
+      "trim>trim": 9502,
+      "hold>hold": 40722,
+      "hold>buy": 1903,
+      "trim>buy": 329,
+      "sell>sell": 20884,
+      "hold>trim": 1001,
+      "buy>hold": 1271,
+      "buy>buy": 82,
+      "sell>hold": 191
+     },
+     "second": {
+      "hold>buy": 771,
+      "hold>hold": 61348,
+      "trim>buy": 66,
+      "trim>hold": 1982,
+      "trim>trim": 16393,
+      "hold>trim": 1035,
+      "sell>sell": 28407,
+      "buy>buy": 1065,
+      "buy>hold": 707,
+      "sell>hold": 92,
+      "hold>sell": 11
+     }
+    },
+    "I1": {
+     "A": {
+      "median": 0,
+      "p95": 0.4615
+     },
+     "V": {
+      "median": 0.0168,
+      "p95": 0.4555
+     }
+    },
+    "I2": {
+     "A": 0.1342,
+     "V": 0.1812
+    },
+    "decisionChangesPerYear": {
+     "A": 0.9409,
+     "V": 0.9306
+    },
+    "smallMoveFlips": {
+     "n": 4278,
+     "steps": 194711,
+     "smallMoveSteps": 157931,
+     "shareWhenSmallMove": 0.0271,
+     "shareAllSteps": 0.0266,
+     "examples": [
+      {
+       "t": "A",
+       "d": "2017-08-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0013
+      },
+      {
+       "t": "A",
+       "d": "2017-09-29",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0011
+      },
+      {
+       "t": "A",
+       "d": "2017-10-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": -0.0001
+      },
+      {
+       "t": "A",
+       "d": "2017-12-29",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0001
+      },
+      {
+       "t": "A",
+       "d": "2018-01-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0005
+      },
+      {
+       "t": "A",
+       "d": "2018-02-28",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0018
+      },
+      {
+       "t": "A",
+       "d": "2021-03-31",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": 0.0018
+      },
+      {
+       "t": "A",
+       "d": "2021-06-30",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": -0.0002
+      },
+      {
+       "t": "A",
+       "d": "2021-08-31",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": -0.002
+      },
+      {
+       "t": "A",
+       "d": "2021-09-30",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": -0.0004
+      },
+      {
+       "t": "A",
+       "d": "2022-01-31",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": -0.0009
+      },
+      {
+       "t": "A",
+       "d": "2022-07-29",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": 0.0024
+      }
+     ]
+    }
+   },
+   "latest": {
+    "companies": 1069,
+    "decisionChanges": 68,
+    "largest": [
+     {
+      "t": "GTN",
+      "date": "2026-11-03",
+      "price": 4.69,
+      "fairA": 3.51,
+      "fairB": 0.21,
+      "change": -0.9402,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     },
+     {
+      "t": "CMCO",
+      "date": "2026-11-03",
+      "price": 18.15,
+      "fairA": 6.94,
+      "fairB": 1.31,
+      "change": -0.8112,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     },
+     {
+      "t": "KNF",
+      "date": "2026-11-03",
+      "price": 58.53,
+      "fairA": 2.76,
+      "fairB": 0.87,
+      "change": -0.6848,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "MOS",
+      "date": "2026-11-03",
+      "price": 18.42,
+      "fairA": 1.33,
+      "fairB": 0.42,
+      "change": -0.6842,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "EMN",
+      "date": "2026-11-03",
+      "price": 65.34,
+      "fairA": 3.69,
+      "fairB": 1.3,
+      "change": -0.6477,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "MLKN",
+      "date": "2026-11-03",
+      "price": 21.43,
+      "fairA": 1.65,
+      "fairB": 0.63,
+      "change": -0.6182,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "EPC",
+      "date": "2026-11-03",
+      "price": 27.93,
+      "fairA": 2.27,
+      "fairB": 1.05,
+      "change": -0.5374,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "NBR",
+      "date": "2026-11-03",
+      "price": 81.22,
+      "fairA": 20.18,
+      "fairB": 9.82,
+      "change": -0.5134,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "FUL",
+      "date": "2026-11-03",
+      "price": 50.19,
+      "fairA": 4.91,
+      "fairB": 2.59,
+      "change": -0.4725,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "EVH",
+      "date": "2026-11-03",
+      "price": 4.3,
+      "fairA": 1.38,
+      "fairB": 0.8,
+      "change": -0.4203,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "AMTM",
+      "date": "2026-11-03",
+      "price": 22.38,
+      "fairA": 2.48,
+      "fairB": 1.45,
+      "change": -0.4153,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "CC",
+      "date": "2026-11-03",
+      "price": 13.09,
+      "fairA": 3.32,
+      "fairB": 1.99,
+      "change": -0.4006,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "ULBI",
+      "date": "2026-11-03",
+      "price": 15.63,
+      "fairA": 0.41,
+      "fairB": 0.25,
+      "change": -0.3902,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "pass"
+     },
+     {
+      "t": "HROW",
+      "date": "2026-11-03",
+      "price": 28.54,
+      "fairA": 1.24,
+      "fairB": 0.79,
+      "change": -0.3629,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "FCX",
+      "date": "2026-11-03",
+      "price": 61.77,
+      "fairA": 2.82,
+      "fairB": 1.85,
+      "change": -0.344,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "pass"
+     }
+    ],
+    "changedHalal": [
+     {
+      "t": "USPH",
+      "date": "2026-11-03",
+      "price": 84.74,
+      "fairA": 58.65,
+      "fairB": 52.91,
+      "change": -0.0979,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MAS",
+      "date": "2026-11-03",
+      "price": 82.18,
+      "fairA": 56.37,
+      "fairB": 51.08,
+      "change": -0.0938,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RS",
+      "date": "2026-11-03",
+      "price": 443.84,
+      "fairA": 547.68,
+      "fairB": 500.6,
+      "change": -0.086,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "IEX",
+      "date": "2026-11-03",
+      "price": 237.36,
+      "fairA": 175.88,
+      "fairB": 160.83,
+      "change": -0.0856,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "SCCO",
+      "date": "2026-11-03",
+      "price": 173.49,
+      "fairA": 281.4,
+      "fairB": 257.33,
+      "change": -0.0855,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "TEL",
+      "date": "2026-11-03",
+      "price": 219.77,
+      "fairA": 271.71,
+      "fairB": 248.51,
+      "change": -0.0854,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "NVDA",
+      "date": "2026-11-03",
+      "price": 206.69,
+      "fairA": 247.67,
+      "fairB": 226.56,
+      "change": -0.0852,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "UI",
+      "date": "2026-11-03",
+      "price": 545.42,
+      "fairA": 679.19,
+      "fairB": 622.11,
+      "change": -0.084,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "MEDP",
+      "date": "2026-11-03",
+      "price": 663.49,
+      "fairA": 1084.68,
+      "fairB": 994.65,
+      "change": -0.083,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "VLTO",
+      "date": "2026-11-03",
+      "price": 116.32,
+      "fairA": 87.77,
+      "fairB": 80.49,
+      "change": -0.0829,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "ADSK",
+      "date": "2026-11-03",
+      "price": 252.32,
+      "fairA": 318.32,
+      "fairB": 292.07,
+      "change": -0.0825,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "GD",
+      "date": "2026-11-03",
+      "price": 374.5,
+      "fairA": 443.13,
+      "fairB": 406.72,
+      "change": -0.0822,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "CSL",
+      "date": "2026-11-03",
+      "price": 387.31,
+      "fairA": 278.84,
+      "fairB": 256.81,
+      "change": -0.079,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RMD",
+      "date": "2026-11-03",
+      "price": 227.08,
+      "fairA": 277.63,
+      "fairB": 255.73,
+      "change": -0.0789,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "KAI",
+      "date": "2026-11-03",
+      "price": 282.79,
+      "fairA": 342.86,
+      "fairB": 316.09,
+      "change": -0.0781,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "TJX",
+      "date": "2026-11-03",
+      "price": 137.63,
+      "fairA": 105.21,
+      "fairB": 97.08,
+      "change": -0.0773,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "ADI",
+      "date": "2026-11-03",
+      "price": 419.79,
+      "fairA": 306.32,
+      "fairB": 282.94,
+      "change": -0.0763,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "STE",
+      "date": "2026-11-03",
+      "price": 231.35,
+      "fairA": 171.63,
+      "fairB": 158.76,
+      "change": -0.075,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "NOW",
+      "date": "2026-11-03",
+      "price": 109.16,
+      "fairA": 83.97,
+      "fairB": 77.69,
+      "change": -0.0748,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "EW",
+      "date": "2026-11-03",
+      "price": 95.19,
+      "fairA": 72.72,
+      "fairB": 67.29,
+      "change": -0.0747,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "VSXY",
+      "date": "2026-11-03",
+      "price": 100.53,
+      "fairA": 74.21,
+      "fairB": 68.7,
+      "change": -0.0742,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MMSI",
+      "date": "2026-11-03",
+      "price": 84.16,
+      "fairA": 61.32,
+      "fairB": 56.79,
+      "change": -0.0739,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "ENS",
+      "date": "2026-11-03",
+      "price": 167.96,
+      "fairA": 123.77,
+      "fairB": 114.69,
+      "change": -0.0734,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "G",
+      "date": "2026-11-03",
+      "price": 40.22,
+      "fairA": 59.91,
+      "fairB": 55.58,
+      "change": -0.0723,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "TXT",
+      "date": "2026-11-03",
+      "price": 87.75,
+      "fairA": 124.42,
+      "fairB": 115.43,
+      "change": -0.0723,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     }
+    ]
+   }
+  },
+  "S4": {
+   "plan": {
+    "yearly": 0.1858,
+    "finalValue": 85350,
+    "worstFall": -0.3542
+   },
+   "halves": {
+    "h1": {
+     "yearly": 0.2499,
+     "finalValue": 30320,
+     "worstFall": -0.2999
+    },
+    "h2": {
+     "yearly": 0.1951,
+     "finalValue": 25897,
+     "worstFall": -0.2118
+    }
+   },
+   "conditions": {
+    "all": {
+     "n": 59,
+     "wins": 28,
+     "losses": 31,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.6271,
+      "V": 0.7627
+     },
+     "beatSpy": {
+      "A": 0.7288,
+      "V": 0.8136
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3463
+     },
+     "c2": true,
+     "c3": true
+    },
+    "h1": {
+     "n": 29,
+     "wins": 22,
+     "losses": 7,
+     "c1": true,
+     "beatRandom": {
+      "A": 0.3103,
+      "V": 0.6897
+     },
+     "beatSpy": {
+      "A": 0.5862,
+      "V": 0.8621
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3407
+     },
+     "c2": true,
+     "c3": true
+    },
+    "h2": {
+     "n": 30,
+     "wins": 6,
+     "losses": 24,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.9333,
+      "V": 0.8333
+     },
+     "beatSpy": {
+      "A": 0.8667,
+      "V": 0.7667
+     },
+     "worstFall": {
+      "A": -0.3461,
+      "V": -0.3463
+     },
+     "c2": false,
+     "c3": true
+    },
+    "worstFall": {
+     "A": -0.3288,
+     "V": -0.3542
+    },
+    "c3": false,
+    "c4": false
+   },
+   "rows": {
+    "fairRatio": {
+     "n": 105244,
+     "p25": 0.9632,
+     "median": 1.1672,
+     "p75": 1.4315
+    },
+    "fairRatioByYear": {
+     "2016": 1.4323,
+     "2017": 1.3883,
+     "2018": 1.24,
+     "2019": 1.3998,
+     "2020": 1.7304,
+     "2021": 1.6546,
+     "2022": 1.2465,
+     "2023": 1.0438,
+     "2024": 0.9655,
+     "2025": 0.9463,
+     "2026": 0.9287
+    },
+    "decisions": {
+     "trim>hold": 10022,
+     "trim>trim": 27156,
+     "hold>hold": 101687,
+     "hold>buy": 2694,
+     "hold>trim": 2399,
+     "sell>sell": 49325,
+     "buy>buy": 1288,
+     "buy>hold": 1837,
+     "sell>hold": 249,
+     "trim>buy": 51,
+     "hold>sell": 11
+    },
+    "decisionsByHalf": {
+     "first": {
+      "trim>hold": 8672,
+      "trim>trim": 10070,
+      "hold>hold": 40606,
+      "sell>sell": 20880,
+      "hold>trim": 980,
+      "hold>buy": 2040,
+      "buy>hold": 1235,
+      "sell>hold": 195,
+      "buy>buy": 118,
+      "trim>buy": 46
+     },
+     "second": {
+      "hold>hold": 61081,
+      "hold>buy": 654,
+      "trim>hold": 1350,
+      "trim>trim": 17086,
+      "hold>trim": 1419,
+      "sell>sell": 28445,
+      "buy>buy": 1170,
+      "buy>hold": 602,
+      "sell>hold": 54,
+      "trim>buy": 5,
+      "hold>sell": 11
+     }
+    },
+    "I1": {
+     "A": {
+      "median": 0,
+      "p95": 0.4615
+     },
+     "V": {
+      "median": 0.0309,
+      "p95": 0.4673
+     }
+    },
+    "I2": {
+     "A": 0.1342,
+     "V": 0.1754
+    },
+    "decisionChangesPerYear": {
+     "A": 0.9409,
+     "V": 0.9495
+    },
+    "smallMoveFlips": {
+     "n": 4163,
+     "steps": 194711,
+     "smallMoveSteps": 157931,
+     "shareWhenSmallMove": 0.0264,
+     "shareAllSteps": 0.0273,
+     "examples": [
+      {
+       "t": "A",
+       "d": "2017-04-28",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0006
+      },
+      {
+       "t": "A",
+       "d": "2017-06-30",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0
+      },
+      {
+       "t": "A",
+       "d": "2017-07-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": -0.0011
+      },
+      {
+       "t": "A",
+       "d": "2018-11-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0015
+      },
+      {
+       "t": "A",
+       "d": "2020-09-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0003
+      },
+      {
+       "t": "A",
+       "d": "2021-03-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0018
+      },
+      {
+       "t": "A",
+       "d": "2022-01-31",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": -0.0009
+      },
+      {
+       "t": "A",
+       "d": "2026-04-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0012
+      },
+      {
+       "t": "ABG",
+       "d": "2018-02-28",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0018
+      },
+      {
+       "t": "ABG",
+       "d": "2020-12-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0008
+      },
+      {
+       "t": "ACM",
+       "d": "2026-08-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0013
+      },
+      {
+       "t": "ACM",
+       "d": "2026-09-30",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0008
+      }
+     ]
+    }
+   },
+   "latest": {
+    "companies": 1060,
+    "decisionChanges": 146,
+    "largest": [
+     {
+      "t": "EVH",
+      "date": "2026-11-03",
+      "price": 4.3,
+      "fairA": 1.38,
+      "fairB": 0.06,
+      "change": -0.9565,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "AMTM",
+      "date": "2026-11-03",
+      "price": 22.38,
+      "fairA": 2.48,
+      "fairB": 0.14,
+      "change": -0.9435,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "CC",
+      "date": "2026-11-03",
+      "price": 13.09,
+      "fairA": 3.32,
+      "fairB": 0.29,
+      "change": -0.9127,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "ULBI",
+      "date": "2026-11-03",
+      "price": 15.63,
+      "fairA": 0.41,
+      "fairB": 0.05,
+      "change": -0.878,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "pass"
+     },
+     {
+      "t": "HROW",
+      "date": "2026-11-03",
+      "price": 28.54,
+      "fairA": 1.24,
+      "fairB": 0.22,
+      "change": -0.8226,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "FCX",
+      "date": "2026-11-03",
+      "price": 61.77,
+      "fairA": 2.82,
+      "fairB": 0.63,
+      "change": -0.7766,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "ALIT",
+      "date": "2026-11-03",
+      "price": 10.12,
+      "fairA": 13.29,
+      "fairB": 3.37,
+      "change": -0.7464,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     },
+     {
+      "t": "CLX",
+      "date": "2026-11-03",
+      "price": 93.8,
+      "fairA": 8.44,
+      "fairB": 2.22,
+      "change": -0.737,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "LIND",
+      "date": "2026-11-03",
+      "price": 32.76,
+      "fairA": 1.48,
+      "fairB": 0.4,
+      "change": -0.7297,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "TDAY",
+      "date": "2026-11-03",
+      "price": 5.72,
+      "fairA": 0.89,
+      "fairB": 0.25,
+      "change": -0.7191,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "BV",
+      "date": "2026-11-03",
+      "price": 11.78,
+      "fairA": 2.06,
+      "fairB": 0.59,
+      "change": -0.7136,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "TBCH",
+      "date": "2026-11-03",
+      "price": 15.82,
+      "fairA": 0.69,
+      "fairB": 0.2,
+      "change": -0.7101,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "UCTT",
+      "date": "2026-11-03",
+      "price": 48.02,
+      "fairA": 2.74,
+      "fairB": 1.04,
+      "change": -0.6204,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "CAG",
+      "date": "2026-11-03",
+      "price": 14.41,
+      "fairA": 3.92,
+      "fairB": 1.51,
+      "change": -0.6148,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "LUMN",
+      "date": "2026-11-03",
+      "price": 4.75,
+      "fairA": 3.04,
+      "fairB": 1.34,
+      "change": -0.5592,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     }
+    ],
+    "changedHalal": [
+     {
+      "t": "USPH",
+      "date": "2026-11-03",
+      "price": 84.74,
+      "fairA": 58.65,
+      "fairB": 45.6,
+      "change": -0.2225,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MAS",
+      "date": "2026-11-03",
+      "price": 82.18,
+      "fairA": 56.37,
+      "fairB": 44.62,
+      "change": -0.2084,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "HUBB",
+      "date": "2026-11-03",
+      "price": 449.27,
+      "fairA": 339.81,
+      "fairB": 271.69,
+      "change": -0.2005,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "WMS",
+      "date": "2026-11-03",
+      "price": 136,
+      "fairA": 183.98,
+      "fairB": 147.31,
+      "change": -0.1993,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "PODD",
+      "date": "2026-11-03",
+      "price": 154.86,
+      "fairA": 123.79,
+      "fairB": 99.2,
+      "change": -0.1986,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "SYK",
+      "date": "2026-11-03",
+      "price": 310.55,
+      "fairA": 270.59,
+      "fairB": 216.84,
+      "change": -0.1986,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "BR",
+      "date": "2026-11-03",
+      "price": 183.76,
+      "fairA": 251.89,
+      "fairB": 203.11,
+      "change": -0.1937,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "DGX",
+      "date": "2026-11-03",
+      "price": 247.06,
+      "fairA": 191.14,
+      "fairB": 154.65,
+      "change": -0.1909,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "DOV",
+      "date": "2026-11-03",
+      "price": 213.57,
+      "fairA": 166.33,
+      "fairB": 134.57,
+      "change": -0.1909,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RS",
+      "date": "2026-11-03",
+      "price": 443.84,
+      "fairA": 547.68,
+      "fairB": 443.3,
+      "change": -0.1906,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "SLB",
+      "date": "2026-11-03",
+      "price": 52.13,
+      "fairA": 72.72,
+      "fairB": 58.9,
+      "change": -0.19,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "IEX",
+      "date": "2026-11-03",
+      "price": 237.36,
+      "fairA": 175.88,
+      "fairB": 142.48,
+      "change": -0.1899,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "META",
+      "date": "2026-11-03",
+      "price": 621.03,
+      "fairA": 837.58,
+      "fairB": 678.76,
+      "change": -0.1896,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "SCCO",
+      "date": "2026-11-03",
+      "price": 173.49,
+      "fairA": 281.4,
+      "fairB": 228.07,
+      "change": -0.1895,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "TEL",
+      "date": "2026-11-03",
+      "price": 219.77,
+      "fairA": 271.71,
+      "fairB": 220.26,
+      "change": -0.1894,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "NVDA",
+      "date": "2026-11-03",
+      "price": 206.69,
+      "fairA": 247.67,
+      "fairB": 200.91,
+      "change": -0.1888,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "TER",
+      "date": "2026-11-03",
+      "price": 269.35,
+      "fairA": 231.75,
+      "fairB": 188.28,
+      "change": -0.1876,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "INTU",
+      "date": "2026-11-03",
+      "price": 344.72,
+      "fairA": 650.75,
+      "fairB": 528.83,
+      "change": -0.1874,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "UI",
+      "date": "2026-11-03",
+      "price": 545.42,
+      "fairA": 679.19,
+      "fairB": 552.74,
+      "change": -0.1862,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "TPR",
+      "date": "2026-11-03",
+      "price": 121.02,
+      "fairA": 215.92,
+      "fairB": 175.9,
+      "change": -0.1853,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "AME",
+      "date": "2026-11-03",
+      "price": 248.58,
+      "fairA": 218.88,
+      "fairB": 178.35,
+      "change": -0.1852,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MSFT",
+      "date": "2026-11-03",
+      "price": 520.99,
+      "fairA": 452.77,
+      "fairB": 368.98,
+      "change": -0.1851,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MCK",
+      "date": "2026-11-03",
+      "price": 999.62,
+      "fairA": 1382.72,
+      "fairB": 1127.26,
+      "change": -0.1848,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "CW",
+      "date": "2026-11-03",
+      "price": 497.76,
+      "fairA": 392.27,
+      "fairB": 320.02,
+      "change": -0.1842,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "VLTO",
+      "date": "2026-11-03",
+      "price": 116.32,
+      "fairA": 87.77,
+      "fairB": 71.62,
+      "change": -0.184,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     }
+    ]
+   }
+  },
+  "S5": {
+   "plan": {
+    "yearly": 0.1063,
+    "finalValue": 55963,
+    "worstFall": -0.3577
+   },
+   "halves": {
+    "h1": {
+     "yearly": 0.2768,
+     "finalValue": 32331,
+     "worstFall": -0.2782
+    },
+    "h2": {
+     "yearly": 0.1205,
+     "finalValue": 21630,
+     "worstFall": -0.2137
+    }
+   },
+   "conditions": {
+    "all": {
+     "n": 59,
+     "wins": 21,
+     "losses": 38,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.6271,
+      "V": 0.4576
+     },
+     "beatSpy": {
+      "A": 0.7288,
+      "V": 0.3729
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3832
+     },
+     "c2": false,
+     "c3": true
+    },
+    "h1": {
+     "n": 29,
+     "wins": 21,
+     "losses": 8,
+     "c1": true,
+     "beatRandom": {
+      "A": 0.3103,
+      "V": 0.6897
+     },
+     "beatSpy": {
+      "A": 0.5862,
+      "V": 0.7241
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3832
+     },
+     "c2": true,
+     "c3": true
+    },
+    "h2": {
+     "n": 30,
+     "wins": 0,
+     "losses": 30,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.9333,
+      "V": 0.2333
+     },
+     "beatSpy": {
+      "A": 0.8667,
+      "V": 0.0333
+     },
+     "worstFall": {
+      "A": -0.3461,
+      "V": -0.3745
+     },
+     "c2": false,
+     "c3": false
+    },
+    "worstFall": {
+     "A": -0.3288,
+     "V": -0.3577
+    },
+    "c3": false,
+    "c4": false
+   },
+   "rows": {
+    "fairRatio": {
+     "n": 100743,
+     "p25": 1.1555,
+     "median": 1.4095,
+     "p75": 1.8717
+    },
+    "fairRatioByYear": {
+     "2016": 1.8567,
+     "2017": 1.7954,
+     "2018": 1.5627,
+     "2019": 1.8253,
+     "2020": 2.2962,
+     "2021": 2.1615,
+     "2022": 1.5645,
+     "2023": 1.2568,
+     "2024": 1.1649,
+     "2025": 1.1358,
+     "2026": 1.1084
+    },
+    "decisions": {
+     "trim>hold": 16444,
+     "hold>buy": 3060,
+     "trim>buy": 1298,
+     "hold>hold": 102121,
+     "trim>trim": 19487,
+     "sell>sell": 49058,
+     "hold>trim": 1610,
+     "buy>buy": 777,
+     "buy>hold": 2348,
+     "sell>hold": 516
+    },
+    "decisionsByHalf": {
+     "first": {
+      "trim>hold": 11601,
+      "hold>buy": 1628,
+      "trim>buy": 1142,
+      "hold>hold": 40874,
+      "sell>sell": 20700,
+      "hold>trim": 1124,
+      "trim>trim": 6045,
+      "buy>hold": 1352,
+      "sell>hold": 375,
+      "buy>buy": 1
+     },
+     "second": {
+      "hold>buy": 1432,
+      "hold>hold": 61247,
+      "trim>buy": 156,
+      "trim>hold": 4843,
+      "trim>trim": 13442,
+      "sell>sell": 28358,
+      "buy>buy": 776,
+      "buy>hold": 996,
+      "hold>trim": 486,
+      "sell>hold": 141
+     }
+    },
+    "I1": {
+     "A": {
+      "median": 0,
+      "p95": 0.4615
+     },
+     "V": {
+      "median": 0.035,
+      "p95": 0.4516
+     }
+    },
+    "I2": {
+     "A": 0.1342,
+     "V": 0.2172
+    },
+    "decisionChangesPerYear": {
+     "A": 0.9409,
+     "V": 0.9278
+    },
+    "smallMoveFlips": {
+     "n": 5011,
+     "steps": 194711,
+     "smallMoveSteps": 157931,
+     "shareWhenSmallMove": 0.0317,
+     "shareAllSteps": 0.0326,
+     "examples": [
+      {
+       "t": "A",
+       "d": "2019-10-31",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": 0.0007
+      },
+      {
+       "t": "A",
+       "d": "2020-06-30",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": 0.0001
+      },
+      {
+       "t": "A",
+       "d": "2021-03-31",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": 0.0018
+      },
+      {
+       "t": "A",
+       "d": "2021-06-30",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": -0.0002
+      },
+      {
+       "t": "A",
+       "d": "2021-08-31",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": -0.002
+      },
+      {
+       "t": "A",
+       "d": "2021-09-30",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": -0.0004
+      },
+      {
+       "t": "A",
+       "d": "2022-01-31",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": -0.0009
+      },
+      {
+       "t": "A",
+       "d": "2022-07-29",
+       "from": "buy",
+       "to": "hold",
+       "yieldMove": 0.0024
+      },
+      {
+       "t": "A",
+       "d": "2022-12-30",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0009
+      },
+      {
+       "t": "A",
+       "d": "2024-02-29",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0004
+      },
+      {
+       "t": "A",
+       "d": "2025-04-30",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0017
+      },
+      {
+       "t": "A",
+       "d": "2025-08-29",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0001
+      }
+     ]
+    }
+   },
+   "latest": {
+    "companies": 1076,
+    "decisionChanges": 22,
+    "largest": [
+     {
+      "t": "DIN",
+      "date": "2026-11-03",
+      "price": 35.31,
+      "fairA": 2.45,
+      "fairB": 0.95,
+      "change": -0.6122,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "FMC",
+      "date": "2026-11-03",
+      "price": 6.09,
+      "fairA": 0.93,
+      "fairB": 0.57,
+      "change": -0.3871,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     },
+     {
+      "t": "BLCO",
+      "date": "2026-11-03",
+      "price": 20.03,
+      "fairA": 0.66,
+      "fairB": 0.42,
+      "change": -0.3636,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "GLIBA",
+      "date": "2026-11-03",
+      "price": 22.69,
+      "fairA": 0.92,
+      "fairB": 0.6,
+      "change": -0.3478,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "GLIBK",
+      "date": "2026-11-03",
+      "price": 22.92,
+      "fairA": 0.92,
+      "fairB": 0.6,
+      "change": -0.3478,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "EMBC",
+      "date": "2026-11-03",
+      "price": 6.08,
+      "fairA": 1.08,
+      "fairB": 0.72,
+      "change": -0.3333,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     },
+     {
+      "t": "GRNT",
+      "date": "2026-11-03",
+      "price": 5.11,
+      "fairA": 0.19,
+      "fairB": 0.13,
+      "change": -0.3158,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "GTN",
+      "date": "2026-11-03",
+      "price": 4.69,
+      "fairA": 3.51,
+      "fairB": 2.53,
+      "change": -0.2792,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     },
+     {
+      "t": "CMCO",
+      "date": "2026-11-03",
+      "price": 18.15,
+      "fairA": 6.94,
+      "fairB": 5.27,
+      "change": -0.2406,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     },
+     {
+      "t": "MOS",
+      "date": "2026-11-03",
+      "price": 18.42,
+      "fairA": 1.33,
+      "fairB": 1.06,
+      "change": -0.203,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "KNF",
+      "date": "2026-11-03",
+      "price": 58.53,
+      "fairA": 2.76,
+      "fairB": 2.2,
+      "change": -0.2029,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "EMN",
+      "date": "2026-11-03",
+      "price": 65.34,
+      "fairA": 3.69,
+      "fairB": 2.98,
+      "change": -0.1924,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "MLKN",
+      "date": "2026-11-03",
+      "price": 21.43,
+      "fairA": 1.65,
+      "fairB": 1.35,
+      "change": -0.1818,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "EPC",
+      "date": "2026-11-03",
+      "price": 27.93,
+      "fairA": 2.27,
+      "fairB": 1.91,
+      "change": -0.1586,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "NBR",
+      "date": "2026-11-03",
+      "price": 81.22,
+      "fairA": 20.18,
+      "fairB": 17.11,
+      "change": -0.1521,
+      "stateA": "hold",
+      "stateB": "hold",
+      "halal": "fail"
+     }
+    ],
+    "changedHalal": [
+     {
+      "t": "MAS",
+      "date": "2026-11-03",
+      "price": 82.18,
+      "fairA": 56.37,
+      "fairB": 54.78,
+      "change": -0.0282,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "SCCO",
+      "date": "2026-11-03",
+      "price": 173.49,
+      "fairA": 281.4,
+      "fairB": 274.15,
+      "change": -0.0258,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "NVDA",
+      "date": "2026-11-03",
+      "price": 206.69,
+      "fairA": 247.67,
+      "fairB": 241.31,
+      "change": -0.0257,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "MEDP",
+      "date": "2026-11-03",
+      "price": 663.49,
+      "fairA": 1084.68,
+      "fairB": 1057.58,
+      "change": -0.025,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "GD",
+      "date": "2026-11-03",
+      "price": 374.5,
+      "fairA": 443.13,
+      "fairB": 432.18,
+      "change": -0.0247,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "ADI",
+      "date": "2026-11-03",
+      "price": 419.79,
+      "fairA": 306.32,
+      "fairB": 299.34,
+      "change": -0.0228,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MMSI",
+      "date": "2026-11-03",
+      "price": 84.16,
+      "fairA": 61.32,
+      "fairB": 59.96,
+      "change": -0.0222,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "SHOO",
+      "date": "2026-11-03",
+      "price": 44.03,
+      "fairA": 71.33,
+      "fairB": 69.81,
+      "change": -0.0213,
+      "stateA": "hold",
+      "stateB": "buy",
+      "halal": "pass"
+     },
+     {
+      "t": "ALRM",
+      "date": "2026-11-03",
+      "price": 65.46,
+      "fairA": 47.9,
+      "fairB": 46.89,
+      "change": -0.0211,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "LOGI",
+      "date": "2026-11-03",
+      "price": 92.85,
+      "fairA": 110.56,
+      "fairB": 108.27,
+      "change": -0.0207,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "AYI",
+      "date": "2026-11-03",
+      "price": 331.26,
+      "fairA": 394.67,
+      "fairB": 386.63,
+      "change": -0.0204,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "ELA",
+      "date": "2026-11-03",
+      "price": 11.27,
+      "fairA": 13.26,
+      "fairB": 13.03,
+      "change": -0.0173,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "EBF",
+      "date": "2026-11-03",
+      "price": 20.75,
+      "fairA": 24.43,
+      "fairB": 24.06,
+      "change": -0.0151,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     }
+    ]
+   }
+  },
+  "S6": {
+   "plan": {
+    "yearly": 0.0575,
+    "finalValue": 43396,
+    "worstFall": -0.322
+   },
+   "halves": {
+    "h1": {
+     "yearly": 0.1872,
+     "finalValue": 26051,
+     "worstFall": -0.277
+    },
+    "h2": {
+     "yearly": 0.2548,
+     "finalValue": 29829,
+     "worstFall": -0.2563
+    }
+   },
+   "conditions": {
+    "all": {
+     "n": 59,
+     "wins": 13,
+     "losses": 46,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.6271,
+      "V": 0.5763
+     },
+     "beatSpy": {
+      "A": 0.7288,
+      "V": 0.5254
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3947
+     },
+     "c2": false,
+     "c3": true
+    },
+    "h1": {
+     "n": 29,
+     "wins": 5,
+     "losses": 24,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.3103,
+      "V": 0.3103
+     },
+     "beatSpy": {
+      "A": 0.5862,
+      "V": 0.3103
+     },
+     "worstFall": {
+      "A": -0.3786,
+      "V": -0.3947
+     },
+     "c2": false,
+     "c3": true
+    },
+    "h2": {
+     "n": 30,
+     "wins": 8,
+     "losses": 22,
+     "c1": false,
+     "beatRandom": {
+      "A": 0.9333,
+      "V": 0.8333
+     },
+     "beatSpy": {
+      "A": 0.8667,
+      "V": 0.7333
+     },
+     "worstFall": {
+      "A": -0.3461,
+      "V": -0.3447
+     },
+     "c2": false,
+     "c3": true
+    },
+    "worstFall": {
+     "A": -0.3288,
+     "V": -0.322
+    },
+    "c3": true,
+    "c4": false
+   },
+   "rows": {
+    "fairRatio": {
+     "n": 106635,
+     "p25": 0.8234,
+     "median": 1.0027,
+     "p75": 1.1992
+    },
+    "fairRatioByYear": {
+     "2016": 1.1775,
+     "2017": 1.1304,
+     "2018": 1.0192,
+     "2019": 1.15,
+     "2020": 1.5507,
+     "2021": 1.365,
+     "2022": 1.0196,
+     "2023": 0.8696,
+     "2024": 0.8214,
+     "2025": 0.8044,
+     "2026": 0.7875
+    },
+    "decisions": {
+     "trim>hold": 5787,
+     "trim>trim": 31409,
+     "hold>hold": 98844,
+     "hold>buy": 1848,
+     "hold>trim": 6063,
+     "sell>sell": 49478,
+     "buy>hold": 1908,
+     "buy>buy": 1217,
+     "sell>hold": 96,
+     "hold>sell": 36,
+     "trim>buy": 33
+    },
+    "decisionsByHalf": {
+     "first": {
+      "trim>hold": 4787,
+      "trim>trim": 13968,
+      "hold>hold": 41930,
+      "hold>buy": 1110,
+      "sell>sell": 20999,
+      "buy>hold": 764,
+      "buy>buy": 589,
+      "hold>trim": 586,
+      "sell>hold": 76,
+      "trim>buy": 33
+     },
+     "second": {
+      "hold>hold": 56914,
+      "hold>buy": 738,
+      "trim>hold": 1000,
+      "trim>trim": 17441,
+      "hold>trim": 5477,
+      "sell>sell": 28479,
+      "buy>hold": 1144,
+      "buy>buy": 628,
+      "sell>hold": 20,
+      "hold>sell": 36
+     }
+    },
+    "I1": {
+     "A": {
+      "median": 0,
+      "p95": 0.4615
+     },
+     "V": {
+      "median": 0.0303,
+      "p95": 0.4797
+     }
+    },
+    "I2": {
+     "A": 0.1342,
+     "V": 0.1449
+    },
+    "decisionChangesPerYear": {
+     "A": 0.9409,
+     "V": 0.9721
+    },
+    "smallMoveFlips": {
+     "n": 4607,
+     "steps": 194711,
+     "smallMoveSteps": 157931,
+     "shareWhenSmallMove": 0.0292,
+     "shareAllSteps": 0.0305,
+     "examples": [
+      {
+       "t": "A",
+       "d": "2018-05-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0003
+      },
+      {
+       "t": "A",
+       "d": "2018-06-29",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0011
+      },
+      {
+       "t": "A",
+       "d": "2022-01-31",
+       "from": "hold",
+       "to": "buy",
+       "yieldMove": -0.0009
+      },
+      {
+       "t": "A",
+       "d": "2022-07-29",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0024
+      },
+      {
+       "t": "A",
+       "d": "2023-06-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0011
+      },
+      {
+       "t": "ABG",
+       "d": "2020-11-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0011
+      },
+      {
+       "t": "ACM",
+       "d": "2025-02-28",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0024
+      },
+      {
+       "t": "ACM",
+       "d": "2025-03-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0018
+      },
+      {
+       "t": "ACM",
+       "d": "2025-04-30",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": -0.0017
+      },
+      {
+       "t": "ACM",
+       "d": "2026-05-29",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": 0.0007
+      },
+      {
+       "t": "ACM",
+       "d": "2026-08-31",
+       "from": "hold",
+       "to": "trim",
+       "yieldMove": 0.0013
+      },
+      {
+       "t": "ADP",
+       "d": "2018-07-31",
+       "from": "trim",
+       "to": "hold",
+       "yieldMove": -0.0007
+      }
+     ]
+    }
+   },
+   "latest": {
+    "companies": 1046,
+    "decisionChanges": 245,
+    "largest": [
+     {
+      "t": "LUMN",
+      "date": "2026-11-03",
+      "price": 4.75,
+      "fairA": 3.04,
+      "fairB": 0.17,
+      "change": -0.9441,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "MTN",
+      "date": "2026-11-03",
+      "price": 153.36,
+      "fairA": 26.55,
+      "fairB": 1.98,
+      "change": -0.9254,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "ACI",
+      "date": "2026-11-03",
+      "price": 13.27,
+      "fairA": 6.1,
+      "fairB": 0.57,
+      "change": -0.9066,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "BMRN",
+      "date": "2026-11-03",
+      "price": 55.66,
+      "fairA": 6.19,
+      "fairB": 0.62,
+      "change": -0.8998,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "WLY",
+      "date": "2026-11-03",
+      "price": 50.81,
+      "fairA": 6.91,
+      "fairB": 0.72,
+      "change": -0.8958,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "WLYB",
+      "date": "2026-11-03",
+      "price": 50.82,
+      "fairA": 6.91,
+      "fairB": 0.72,
+      "change": -0.8958,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "SDHC",
+      "date": "2026-11-03",
+      "price": 10.2,
+      "fairA": 2.53,
+      "fairB": 0.34,
+      "change": -0.8656,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "TWI",
+      "date": "2026-11-03",
+      "price": 4.99,
+      "fairA": 2,
+      "fairB": 0.27,
+      "change": -0.865,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "AVNT",
+      "date": "2026-11-03",
+      "price": 43.25,
+      "fairA": 5.46,
+      "fairB": 0.78,
+      "change": -0.8571,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "ITGR",
+      "date": "2026-11-03",
+      "price": 126.55,
+      "fairA": 12.79,
+      "fairB": 1.89,
+      "change": -0.8522,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "review"
+     },
+     {
+      "t": "IFF",
+      "date": "2026-11-03",
+      "price": 92.18,
+      "fairA": 6.5,
+      "fairB": 0.98,
+      "change": -0.8492,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "pass"
+     },
+     {
+      "t": "CSV",
+      "date": "2026-11-03",
+      "price": 34.26,
+      "fairA": 11.68,
+      "fairB": 1.85,
+      "change": -0.8416,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "CPB",
+      "date": "2026-11-03",
+      "price": 21.96,
+      "fairA": 7.95,
+      "fairB": 1.28,
+      "change": -0.839,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "FTRE",
+      "date": "2026-11-03",
+      "price": 20.95,
+      "fairA": 2.92,
+      "fairB": 0.5,
+      "change": -0.8288,
+      "stateA": "trim",
+      "stateB": "trim",
+      "halal": "fail"
+     },
+     {
+      "t": "COHR",
+      "date": "2026-11-03",
+      "price": 207.49,
+      "fairA": 3.44,
+      "fairB": 0.6,
+      "change": -0.8256,
+      "stateA": "sell",
+      "stateB": "sell",
+      "halal": "pass"
+     }
+    ],
+    "changedHalal": [
+     {
+      "t": "USPH",
+      "date": "2026-11-03",
+      "price": 84.74,
+      "fairA": 58.65,
+      "fairB": 36.64,
+      "change": -0.3753,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "MAS",
+      "date": "2026-11-03",
+      "price": 82.18,
+      "fairA": 56.37,
+      "fairB": 37.1,
+      "change": -0.3418,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "HUBB",
+      "date": "2026-11-03",
+      "price": 449.27,
+      "fairA": 339.81,
+      "fairB": 226.49,
+      "change": -0.3335,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RPM",
+      "date": "2026-11-03",
+      "price": 105.35,
+      "fairA": 92.3,
+      "fairB": 61.69,
+      "change": -0.3316,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "EFX",
+      "date": "2026-11-03",
+      "price": 187.72,
+      "fairA": 168.79,
+      "fairB": 113.56,
+      "change": -0.3272,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "WMS",
+      "date": "2026-11-03",
+      "price": 136,
+      "fairA": 183.98,
+      "fairB": 124,
+      "change": -0.326,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "SYK",
+      "date": "2026-11-03",
+      "price": 310.55,
+      "fairA": 270.59,
+      "fairB": 182.65,
+      "change": -0.325,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "STLD",
+      "date": "2026-11-03",
+      "price": 247.66,
+      "fairA": 256.42,
+      "fairB": 173.2,
+      "change": -0.3245,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "PODD",
+      "date": "2026-11-03",
+      "price": 154.86,
+      "fairA": 123.79,
+      "fairB": 83.63,
+      "change": -0.3244,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "NXPI",
+      "date": "2026-11-03",
+      "price": 262.79,
+      "fairA": 244.23,
+      "fairB": 165.05,
+      "change": -0.3242,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "LII",
+      "date": "2026-11-03",
+      "price": 346.49,
+      "fairA": 332.81,
+      "fairB": 225.15,
+      "change": -0.3235,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "DGX",
+      "date": "2026-11-03",
+      "price": 247.06,
+      "fairA": 191.14,
+      "fairB": 130.39,
+      "change": -0.3178,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "BR",
+      "date": "2026-11-03",
+      "price": 183.76,
+      "fairA": 251.89,
+      "fairB": 172.07,
+      "change": -0.3169,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "KLAC",
+      "date": "2026-11-03",
+      "price": 156.2,
+      "fairA": 160.05,
+      "fairB": 109.75,
+      "change": -0.3143,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "DOV",
+      "date": "2026-11-03",
+      "price": 213.57,
+      "fairA": 166.33,
+      "fairB": 114.33,
+      "change": -0.3126,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "RS",
+      "date": "2026-11-03",
+      "price": 443.84,
+      "fairA": 547.68,
+      "fairB": 376.99,
+      "change": -0.3117,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "SLB",
+      "date": "2026-11-03",
+      "price": 52.13,
+      "fairA": 72.72,
+      "fairB": 50.11,
+      "change": -0.3109,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "IEX",
+      "date": "2026-11-03",
+      "price": 237.36,
+      "fairA": 175.88,
+      "fairB": 121.21,
+      "change": -0.3108,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "AIN",
+      "date": "2026-11-03",
+      "price": 73.67,
+      "fairA": 66.32,
+      "fairB": 45.76,
+      "change": -0.31,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "LECO",
+      "date": "2026-11-03",
+      "price": 284.55,
+      "fairA": 253.61,
+      "fairB": 175.01,
+      "change": -0.3099,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "DAL",
+      "date": "2026-11-03",
+      "price": 83.28,
+      "fairA": 78.5,
+      "fairB": 54.18,
+      "change": -0.3098,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     },
+     {
+      "t": "TEL",
+      "date": "2026-11-03",
+      "price": 219.77,
+      "fairA": 271.71,
+      "fairB": 187.54,
+      "change": -0.3098,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "META",
+      "date": "2026-11-03",
+      "price": 621.03,
+      "fairA": 837.58,
+      "fairB": 578.14,
+      "change": -0.3097,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "NVDA",
+      "date": "2026-11-03",
+      "price": 206.69,
+      "fairA": 247.67,
+      "fairB": 171.29,
+      "change": -0.3084,
+      "stateA": "buy",
+      "stateB": "hold",
+      "halal": "pass"
+     },
+     {
+      "t": "VRT",
+      "date": "2026-11-03",
+      "price": 235.97,
+      "fairA": 243.03,
+      "fairB": 168.43,
+      "change": -0.307,
+      "stateA": "hold",
+      "stateB": "trim",
+      "halal": "pass"
+     }
+    ]
+   }
+  }
+ },
+ "A": {
+  "plan": {
+   "yearly": 0.11,
+   "finalValue": 57071,
+   "worstFall": -0.3288
+  },
+  "halves": {
+   "h1": {
+    "yearly": 0.1894,
+    "finalValue": 26192,
+    "worstFall": -0.2586
+   },
+   "h2": {
+    "yearly": 0.1431,
+    "finalValue": 22848,
+    "worstFall": -0.2051
+   }
+  }
+ },
+ "extremes": {
+  "scenarios": {
+   "y0.50": {
+    "yield": 0.005,
+    "companies": 899,
+    "medianFairVsA": 2.1906,
+    "buyShareOfHalal": 0.0768,
+    "atFloor": 527,
+    "atCap": 0
+   },
+   "y2.00": {
+    "yield": 0.02,
+    "companies": 1024,
+    "medianFairVsA": 1.5222,
+    "buyShareOfHalal": 0.0745,
+    "atFloor": 0,
+    "atCap": 0
+   },
+   "y3.00": {
+    "yield": 0.03,
+    "companies": 1054,
+    "medianFairVsA": 1.2159,
+    "buyShareOfHalal": 0.0686,
+    "atFloor": 0,
+    "atCap": 0
+   },
+   "y4.00": {
+    "yield": 0.04,
+    "companies": 1078,
+    "medianFairVsA": 1,
+    "buyShareOfHalal": 0.0508,
+    "atFloor": 0,
+    "atCap": 0
+   },
+   "y5.00": {
+    "yield": 0.05,
+    "companies": 1061,
+    "medianFairVsA": 0.843,
+    "buyShareOfHalal": 0.0236,
+    "atFloor": 0,
+    "atCap": 0
+   },
+   "y5.13": {
+    "yield": 0.0513,
+    "companies": 1060,
+    "medianFairVsA": 0.8258,
+    "buyShareOfHalal": 0.0248,
+    "atFloor": 0,
+    "atCap": 0
+   },
+   "y6.00": {
+    "yield": 0.06,
+    "companies": 1048,
+    "medianFairVsA": 0.7258,
+    "buyShareOfHalal": 0.0118,
+    "atFloor": 0,
+    "atCap": 0
+   },
+   "y7.00": {
+    "yield": 0.07,
+    "companies": 1030,
+    "medianFairVsA": 0.6326,
+    "buyShareOfHalal": 0.0106,
+    "atFloor": 0,
+    "atCap": 0
+   },
+   "y8.00": {
+    "yield": 0.08,
+    "companies": 1016,
+    "medianFairVsA": 0.5591,
+    "buyShareOfHalal": 0.0118,
+    "atFloor": 0,
+    "atCap": 0
+   },
+   "y10.00": {
+    "yield": 0.1,
+    "companies": 1004,
+    "medianFairVsA": 0.4641,
+    "buyShareOfHalal": 0.0071,
+    "atFloor": 0,
+    "atCap": 1851
+   },
+   "y15.00": {
+    "yield": 0.15,
+    "companies": 1004,
+    "medianFairVsA": 0.457,
+    "buyShareOfHalal": 0.0047,
+    "atFloor": 0,
+    "atCap": 2008
+   }
+  },
+  "steps": [
+   {
+    "from": "y2.00",
+    "to": "y3.00",
+    "change": -0.2012
+   },
+   {
+    "from": "y3.00",
+    "to": "y4.00",
+    "change": -0.1776
+   },
+   {
+    "from": "y4.00",
+    "to": "y5.00",
+    "change": -0.157
+   },
+   {
+    "from": "y5.00",
+    "to": "y6.00",
+    "change": -0.1391
+   },
+   {
+    "from": "y6.00",
+    "to": "y7.00",
+    "change": -0.1284
+   },
+   {
+    "from": "y7.00",
+    "to": "y8.00",
+    "change": -0.1162
+   }
+  ],
+  "c5extreme": true,
+  "unstable": [],
+  "zigzag": {
+   "n": 163,
+   "examples": [
+    {
+     "t": "ADP",
+     "seq": [
+      "hold",
+      "buy",
+      "hold",
+      "hold",
+      "trim",
+      "trim",
+      "trim"
+     ]
+    },
+    {
+     "t": "CALM",
+     "seq": [
+      "hold",
+      "buy",
+      "buy",
+      "hold",
+      "hold",
+      "hold",
+      "hold"
+     ]
+    },
+    {
+     "t": "CC",
+     "seq": [
+      "hold",
+      "hold",
+      "trim",
+      "trim",
+      "hold",
+      "hold",
+      "hold"
+     ]
+    },
+    {
+     "t": "COR",
+     "seq": [
+      "buy",
+      "hold",
+      "hold",
+      "hold",
+      "trim",
+      "trim",
+      "trim"
+     ]
+    },
+    {
+     "t": "CW",
+     "seq": [
+      "buy",
+      "hold",
+      "hold",
+      "trim",
+      "trim",
+      "trim",
+      "trim"
+     ]
+    },
+    {
+     "t": "EVH",
+     "seq": [
+      "hold",
+      "hold",
+      "hold",
+      "trim",
+      "hold",
+      "hold",
+      "hold"
+     ]
+    },
+    {
+     "t": "FTNT",
+     "seq": [
+      "hold",
+      "buy",
+      "hold",
+      "hold",
+      "hold",
+      "trim",
+      "trim"
+     ]
+    },
+    {
+     "t": "GD",
+     "seq": [
+      "hold",
+      "buy",
+      "buy",
+      "hold",
+      "hold",
+      "hold",
+      "trim"
+     ]
+    },
+    {
+     "t": "GOOG",
+     "seq": [
+      "buy",
+      "hold",
+      "hold",
+      "hold",
+      "trim",
+      "trim",
+      "trim"
+     ]
+    },
+    {
+     "t": "HBB",
+     "seq": [
+      "buy",
+      "hold",
+      "hold",
+      "hold",
+      "trim",
+      "trim",
+      "trim"
+     ]
+    },
+    {
+     "t": "IA",
+     "seq": [
+      "buy",
+      "hold",
+      "hold",
+      "hold",
+      "trim",
+      "trim",
+      "trim"
+     ]
+    },
+    {
+     "t": "HUBB",
+     "seq": [
+      "buy",
+      "hold",
+      "hold",
+      "trim",
+      "trim",
+      "trim",
+      "trim"
+     ]
+    }
+   ]
+  },
+  "nearToday": {
+   "companies": 2008,
+   "changed": 68,
+   "changedHalalPass": 41,
+   "examples": [
+    {
+     "t": "CART",
+     "at488": "hold",
+     "at513": "trim",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "CC",
+     "at488": "trim",
+     "at513": "trim",
+     "at538": "hold",
+     "halal": "fail"
+    },
+    {
+     "t": "EPC",
+     "at488": "trim",
+     "at513": "hold",
+     "at538": "hold",
+     "halal": "fail"
+    },
+    {
+     "t": "EVH",
+     "at488": "trim",
+     "at513": "trim",
+     "at538": "hold",
+     "halal": "fail"
+    },
+    {
+     "t": "FUL",
+     "at488": "trim",
+     "at513": "hold",
+     "at538": "hold",
+     "halal": "fail"
+    },
+    {
+     "t": "GOOG",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "HCA",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "trim",
+     "halal": "fail"
+    },
+    {
+     "t": "LECO",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "MATX",
+     "at488": "hold",
+     "at513": "trim",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "NBIX",
+     "at488": "buy",
+     "at513": "buy",
+     "at538": "hold",
+     "halal": "pass"
+    },
+    {
+     "t": "COLM",
+     "at488": "buy",
+     "at513": "buy",
+     "at538": "hold",
+     "halal": "pass"
+    },
+    {
+     "t": "EME",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "buy",
+     "halal": "pass"
+    },
+    {
+     "t": "GOOGL",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "IR",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "LEVI",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "MBUU",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "trim",
+     "halal": "fail"
+    },
+    {
+     "t": "MSFT",
+     "at488": "hold",
+     "at513": "trim",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "NVR",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "PAG",
+     "at488": "hold",
+     "at513": "trim",
+     "at538": "trim",
+     "halal": "pass"
+    },
+    {
+     "t": "ROAD",
+     "at488": "hold",
+     "at513": "hold",
+     "at538": "trim",
+     "halal": "fail"
+    }
+   ]
+  },
+  "I3": {
+   "0.08": {
+    "n": 148,
+    "median": -0.1658
+   },
+   "0.1": {
+    "n": 588,
+    "median": -0.1568
+   },
+   "0.09": {
+    "n": 325,
+    "median": -0.1512
+   }
+  }
+ },
+ "decision": {
+  "c1": false,
+  "c2": false,
+  "c3": false,
+  "c4": false,
+  "c5": false,
+  "stability": {
+   "I1": {
+    "A": {
+     "median": 0,
+     "p95": 0.4615
+    },
+    "V": {
+     "median": 0.033,
+     "p95": 0.472
+    }
+   },
+   "I2": {
+    "A": 0.1342,
+    "V": 0.1849
+   }
+  },
+  "c6": false,
+  "sensitivityPassing": [],
+  "allPass": false
+ }
+}

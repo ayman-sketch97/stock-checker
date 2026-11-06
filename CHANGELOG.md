@@ -3,19 +3,30 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
-## 4 November 2026: how sure each result is, with calls that overlap (stage 6, for review)
+## 6 November 2026: how sure each result is, with calls that overlap (stage 6)
 
-- A kind of call now passes only if its lead over random halal stocks is unlikely to be luck even with all six kinds
-  tested together (a one-sided test at 2.5% with a Holm correction), from whichever of two resamplings is more
-  cautious: by month, in blocks as long as the horizon, and by company. It also still needs no more wrong calls than
-  random halal stocks. A 90% interval wholly on the bad side puts it under review. Before, a 90% interval decided.
+- A kind of call now passes only if its lead over random halal stocks is unlikely to be chance even with all six kinds
+  tested together (a one-sided test at 2.5% with a Holm correction, so 0.42% for the strictest), from a test that
+  allows at once for calls made close together and for the same company called again and again. It also still needs
+  no more wrong calls than random halal stocks. A 90% interval wholly on the bad side puts it under review, as a
+  warning only. Before, a 90% interval decided.
+- Checked by simulation before release: with no skill at all, the test passes a kind by chance in at most 1.7% of
+  records; the resampling first approved did in 10% to 46%, so it was replaced before going live (PREREGISTERED.md,
+  section 7.3.3). The cost: a real edge takes years to show, so most kinds will read "undecided" for a long time.
 - A result needs calls made in at least 24 different months, and the page shows how many separate 12-month periods
-  they cover, so many calls in one year are not taken for a long record. The 1 and 3-month columns are early reads.
+  they cover. The 1 and 3-month columns are early reads, never a test of skill; the 12-month column shows each kind's
+  tested verdict.
+- The previous method (a 90% interval over the days of the calls) is still worked out and shown beside each verdict,
+  for comparison only.
 - One switch for dividends, off: prices only for the calls, random halal stocks and the S&P 500 alike, never mixed.
-- The 10-year test now says its 59 five-year periods overlap (about two independent spans), and how the companies it
-  cannot see can push its picks and random halal stocks in different directions.
-- Rules: PREREGISTERED.md, sections 7.3 and 7.3.1, written before any result. Record and display only: no advice
-  changes.
+- The companies the 10-year test cannot see are described neutrally: the 44% gap, how it can affect the picks and
+  random halal stocks differently, and that its direction and size cannot be measured with free data. The swing test
+  says the same of its own gap. The 10-year test's 59 five-year periods are said to overlap (about two independent
+  spans).
+- The Treasury-linked discount rate study is closed: it failed all six conditions, the fixed 8%, 9% and 10% stay, and
+  the study is kept in `studies/rate-study-2026-11/`.
+- Rules: PREREGISTERED.md, sections 7.3 to 7.3.3 and 8.1, all written before any result. Record and display only: no
+  advice, valuation, buy zone, sell decision or risk limit changes (checked: VALIDATION.md, section 18).
 
 ## 3 November 2026: calls measured to the end, and the missing companies disclosed (stage 6)
 
