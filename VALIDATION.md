@@ -1545,7 +1545,7 @@ No paid service, subscription, API key or recurring cost was added; the record i
 | Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (411 sections, 384,755 characters): 38 identical; only the same new sections differ, and the number of sell, trim and take-profit calls on every page is unchanged. No unexpected difference |
 | Advice and the plan with a record present | Tested on the page: with a thesis, a saved decision or a met condition, the Advice list rows and this month's plan are exactly as without |
 | Secret scan | no credentials found |
-| GitHub CI | CI_PENDING |
+| GitHub CI (full workflow dispatched on the branch, run 88, code commit `a9c641e`) | passed: security, restore-point, formulas, page-tests, build, verify-site, gate and ledger all succeeded. verify-live, deploy, rollback and keepalive were skipped, as designed for any branch other than main. Main (`4f74903`) and the deploy log were not touched |
 
 **Limits and disclosures**
 
