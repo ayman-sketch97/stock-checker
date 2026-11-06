@@ -1594,3 +1594,133 @@ and the deploy log entry above. The Thesis page and the new cards were tested th
 through a person using the live site; the owner's own browser use will be the first live use.
 
 **Stage 5 is complete.** Stage 6 has not been started and waits for the owner's instruction.
+
+## 22. Stage 6: portfolio management (7 November 2026, branch `stage6-portfolio-management`, not merged)
+
+Stage 6 reviewed what the Portfolio page already did, then added only what was missing: a record of your cash and trades,
+and the position, cash, profit and loss, dividend, fee, exposure and history figures that can be worked out from it. It
+**records and measures. It decides nothing**: it changes no verdict, signal, valuation formula, recommendation, risk
+limit or Shariah gate, and the advice on the Portfolio page still reads the holdings you entered there, exactly as before.
+
+**What already existed (the review)**
+
+| Essential | Before Stage 6 |
+|---|---|
+| Holdings and positions | One line per stock (shares and a hand-typed average cost) on the Watchlist or the Portfolio page, plus open long-term Journal buys. No transactions behind the numbers. "Sold" erased the line and with it any realized result. |
+| Cash and allocation | Cash was a number typed into the "other holdings" list. The mix against the target (fund, stocks, swing, safe part) was shown. Cash was not tied to any trade. |
+| Average cost, realized and unrealized P&L | Realized results existed only for closed Journal trades. The Portfolio page showed no profit or loss on holdings. |
+| Dividends and fees | Trade fees existed inside Journal trades only. No dividends or other fees were recorded anywhere. |
+| Position and sector exposure | A weight under each stock and a warning when one sector passed 40% of at least three US stocks. No table. |
+| Risk rules | Already enforced in the advice (`lib/policy.js`: 10% buy cap, 15% trim line, 40% sector, $100 minimum order, your saved limits) and in the stock-page buy check. |
+| History and backup | No value history. The backup covered the Journal, Watchlist, Portfolio page, Shariah ledger and thesis record. |
+
+**What was built, against the seven essentials**
+
+1. **Accurate holdings and position tracking.** A new Portfolio ledger page records money put in, money taken out, buys,
+   sells, dividends, fees, and positions you already held. Positions are worked out from the entries alone, in date order;
+   nothing derived is stored, so nothing derived can disagree with the entries. An entry that would make the record
+   impossible is refused: selling shares not held that day, a dividend for a stock never held, cash going below zero.
+   The ledger is compared with "Your portfolio now" (match, different shares, only in one of them); that comparison writes
+   nothing. One button starts the ledger from the holdings already on the Portfolio page, listing what it will add first.
+2. **Cash balance and allocation.** Cash is the sum of the entries. Each position's share of the ledger (cash included) is shown.
+3. **Average cost and realized and unrealized P&L.** Buying fees are part of a position's cost. A sale takes out the
+   average cost of the shares sold; realized profit is what the sale brought in after fees minus that cost. Unrealized
+   profit is the market value minus the cost, shown only where a price exists. Total gain = realized + unrealized +
+   dividends - other fees, and a test proves that identity on 40 random records.
+4. **Dividends and fees.** Both are recorded by you from your broker's statement; nothing is estimated or fetched, because
+   no free source gives what you actually received. Dividend tax withheld can be recorded; it is informational only.
+5. **Position and sector exposure.** A table of every position against your size limits (within limits, at the limit, or
+   the trim the size rule gives, with the same $100 minimum order) and a sector table (share of long-term stocks, no new
+   money at or above the limit). Funds are outside the one-stock limits and short-term trades outside the sector limit,
+   as in the rules.
+6. **Enforcement and display of the existing risk rules.** The ledger uses `buyRoom`, `trimSale`, `sectorOpen` and
+   `worthAnOrder` from `lib/policy.js` and your saved limits (`limits()`). While you fill in a buy, the form shows each
+   rule: cash, minimum order, one-stock limit, sector limit and the Shariah ledger's answer. A buy that breaks a rule can
+   be recorded (it may already have happened) only after you tick that you did it anyway, and the rule check of that day
+   is saved with the entry and marked in the history. Borrowing is refused outright, since the plan rules out margin.
+7. **Portfolio history and backup compatibility.** One value line is saved per price date, only from a full valuation of
+   an intact ledger, never for a past date and never rewritten after its date. The ledger, its anchor and the history are
+   in the backup file; joining a backup never overwrites what is on the device, renumbers corrections, and is refused
+   (nothing merged) if the joined record would be impossible or fails its check. A backup from before Stage 6 loads
+   unchanged.
+
+**Append-only.** Like the Shariah ledger (stage 4) and the thesis record (stage 5): a SHA-256 hash chain, an anchor in a
+second key and in the backup, entries never edited or removed, a mistake answered by a correction that keeps the wrong
+entry visible and struck through. A correction that would make the record impossible (for example voiding the deposit
+that paid for a buy) is refused. The check also replays the record, so an edited entry that was re-hashed to look
+consistent still fails if what it says is impossible.
+
+**A missing price is never guessed.** A position with no price is valued at what it cost, marked "no price", given no
+profit or loss, and the total gain is withheld ("n/a") until every position has a price. No value-history line is saved
+from a partial valuation. A price typed on the Watchlist ("I own it") is used, as on the Portfolio page.
+
+**What did not change.** Every file in `lib/` is the same as on main except the new `lib/portfolio.js` (compared with
+`git diff 9b83272 --stat -- lib`: one new file). It imports only the hashing and date helpers of `lib/shariah-ledger.js`
+and the four rule functions of `lib/policy.js`; the policy file itself is untouched. In `index.html` eight one-line edits
+replaced main's lines (the Portfolio card order, the backup, merge and restore lines, the backup button's enabled test, the
+page list, the navigation highlight and the test hook); everything else in it is added. No formula, threshold, limit or
+signal was edited. The only workflow change is one extra step that runs the portfolio tests (`test/workflow.test.py`
+checks it). No paid service, subscription, API key or recurring cost was added; the ledger is local code with no network call.
+
+**One change to a check, disclosed.** `test/validation/same-advice.py` compares the number of sell, trim and take-profit
+calls between two versions. It left out every section named in `ADDED_SECTIONS` from the new page's count even when the
+old page also had that section, which is wrong once the old page is a later one (the first run of the empty-ledger mode
+against main reported 4 calls against 3 for that reason, with no change in any advice). It now leaves out only sections the
+old page does not have. The stricter rule was applied after seeing that result, and it is the rule the file's own comment
+already stated; both modes were then run again on the final code.
+
+**Evidence** (all run on the branch before the code commit)
+
+| Check | Result |
+|---|---|
+| Portfolio ledger tests (`test/portfolio.test.mjs`) | 32 of 32: average cost with fees, partial and full sales, rebuy, fractional shares, dividends and fees, opening positions, the gain identity (plus 40 random records), missing prices, refused entries (oversell, borrowing, future dates, dividends before holding), date order, shapes, rounding, the rule-breach confirmation, corrections, tamper checks (edit, remove, reorder, extra, cut off, re-hashed lie), an independently computed golden hash, joining backups, limits from the policy functions and from saved limits, sector measure, the buy check's rules, sale preview, comparison with the Portfolio page, opening proposals, value history, and that the page carries exactly the library's code |
+| Do those tests fail when the logic is wrong? | 32 deliberate breakages of the library (fees left out of cost, wrong cost on a sale, sale fees ignored, overselling, borrowing, dividend before holding, voided entries counted, recorded order instead of date order, hash unchecked, replay left out of the check, future dates, breach without confirmation, gain from a partial valuation, missing price valued at zero, held positions not counted as put in, wrong trim level, sector measure including funds, lenient buy cap, funds under stock limits, corrections not renumbered on merge, joined record unchecked, past history rewritten, partial history, backup overwriting history, rounding removed, double correction, dividend tax taken off cash, wide reconcile tolerance, guessed cost, Shariah failure not counted, oversell in the preview, zero as a price): 32 of 32 caught |
+| Page tests (`test/page.test.py`) | 572 of 572 (511 before, 61 new): the Portfolio card, starting the ledger from current holdings (preview first, nothing written until confirmed), totals and gain against fixture prices, a buy that breaks a rule refused until confirmed and saved with its check, sales, dividends and fees through the form, realized results, trim and sector displays, advice and this month's plan unchanged with a full ledger, voiding and its refusal, edited and cut-off records caught and recording switched off, a missing price withholding the gain and the history line, saved limits applied, funds outside the one-stock limits, the Shariah rule in the buy check, backup round trip, tampered backup refused, a backup from before Stage 6, and unreadable storage never stopping either page |
+| Other node suites and workflow rules | formulas 80 of 80, Shariah ledger 40 of 40, thesis 20 of 20, deploy safety 46 of 46, restore and log 50 of 50, workflow rules all hold |
+| Same advice, ledger current (`same-advice.py --ledger=current`, old = main `9b83272`) | 54 page views compared (418 sections, 384,541 characters): 47 identical word for word; the only differences are the new "Portfolio ledger" card on the Portfolio page in 7 views. No unexpected difference |
+| Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (418 sections, 386,897 characters): 47 identical word for word; the only differences are the new "Portfolio ledger" card on the Portfolio page in 7 views, and the number of sell, trim and take-profit calls on every page is unchanged. No unexpected difference |
+| Advice with a full ledger | Tested on the page: with entries, voids and breaches recorded, the Advice list rows and this month's plan are exactly as with an empty ledger |
+| Secret scan (`node tools/scan-repo.mjs`) | passed: 87 tracked files, no credentials found |
+| GitHub CI (full workflow dispatched on the branch) | to be run on the pushed commit and recorded below |
+
+**Limits and disclosures**
+
+- **Two records, not one.** The advice still reads the holdings you enter on the Portfolio page (and the Watchlist and
+  Journal). The ledger does not feed it, and the Portfolio page does not write to the ledger. Pressing "Sold" or "Edit"
+  there does not touch the ledger; the comparison card shows the difference, but you have to keep both in step. Making
+  one the source of the other would change what "Sold" and "Edit" do and what the advice reads. That is a design change
+  that could remove existing behavior, so it is not built and is yours to decide (see the decisions below).
+- **Weights differ between the two pages.** On the ledger page a weight is a share of what the ledger holds (positions plus
+  cash). On the Portfolio page it is a share of "everything" there (including funds and sukuk listed under other
+  holdings). The same stock can show two different percentages until the ledger holds the same things.
+- **Enforcement is a record-keeping control, not a broker control.** The ledger refuses impossible entries and demands
+  confirmation to record a buy that broke a rule; it cannot stop a trade made at a broker. The buy and add suggestions on
+  the Portfolio and stock pages are still where the rules hold a buy back.
+- **Dividends and fees are what you type.** Nothing is fetched or estimated. A dividend needs the stock to have been
+  recorded before. Tax withheld is kept but not netted from anything.
+- **Average cost only.** There are no tax lots, no FIFO, and the figures are not for tax filing. Splits, mergers and other
+  corporate actions are not handled: record them with a void and a new entry, or an "already held" entry with the right
+  numbers. All amounts are in US dollars; no currency gain or loss is tracked.
+- **Prices are the nightly prices** the page already uses (screen, a fund's live price from the price job, or a price you
+  typed on the Watchlist), not intraday quotes. If the nightly update is late the page says so and the figures are from
+  the date shown.
+- **History starts when you start.** Past prices of your positions cannot be rebuilt, so the value history begins on the
+  first day a full valuation is saved; it has no lines before that. It is saved when you open the Portfolio page or the
+  ledger page, so days you do not open them have no line. It lives in this browser and in the backup file.
+- **Device-local.** Like the journal, the Shariah ledger and the thesis record, the ledger is in this browser and in the
+  backup file. The chain shows an edited or removed entry; it cannot stop someone with access to your device from replacing
+  the whole record. Two devices differ until you load a backup, and a join that would make the record impossible (for
+  example cash below zero) merges nothing and says so, so the two records then have to be reconciled by hand.
+- **The sector measure** needs the sector the site holds for a ticker; a ticker it does not analyse is listed as "sector
+  unknown" and the sector limit says it cannot be checked for it.
+- Nothing here is financial or Shariah advice. Zoya remains the final Shariah authority.
+
+**Decisions for the owner (not built)**
+
+1. Whether the Portfolio page's holdings and the ledger should become one record (for example "Sold" and "Edit holding"
+   writing ledger entries, or the advice reading the ledger). This is the main weakness of the present design.
+2. Whether dividends should be offered from a data source. None is free and reliable for what you actually received.
+3. Whether a daily value line should be saved by the nightly job. That would need the ledger to leave your device, so it is not done.
+
+**Stage 6 is built and verified on the branch, and waits for the owner's approval.** It has not been merged into main and
+Stage 7 has not been started.

@@ -656,6 +656,12 @@ table.data.wrap1 td:first-child .sm { font-size: 12px; line-height: 1.4; margin-
 .alert-list { list-style: none; padding: 0; margin: 8px 0 0; }
 .alert-list li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
 .alert-list li:first-child { border-top: 0; }
+.pf-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.pf-list > li { padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.pf-list > li:first-child { border-top: 0; }
+.pf-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.pf-void { text-decoration: line-through; color: var(--muted); }
+.pf-preview { margin-top: 8px; }
 .lg-void { text-decoration: line-through; opacity: 0.65; }
 .tl-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
 .tl-row input[type=text], .tl-row select { flex: 1 1 200px; min-width: 0; }
@@ -927,6 +933,7 @@ table.data tr.me td { background: var(--accent-wash); }
   <section id="page-advisor" aria-label="Portfolio advisor" hidden></section>
   <section id="page-shariah" aria-label="Shariah ledger" hidden></section>
   <section id="page-thesis" aria-label="Thesis and decisions" hidden></section>
+  <section id="page-pfledger" aria-label="Portfolio ledger" hidden></section>
 
   <section id="how" class="card how" hidden>
     <h2>How Stock Checker works</h2>
@@ -3790,6 +3797,452 @@ table.data tr.me td { background: var(--accent-wash); }
     return { ok: true, entries: out, added, note: added ? `${added} entr${added === 1 ? 'y' : 'ies'} from the backup were added after the ones on this device.` : 'Nothing new in the backup.' };
   }
   // ---- thesis.js (end)
+  // ---- portfolio.js (start): a copy of lib/portfolio.js, checked by test/portfolio.test.mjs
+  // The portfolio ledger (stage 6 of the robo-advisor plan, November 2026).
+  //
+  // What it is: your own record of the money and the trades behind your portfolio: cash put in and taken out, buys,
+  // sells, dividends, fees, and positions you already held when you started the record. From that record alone it works
+  // out what you hold, the average cost of each position, the cash left, the profit and loss you have made (realized)
+  // and not yet made (unrealized), and how big each position and sector is against the limits you already have. It
+  // records and measures. It never decides, never changes a verdict, a buy or sell signal, a valuation, a limit or the
+  // Shariah gate, and nothing in it buys or sells anything.
+  //
+  // How it behaves:
+  //   - Append-only. An entry is never edited or removed. A mistake is answered with a "correction" entry that voids the
+  //     wrong one (it stays in the history, struck through). Each entry carries the SHA-256 of the one before it, so a
+  //     changed, removed or reordered entry shows (verifyPortfolioLog). Entries cut off the end show only against the
+  //     anchor (anchorOf in the ledger block), which is kept apart and travels with the backup file.
+  //   - Everything else is worked out from the entries, in the order of their dates (ties: the order they were recorded):
+  //     positions, average cost, cash, realized profit, dividends and fees. Nothing derived is stored, so nothing derived
+  //     can disagree with the entries. An entry that would make the record impossible is refused: selling more shares
+  //     than were held that day, or spending more cash than was recorded (that would be borrowing, which the plan rules out).
+  //   - Average cost: a buy adds its cost (shares x price + fees) to the position; a sale takes out the average cost of the
+  //     shares sold; realized profit is what the sale brought in after fees, minus that cost. Fees on a buy are part of
+  //     its cost, fees on a sale reduce its proceeds.
+  //   - A price that is missing is never guessed. A position without a price is valued at what it cost and marked so, its
+  //     unrealized result is shown as not available, and the total gain is withheld until every position has a price.
+  //   - Limits: the one-stock limits (buy cap, trim line), the sector limit and the minimum order are the ones in
+  //     lib/policy.js, with the values passed in (the owner's saved limits). Funds and sukuk are not under the one-stock
+  //     limits, as in the rules. Weights here are shares of what this ledger holds (positions at market plus cash).
+  //   - A buy that breaks a rule can be recorded (it already happened) only after you confirm it, and the rule check
+  //     of that day is saved with it.
+  //
+  // index.html carries the same text between the portfolio.js markers (without the import and export lines), and
+  // test/portfolio.test.mjs fails if the two copies differ in any way.
+  const PORTFOLIO_VERSION = 1;
+  const PF_KINDS = Object.freeze(['open', 'buy', 'sell', 'dividend', 'fee', 'deposit', 'withdraw', 'correction']);
+  const PF_LIMITS = Object.freeze({ note: 240, reason: 240, rules: 6, ruleName: 24, ruleText: 300 });
+  const PF_EPS = 1e-6;
+  const PF_STATES = Object.freeze(['pass', 'fail', 'unknown']);
+
+  // ---------------------------------------------------------------- small helpers
+  const pfNum = (x) => typeof x === 'number' && Number.isFinite(x);
+  const pfPos = (x) => pfNum(x) && x > 0;
+  const pfNonNeg = (x) => pfNum(x) && x >= 0;
+  const pfText = (s, max) => typeof s === 'string' && s.trim().length > 0 && s.length <= max;
+  const pfRound = (x) => (pfNum(x) ? Math.round(x * 1e6) / 1e6 : x);
+  const PF_TICKER = /^[A-Z0-9][A-Z0-9.-]{0,14}$/;
+  const PF_HEX = /^[0-9a-f]{64}$/;
+  function pfCanon(x) {
+    if (x === null || typeof x !== 'object') return JSON.stringify(x);
+    if (Array.isArray(x)) return `[${x.map(pfCanon).join(',')}]`;
+    return `{${Object.keys(x).filter((k) => x[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${pfCanon(x[k])}`).join(',')}}`;
+  }
+  function pfHashOf(entry) {
+    const { hash, ...rest } = entry;
+    return sha256Hex(pfCanon(rest));
+  }
+  const pfMoney = (x) => `${x < 0 ? '-' : ''}$${Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const pfPct = (x, d = 0) => `${(x * 100).toFixed(d)}%`;
+  const pfShares = (x) => String(Math.round(x * 1e6) / 1e6);
+
+  // ---------------------------------------------------------------- the shape of each kind of entry
+  const PF_FIELDS = {
+    open: { req: ['t', 'date', 'shares', 'cost'], opt: ['note'] },
+    buy: { req: ['t', 'date', 'shares', 'price', 'fees'], opt: ['note', 'rules', 'acknowledged'] },
+    sell: { req: ['t', 'date', 'shares', 'price', 'fees'], opt: ['note'] },
+    dividend: { req: ['t', 'date', 'amount'], opt: ['tax', 'note'] },
+    fee: { req: ['date', 'amount'], opt: ['t', 'note'] },
+    deposit: { req: ['date', 'amount'], opt: ['note'] },
+    withdraw: { req: ['date', 'amount'], opt: ['note'] },
+    correction: { req: ['fixes', 'reason'], opt: [] },
+  };
+  const PF_META = ['v', 'n', 'kind', 'recorded', 'prev', 'hash', 'origin'];
+  const PF_CHECK = {
+    t: (x) => typeof x === 'string' && PF_TICKER.test(x),
+    date: (x) => isDateISO(x),
+    shares: pfPos, price: pfPos, cost: pfPos, amount: pfPos,
+    fees: pfNonNeg, tax: pfNonNeg,
+    note: (x) => typeof x === 'string' && x.length > 0 && x.length <= PF_LIMITS.note,
+    reason: (x) => pfText(x, PF_LIMITS.reason),
+    fixes: (x) => Number.isInteger(x) && x >= 0,
+    acknowledged: (x) => x === true,
+    rules: (x) => Array.isArray(x) && x.length > 0 && x.length <= PF_LIMITS.rules && x.every((r) => r && typeof r === 'object' && !Array.isArray(r)
+      && Object.keys(r).sort().join() === 'rule,state,text' && pfText(r.rule, PF_LIMITS.ruleName) && PF_STATES.includes(r.state) && pfText(r.text, PF_LIMITS.ruleText)),
+  };
+  const PF_FIELD_WORDS = { t: 'a ticker', date: 'a real date (YYYY-MM-DD)', shares: 'a number of shares above 0', price: 'a price above 0', cost: 'an average cost above 0', amount: 'an amount above 0', fees: 'fees of 0 or more', tax: 'tax of 0 or more', note: 'a short note', reason: 'a reason', fixes: 'the number of the entry to correct', acknowledged: 'the confirmation', rules: 'the saved rule check' };
+  function pfShapeProblems(e) {
+    const out = [];
+    if (!e || typeof e !== 'object' || Array.isArray(e)) return ['not an entry'];
+    if (e.v !== PORTFOLIO_VERSION) out.push('unknown version');
+    if (!Number.isInteger(e.n) || e.n < 0) out.push('bad number');
+    if (typeof e.recorded !== 'string' || !Number.isFinite(Date.parse(e.recorded))) out.push('bad recorded time');
+    if (typeof e.prev !== 'string' || !PF_HEX.test(e.prev)) out.push('bad link to the entry before');
+    if (typeof e.hash !== 'string' || !PF_HEX.test(e.hash)) out.push('bad hash');
+    if (e.origin !== undefined && !(e.origin && typeof e.origin === 'object' && Number.isInteger(e.origin.n) && typeof e.origin.hash === 'string' && PF_HEX.test(e.origin.hash))) out.push('bad origin');
+    const spec = PF_FIELDS[e.kind];
+    if (!spec) { out.push(`unknown kind "${e.kind}"`); return out; }
+    const allowed = new Set([...PF_META, ...spec.req, ...spec.opt]);
+    for (const k of Object.keys(e)) if (!allowed.has(k)) out.push(`unexpected field "${k}"`);
+    for (const k of spec.req) if (e[k] === undefined) out.push(`${k} is missing`);
+    for (const k of [...spec.req, ...spec.opt]) if (e[k] !== undefined && !PF_CHECK[k](e[k])) out.push(`${k} must be ${PF_FIELD_WORDS[k] || 'valid'}`);
+    if (e.kind === 'buy' && Array.isArray(e.rules) && e.rules.some((r) => r && r.state === 'fail') && e.acknowledged !== true) out.push('a buy that broke a rule was saved without the confirmation');
+    if (e.kind === 'buy' && e.acknowledged === true && !(Array.isArray(e.rules) && e.rules.some((r) => r && r.state === 'fail'))) out.push('a confirmation without a broken rule');
+    return out;
+  }
+
+  // ---------------------------------------------------------------- working it all out from the entries
+  // Returns the positions, the cash, the totals and every problem that makes the record impossible. Entries voided by a
+  // correction take no part. They are replayed in date order, ties in the order recorded.
+  function pfReplay(entries) {
+    const problems = [];
+    const voided = new Set((entries || []).filter((e) => e && e.kind === 'correction').map((e) => e.fixes));
+    const live = (entries || []).filter((e) => e && e.kind !== 'correction' && !voided.has(e.n))
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.n - b.n));
+    const book = new Map(); // every ticker ever recorded: its position and its running totals
+    let cash = 0;
+    const tot = { deposits: 0, withdrawals: 0, openCost: 0, realized: 0, dividends: 0, tax: 0, tradeFees: 0, otherFees: 0, bought: 0, sold: 0 };
+    const trades = [];
+    const get = (t) => {
+      if (!book.has(t)) book.set(t, { t, shares: 0, cost: 0, realized: 0, dividends: 0, tax: 0, tradeFees: 0, firstDate: null, lastDate: null });
+      return book.get(t);
+    };
+    const touch = (p, d) => { if (!p.firstDate) p.firstDate = d; p.lastDate = d; };
+    const at = (e) => `entry ${e.n} (${e.date})`;
+    for (const e of live) {
+      if (e.kind === 'open') {
+        const p = get(e.t); p.shares += e.shares; p.cost += e.shares * e.cost; tot.openCost += e.shares * e.cost; touch(p, e.date);
+      } else if (e.kind === 'buy') {
+        const p = get(e.t); const c = e.shares * e.price + e.fees;
+        p.shares += e.shares; p.cost += c; p.tradeFees += e.fees; tot.tradeFees += e.fees; tot.bought += e.shares * e.price; cash -= c; touch(p, e.date);
+      } else if (e.kind === 'sell') {
+        const p = get(e.t);
+        if (e.shares > p.shares + PF_EPS) { problems.push(`${at(e)}: selling ${pfShares(e.shares)} ${e.t} but only ${pfShares(p.shares)} would be held that day`); continue; }
+        const whole = e.shares >= p.shares - PF_EPS;
+        const out = whole ? p.cost : (p.cost / p.shares) * e.shares;
+        const net = e.shares * e.price - e.fees;
+        const realized = net - out;
+        trades.push({ n: e.n, date: e.date, t: e.t, shares: e.shares, price: e.price, fees: e.fees, avgCost: out / e.shares, proceeds: net, realized });
+        p.shares = whole ? 0 : p.shares - e.shares; p.cost = whole ? 0 : p.cost - out; p.realized += realized; p.tradeFees += e.fees;
+        tot.realized += realized; tot.tradeFees += e.fees; tot.sold += e.shares * e.price; cash += net; touch(p, e.date);
+      } else if (e.kind === 'dividend') {
+        if (!book.has(e.t)) { problems.push(`${at(e)}: a dividend for ${e.t} before any holding of it was recorded`); continue; }
+        const p = get(e.t); p.dividends += e.amount; p.tax += e.tax || 0; tot.dividends += e.amount; tot.tax += e.tax || 0; cash += e.amount; touch(p, e.date);
+      } else if (e.kind === 'fee') {
+        tot.otherFees += e.amount; cash -= e.amount;
+      } else if (e.kind === 'deposit') { tot.deposits += e.amount; cash += e.amount; }
+      else if (e.kind === 'withdraw') { tot.withdrawals += e.amount; cash -= e.amount; }
+      if (cash < -PF_EPS) problems.push(`${at(e)}: cash would go below zero (${pfMoney(cash)}). Record the money you put in first: the plan rules out borrowing`);
+    }
+    for (const p of book.values()) if (p.shares < PF_EPS) { p.shares = 0; p.cost = 0; }
+    const positions = [...book.values()].filter((p) => p.shares > 0).map((p) => ({ ...p, avgCost: p.cost / p.shares })).sort((a, b) => (a.t < b.t ? -1 : 1));
+    const closed = [...book.values()].filter((p) => p.shares === 0).map((p) => ({ ...p })).sort((a, b) => (a.t < b.t ? -1 : 1));
+    const invested = tot.deposits - tot.withdrawals + tot.openCost;
+    return { positions, closed, cash: Math.abs(cash) < PF_EPS ? 0 : cash, ...tot, invested, trades, count: live.length, voided: [...voided].sort((a, b) => a - b), problems };
+  }
+
+  // ---------------------------------------------------------------- building, adding and checking entries
+  function pfBuild(prevEntries, fields, recordedISO) {
+    const n = prevEntries.length;
+    const prev = n ? prevEntries[n - 1].hash : LEDGER_GENESIS;
+    const body = { v: PORTFOLIO_VERSION, n, ...fields, recorded: recordedISO, prev };
+    for (const k of Object.keys(body)) if (body[k] === undefined || body[k] === '') delete body[k];
+    return { ...body, hash: pfHashOf(body) };
+  }
+  const PF_NUMERIC = ['shares', 'price', 'cost', 'amount', 'fees', 'tax'];
+  function pfTidy(fields) {
+    const o = { ...fields };
+    for (const k of ['note', 'reason']) if (typeof o[k] === 'string') { o[k] = o[k].trim(); if (!o[k]) delete o[k]; }
+    if (typeof o.t === 'string') { o.t = o.t.trim().toUpperCase(); if (!o.t) delete o.t; }
+    for (const k of PF_NUMERIC) if (pfNum(o[k])) o[k] = pfRound(o[k]);
+    if ((o.kind === 'buy' || o.kind === 'sell') && o.fees === undefined) o.fees = 0;
+    if (o.kind === 'dividend' && (o.tax === 0 || o.tax === undefined)) delete o.tax;
+    if (Array.isArray(o.rules)) { o.rules = o.rules.map((r) => (r && typeof r === 'object' && !Array.isArray(r) ? { ...r, text: typeof r.text === 'string' ? r.text.trim() : r.text } : r)); if (!o.rules.length) delete o.rules; }
+    if (o.acknowledged !== true) delete o.acknowledged;
+    return o;
+  }
+  // add one entry. Returns { ok, entries, entry, errors }; the array passed in is never changed.
+  // today and nowISO are passed in so that tests can fix them.
+  function appendPortfolio(entries, fields, today, nowISO) {
+    const f = pfTidy(fields || {});
+    const fail = (...errors) => ({ ok: false, entries, entry: null, errors });
+    const chain = verifyPortfolioLog(entries);
+    if (!chain.ok) return fail('the record does not pass its integrity check, so nothing can be added until that is looked at');
+    if (!isDateISO(today)) return fail('today is not a real date');
+    if (!PF_KINDS.includes(f.kind)) return fail(`unknown kind "${f.kind}"`);
+    const { kind, ...rest } = f;
+    const cand = pfBuild(entries, { kind, ...rest }, nowISO);
+    const shape = pfShapeProblems(cand);
+    if (shape.length) return fail(...shape);
+    if (kind !== 'correction' && cand.date > today) return fail('the date is in the future');
+    if (kind === 'correction') {
+      const target = entries[f.fixes];
+      if (!target) return fail('there is no such entry to correct');
+      if (target.kind === 'correction') return fail('a correction cannot be corrected; record the right entry instead');
+      if (entries.some((x) => x.kind === 'correction' && x.fixes === f.fixes)) return fail('that entry is already corrected');
+    }
+    const after = pfReplay([...entries, cand]);
+    if (after.problems.length) return fail(kind === 'correction' ? `voiding this entry would make the record impossible: ${after.problems[0]}` : after.problems[0]);
+    return { ok: true, entries: [...entries, cand], entry: cand, errors: [] };
+  }
+  // check the whole chain: numbering, links, hashes, shapes, references and that the record is possible
+  function verifyPortfolioLog(entries, today) {
+    const problems = [];
+    if (!Array.isArray(entries)) return { ok: false, count: 0, head: null, problems: ['the record is not a list'] };
+    let prev = LEDGER_GENESIS;
+    entries.forEach((e, i) => {
+      const at = `entry ${i}`;
+      if (!e || typeof e !== 'object') { problems.push(`${at}: not an entry`); return; }
+      if (e.n !== i) problems.push(`${at}: numbered ${e.n}, so an entry was removed, added or moved`);
+      if (e.prev !== prev) problems.push(`${at}: does not link to the entry before it`);
+      if (pfHashOf(e) !== e.hash) problems.push(`${at}: its content does not match its hash (it was changed)`);
+      const shape = pfShapeProblems(e);
+      for (const s of shape) problems.push(`${at}: ${s}`);
+      if (!shape.length && e.kind === 'correction') {
+        const tg = entries[e.fixes];
+        if (!(e.fixes < i) || !tg || tg.kind === 'correction') problems.push(`${at}: corrects an entry that is not an earlier entry`);
+        else if (entries.some((x, j) => j !== i && x && x.kind === 'correction' && x.fixes === e.fixes && j < i)) problems.push(`${at}: that entry was already corrected`);
+      }
+      if (today && isDateISO(today) && isDateISO(e.date) && e.date > today) problems.push(`${at}: dated in the future`);
+      prev = e.hash;
+    });
+    if (!problems.length) for (const p of pfReplay(entries).problems) problems.push(p);
+    const last = entries[entries.length - 1];
+    return { ok: problems.length === 0, count: entries.length, head: last && typeof last.hash === 'string' ? last.hash : null, problems };
+  }
+
+  // ---------------------------------------------------------------- joining two copies (a backup into this device)
+  // Nothing on this device is changed or removed: entries only the backup has are added after the ones here, with the
+  // number a correction refers to translated and the original number and hash kept in `origin`. If the joined record
+  // would be impossible (for example cash below zero), nothing is merged.
+  function mergePortfolioLogs(local, incoming) {
+    const a = verifyPortfolioLog(local);
+    const b = verifyPortfolioLog(incoming);
+    if (!a.ok) return { ok: false, entries: local, added: 0, note: 'The portfolio record on this device does not pass its own check, so nothing was merged.' };
+    if (!b.ok) return { ok: false, entries: local, added: 0, note: 'The portfolio record in the backup does not pass its own check, so nothing was merged.' };
+    let common = 0;
+    while (common < local.length && common < incoming.length && local[common].hash === incoming[common].hash) common++;
+    if (common === incoming.length) return { ok: true, entries: local, added: 0, note: common === local.length ? 'The backup portfolio record is the same as this one.' : 'This device already has more than the backup.' };
+    if (common === local.length) return { ok: true, entries: incoming.slice(), added: incoming.length - common, note: 'The backup extends this record; the new entries were added.' };
+    const known = new Set();
+    for (const e of local) { known.add(e.hash); if (e.origin) known.add(e.origin.hash); }
+    const map = new Map();
+    for (let i = 0; i < common; i++) map.set(i, i);
+    let out = local.slice();
+    let added = 0;
+    for (let i = common; i < incoming.length; i++) {
+      const e = incoming[i];
+      if (known.has(e.hash)) {
+        const same = out.find((x) => x.hash === e.hash || (x.origin && x.origin.hash === e.hash));
+        if (same) map.set(i, same.n);
+        continue;
+      }
+      const { n, prev, hash, v, recorded, origin, ...fields } = e;
+      if (e.kind === 'correction') {
+        if (!map.has(e.fixes)) continue;
+        fields.fixes = map.get(e.fixes);
+        if (out.some((x) => x.kind === 'correction' && x.fixes === fields.fixes)) continue;
+      }
+      const next = pfBuild(out, { ...fields, origin: { n: e.n, hash: e.hash } }, recorded);
+      out = [...out, next];
+      map.set(i, next.n);
+      known.add(e.hash);
+      added++;
+    }
+    const check = verifyPortfolioLog(out);
+    if (!check.ok) return { ok: false, entries: local, added: 0, note: `Joining the two records would make the record impossible (${check.problems[0]}), so nothing was merged.` };
+    return { ok: true, entries: out, added, note: added ? `${added} entr${added === 1 ? 'y' : 'ies'} from the backup were added after the ones on this device.` : 'Nothing new in the backup.' };
+  }
+
+  // ---------------------------------------------------------------- valuing what is held
+  // ctx: priceOf(t) -> a price in dollars or null; kindOf(t) -> 'stock' | 'fund' (default stock); sectorOf(t) -> a sector or
+  // null; isSwing(t) -> true for a short-term trade (outside the sector limit, as in the rules).
+  function pfValue(state, ctx = {}) {
+    const priceOf = ctx.priceOf || (() => null);
+    const rows = state.positions.map((p) => {
+      const px = priceOf(p.t);
+      const priced = pfPos(px);
+      const value = priced ? px * p.shares : p.cost;
+      const kind = ctx.kindOf ? ctx.kindOf(p.t) : 'stock';
+      return {
+        t: p.t, shares: p.shares, avgCost: p.avgCost, cost: p.cost, price: priced ? px : null, priced, value,
+        unrealized: priced ? value - p.cost : null, unrealizedPct: priced && p.cost > 0 ? (value - p.cost) / p.cost : null,
+        kind, sector: kind === 'stock' ? ((ctx.sectorOf && ctx.sectorOf(p.t)) || null) : null, swing: kind === 'stock' && !!(ctx.isSwing && ctx.isSwing(p.t)),
+        realized: p.realized, dividends: p.dividends, firstDate: p.firstDate,
+      };
+    });
+    const positionsValue = rows.reduce((s, r) => s + r.value, 0);
+    const total = positionsValue + state.cash;
+    for (const r of rows) r.weight = total > 0 ? r.value / total : 0;
+    const unpriced = rows.filter((r) => !r.priced).map((r) => r.t);
+    const complete = unpriced.length === 0;
+    const unrealized = rows.filter((r) => r.priced).reduce((s, r) => s + r.unrealized, 0);
+    return {
+      rows, cash: state.cash, positionsValue, total, unpriced, complete, unrealized,
+      cashWeight: total > 0 ? state.cash / total : 0,
+      // the whole gain is only worked out when every position has a price; otherwise it would be a guess
+      gain: complete ? total - state.invested : null,
+      gainPct: complete && state.invested > 0 ? (total - state.invested) / state.invested : null,
+    };
+  }
+
+  // ---------------------------------------------------------------- the limits you already have, applied to the ledger
+  // rules: { buyCap, trimAt, sectorMax, minOrder? } (your saved limits; the defaults are POLICY_RULES)
+  function pfRulesOf(rules) {
+    const r = rules || {};
+    return { buyCap: pfPos(r.buyCap) ? r.buyCap : POLICY_RULES.buyCap, trimAt: pfPos(r.trimAt) ? r.trimAt : POLICY_RULES.trimAt, sectorMax: pfPos(r.sectorMax) ? r.sectorMax : POLICY_RULES.sectorMax, minOrder: pfPos(r.minOrder) ? r.minOrder : POLICY_RULES.minOrder };
+  }
+  function pfExposure(valued, rules) {
+    const L = pfRulesOf(rules);
+    const total = valued.total;
+    const positions = valued.rows.map((r) => {
+      if (r.kind !== 'stock') return { t: r.t, weight: r.weight, state: 'fund', trimBy: 0, text: 'A fund or sukuk line: the one-stock limits do not apply to it.' };
+      const sale = trimSale(r.value, total, L.trimAt, L.buyCap);
+      if (sale > 0) {
+        return worthAnOrder(sale, L.minOrder)
+          ? { t: r.t, weight: r.weight, state: 'trim', trimBy: sale, text: `${pfPct(r.weight, 1)} of the ledger, above your ${pfPct(L.trimAt)} line: the size rule trims about ${pfMoney(sale)} to bring it back to ${pfPct(L.buyCap)}.` }
+          : { t: r.t, weight: r.weight, state: 'trim_small', trimBy: sale, text: `${pfPct(r.weight, 1)} of the ledger, above your ${pfPct(L.trimAt)} line, but the trim (${pfMoney(sale)}) is under the ${pfMoney(L.minOrder)} an order needs.` };
+      }
+      const room = buyRoom(r.value, total, L.buyCap);
+      if (!(room > 0)) return { t: r.t, weight: r.weight, state: 'at_cap', trimBy: 0, text: `${pfPct(r.weight, 1)} of the ledger: at your ${pfPct(L.buyCap)} limit, so no more buying.` };
+      return { t: r.t, weight: r.weight, state: 'ok', trimBy: 0, room, text: `${pfPct(r.weight, 1)} of the ledger: room for ${worthAnOrder(room, L.minOrder) ? pfMoney(room) : `${pfMoney(room)} (under the ${pfMoney(L.minOrder)} an order needs)`} more under your ${pfPct(L.buyCap)} limit.` };
+    });
+    // the sector limit is a share of the long-term stocks only
+    const lt = valued.rows.filter((r) => r.kind === 'stock' && !r.swing);
+    const stocksValue = lt.reduce((s, r) => s + r.value, 0);
+    const by = new Map();
+    for (const r of lt) { const k = r.sector || 'Sector unknown'; by.set(k, (by.get(k) || 0) + r.value); }
+    const sectors = [...by].map(([sector, value]) => {
+      const share = stocksValue > 0 ? value / stocksValue : 0;
+      const open = sector === 'Sector unknown' ? true : sectorOpen(value, stocksValue, L.sectorMax);
+      return { sector, value, share, open, known: sector !== 'Sector unknown', text: sector === 'Sector unknown' ? 'The site has no sector for these, so the sector limit cannot be checked for them.' : open ? `${pfPct(share, 0)} of your long-term stocks, under the ${pfPct(L.sectorMax)} limit.` : `${pfPct(share, 0)} of your long-term stocks: at or above the ${pfPct(L.sectorMax)} limit, so no new money here.` };
+    }).sort((a, b) => b.value - a.value);
+    return { positions, sectors, stocksValue, rules: L };
+  }
+  // the rule check for a buy of `amount` dollars of ticker t (before it, or as it was when you made it).
+  // ctx.shariah(t) -> { ok, reason } is the Shariah ledger's answer, passed in by the page (null: not available).
+  function pfBuyCheck(valued, rules, ctx, plan) {
+    const L = pfRulesOf(rules);
+    const t = plan.t;
+    const amount = plan.amount;
+    const checks = [];
+    const kind = ctx && ctx.kindOf ? ctx.kindOf(t) : 'stock';
+    const row = valued.rows.find((r) => r.t === t);
+    const held = row ? row.value : 0;
+    const total = valued.total;
+    checks.push(amount <= valued.cash + PF_EPS
+      ? { rule: 'cash', state: 'pass', text: `Cash recorded: ${pfMoney(valued.cash)}.` }
+      : { rule: 'cash', state: 'fail', text: `This needs ${pfMoney(amount)} but the ledger holds ${pfMoney(valued.cash)} in cash. Record the money you put in first: borrowing is ruled out.` });
+    if (kind !== 'stock') return { ok: checks.every((c) => c.state !== 'fail'), checks };
+    checks.push(worthAnOrder(amount, L.minOrder)
+      ? { rule: 'minOrder', state: 'pass', text: `At least the ${pfMoney(L.minOrder)} an order needs.` }
+      : { rule: 'minOrder', state: 'fail', text: `${pfMoney(amount)} is under the ${pfMoney(L.minOrder)} an order needs.` });
+    if (!(total > 0)) checks.push({ rule: 'buyCap', state: 'unknown', text: 'No value is recorded yet, so the one-stock limit cannot be worked out.' });
+    else {
+      const room = buyRoom(held, total, L.buyCap);
+      checks.push(amount <= room + PF_EPS
+        ? { rule: 'buyCap', state: 'pass', text: `It takes ${t} to ${pfPct((held + amount) / total, 1)} of the ledger, within your ${pfPct(L.buyCap)} limit (room: ${pfMoney(room)}).` }
+        : { rule: 'buyCap', state: 'fail', text: `It takes ${t} to ${pfPct((held + amount) / total, 1)} of the ledger; your limit for one stock is ${pfPct(L.buyCap)} (room: ${pfMoney(room)}).` });
+    }
+    const sector = ctx && ctx.sectorOf ? ctx.sectorOf(t) : null;
+    const swing = !!(ctx && ctx.isSwing && ctx.isSwing(t));
+    if (swing) checks.push({ rule: 'sector', state: 'pass', text: 'A short-term trade: outside the sector limit.' });
+    else if (!sector) checks.push({ rule: 'sector', state: 'unknown', text: 'The site has no sector for it, so the sector limit could not be checked.' });
+    else {
+      const ex = pfExposure(valued, L);
+      const cur = ex.sectors.find((s) => s.sector === sector);
+      const open = !cur || sectorOpen(cur.value, ex.stocksValue, L.sectorMax);
+      checks.push(open ? { rule: 'sector', state: 'pass', text: `${sector} is ${pfPct(cur ? cur.share : 0)} of your long-term stocks, under the ${pfPct(L.sectorMax)} limit.` }
+        : { rule: 'sector', state: 'fail', text: `${sector} is already ${pfPct(cur.share)} of your long-term stocks; the limit stops new money in a sector at ${pfPct(L.sectorMax)}.` });
+    }
+    const sh = ctx && ctx.shariah ? ctx.shariah(t) : null;
+    checks.push(!sh ? { rule: 'shariah', state: 'unknown', text: 'The Shariah ledger answer was not available.' }
+      : sh.ok ? { rule: 'shariah', state: 'pass', text: 'The Shariah ledger has a current Zoya check that says compliant.' }
+        : { rule: 'shariah', state: 'fail', text: `Shariah ledger: ${sh.reason}` });
+    return { ok: checks.every((c) => c.state !== 'fail'), checks };
+  }
+  // what a sale would realize, before it is recorded
+  function pfSellPreview(state, plan) {
+    const p = state.positions.find((x) => x.t === plan.t);
+    if (!p) return { ok: false, error: `${plan.t} is not held in the ledger` };
+    if (plan.shares > p.shares + PF_EPS) return { ok: false, error: `only ${pfShares(p.shares)} ${plan.t} held` };
+    const whole = plan.shares >= p.shares - PF_EPS;
+    const out = whole ? p.cost : (p.cost / p.shares) * plan.shares;
+    const net = plan.shares * plan.price - (plan.fees || 0);
+    return { ok: true, avgCost: p.avgCost, proceeds: net, costOut: out, realized: net - out, whole };
+  }
+
+  // ---------------------------------------------------------------- the holdings the rest of the page already uses
+  // holdings: [{ t, shares, cost }] from "Your portfolio now". Nothing is written; this only compares.
+  function pfReconcile(state, holdings) {
+    const led = new Map(state.positions.map((p) => [p.t, p.shares]));
+    const had = new Map();
+    for (const h of holdings || []) if (h && h.t && pfPos(h.shares)) had.set(h.t, (had.get(h.t) || 0) + h.shares);
+    const tickers = [...new Set([...led.keys(), ...had.keys()])].sort();
+    return tickers.map((t) => {
+      const a = led.get(t) || 0;
+      const b = had.get(t) || 0;
+      const status = a && !b ? 'only_ledger' : !a && b ? 'only_holdings' : Math.abs(a - b) <= 1e-4 ? 'match' : 'differs';
+      return { t, ledger: a, holdings: b, status };
+    });
+  }
+  // the opening entries that would bring the current holdings (and cash) into an empty or partly filled ledger.
+  // A holding with no cost is skipped and named: its average cost would be a guess.
+  function pfProposeOpening(state, holdings, cashNow, today) {
+    const known = new Set([...state.positions, ...state.closed].map((p) => p.t));
+    const entries = [];
+    const skipped = [];
+    for (const h of holdings || []) {
+      if (!h || !h.t || known.has(h.t)) continue;
+      if (!pfPos(h.shares)) continue;
+      if (!pfPos(h.cost)) { skipped.push({ t: h.t, why: 'no average cost recorded' }); continue; }
+      entries.push({ kind: 'open', t: h.t, date: today, shares: h.shares, cost: h.cost, note: 'Opening position from Your portfolio' });
+    }
+    if (pfPos(cashNow) && state.count === 0) entries.push({ kind: 'deposit', date: today, amount: cashNow, note: 'Opening cash from Your portfolio' });
+    return { entries, skipped };
+  }
+
+  // ---------------------------------------------------------------- value history
+  // One line per date, saved only when every position had a price (a partial total would be a guess). h = the ledger head
+  // the line was taken at. Past dates are never changed; the line for the latest date can be replaced while that date lasts.
+  const PF_HIST_KEYS = ['d', 'v', 'c', 'i', 'n', 'h'];
+  function pfHistLine(valued, state, head, date) {
+    if (!isDateISO(date) || !valued.complete || (!valued.rows.length && !(valued.cash > 0))) return null;
+    return { d: date, v: pfRound(valued.total), c: pfRound(valued.cash), i: pfRound(state.invested), n: valued.rows.length, h: head || '' };
+  }
+  function pfHistOk(l) {
+    return !!l && typeof l === 'object' && Object.keys(l).sort().join() === [...PF_HIST_KEYS].sort().join() && isDateISO(l.d) && pfNonNeg(l.v) && pfNonNeg(l.c) && pfNum(l.i) && Number.isInteger(l.n) && l.n >= 0 && typeof l.h === 'string';
+  }
+  function pfHistAdd(hist, line) {
+    const list = Array.isArray(hist) ? hist.filter(pfHistOk) : [];
+    if (!pfHistOk(line)) return { ok: false, hist: list, note: 'no line to add' };
+    const last = list.length ? list[list.length - 1] : null;
+    if (last && line.d < last.d) return { ok: false, hist: list, note: 'an earlier date than the last line; past lines are never changed' };
+    if (last && line.d === last.d) {
+      if (last.h === line.h && last.v === line.v) return { ok: true, hist: list, note: 'already saved' };
+      return { ok: true, hist: [...list.slice(0, -1), line], note: 'replaced the line for today' };
+    }
+    return { ok: true, hist: [...list, line], note: 'added' };
+  }
+  function pfHistMerge(local, incoming) {
+    const a = Array.isArray(local) ? local.filter(pfHistOk) : [];
+    const b = Array.isArray(incoming) ? incoming.filter(pfHistOk) : [];
+    const have = new Set(a.map((l) => l.d));
+    const add = b.filter((l) => !have.has(l.d));
+    const out = [...a, ...add].sort((x, y) => (x.d < y.d ? -1 : 1));
+    return { hist: out, added: add.length };
+  }
+  // ---- portfolio.js (end)
   const LIMIT_DEFAULTS = { buyCap: POLICY_RULES.buyCap, trimAt: POLICY_RULES.trimAt, sectorMax: POLICY_RULES.sectorMax, swingRisk: 0.005 };
   const LIMIT_RANGE = { buyCap: [0.02, 0.5], trimAt: [0.03, 0.6], sectorMax: [0.1, 1], swingRisk: [0.001, 0.02] };
   // a trim goes back to the buy limit, so the trim line must sit above it; a saved pair that breaks this is ignored
@@ -4922,8 +5375,11 @@ table.data tr.me td { background: var(--accent-wash); }
     if (shCard) parts.push(shCard);
     const thCard = thesisPortfolioCard(advRows); // the thesis and decision record (stage 5): a summary and the decision reports
     if (thCard) parts.push(thCard);
+    let pfCard = null; // the portfolio ledger (stage 6): a summary and a link; the ledger has its own page. It can never stop this page from drawing
+    try { pfCard = pfSummaryCard(scr); } catch { pfCard = null; }
+    if (pfCard) parts.push(pfCard);
     // the core first: the mix, then the index fund that carries most of it, then this month's buys
-    const ORDER = ['About you', 'Your target mix', ...(T.core > 0 ? ['Best halal funds for you'] : []), 'This month', 'Your portfolio now', 'Advice on what you hold', 'Shariah ledger', 'Thesis and decisions', 'Stocks that fit you', 'Holding periods'];
+    const ORDER = ['About you', 'Your target mix', ...(T.core > 0 ? ['Best halal funds for you'] : []), 'This month', 'Your portfolio now', 'Advice on what you hold', 'Shariah ledger', 'Thesis and decisions', 'Portfolio ledger', 'Stocks that fit you', 'Holding periods'];
     const lead = ORDER.map((lab) => parts.find((x) => x && x.getAttribute && x.getAttribute('aria-label') === lab)).filter(Boolean);
     el.replaceChildren(head, ...lead, ...parts.filter((x) => x !== head && !lead.includes(x)));
   }
@@ -4984,7 +5440,8 @@ table.data tr.me td { background: var(--accent-wash); }
   function backupOf(journal) {
     const sh = SHL.load();
     const th = THS.load();
-    return { ...journal, extra: { watch: W.load(), advisor: ADV.load(), shariah: { entries: sh.entries, anchor: anchorOf(sh.entries) }, thesis: { entries: th.entries, anchor: anchorOf(th.entries) } } };
+    const pf = PFL.load();
+    return { ...journal, extra: { watch: W.load(), advisor: ADV.load(), shariah: { entries: sh.entries, anchor: anchorOf(sh.entries) }, thesis: { entries: th.entries, anchor: anchorOf(th.entries) }, portfolio: { entries: pf.entries, anchor: anchorOf(pf.entries), hist: PFL.hist() } } };
   }
   // merge a backup into what is on this device: nothing local is overwritten, missing records are added
   function mergeBackup(local, inc) {
@@ -5018,7 +5475,16 @@ table.data tr.me td { background: var(--accent-wash); }
       const have = (local.thesis && local.thesis.entries) || [];
       thesis = a.ok ? mergeThesisLogs(have, ex.thesis.entries) : { ok: false, entries: have, added: 0, note: `The thesis record in the backup was not merged: ${a.note}.` };
     }
-    return { journal, watch, advisor, added, shariah, thesis };
+    // the portfolio ledger is joined the same way (see mergePortfolioLogs); its value history is added by date and never replaces a line here
+    let portfolio = null;
+    let pfHist = null;
+    if (ex.portfolio && Array.isArray(ex.portfolio.entries)) {
+      const a = checkAnchor(ex.portfolio.entries, ex.portfolio.anchor);
+      const have = (local.portfolio && local.portfolio.entries) || [];
+      portfolio = a.ok ? mergePortfolioLogs(have, ex.portfolio.entries) : { ok: false, entries: have, added: 0, note: `The portfolio ledger in the backup was not merged: ${a.note}.` };
+      if (Array.isArray(ex.portfolio.hist)) pfHist = pfHistMerge(local.pfHist || [], ex.portfolio.hist);
+    }
+    return { journal, watch, advisor, added, shariah, thesis, portfolio, pfHist };
   }
   function logTrade(t, plan) {
     journalPrefill = { t, ...plan };
@@ -5324,13 +5790,15 @@ table.data tr.me td { background: var(--accent-wash); }
         try {
           const inc = JSON.parse(String(rd.result));
           if (!inc || !Array.isArray(inc.trades)) throw new Error('bad');
-          const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load(), shariah: SHL.load(), thesis: THS.load() }, inc);
+          const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load(), shariah: SHL.load(), thesis: THS.load(), portfolio: PFL.load(), pfHist: PFL.hist() }, inc);
           JR.save(m.journal);
           W.save(m.watch);
           ADV.save(m.advisor);
           let lgNote = '';
           if (m.shariah) { if (m.shariah.ok && m.shariah.added > 0) SHL.save(m.shariah.entries); lgNote = ` Shariah ledger: ${m.shariah.note}`; }
           if (m.thesis) { if (m.thesis.ok && m.thesis.added > 0) THS.save(m.thesis.entries); lgNote += ` Thesis record: ${m.thesis.note}`; }
+          if (m.portfolio) { if (m.portfolio.ok && m.portfolio.added > 0) PFL.save(m.portfolio.entries); lgNote += ` Portfolio ledger: ${m.portfolio.note}`; }
+          if (m.pfHist && m.pfHist.added > 0) { PFL.saveHist(m.pfHist.hist); lgNote += ` Value history: ${m.pfHist.added} line${m.pfHist.added === 1 ? '' : 's'} added.`; }
           bmsg.textContent = `Added ${m.added.trades} trade${m.added.trades === 1 ? '' : 's'}, ${m.added.watch} watchlist stock${m.added.watch === 1 ? '' : 's'} and ${m.added.holdings} portfolio holding${m.added.holdings === 1 ? '' : 's'}. Anything already on this device was kept as it is.${lgNote}`;
           setTimeout(rerender, 1200);
         } catch { bmsg.textContent = 'That file is not a journal backup from this site.'; }
@@ -5342,7 +5810,7 @@ table.data tr.me td { background: var(--accent-wash); }
       h('p', { class: 'sub', text: 'The journal, your watchlist (with the shares you own) and the Portfolio page live in this browser only. Save a backup file now and then (on iPhone it goes to Files, where iCloud can keep it), and load it on your iPad or laptop to see the same data there.' }),
       j.trades.length && old ? h('div', { class: 'callout', text: j.backup ? `Last backup ${shortDate(j.backup)}. Time for a new one.` : 'No backup yet. If the browser’s data is cleared, the journal goes with it.' }) : null,
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn btn-sm', type: 'button', disabled: j.trades.length || W.load().items.length || ADV.load().profile || SHL.load().entries.length || THS.load().entries.length ? null : true, onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`stock-checker-backup-${localISO()}.json`, JSON.stringify(backupOf(k), null, 1), 'application/json'); setTimeout(rerender, 800); } }, 'Save backup'),
+        h('button', { class: 'btn btn-sm', type: 'button', disabled: j.trades.length || W.load().items.length || ADV.load().profile || SHL.load().entries.length || THS.load().entries.length || PFL.load().entries.length ? null : true, onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`stock-checker-backup-${localISO()}.json`, JSON.stringify(backupOf(k), null, 1), 'application/json'); setTimeout(rerender, 800); } }, 'Save backup'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => fileIn.click() }, 'Load a backup'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', disabled: j.trades.length ? null : true, onclick: () => saveFile(`trading-journal-${localISO()}.csv`, journalCsv(JR.load()), 'text/csv') }, 'Export for Excel')),
       fileIn, bmsg,
@@ -5902,14 +6370,409 @@ table.data tr.me td { background: var(--accent-wash); }
     paint();
     return card;
   }
-  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis'];
+  // ------------------------------------------------------------------ Portfolio ledger (stage 6): storage and pages
+  // The rules live in the portfolio.js block above. This part keeps the entries on this device (the anchor in a second key, so
+  // entries cut off the end show), reads the prices the page already has, and draws the ledger page and the Portfolio page's
+  // summary card. It is a record beside the Portfolio page, not a new source for it: the advice still reads the holdings you
+  // entered there, and nothing here changes a verdict, a signal, a valuation, a limit or the Shariah gate. The ledger and
+  // those holdings are only compared, and the comparison writes nothing.
+  const PFL = {
+    load() {
+      const d = store.get('portfolio', null);
+      return { entries: d && Array.isArray(d.entries) ? d.entries : [], anchor: store.get('portfolio_anchor', null) };
+    },
+    // true only if what was written can be read back
+    save(entries) {
+      store.set('portfolio', { v: 1, entries });
+      store.set('portfolio_anchor', anchorOf(entries));
+      const b = this.load();
+      return b.entries.length === entries.length && (!entries.length || b.entries[entries.length - 1].hash === entries[entries.length - 1].hash);
+    },
+    add(fields) {
+      const cur = this.load();
+      const r = appendPortfolio(cur.entries, fields, localISO(), new Date().toISOString());
+      if (!r.ok) return r;
+      if (!this.save(r.entries)) return { ok: false, entries: cur.entries, entry: null, errors: ['This device would not keep the entry (browser storage is full or blocked), so it was not recorded.'] };
+      return r;
+    },
+    hist() {
+      const d = store.get('portfolio_hist', null);
+      return d && Array.isArray(d.lines) ? d.lines.filter(pfHistOk) : [];
+    },
+    saveHist(lines) { store.set('portfolio_hist', { v: 1, lines }); },
+  };
+  // prices, kinds and sectors exactly as the Portfolio page reads them (the screen, a fund's live price, a price you typed on the Watchlist)
+  function pfContext(scr) {
+    const w = W.load();
+    const swing = new Set(holdingsFrom(w.items, JR.load().trades).sw.map((x) => x.t));
+    const own = new Map(w.items.filter((it) => ownPrice(it)).map((it) => [it.t, ownPrice(it)]));
+    return {
+      priceOf: (t) => {
+        const r = scr && scr.by.get(t);
+        if (r && isNum(r.price)) return r.price;
+        const f = fundBySym(t);
+        const live = f ? fundLive(f, t) : null;
+        if (live && isNum(live.usd)) return live.usd;
+        return own.has(t) ? own.get(t) : null;
+      },
+      kindOf: (t) => (fundBySym(t) ? 'fund' : 'stock'),
+      sectorOf: (t) => { const r = scr && scr.by.get(t); return r && r.sector ? r.sector : null; },
+      isSwing: (t) => swing.has(t),
+      shariah: (t) => { const g = ledgerGate(t); return { ok: !!g.ok, reason: g.reason || '' }; },
+    };
+  }
+  const pfRules = () => { const L = limits(); return { buyCap: L.buyCap, trimAt: L.trimAt, sectorMax: L.sectorMax, minOrder: POLICY_RULES.minOrder }; };
+  // what "Your portfolio now" holds, per ticker: shares, and an average cost only when every part of it has one
+  function pfHoldingsNow() {
+    const { lt, sw } = holdingsFrom(W.load().items, JR.load().trades);
+    const by = new Map();
+    const put = (t, shares, cost) => {
+      const g = by.get(t) || { t, shares: 0, spent: 0, known: true };
+      g.shares += shares;
+      if (isNum(cost) && cost > 0) g.spent += shares * cost; else g.known = false;
+      by.set(t, g);
+    };
+    for (const x of [...lt, ...sw]) if (isNum(x.shares) && x.shares > 0) put(x.t, x.shares, x.cost);
+    for (const o of ADV.load().other || []) if ((o.kind === 'stock' || o.kind === 'fund') && o.sym && isNum(o.shares) && o.shares > 0) put(String(o.sym).trim().toUpperCase(), o.shares, null);
+    const cash = (ADV.load().other || []).filter((o) => o.kind === 'cash' && isNum(o.value) && o.value > 0).reduce((s, o) => s + o.value, 0);
+    return { holdings: [...by.values()].map((g) => ({ t: g.t, shares: g.shares, cost: g.known && g.shares > 0 ? g.spent / g.shares : null })), cash };
+  }
+  // the whole picture from the saved entries and today's prices
+  function pfPicture(scr) {
+    const cur = PFL.load();
+    const today = localISO();
+    const check = verifyPortfolioLog(cur.entries, today);
+    const anchor = checkAnchor(cur.entries, cur.anchor);
+    const state = pfReplay(cur.entries);
+    const ctx = pfContext(scr);
+    const valued = pfValue(state, ctx);
+    const exposure = pfExposure(valued, pfRules());
+    return { cur, today, check, anchor, ok: check.ok && anchor.ok, state, ctx, valued, exposure };
+  }
+  // one line per price date, only from a full valuation of an intact record
+  function pfSaveHistory(scr, pic) {
+    try {
+      if (!scr || !scr.priceDate || !pic.ok || !pic.cur.entries.length) return null;
+      const line = pfHistLine(pic.valued, pic.state, pic.cur.entries[pic.cur.entries.length - 1].hash, scr.priceDate);
+      if (!line) return null;
+      const r = pfHistAdd(PFL.hist(), line);
+      if (r.ok && r.note !== 'already saved') PFL.saveHist(r.hist);
+      return r;
+    } catch { return null; }
+  }
+  const pfDate = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(String(iso || '')) ? `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${Number(iso.slice(8, 10))}, ${iso.slice(0, 4)}` : 'n/a');
+  const pfSigned = (x) => (isNum(x) ? (x > 0 ? '+' : '') + money0(x) : 'n/a');
+  const pfTone = (x) => (isNum(x) && x > 0 ? 'up' : isNum(x) && x < 0 ? 'down' : '');
+  function pfEntryText(e) {
+    if (e.kind === 'open') return `Already held: ${fmtShares(e.shares)} ${e.t} at an average of ${money0(e.cost)}`;
+    if (e.kind === 'buy') return `Bought ${fmtShares(e.shares)} ${e.t} at ${money0(e.price)}${e.fees ? `, fees ${money0(e.fees)}` : ''}`;
+    if (e.kind === 'sell') return `Sold ${fmtShares(e.shares)} ${e.t} at ${money0(e.price)}${e.fees ? `, fees ${money0(e.fees)}` : ''}`;
+    if (e.kind === 'dividend') return `Dividend from ${e.t}: ${money0(e.amount)}${e.tax ? ` (tax withheld ${money0(e.tax)})` : ''}`;
+    if (e.kind === 'fee') return `Fee or charge ${money0(e.amount)}${e.t ? ` on ${e.t}` : ''}`;
+    if (e.kind === 'deposit') return `Money put in: ${money0(e.amount)}`;
+    if (e.kind === 'withdraw') return `Money taken out: ${money0(e.amount)}`;
+    return `Voided entry ${e.fixes}: ${e.reason}`;
+  }
+  const PF_FORMS = {
+    buy: ['Bought a stock or fund', ['t', 'date', 'shares', 'price', 'fees', 'note']],
+    sell: ['Sold', ['t', 'date', 'shares', 'price', 'fees', 'note']],
+    dividend: ['Dividend received', ['t', 'date', 'amount', 'tax', 'note']],
+    fee: ['Fee or charge', ['date', 'amount', 't', 'note']],
+    deposit: ['Money put in', ['date', 'amount', 'note']],
+    withdraw: ['Money taken out', ['date', 'amount', 'note']],
+    open: ['Something I already held', ['t', 'date', 'shares', 'cost', 'note']],
+  };
+  const PF_LABELS = { t: 'Ticker, e.g. KO', date: 'Date (YYYY-MM-DD)', shares: 'Shares', price: 'Price per share ($)', fees: 'Fees ($, optional)', amount: 'Amount received or paid ($)', tax: 'Tax withheld ($, optional)', cost: 'Average cost per share ($, fees included)', note: 'Note (optional)' };
+  const PF_STATE_TONE = { pass: 'good', fail: 'bad', unknown: 'warn' };
+
+  // the form for one new entry, with the rule check and the sale preview shown as you type
+  function pfRecordForm(pic, onSaved) {
+    const box = h('div', { class: 'editbox own-form' });
+    const kindSel = h('select', { 'aria-label': 'What happened' }, ...Object.entries(PF_FORMS).map(([k, [lab]]) => thOpt(k, lab, k === 'buy')));
+    const msg = h('div', { class: 'callout', hidden: true, role: 'alert' });
+    const pv = h('div', { class: 'pf-preview', 'aria-live': 'polite' });
+    const ack = h('input', { type: 'checkbox' });
+    const ackRow = h('label', { class: 'field left', hidden: true }, ack, h('span', { text: 'This breaks a rule above. I already did it, so record it with these results.' }));
+    let inputs = {};
+    const val = (k) => { const i = inputs[k]; if (!i) return undefined; const v = i.value.trim(); if (k === 't' || k === 'date' || k === 'note') return v === '' ? undefined : v; return v === '' ? undefined : toNum(v); };
+    const fields = () => {
+      const kind = kindSel.value;
+      const f = { kind };
+      for (const k of PF_FORMS[kind][1]) { const v = val(k); if (v !== undefined) f[k] = v; }
+      if (typeof f.t === 'string') f.t = f.t.toUpperCase();
+      return f;
+    };
+    const preview = () => {
+      const f = fields();
+      const kind = f.kind;
+      pv.replaceChildren();
+      ackRow.hidden = true;
+      if (kind === 'buy' && f.t && isNum(f.shares) && isNum(f.price) && f.shares > 0 && f.price > 0) {
+        const amount = f.shares * f.price;
+        const r = pfBuyCheck(pic.valued, pfRules(), pic.ctx, { t: f.t, amount });
+        const row = pic.state.positions.find((p) => p.t === f.t);
+        const after = ((row ? row.cost : 0) + amount + (isNum(f.fees) ? f.fees : 0)) / ((row ? row.shares : 0) + f.shares);
+        pv.append(h('p', { class: 'note', text: `This buy costs ${money0(amount + (isNum(f.fees) ? f.fees : 0))}. Your average cost in ${f.t} would be ${money0(after)}.` }),
+          h('ul', { class: 'alert-list' }, r.checks.map((c) => h('li', null, toneIcon(PF_STATE_TONE[c.state]), h('span', { text: c.text })))));
+        ackRow.hidden = r.ok || r.checks.some((c) => c.rule === 'cash' && c.state === 'fail');
+      } else if (kind === 'sell' && f.t && isNum(f.shares) && isNum(f.price) && f.shares > 0 && f.price > 0) {
+        const r = pfSellPreview(pic.state, { t: f.t, shares: f.shares, price: f.price, fees: isNum(f.fees) ? f.fees : 0 });
+        pv.append(r.ok ? h('p', { class: 'note' }, `This sale brings in ${money0(r.proceeds)} after fees. Your average cost was ${money0(r.avgCost)}, so it realizes `, h('b', { class: pfTone(r.realized), text: pfSigned(r.realized) }), r.whole ? ' and closes the position.' : '.')
+          : h('p', { class: 'note', text: `Cannot record this sale: ${r.error}.` }));
+      }
+    };
+    const draw = () => {
+      inputs = {};
+      const kind = kindSel.value;
+      const grid = h('div', { class: 'form-grid' });
+      for (const k of PF_FORMS[kind][1]) {
+        const i = h('input', { type: 'text', autocomplete: 'off', autocapitalize: k === 't' ? 'characters' : 'none', inputmode: k === 't' || k === 'note' || k === 'date' ? (k === 'date' ? 'numeric' : 'text') : 'decimal', placeholder: k === 'date' ? localISO() : '' });
+        if (k === 'date') i.value = localISO();
+        i.addEventListener('input', preview);
+        inputs[k] = i;
+        grid.append(h('label', { class: 'field' }, h('span', { text: PF_LABELS[k] }), i));
+      }
+      body.replaceChildren(grid);
+      msg.hidden = true;
+      ack.checked = false;
+      preview();
+    };
+    const body = h('div');
+    kindSel.addEventListener('change', draw);
+    const save = h('button', { class: 'btn btn-sm', type: 'submit' }, 'Record it');
+    const form = h('form', { autocomplete: 'off', 'aria-label': 'Record an entry' }, thFld('What happened', kindSel), body, pv, ackRow, h('div', { class: 'row-actions' }, save), msg,
+      h('p', { class: 'note', text: 'An entry cannot be edited or deleted afterwards: a mistake is voided by a new entry that keeps the old one visible. Dates cannot be in the future.' }));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const f = fields();
+      if (f.kind === 'buy' && f.t && isNum(f.shares) && isNum(f.price) && f.shares > 0 && f.price > 0) {
+        const r = pfBuyCheck(pic.valued, pfRules(), pic.ctx, { t: f.t, amount: f.shares * f.price });
+        f.rules = r.checks;
+        if (!r.ok) {
+          if (!ack.checked) { msg.hidden = false; msg.replaceChildren(h('div', { text: 'This buy breaks a rule listed above. If you already made it, tick the box to record it with these results.' })); return; }
+          f.acknowledged = true;
+        }
+      }
+      const r = PFL.add(f);
+      if (!r.ok) { msg.hidden = false; msg.replaceChildren(...r.errors.map((x) => h('div', { text: x }))); return; }
+      onSaved();
+    });
+    box.append(form);
+    draw();
+    return box;
+  }
+
+  // a small chart of the saved value history: what the ledger was worth, and the money put in
+  function pfHistChart(lines) {
+    if (lines.length < 2) return null;
+    const W_ = 600, H_ = 150, pad = 6;
+    const ys = lines.flatMap((l) => [l.v, l.i]);
+    const lo = Math.min(...ys), hi = Math.max(...ys);
+    const X = (i) => pad + (i / (lines.length - 1)) * (W_ - 2 * pad);
+    const Y = (v) => (hi === lo ? H_ / 2 : pad + (1 - (v - lo) / (hi - lo)) * (H_ - 2 * pad));
+    const path = (f) => lines.map((l, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(f(l)).toFixed(1)}`).join(' ');
+    const svg = s('svg', { viewBox: `0 0 ${W_} ${H_}`, class: 'eq', role: 'img', 'aria-label': `Value of the ledger over ${lines.length} saved dates, now ${money0(lines[lines.length - 1].v)}, against ${money0(lines[lines.length - 1].i)} put in` });
+    svg.append(s('path', { d: path((l) => l.i), class: 'eq-zero', fill: 'none' }), s('path', { d: path((l) => l.v), class: 'eq-line', fill: 'none' }));
+    return svg;
+  }
+
+  // the ledger's own page
+  async function renderPfLedger() {
+    const el = $('#page-pfledger');
+    const head = pageHead('Portfolio ledger', 'Your cash, buys, sells, dividends and fees, kept as a record that cannot be quietly changed. From it: what you hold, average cost, profit and loss, and how each position and sector sits against your limits. Saved on this device only. Nothing here changes any advice.');
+    el.replaceChildren(head, loadingBox('Loading prices…'));
+    let scr = null;
+    try { scr = await loadScreen(); } catch { scr = null; }
+    if (page !== 'pfledger') return;
+    const rerender = () => renderPfLedger();
+    const pic = pfPicture(scr);
+    const { state: st, valued: v, exposure: ex, today } = pic;
+    const L = pfRules();
+    const parts = [head];
+    const hist = pfSaveHistory(scr, pic);
+
+    // 1. the record's own check
+    const status = h('section', { class: 'card', 'aria-label': 'Record status' }, h('h2', { text: 'Where things stand' }));
+    const lines = [h('li', null, toneIcon(pic.ok ? 'good' : 'bad'), h('span', { text: pic.ok ? (pic.cur.entries.length ? `Record intact: ${pic.cur.entries.length} entr${pic.cur.entries.length === 1 ? 'y' : 'ies'}, each linked to the one before it, and the cash and shares add up.` : 'No entries yet. Start with the money you put in, or with what you already hold.') : 'The record failed its integrity check. Nothing can be added until it is looked at.' }))];
+    const stale = staleOf(scr);
+    if (!scr) lines.push(h('li', null, toneIcon('warn'), h('span', { text: 'Today’s prices could not be loaded, so positions are valued at what they cost.' })));
+    else if (stale) lines.push(h('li', null, toneIcon('warn'), h('span', { text: `The nightly update is ${stale.missed} trading days late, so prices are from ${pfDate(stale.priceDate)}.` })));
+    if (v.unpriced.length) lines.push(h('li', null, toneIcon('warn'), h('span', { text: `No price for ${v.unpriced.join(', ')}: valued at what ${v.unpriced.length === 1 ? 'it' : 'they'} cost, with no profit or loss shown for ${v.unpriced.length === 1 ? 'it' : 'them'}, and the total gain is withheld. A price typed on the Watchlist (“I own it”) is used here too.` })));
+    status.append(h('ul', { class: 'alert-list' }, lines));
+    if (!pic.ok) status.append(h('div', { class: 'callout' }, ...pic.check.problems.slice(0, 8).map((p) => h('div', { text: p })), pic.anchor.ok ? null : h('div', { text: pic.anchor.note })));
+    parts.push(status);
+
+    // 2. totals
+    if (pic.cur.entries.length) {
+      const sum = h('section', { class: 'card', 'aria-label': 'Ledger totals' }, h('h2', { text: 'The ledger now' }));
+      const gainTxt = isNum(v.gain) ? `${v.gain > 0 ? '+' : ''}${money0(v.gain)}` : 'n/a';
+      sum.append(h('div', { class: 'stats' },
+        stat('Total value', money0(v.total), `${money0(v.positionsValue)} in holdings, ${money0(v.cash)} cash (${pct(v.cashWeight, 0)})`),
+        stat('Put in', money0(st.invested), 'cash in, less cash out, plus what you already held'),
+        stat('Total gain', gainTxt, isNum(v.gainPct) ? `${pct(v.gainPct, 1)} of what was put in` : 'withheld until every position has a price'),
+        stat('Realized', pfSigned(st.realized), 'from sales, after fees'),
+        stat('Unrealized', pfSigned(v.unrealized), v.unpriced.length ? 'priced positions only' : 'what you hold, against its cost'),
+        stat('Dividends', money0(st.dividends), st.tax ? `${money0(st.tax)} tax withheld, recorded only` : 'received'),
+        stat('Fees', money0(st.tradeFees + st.otherFees), `${money0(st.tradeFees)} on trades (already inside cost and sales), ${money0(st.otherFees)} other`)));
+      sum.append(h('p', { class: 'note', text: 'Total gain = realized + unrealized + dividends - other fees. Trade fees are already part of each position’s cost and of each sale’s result, so they are not taken off twice.' }));
+      parts.push(sum);
+
+      // 3. positions against your limits
+      const pos = h('section', { class: 'card', 'aria-label': 'Ledger positions' }, h('h2', { text: 'Positions, average cost and your limits' }));
+      pos.append(h('p', { class: 'sub', text: `Your limits: one stock up to ${pct(L.buyCap, 0)} of the ledger (trimmed back from ${pct(L.trimAt, 0)}), one sector up to ${pct(L.sectorMax, 0)} of your long-term stocks, and orders of at least ${money0(L.minOrder)}. Weights are shares of what this ledger holds, cash included.` }));
+      if (v.rows.length) {
+        const exOf = (t) => ex.positions.find((p) => p.t === t);
+        pos.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+          h('tr', null, ['Holding', 'Shares', 'Average cost', 'Price', 'Value', 'Share', 'Profit or loss', 'Against your limits'].map((x) => h('th', { text: x }))),
+          v.rows.map((r) => {
+            const e = exOf(r.t);
+            const tone = e.state === 'trim' ? 'bad' : e.state === 'trim_small' || e.state === 'at_cap' ? 'warn' : 'good';
+            return h('tr', null,
+              h('td', null, h('b', { text: r.t }), r.swing ? h('span', { class: 'sm', text: ' short-term' }) : null, r.kind === 'fund' ? h('span', { class: 'sm', text: ' fund' }) : null),
+              h('td', { text: fmtShares(r.shares) }), h('td', { text: money0(r.avgCost) }),
+              h('td', { text: r.priced ? money0(r.price) : 'no price' }),
+              h('td', { text: money0(r.value) + (r.priced ? '' : ' (cost)') }), h('td', { text: pct(r.weight, 1) }),
+              h('td', null, r.priced ? h('span', { class: pfTone(r.unrealized) }, `${pfSigned(r.unrealized)} (${pct(r.unrealizedPct, 1)})`) : h('span', { class: 'sm', text: 'n/a' })),
+              h('td', null, e.state === 'fund' ? h('span', { class: 'sm', text: 'not under the one-stock limits' }) : h('span', { class: 'tag t-' + tone, text: e.state === 'trim' ? `Trim about ${money0(e.trimBy)}` : e.state === 'trim_small' ? 'Over, trim too small' : e.state === 'at_cap' ? 'At the limit' : 'Within limits' })));
+          }),
+          h('tr', null, h('td', null, h('b', { text: 'Cash' })), h('td'), h('td'), h('td'), h('td', { text: money0(v.cash) }), h('td', { text: pct(v.cashWeight, 1) }), h('td'), h('td')))));
+        const notes = ex.positions.filter((e) => e.state === 'trim' || e.state === 'trim_small' || e.state === 'at_cap').map((e) => h('li', null, h('b', { text: e.t + ': ' }), e.text));
+        if (notes.length) pos.append(h('ul', { class: 'warnbox' }, notes));
+        pos.append(h('p', { class: 'note', text: 'This shows where you stand against your own limits. Whether to buy or sell is still decided on the Portfolio page and the stock pages, by the same rules as before.' }));
+      } else pos.append(h('p', { class: 'sub', text: 'Nothing is held in the ledger right now.' }));
+      parts.push(pos);
+
+      // 4. sectors
+      if (ex.sectors.length) {
+        const sec = h('section', { class: 'card', 'aria-label': 'Sector exposure' }, h('h2', { text: 'Sector exposure' }));
+        sec.append(h('p', { class: 'sub', text: `A share of your long-term stocks in the ledger (${money0(ex.stocksValue)}). Funds and short-term trades are not part of it.` }));
+        sec.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+          h('tr', null, ['Sector', 'Value', 'Share', ''].map((x) => h('th', { text: x }))),
+          ex.sectors.map((x) => h('tr', null, h('td', { text: x.sector }), h('td', { text: money0(x.value) }), h('td', { text: pct(x.share, 0) }),
+            h('td', null, h('span', { class: 'tag t-' + (!x.known ? 'warn' : x.open ? 'good' : 'bad'), text: !x.known ? 'Cannot be checked' : x.open ? `Under ${pct(L.sectorMax, 0)}` : `At or above ${pct(L.sectorMax, 0)}: no new money` })))))));
+        parts.push(sec);
+      }
+
+      // 5. what has been realized
+      if (st.trades.length || st.closed.length) {
+        const rl = h('section', { class: 'card', 'aria-label': 'Realized results' }, h('h2', { text: 'Sales and realized results' }));
+        rl.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+          h('tr', null, ['Date', 'Sold', 'At', 'Average cost', 'Fees', 'Realized'].map((x) => h('th', { text: x }))),
+          [...st.trades].reverse().map((tr) => h('tr', null, h('td', { text: pfDate(tr.date) }), h('td', { text: `${fmtShares(tr.shares)} ${tr.t}` }), h('td', { text: money0(tr.price) }), h('td', { text: money0(tr.avgCost) }), h('td', { text: money0(tr.fees) }), h('td', null, h('span', { class: pfTone(tr.realized), text: pfSigned(tr.realized) })))))));
+        parts.push(rl);
+      }
+    }
+
+    // 6. compared with Your portfolio now
+    const now = pfHoldingsNow();
+    const rec = pfReconcile(st, now.holdings);
+    const prop = pfProposeOpening(st, now.holdings, now.cash, today);
+    if (rec.length || prop.entries.length) {
+      const rc = h('section', { class: 'card', 'aria-label': 'Compared with Your portfolio' }, h('h2', { text: 'Compared with “Your portfolio now”' }));
+      const bad = rec.filter((x) => x.status !== 'match');
+      rc.append(h('p', { class: 'sub', text: bad.length ? `${bad.length} of ${rec.length} line${rec.length === 1 ? '' : 's'} differ. The Portfolio page’s advice reads its own holdings, not this ledger, so a difference means one of the two is out of date.` : 'The ledger and the holdings on the Portfolio page hold the same shares.' }));
+      if (rec.length) rc.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+        h('tr', null, ['Holding', 'In the ledger', 'On the Portfolio page', ''].map((x) => h('th', { text: x }))),
+        rec.map((x) => h('tr', null, h('td', null, h('b', { text: x.t })), h('td', { text: x.ledger ? fmtShares(x.ledger) : 'none' }), h('td', { text: x.holdings ? fmtShares(x.holdings) : 'none' }),
+          h('td', null, h('span', { class: 'tag t-' + (x.status === 'match' ? 'good' : 'warn'), text: { match: 'Match', differs: 'Different', only_ledger: 'Only in the ledger', only_holdings: 'Only on the Portfolio page' }[x.status] })))))));
+      if (prop.entries.length || prop.skipped.length) {
+        const open = h('div');
+        rc.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => {
+          open.replaceChildren(...[
+            h('p', { class: 'note', text: 'These entries would be added, dated today. They record what you already hold; they do not touch cash (except the opening cash) and change nothing on the Portfolio page.' }),
+            h('ul', null, prop.entries.map((e) => h('li', { text: pfEntryText(e) }))),
+            prop.skipped.length ? h('p', { class: 'note', text: `Not added (${prop.skipped.map((x) => `${x.t}: ${x.why}`).join('; ')}). Record those with “Something I already held” and their real average cost.` }) : null,
+            prop.entries.length ? h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => {
+              for (const f of prop.entries) { const r = PFL.add(f); if (!r.ok) { open.replaceChildren(h('div', { class: 'callout' }, r.errors.map((x) => h('div', { text: x })))); return; } }
+              rerender();
+            } }, `Add ${prop.entries.length} entr${prop.entries.length === 1 ? 'y' : 'ies'}`)) : null].filter(Boolean));
+        } }, 'Start the ledger from my current holdings')), open);
+      }
+      parts.push(rc);
+    }
+
+    // 7. record something
+    const form = h('section', { class: 'card', 'aria-label': 'Record an entry' }, h('h2', { text: 'Record something' }));
+    form.append(pic.ok ? pfRecordForm(pic, rerender) : h('p', { class: 'sub', text: 'Recording is switched off while the record fails its check.' }));
+    parts.push(form);
+
+    // 8. history of entries
+    if (pic.cur.entries.length) {
+      const voided = new Set(st.voided);
+      const hs = h('section', { class: 'card', 'aria-label': 'Ledger history' }, h('h2', { text: 'Every entry' }));
+      const list = h('ul', { class: 'pf-list' });
+      for (const e of [...pic.cur.entries].filter((x) => x && typeof x === 'object').reverse()) {
+        const dead = voided.has(e.n);
+        const li = h('li', null,
+          h('div', { class: 'pf-row' }, h('span', { class: 'sm', text: e.kind === 'correction' ? `#${e.n}` : `#${e.n} · ${pfDate(e.date)}` }),
+            h('span', { class: dead ? 'pf-void' : '', text: pfEntryText(e) }),
+            dead ? h('span', { class: 'tag t-warn', text: 'Voided' }) : null,
+            e.acknowledged ? h('span', { class: 'tag t-bad', text: 'Broke a rule' }) : null),
+          e.rules ? h('details', null, h('summary', { text: 'Rule check when it was recorded' }), h('ul', { class: 'alert-list' }, e.rules.map((c) => h('li', null, toneIcon(PF_STATE_TONE[c.state]), h('span', { text: c.text }))))) : null,
+          e.note ? h('div', { class: 'note', text: e.note }) : null);
+        if (e.kind !== 'correction' && !dead && pic.ok) {
+          const box = h('div');
+          li.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => {
+            const why = h('input', { type: 'text', autocomplete: 'off', placeholder: 'Why it is wrong' });
+            const err = h('div', { class: 'callout', hidden: true, role: 'alert' });
+            box.replaceChildren(thFld('Reason', why), h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => {
+              const r = PFL.add({ kind: 'correction', fixes: e.n, reason: why.value });
+              if (!r.ok) { err.hidden = false; err.replaceChildren(...r.errors.map((x) => h('div', { text: x }))); return; }
+              rerender();
+            } }, 'Void this entry')), err);
+          } }, 'Void')), box);
+        }
+        list.append(li);
+      }
+      hs.append(list);
+      parts.push(hs);
+    }
+
+    // 9. value history
+    const lines2 = PFL.hist();
+    const vh = h('section', { class: 'card', 'aria-label': 'Value history' }, h('h2', { text: 'Value over time' }));
+    if (lines2.length) {
+      const chart = pfHistChart(lines2);
+      if (chart) vh.append(chart, h('p', { class: 'note', text: 'Solid line: what the ledger was worth. Dashed line: the money put in. The gap is the gain.' }));
+      vh.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+        h('tr', null, ['Price date', 'Value', 'Put in', 'Gain', 'Cash'].map((x) => h('th', { text: x }))),
+        [...lines2].reverse().slice(0, 12).map((l) => h('tr', null, h('td', { text: pfDate(l.d) }), h('td', { text: money0(l.v) }), h('td', { text: money0(l.i) }), h('td', null, h('span', { class: pfTone(l.v - l.i), text: pfSigned(l.v - l.i) })), h('td', { text: money0(l.c) }))))));
+    } else vh.append(h('p', { class: 'sub', text: pic.cur.entries.length ? 'No line saved yet. One line is saved for each price date, and only when every position has a price.' : 'History starts once the ledger has entries and every position has a price.' }));
+    vh.append(h('p', { class: 'note', text: `${hist && hist.ok && hist.note !== 'already saved' ? 'Today’s line was just saved. ' : ''}A line is saved when you open this page or the Portfolio page, for the date of the latest prices, never for a date in the past, and never from a partial valuation. It is part of the backup file. Past prices cannot be rebuilt, so the history only starts from the first day you used the ledger.` }));
+    parts.push(vh);
+    el.replaceChildren(...parts);
+  }
+  // the Portfolio page's card: a few numbers and a link, never a recommendation
+  function pfSummaryCard(scr) {
+    const pic = pfPicture(scr);
+    const { state: st, valued: v, exposure: ex } = pic;
+    const now = pfHoldingsNow();
+    if (!pic.cur.entries.length && !now.holdings.length) return null;
+    pfSaveHistory(scr, pic);
+    let line;
+    if (!pic.ok) line = 'The record failed its integrity check. Open the ledger to see why.';
+    else if (!pic.cur.entries.length) line = 'Not started. Record your cash and trades to track average cost, profit and loss, dividends, fees and your limits.';
+    else {
+      const over = ex.positions.filter((e) => e.state === 'trim' || e.state === 'trim_small').length;
+      const closed = ex.sectors.filter((x) => x.known && !x.open).length;
+      const diff = pfReconcile(st, now.holdings).filter((x) => x.status !== 'match').length;
+      line = `Worth ${money0(v.total)} (${money0(v.cash)} cash). ${isNum(v.gain) ? `Gain ${pfSigned(v.gain)}.` : 'Gain withheld until every position has a price.'} Realized ${pfSigned(st.realized)}, dividends ${money0(st.dividends)}.${over ? ` ${over} position${over === 1 ? '' : 's'} over your size line.` : ''}${closed ? ` ${closed} sector${closed === 1 ? '' : 's'} at the limit.` : ''}${diff ? ` ${diff} line${diff === 1 ? '' : 's'} differ from the holdings above.` : ''}`;
+    }
+    return h('section', { class: 'card', 'aria-label': 'Portfolio ledger' },
+      h('h2', { text: 'Portfolio ledger' }),
+      h('p', { class: 'sub', text: line }),
+      h('p', { class: 'note', text: 'Your own record of cash, trades, dividends and fees, with average cost and profit worked out from it. It sits beside the plan above and changes no advice.' }),
+      h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => navigate('pfledger') }, pic.cur.entries.length ? 'Open the ledger' : 'Start the ledger')));
+  }
+
+  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
   let page = 'stock';
   function showPage(p) {
     page = p;
     PAGES.forEach((k) => { const el = document.getElementById('page-' + k); if (el) el.hidden = k !== p; });
     const hb = document.getElementById('healthBanner');
     if (hb) hb.hidden = p === 'record' || !hb.firstChild; // the Record page shows the full System health card
-    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === (p === 'shariah' || p === 'thesis' ? 'advisor' : p) ? 'page' : 'false'));
+    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === (p === 'shariah' || p === 'thesis' || p === 'pfledger' ? 'advisor' : p) ? 'page' : 'false'));
     $('#how').hidden = true;
     hideTip();
     if (p === 'shortlist') renderShortlist();
@@ -5919,6 +6782,7 @@ table.data tr.me td { background: var(--accent-wash); }
     else if (p === 'advisor') renderAdvisor();
     else if (p === 'shariah') renderShariah();
     else if (p === 'thesis') renderThesis();
+    else if (p === 'pfledger') renderPfLedger();
     window.scrollTo(0, 0);
     riseIn(document.getElementById('page-' + p));
   }
@@ -7528,7 +8392,7 @@ table.data tr.me td { background: var(--accent-wash); }
     });
   }
   // test hook for the automated page tests (test/page.test.py); inert unless the page is opened with ?selftest=1
-  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, shariahGate, ledgerGate, SHL }, thesis: { appendThesis, verifyThesisLog, thesisState, thesisOverview, thesisChanges, explainDecision, conditionStates, mergeThesisLogs, THS, thesisEvidence, decisionDraft }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
+  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, shariahGate, ledgerGate, SHL }, thesis: { appendThesis, verifyThesisLog, thesisState, thesisOverview, thesisChanges, explainDecision, conditionStates, mergeThesisLogs, THS, thesisEvidence, decisionDraft }, portfolio: { appendPortfolio, verifyPortfolioLog, mergePortfolioLogs, pfReplay, pfValue, pfExposure, pfBuyCheck, pfSellPreview, pfReconcile, pfProposeOpening, pfHistLine, pfHistAdd, pfHistMerge, PFL, pfPicture, pfContext }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
 })();
 </script>
 </body>

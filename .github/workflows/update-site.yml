@@ -56,6 +56,8 @@ jobs:
         run: node --test test/shariah-ledger.test.mjs
       - name: Test the thesis and decision record
         run: node --test test/thesis.test.mjs
+      - name: Test the portfolio ledger
+        run: node --test test/portfolio.test.mjs
 
   page-tests:
     runs-on: ubuntu-latest

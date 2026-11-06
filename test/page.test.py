@@ -1540,6 +1540,214 @@ async def main():
         check(not errs, f'no page errors on the purification card {errs}')
         await pg.close()
 
+        # ---- Stage 6: the portfolio ledger. It records and measures; it never changes a call, a limit or a valuation.
+        PF_SEED = [{'t': t, 'status': 'compliant', 'ago': 3} for t in ('AAPL', 'MSFT', 'KO')]
+
+        async def pf_page(path='&p=pfledger', st=None, specs=PF_SEED, wait=1800):
+            pg, errs = await page_with(ctx, base, fresh, st or gl_state, '', None, {'data/lt-summary.json': LT}, with_events)
+            if specs is not None:
+                await pg.evaluate(SEED_SPEC, specs)
+            await pg.goto(base + '?selftest=1' + path)
+            await pg.wait_for_timeout(wait)
+            return pg, errs
+
+        PF_FILL = r"""(o) => { const f = document.querySelector('form[aria-label="Record an entry"]');
+          const sel = f.querySelector('select'); sel.value = o.kind; sel.dispatchEvent(new Event('change', { bubbles: true }));
+          const set = (label, v) => { const l = [...f.querySelectorAll('label.field')].find((x) => x.querySelector('span') && x.querySelector('span').textContent.startsWith(label)); const i = l.querySelector('input'); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); };
+          for (const [k, v] of Object.entries(o.f)) set(k, v);
+          if (o.ack) f.querySelector('input[type=checkbox]').checked = true;
+          if (!o.nosubmit) f.requestSubmit(); }"""
+        PF_STORE = "JSON.parse(localStorage.getItem('portfolio') || '{\"entries\":[]}').entries"
+        PF_STATE = "(() => { const S = window.__sc.portfolio; const e = JSON.parse(localStorage.getItem('portfolio') || '{\"entries\":[]}').entries; return S.pfReplay(e); })()"
+
+        async def pf_add(pg, kind, f, ack=False, wait=900):
+            await pg.evaluate(PF_FILL, {'kind': kind, 'f': f, 'ack': ack})
+            await pg.wait_for_timeout(wait)
+
+        # the Portfolio page: a card for the ledger, "not started", with the advice above it exactly as it was
+        pg, errs = await pf_page('&p=advisor')
+        rows0 = await th_rows(pg)
+        plan0 = await pg.inner_text('section[aria-label="This month"]')
+        card = await pg.inner_text('section[aria-label="Portfolio ledger"]')
+        check('Not started' in card and 'Start the ledger' in card and 'changes no advice' in card, f'portfolio: the ledger card says it has not started and offers to start: {card[:260]!r}')
+        check(await pg.evaluate("localStorage.getItem('portfolio')") is None and await pg.evaluate("localStorage.getItem('portfolio_hist')") is None, 'portfolio: looking at the card writes nothing while the ledger is empty')
+        check(not errs, f'no page errors on the Portfolio page with the ledger card {errs}')
+        await pg.close()
+
+        # the ledger page: empty, then started from the holdings the Portfolio page already has
+        pg, errs = await pf_page()
+        txt = await pg.inner_text('#page-pfledger')
+        check('No entries yet' in txt and 'Start the ledger from my current holdings' in txt, f'ledger page: an empty ledger says so and offers to start from current holdings: {txt[:300]!r}')
+        check('Only on the Portfolio page' in txt and 'AAPL' in txt and 'MSFT' in txt, 'ledger page: the comparison names the holdings that are only on the Portfolio page')
+        await pg.click('button:has-text("Start the ledger from my current holdings")')
+        prev = await pg.inner_text('#page-pfledger section[aria-label="Compared with Your portfolio"]')
+        check('Already held: 2 AAPL at an average of $150.00' in prev and 'Already held: 1 MSFT at an average of $300.00' in prev, f'ledger page: the preview lists the opening entries before anything is written: {prev[-400:]!r}')
+        check(await pg.evaluate("localStorage.getItem('portfolio')") is None, 'ledger page: nothing is written until the opening entries are confirmed')
+        await pg.click('button:has-text("Add 2 entries")')
+        await pg.wait_for_timeout(1500)
+        ent = await pg.evaluate(PF_STORE)
+        check([(e['kind'], e['t'], e['shares'], e['cost']) for e in ent] == [('open', 'AAPL', 2, 150), ('open', 'MSFT', 1, 300)], f'ledger page: the opening entries are the holdings and their costs: {ent}')
+        check(await pg.evaluate("window.__sc.portfolio.verifyPortfolioLog(JSON.parse(localStorage.getItem('portfolio')).entries).ok"), 'ledger page: the stored record passes its own check')
+        txt = await pg.inner_text('#page-pfledger')
+        check('Record intact: 2 entries' in txt and 'Match' in txt and 'differ' not in txt.split('Compared with')[1][:200], 'ledger page: the ledger and the holdings match after starting')
+        pos = await pg.evaluate("window.__sc.portfolio.pfPicture(null)")
+        # AAPL 2 x 342 and MSFT 1 x 539.44, put in 600: the gain is the unrealized result
+        tot = await pg.inner_text('#page-pfledger section[aria-label="Ledger totals"]')
+        check('$1,223.44' in tot and '+$623.44' in tot and '$600.00' in tot, f'ledger page: total value, gain and the money put in are the fixture prices against the costs: {tot[:400]!r}')
+        positions = await pg.inner_text('#page-pfledger section[aria-label="Ledger positions"]')
+        check('+$384.00' in positions and '+$239.44' in positions, f'ledger page: unrealized result per position: {positions[-500:]!r}')
+        h1 = await pg.evaluate("JSON.parse(localStorage.getItem('portfolio_hist') || '{\"lines\":[]}').lines")
+        check(len(h1) == 1 and h1[0]['d'] == fresh and abs(h1[0]['v'] - 1223.44) < 0.01 and abs(h1[0]['i'] - 600) < 1e-6, f'ledger page: one value-history line was saved for the price date: {h1}')
+        check(not errs, f'no page errors on the ledger page {errs}')
+        await pg.close()
+
+        # record cash, a buy that breaks a rule, a sale, a dividend and a fee through the form
+        pg, errs = await pf_page('&p=pfledger', specs=PF_SEED)
+        await pg.evaluate("(() => { const P = window.__sc.portfolio; for (const f of [{ kind: 'open', t: 'AAPL', date: '2026-09-01', shares: 2, cost: 150 }, { kind: 'open', t: 'MSFT', date: '2026-09-01', shares: 1, cost: 300 }]) P.PFL.add(f); })()")
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+        await pf_add(pg, 'deposit', {'Date': '2026-10-01', 'Amount': '1,000', 'Note': 'start'})
+        st_ = await pg.evaluate(PF_STATE)
+        check(near(st_['cash'], 1000) and near(st_['invested'], 1600), f'form: money put in raises cash and the amount put in: {st_["cash"]} {st_["invested"]}')
+        # the buy: rule check shown as you type; unticked, it is not recorded
+        await pg.evaluate(PF_FILL, {'kind': 'buy', 'f': {'Ticker': 'ko', 'Date': '2026-10-02', 'Shares': '5', 'Price per share': '90', 'Fees': '1'}, 'nosubmit': True})
+        pv = await pg.inner_text('#page-pfledger .pf-preview')
+        check('This buy costs $451.00' in pv and 'average cost in KO would be $90.20' in pv, f'form: the buy shows its cost and the new average cost: {pv!r}')
+        check('your limit for one stock is 10%' in pv and 'within your' not in pv, f'form: the one-stock limit is applied to the buy: {pv!r}')
+        check('Shariah ledger' not in pv or 'current Zoya check that says compliant' in pv, f'form: the Shariah ledger answer is shown (compliant is seeded): {pv!r}')
+        await pg.evaluate("document.querySelector('form[aria-label=\"Record an entry\"]').requestSubmit()")
+        await pg.wait_for_timeout(500)
+        msg = await pg.inner_text('#page-pfledger form[aria-label="Record an entry"] .callout')
+        check('breaks a rule' in msg and len(await pg.evaluate(PF_STORE)) == 3, f'form: a buy that breaks a rule is not recorded until you confirm it: {msg!r}')
+        await pf_add(pg, 'buy', {'Ticker': 'KO', 'Date': '2026-10-02', 'Shares': '5', 'Price per share': '90', 'Fees': '1'}, ack=True)
+        ent = await pg.evaluate(PF_STORE)
+        check(len(ent) == 4 and ent[3]['kind'] == 'buy' and ent[3].get('acknowledged') is True and any(r['rule'] == 'buyCap' and r['state'] == 'fail' for r in ent[3]['rules']), f'form: the buy is recorded with the rule check of that day and the confirmation: {ent[3] if len(ent) > 3 else ent}')
+        hist_txt = await pg.inner_text('#page-pfledger section[aria-label="Ledger history"]')
+        check('Broke a rule' in hist_txt and 'Bought 5 KO at $90.00, fees $1.00' in hist_txt, f'ledger page: the history marks the buy that broke a rule: {hist_txt[:300]!r}')
+        await pf_add(pg, 'sell', {'Ticker': 'AAPL', 'Date': '2026-10-20', 'Shares': '1', 'Price per share': '350', 'Fees': '1'})
+        await pf_add(pg, 'dividend', {'Ticker': 'KO', 'Date': '2026-10-25', 'Amount': '2.50'})
+        await pf_add(pg, 'fee', {'Date': '2026-10-26', 'Amount': '3'})
+        st_ = await pg.evaluate(PF_STATE)
+        check(near(st_['cash'], 897.5) and near(st_['realized'], 199) and near(st_['dividends'], 2.5) and near(st_['otherFees'], 3) and near(st_['tradeFees'], 2), f'form: cash, realized result, dividends and fees come out right: {st_["cash"]} {st_["realized"]} {st_["dividends"]} {st_["otherFees"]}')
+        kos = [p for p in st_['positions'] if p['t'] == 'KO'][0]
+        check(near(kos['avgCost'], 90.2) and near(kos['shares'], 5), 'form: the average cost includes the buying fee')
+        txt = await pg.inner_text('#page-pfledger')
+        check('+$199.00' in txt and 'Sales and realized results' in txt, 'ledger page: the sale and its realized result are listed')
+        # limits: AAPL is now 15.3% of the ledger, MSFT 24.1%, KO 20.5%; tech is 66% of the long-term stocks
+        positions = await pg.inner_text('#page-pfledger section[aria-label="Ledger positions"]')
+        check('Trim about' in positions and 'Your limits: one stock up to 10%' in positions, f'ledger page: positions above the size line show the trim the rule gives: {positions[:700]!r}')
+        sec = await pg.inner_text('#page-pfledger section[aria-label="Sector exposure"]')
+        check('Technology' in sec and 'no new money' in sec and 'Consumer Staples' in sec, f'ledger page: the sector over its limit says no new money: {sec!r}')
+        # the advice on the Portfolio page is not touched by any of this
+        await pg.goto(base + '?selftest=1&p=advisor'); await pg.wait_for_timeout(1800)
+        check(await th_rows(pg) == rows0, 'a ledger full of entries changes no advice on what you hold')
+        check(await pg.inner_text('section[aria-label="This month"]') == plan0, 'a ledger full of entries changes nothing in this month’s plan')
+        card = await pg.inner_text('section[aria-label="Portfolio ledger"]')
+        check('Worth $' in card and 'Realized +$199.00' in card and 'over your size line' in card and 'at the limit' in card, f'portfolio: the ledger card summarizes value, realized result and the limits: {card!r}')
+        check(not errs, f'no page errors recording entries and on the Portfolio page {errs}')
+        await pg.close()
+
+        # a correction voids an entry, keeps it visible, and cannot break the record
+        pg, errs = await pf_page('&p=pfledger', specs=PF_SEED)
+        await pg.evaluate("(() => { const P = window.__sc.portfolio; for (const f of [{ kind: 'deposit', date: '2026-10-01', amount: 1000 }, { kind: 'buy', t: 'KO', date: '2026-10-02', shares: 5, price: 90, fees: 0 }, { kind: 'fee', date: '2026-10-26', amount: 3 }]) { const r = P.PFL.add(f.kind === 'buy' ? { ...f, rules: [{ rule: 'cash', state: 'pass', text: 'ok' }] } : f); if (!r.ok) throw new Error(r.errors.join()); } })()")
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+        async def void_entry(n, why):
+            await pg.evaluate("(n) => { const li = [...document.querySelectorAll('#page-pfledger .pf-list > li')].find((x) => x.textContent.startsWith('#' + n + ' ')); li.querySelector('button').click(); }", n)
+            await pg.evaluate("(why) => { const i = document.querySelector('#page-pfledger .pf-list input[type=text]'); i.value = why; }", why)
+            await pg.evaluate("() => { [...document.querySelectorAll('#page-pfledger .pf-list button')].find((b) => b.textContent === 'Void this entry').click(); }")
+            await pg.wait_for_timeout(900)
+        await void_entry(0, 'wrong')
+        err_ = await pg.inner_text('#page-pfledger .pf-list .callout')
+        check('would make the record impossible' in err_ and len(await pg.evaluate(PF_STORE)) == 3, f'correction: voiding the deposit that paid for a buy is refused with the reason: {err_!r}')
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+        await void_entry(2, 'typed twice')
+        ent = await pg.evaluate(PF_STORE)
+        check(len(ent) == 4 and ent[3]['kind'] == 'correction' and ent[3]['fixes'] == 2 and ent[2] == (await pg.evaluate(PF_STORE))[2], 'correction: a new entry voids the old one, which is still in the record')
+        st_ = await pg.evaluate(PF_STATE)
+        check(near(st_['otherFees'], 0) and near(st_['cash'], 550), f'correction: the voided fee no longer counts: {st_["otherFees"]} {st_["cash"]}')
+        txt = await pg.inner_text('#page-pfledger section[aria-label="Ledger history"]')
+        check('Voided' in txt and 'Voided entry 2: typed twice' in txt, 'correction: the history shows the voided entry and the correction')
+        check(not errs, f'no page errors voiding entries {errs}')
+        await pg.close()
+
+        # tampering is shown, and nothing more can be added
+        pg, errs = await pf_page('&p=pfledger', specs=PF_SEED)
+        await pg.evaluate("(() => { const P = window.__sc.portfolio; P.PFL.add({ kind: 'deposit', date: '2026-10-01', amount: 1000 }); P.PFL.add({ kind: 'deposit', date: '2026-10-02', amount: 50 }); })()")
+        await pg.evaluate("(() => { const d = JSON.parse(localStorage.getItem('portfolio')); d.entries[0].amount = 99999; localStorage.setItem('portfolio', JSON.stringify(d)); })()")
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+        txt = await pg.inner_text('#page-pfledger')
+        check('failed its integrity check' in txt and 'Recording is switched off' in txt, f'tamper: an edited entry is reported and recording is switched off: {txt[:400]!r}')
+        check(await pg.locator('#page-pfledger form[aria-label="Record an entry"]').count() == 0, 'tamper: the form is not offered')
+        check(await pg.evaluate("JSON.parse(localStorage.getItem('portfolio_hist') || '{\"lines\":[]}').lines.length") == 0, 'tamper: no value-history line is saved from a record that fails its check')
+        # entries cut off the end show against the kept anchor
+        await pg.evaluate("(() => { const P = window.__sc.portfolio; localStorage.clear(); P.PFL.add({ kind: 'deposit', date: '2026-10-01', amount: 1000 }); P.PFL.add({ kind: 'deposit', date: '2026-10-02', amount: 50 }); const d = JSON.parse(localStorage.getItem('portfolio')); d.entries = d.entries.slice(0, 1); localStorage.setItem('portfolio', JSON.stringify(d)); })()")
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+        txt = await pg.inner_text('#page-pfledger')
+        check('failed its integrity check' in txt and 'removed' in txt, f'tamper: an entry cut off the end shows against the anchor: {txt[:500]!r}')
+        check(not errs, f'no page errors on a tampered record {errs}')
+        await pg.close()
+
+        # unreadable data in the ledger's storage can never stop the Portfolio page or the ledger page from drawing
+        for bad_json in ({'entries': [None, 5, 'x']}, {'entries': 'nope'}, {'v': 1}):
+            pg, errs = await pf_page('&p=advisor', specs=PF_SEED)
+            await pg.evaluate("(b) => { localStorage.setItem('portfolio', JSON.stringify(b)); localStorage.setItem('portfolio_hist', JSON.stringify({ lines: 'x' })); }", bad_json)
+            await pg.goto(base + '?selftest=1&p=advisor'); await pg.wait_for_timeout(1800)
+            check(await th_rows(pg) == rows0, f'corrupt ledger storage {bad_json}: the advice on the Portfolio page is drawn exactly as before')
+            await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+            txt = await pg.inner_text('#page-pfledger')
+            check(('failed its integrity check' in txt or 'No entries yet' in txt), f'corrupt ledger storage {bad_json}: the ledger page draws and says what is wrong: {txt[:200]!r}')
+            check(not errs, f'no page errors with corrupt ledger storage {bad_json}: {errs}')
+            await pg.close()
+
+        # a missing price is never guessed: the position is valued at cost, marked, the gain is withheld and no history line is saved
+        pg, errs = await pf_page('&p=pfledger', specs=PF_SEED)
+        await pg.evaluate("(() => { const P = window.__sc.portfolio; for (const f of [{ kind: 'deposit', date: '2026-10-01', amount: 1000 }, { kind: 'buy', t: 'ZZZ', date: '2026-10-02', shares: 2, price: 100, fees: 0 }, { kind: 'open', t: 'AAPL', date: '2026-09-01', shares: 1, cost: 150 }]) { const r = P.PFL.add(f.kind === 'buy' ? { ...f, rules: [{ rule: 'cash', state: 'pass', text: 'ok' }] } : f); if (!r.ok) throw new Error(r.errors.join()); } })()")
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+        txt = await pg.inner_text('#page-pfledger')
+        tot = await pg.inner_text('#page-pfledger section[aria-label="Ledger totals"]')
+        check('No price for ZZZ' in txt and 'no price' in txt and 'withheld until every position has a price' in tot and re.search(r'(?i)total gain\s+n/a', tot) is not None, f'missing price: marked, valued at cost, gain withheld: {tot!r}')
+        check(await pg.evaluate("JSON.parse(localStorage.getItem('portfolio_hist') || '{\"lines\":[]}').lines.length") == 0, 'missing price: no value-history line is saved from a partial valuation')
+        check(not errs, f'no page errors with a missing price {errs}')
+        await pg.close()
+
+        # your saved limits are the ones used; a fund is outside the one-stock limits
+        lim_state = json.loads(json.dumps(gl_state)); lim_state['advisor']['limits'] = {'buyCap': 0.5, 'trimAt': 0.6, 'sectorMax': 1}
+        pg, errs = await pf_page('&p=pfledger', st=lim_state, specs=PF_SEED)
+        await pg.evaluate("(() => { const P = window.__sc.portfolio; for (const f of [{ kind: 'open', t: 'AAPL', date: '2026-09-01', shares: 2, cost: 150 }, { kind: 'open', t: 'MSFT', date: '2026-09-01', shares: 1, cost: 300 }, { kind: 'open', t: 'ISDW', date: '2026-09-01', shares: 10, cost: 20 }]) { const r = P.PFL.add(f); if (!r.ok) throw new Error(r.errors.join()); } })()")
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+        positions = await pg.inner_text('#page-pfledger section[aria-label="Ledger positions"]')
+        check('one stock up to 50%' in positions and 'Trim about' not in positions and 'Within limits' in positions, f'limits: the limits you saved are the ones applied: {positions[:500]!r}')
+        check('not under the one-stock limits' in positions, 'limits: a fund is outside the one-stock limits')
+        check(not errs, f'no page errors with saved limits {errs}')
+        await pg.close()
+
+        # the Shariah ledger answer is part of the buy check; without a current Zoya check it fails and says why
+        pg, errs = await pf_page('&p=pfledger', specs=None)
+        await pg.evaluate("(() => { window.__sc.portfolio.PFL.add({ kind: 'deposit', date: '2026-10-01', amount: 5000 }); })()")
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+        await pg.evaluate(PF_FILL, {'kind': 'buy', 'f': {'Ticker': 'AAPL', 'Date': '2026-10-02', 'Shares': '1', 'Price per share': '342'}, 'nosubmit': True})
+        pv = await pg.inner_text('#page-pfledger .pf-preview')
+        check('Shariah ledger:' in pv, f'buy check: without a Zoya check in the ledger the Shariah rule fails and says why: {pv!r}')
+        await pg.close()
+
+        # backup: the ledger and its history travel with the file, are joined (never overwritten), and a second join adds nothing
+        pg, errs = await pf_page('&p=pfledger', specs=PF_SEED)
+        await pg.evaluate("(() => { const P = window.__sc.portfolio; for (const f of [{ kind: 'open', t: 'AAPL', date: '2026-09-01', shares: 2, cost: 150 }, { kind: 'deposit', date: '2026-10-01', amount: 100 }]) P.PFL.add(f); })()")
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1500)
+        bk = await pg.evaluate("window.__sc.backupOf(window.__sc.holdingsFrom ? { v: 1, trades: [], backup: null } : null)")
+        pf_b = bk['extra']['portfolio']
+        check(len(pf_b['entries']) == 2 and pf_b['anchor'] and len(pf_b['hist']) == 1, f'backup: the file carries the ledger, its anchor and the value history: {list(pf_b)}')
+        await pg.evaluate("localStorage.removeItem('portfolio'); localStorage.removeItem('portfolio_anchor'); localStorage.removeItem('portfolio_hist')")
+        mj = await pg.evaluate("(inc) => { const P = window.__sc.portfolio; const m = window.__sc.mergeBackup({ journal: { v: 1, trades: [] }, watch: { v: 1, items: [] }, advisor: { v: 1, other: [], hp: {} }, portfolio: P.PFL.load(), pfHist: P.PFL.hist() }, inc); return { ok: m.portfolio.ok, added: m.portfolio.added, hist: m.pfHist.added, n: m.portfolio.entries.length }; }", bk)
+        check(mj == {'ok': True, 'added': 2, 'hist': 1, 'n': 2}, f'backup: restoring into an empty device brings the ledger and its history back: {mj}')
+        tam = json.loads(json.dumps(bk)); tam['extra']['portfolio']['entries'][1]['amount'] = 5
+        mt = await pg.evaluate("(inc) => { const P = window.__sc.portfolio; const m = window.__sc.mergeBackup({ journal: { v: 1, trades: [] }, watch: { v: 1, items: [] }, advisor: { v: 1, other: [], hp: {} }, portfolio: P.PFL.load(), pfHist: [] }, inc); return { ok: m.portfolio.ok, added: m.portfolio.added }; }", tam)
+        check(mt['ok'] is False and mt['added'] == 0, f'backup: a ledger in a file that fails its own check is not merged: {mt}')
+        old_bk = json.loads(json.dumps(bk)); del old_bk['extra']['portfolio']
+        mo = await pg.evaluate("(inc) => { const P = window.__sc.portfolio; const m = window.__sc.mergeBackup({ journal: { v: 1, trades: [] }, watch: { v: 1, items: [] }, advisor: { v: 1, other: [], hp: {} }, portfolio: P.PFL.load(), pfHist: [] }, inc); return { portfolio: m.portfolio, hist: m.pfHist }; }", old_bk)
+        check(mo == {'portfolio': None, 'hist': None}, f'backup: a file from before the ledger existed still loads and changes nothing: {mo}')
+        check(not errs, f'no page errors in the backup checks {errs}')
+        await pg.close()
+
         # ---- stale data warning on the home page
         pg, errs = await page_with(ctx, base, weekday_back(6))
         check(await pg.locator('.hint.stale').count() == 1, 'old data shows a warning')

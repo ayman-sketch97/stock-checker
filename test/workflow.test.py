@@ -164,6 +164,7 @@ else:
 check(any('restore-and-log.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the restore and deploy log tests')
 check(any('shariah-ledger.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the Shariah ledger tests')
 check(any('thesis.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the thesis and decision record tests')
+check(any('portfolio.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the portfolio ledger tests')
 
 print()
 if failures:

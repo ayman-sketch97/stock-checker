@@ -17,9 +17,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 FIX = os.path.join(ROOT, 'test', 'fixtures')
 CHANGES_ALLOWED_IN = {'The permanent record', 'Long-term list test', 'Limits of the test'}
 # A whole section that exists only in the new version and carries no advice (stage 4: the Shariah ledger summary card; stage 5: the thesis cards on
-# the Portfolio and company pages, which only record and explain the calls shown elsewhere).
+# the Portfolio and company pages, which only record and explain the calls shown elsewhere; stage 6: the portfolio ledger summary card on the
+# Portfolio page, which only reports what you recorded and how it sits against your own limits).
 # It is allowed only as an addition: a section of the same name in the old version would be compared like any other.
-ADDED_SECTIONS = {'Shariah ledger', 'Thesis and decisions', 'Your thesis'}
+ADDED_SECTIONS = {'Shariah ledger', 'Thesis and decisions', 'Your thesis', 'Portfolio ledger'}
 # Stage 4 (decision of 6 November): purification is switched off. Sentences about purification, and the sentences that point to the ledger instead,
 # may be removed or added; the rest of the section must be the old text, in the same order. Nothing here is about a buy, a sell, a size or a limit.
 PUR_RE = re.compile(r'(?i)purif|impure|dividend income|calculator|^It pays no cash dividend\.$|^Record what Zoya shows for each stock in the Shariah ledger|^Open the Shariah ledger$|^The Shariah ledger can keep a record of an amount you were given\.$|^Off$|^pending a scholar-approved method$')
@@ -240,9 +241,12 @@ async def main():
                 changed = [k for k in labels if a.get(k) != bsec.get(k)]
                 if mode == 'empty':
                     # the gate holds buys back; it must never add or remove a sale, a trim or a take-profit call
+                    # only a section that the old page does not have is left out of the new count: one that both versions have (the Shariah
+                    # ledger and the thesis cards, when the old page is a later one) is compared like any other
                     count = lambda secs, skip: sum(len(SALE_RE.findall(x['text'])) for x in secs if x['label'] not in skip)
-                    if count(A['secs'], ()) != count(B['secs'], ADDED_SECTIONS):
-                        bad.append(f'{name} / {page}: the number of sell, trim or take-profit calls changed ({count(A["secs"], ())} -> {count(B["secs"], ADDED_SECTIONS)})')
+                    new_only = {k for k in ADDED_SECTIONS if k not in a}
+                    if count(A['secs'], ()) != count(B['secs'], new_only):
+                        bad.append(f'{name} / {page}: the number of sell, trim or take-profit calls changed ({count(A["secs"], ())} -> {count(B["secs"], new_only)})')
                 print(f'  {page}: {len(changed)} of {len(labels)} sections differ: {changed}')
                 for k in changed:
                     sa, sb = sentences(a.get(k, '')), sentences(bsec.get(k, ''))

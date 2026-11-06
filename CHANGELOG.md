@@ -3,6 +3,31 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 7 November 2026: a ledger for your cash, trades, dividends and fees (stage 6, built and checked on a branch, not merged into main)
+
+- A new Portfolio ledger page records the money you put in and take out, your buys and sells, dividends, fees, and
+  positions you already held. From that record alone it works out what you hold, the average cost of each position
+  (buying fees included), the cash left, your realized profit from sales, your unrealized profit, dividends, fees and
+  your total gain. A stock with no price is valued at what it cost, marked, and the total gain is withheld until every
+  position has a price.
+- It shows each position and each sector against your own limits (one stock up to 10% and trimmed back from 15%, one
+  sector up to 40% of your long-term stocks, orders of at least $100, or whatever limits you saved). Before you record a
+  buy it shows which rules the buy would break, including the Shariah ledger's answer. A buy that breaks a rule is
+  recorded only after you confirm you did it anyway, and the rule check is saved with it. Selling shares you did not
+  hold, or spending cash you did not record (borrowing), is refused.
+- The record cannot be changed quietly: entries are never edited or removed, each carries the hash of the one before it,
+  and a mistake is voided by a new entry that keeps the old one visible. The page compares the ledger with "Your
+  portfolio now" and offers to start the ledger from the holdings already there.
+- A value line is saved for each price date (only from a full valuation, never rewritten after its date), with a chart.
+  The ledger and its history are in the backup file, and a backup from before this change still loads.
+- Nothing that advises changed. Every verdict, signal, valuation formula, recommendation, risk limit, Shariah gate and
+  permanent record is as before: the advice on the Portfolio page still reads the holdings entered there, and the same
+  data shows the same advice word for word, apart from the new "Portfolio ledger" card.
+- Limits: the ledger and the Portfolio page's holdings are two records you keep in step (the page shows where they
+  differ); dividends and fees are what you type; average cost only, no tax lots, no splits or other corporate actions;
+  all in US dollars; the value history starts on the first day it is saved. How it was checked and the full list of
+  limits are in `VALIDATION.md`, section 22.
+
 ## 7 November 2026: why you own each stock, and a saved record of each call (stage 5, merged into main and live on 7 November 2026, Abu Dhabi time)
 
 - A new Thesis page records, for any stock you own or consider, your reason, the case, the catalysts you expect, the
