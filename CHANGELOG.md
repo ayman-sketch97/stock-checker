@@ -3,7 +3,7 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
-## 6 November 2026: a Shariah compliance ledger that gates new buys (stage 4, on its own branch, not yet live)
+## 6 November 2026: a Shariah compliance ledger that gates new buys (stage 4, merged into main and live on 6 November 2026)
 
 - A new Shariah page records, for each stock you hold, what Zoya shows: the status, the date you checked it, the source
   and your evidence. It reminds you to recheck every 90 days, flags a stock that is missing, stale or unclear, and keeps

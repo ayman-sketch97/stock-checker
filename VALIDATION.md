@@ -1351,7 +1351,7 @@ To repair a deployment that fails again: stop, do not rebuild, re-run only the f
 deploy log entry. Temporary test branches (`seed-restore-point`, `sim-restore`, `sim-block`) were deleted.
 
 
-## 20. Stage 4: the Shariah compliance ledger (6 November 2026, on branch `stage4-shariah-ledger`, not merged)
+## 20. Stage 4: the Shariah compliance ledger (6 November 2026, merged into main as c99218a and live)
 
 The ledger records what Zoya shows for each stock you hold. After the owner's four decisions of 6 November it also does
 two jobs it did not do before: it **blocks new buys** of a stock without a current Zoya compliant record, and it
@@ -1394,7 +1394,7 @@ the source and the evidence, and the gate only reads it.
    missing change date, a stale check, a questionable result or a record not from Zoya starts no countdown and
    triggers no sale. The page says "the 90-day countdown has not started" and why. There is no fallback to the check
    date. The compliance history and every date stay in the append-only ledger.
-4. **Validation** is below. Nothing was merged, and Stage 5 was not started.
+4. **Validation** is below. It was merged only after the owner's approval of commit c99218a (see "Merge and deployment" at the end of this section). Stage 5 was not started.
 
 **What it records and flags (unchanged from the first Stage 4 build)**: status (compliant, non_compliant, questionable),
 the date verified, the source (Zoya app, Zoya website, Zoya report, or "not Zoya", which counts for nothing), required
@@ -1454,3 +1454,24 @@ ledger is local code with no network call, and the secret scan passes.
 - The tool's own halal screen is still shown and still applies; the ledger gate is in addition to it, not instead.
 - Nothing here is financial or Shariah advice. The purification method must come from a qualified Shariah scholar, and
   no purification feature will be built until you supply it and approve it.
+
+**Merge and deployment (6 November 2026, 19:58 UTC)**
+
+After the owner approved commit c99218a, main was moved from 3e90c7a to c99218a as a fast-forward (no force, no new merge
+commit, so the merge commit is c99218a itself). Nothing in the code changed between approval and merge.
+
+| Check | Result |
+|---|---|
+| main after the merge | c99218a, identical to the approved branch head |
+| First push | Started no workflow, because the head commit message carries `[skip ci]`. The deployment was therefore started by hand on main. |
+| GitHub CI, Update site, run 87 (https://github.com/ayman-sketch97/stock-checker/actions/runs/42281640175) | Passed on c99218a: formulas, page-tests, security, restore-point, build, verify-site, gate, deploy, verify-live and ledger all succeeded; rollback and keepalive were skipped because no rollback was needed. |
+| GitHub Pages deployment | Deployment 7609506063 for c99218a ended in `success`. |
+| Live site | The verify-live job, which reads the live site and checks it serves this commit, passed. The site address loads normally. |
+| Deploy log | Entry `000005-run-run42281640175-a1.json` was appended on the deploy-log branch (commit cce15db). |
+| Rollback | Not needed, not run. |
+
+Not independently repeated: a direct download of the live page from the session that did the merge was refused by that
+session's network rules, so the live check rests on the verify-live job and the Pages deployment record above, plus a
+page-load check that showed no error.
+
+**Stage 4 is complete.** Stage 5 has not been started and waits for the owner's instruction.
