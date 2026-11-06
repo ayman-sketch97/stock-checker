@@ -1426,7 +1426,7 @@ ledger is local code with no network call, and the secret scan passes.
 | Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (395 sections, 380,363 characters): 22 identical. Every added sentence is about the ledger or purification, and the number of sell, trim and take-profit calls on every page is exactly the old number: the gate holds buys back, it never sells. No unexpected difference |
 | Does the held-cash test fail when the plan is wrong? | 3 deliberate breakages of the plan: the held money added to the fund, the held-cash line never shown, the gate not measured against the ungated plan: all 3 caught (the fund amount or the held amount came out wrong) |
 | `lib/` files compared with main | all existing files identical; 1 new file |
-| GitHub CI | CI_PENDING |
+| GitHub CI | Passed. Update site, run 86, started by hand (workflow_dispatch) on commit 6650562 of this branch: formulas, page-tests, security, restore-point, build, verify-site, gate and ledger all succeeded; deploy, verify-live, rollback and keepalive were skipped by design, because a branch other than main never deploys. Nothing was written to the permanent record or the deploy log (its newest entry is older than the run), and main is unchanged. https://github.com/ayman-sketch97/stock-checker/actions/runs/42276269754. The earlier run 85 passed on the previous commit (bf3c293). The other three workflows (Update prices, Long-term backtest, Restore drill) were not run: they publish the prices and backtest data branches or redeploy the live site (the drill runs only on main), so they are not checks on this change; the tools they run are unchanged from main. |
 
 **Limits and disclosures**
 
