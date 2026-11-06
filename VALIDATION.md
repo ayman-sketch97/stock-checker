@@ -1478,7 +1478,7 @@ page-load check that showed no error.
 
 ---
 
-## 21. Stage 5: the investment thesis and decision record (7 November 2026, on branch `stage5-thesis-decisions`, not merged)
+## 21. Stage 5: the investment thesis and decision record (7 November 2026, merged into main as cbb6c13 and live)
 
 Stage 5 records why you own or consider each stock, what you expect, what could go wrong and what would prove you wrong;
 keeps every later change as a new version; and saves the buy, hold, trim or sell call the page showed you, with a plain
@@ -1572,3 +1572,25 @@ No paid service, subscription, API key or recurring cost was added; the record i
 - **Your action** on a saved decision is free text you type; it is not checked against your journal or holdings.
 - Nothing here is financial or Shariah advice. Zoya remains the final Shariah authority.
 
+**Merge and deployment (6 November 2026, 21:49 to 21:52 UTC, which is 7 November in Abu Dhabi)**
+
+After the owner approved commit cbb6c13, main was moved from 4f74903 to cbb6c13 as a fast-forward (no force, no new merge
+commit, so the merge commit is cbb6c13 itself). Nothing in the code changed between approval and merge.
+
+| Check | Result |
+|---|---|
+| main after the merge | cbb6c13, identical to the approved branch head |
+| First push | Started no workflow, because the head commit message carries `[skip ci]`. The deployment was therefore started by hand on main. |
+| GitHub CI, Update site, run 89 (https://github.com/ayman-sketch97/stock-checker/actions/runs/42297405563) | Passed on cbb6c13: formulas, page-tests, security, restore-point, build, verify-site, gate, deploy, verify-live and ledger all succeeded; rollback and keepalive were skipped because no rollback was needed. |
+| GitHub Pages deployment | Deployment 7611613689 for cbb6c13 ended in `success`; the previous deployment (c99218a) became inactive. |
+| Live site | The verify-live job, which reads the live site and checks it serves this commit, passed, and the deploy log entry records the live commit as cbb6c13. |
+| Deploy log | Entry `000006-run-run42297405563-a1.json` was appended on the deploy-log branch (commit 5a304f4): deploy `success`, live `success`, rollback `skipped`. |
+| Permanent record | This run also saved its normal nightly record for the price date 5 November 2026 (records branch commit b756fda), as every main run does. It is unrelated to Stage 5. |
+| Rollback | Not needed, not run. |
+
+Not independently repeated: a direct download of the live page from the session that did the merge was not attempted
+through any route other than the workflow, so the live check rests on the verify-live job, the Pages deployment record
+and the deploy log entry above. The Thesis page and the new cards were tested through the page tests (511 checks), not
+through a person using the live site; the owner's own browser use will be the first live use.
+
+**Stage 5 is complete.** Stage 6 has not been started and waits for the owner's instruction.

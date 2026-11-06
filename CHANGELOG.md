@@ -3,7 +3,7 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
-## 7 November 2026: why you own each stock, and a saved record of each call (stage 5, on its own branch, not yet live)
+## 7 November 2026: why you own each stock, and a saved record of each call (stage 5, merged into main and live on 7 November 2026, Abu Dhabi time)
 
 - A new Thesis page records, for any stock you own or consider, your reason, the case, the catalysts you expect, the
   risks, and the conditions that would prove you wrong, with the price and the data of the day it was written. Holdings
