@@ -1,0 +1,4 @@
+{"v":2,"date":"2026-11-05","built":"2026-11-06T21:39:35.872Z","prev":"45feea07e866ea42d8b6a6e28fac19cef5e14d9fe93fa0a907047b45c864c862","n":3,"baseline":false}
+{"k":"trim_in","t":"TEAM","px":183.29,"v":"AVOID_WEAK","s":"pass","fair":14.29,"bb":12.15,"tr":19.17}
+{"k":"verdict","t":"WSO","px":311.14,"v":"BUY","s":"pass","fair":238.05,"bb":202.34,"tr":330.18,"from":"WATCH"}
+{"k":"trim_out","t":"WSO","px":311.14,"v":"BUY","s":"pass","fair":238.05,"bb":202.34,"tr":330.18}
