@@ -13,7 +13,7 @@ import { verifyOnce, verifyLive } from '../tools/verify-live.mjs';
 
 const SHA = 'a'.repeat(40);
 const OTHER = 'b'.repeat(40);
-const REQUIRED = ['formulas', 'page-tests', 'security', 'build', 'verify-site'];
+const REQUIRED = ['formulas', 'page-tests', 'security', 'restore-point', 'build', 'verify-site'];
 const ok = (...names) => Object.fromEntries(names.map((n) => [n, { result: 'success' }]));
 
 // ------------------------------------------------------------------ the gate

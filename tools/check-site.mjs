@@ -57,7 +57,7 @@ export function folderDigest(dir) {
   return h.digest('hex');
 }
 
-export function checkSite(dir, { commit, pins } = {}) {
+export function checkSite(dir, { commit, pins, ignoreHidden = false } = {}) {
   const problems = [];
   const bad = (m) => problems.push(m);
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return { ok: false, problems: [`${dir} is not a folder`], files: 0 };
@@ -72,6 +72,7 @@ export function checkSite(dir, { commit, pins } = {}) {
   problems.push(...scanSecrets(dir, files));
   // 3. every file the page needs is there and not empty
   for (const r of REQUIRED_FILES) {
+    if (ignoreHidden && path.basename(r).startsWith('.')) continue; // a published Pages artifact leaves dotfiles out
     const p = path.join(dir, r);
     if (!fs.existsSync(p)) bad(`${r}: missing`);
     else if (r !== '.nojekyll' && fs.statSync(p).size === 0) bad(`${r}: empty`);
@@ -118,9 +119,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const dir = process.argv[2];
   const ci = process.argv.indexOf('--commit');
   const commit = ci > 0 ? process.argv[ci + 1] : process.env.GITHUB_SHA || '';
-  if (!dir) { console.error('usage: node tools/check-site.mjs <site dir> [--commit <sha>]'); process.exit(2); }
+  if (!dir) { console.error('usage: node tools/check-site.mjs <site dir> [--commit <sha>] [--no-hidden]'); process.exit(2); }
   const pins = JSON.parse(fs.readFileSync(path.join(HERE, 'vendor-pins.json'), 'utf8'));
-  const r = checkSite(path.resolve(dir), { commit, pins });
+  const r = checkSite(path.resolve(dir), { commit, pins, ignoreHidden: process.argv.includes('--no-hidden') });
   if (!r.ok) {
     for (const p of r.problems) console.log(`::error::${p}`);
     console.log(`Site check FAILED: ${r.problems.length} problem${r.problems.length === 1 ? '' : 's'} in ${r.files} files.`);

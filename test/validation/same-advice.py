@@ -92,6 +92,19 @@ def record_fixture():
     return eval(m.group(1), {'True': True, 'False': False, 'None': None})
 
 
+# the data-health report (data/health.json) of a bad night, for the display-only warning banner (deployment safety release)
+def _hc(i, st, label, text):
+    return {'id': i, 'status': st, 'label': label, 'text': text}
+
+
+def health_report(bad_id, price_date):
+    checks = [_hc('coverage', 'ok', 'Companies analysed', '1,990 of 2,000 (99.5%).'), _hc('history', 'ok', 'Price history', '1,900 companies with a full price history.'),
+              _hc('earnings', 'warn', 'Earnings dates', '1 day of the calendar could not be read.'), _hc('record', 'ok', 'Permanent record', '3 days recorded, every file intact.')]
+    if bad_id:
+        checks = [_hc(bad_id, 'bad', bad_id.title(), 'This check failed tonight.') if c['id'] == bad_id else c for c in checks]
+    return {'version': 1, 'builtAt': '2026-11-04T03:30:00Z', 'priceDate': price_date, 'commit': 'abc1234def', 'worst': 'bad' if bad_id else 'warn', 'checks': checks}
+
+
 # (name, price date, storage, patch of the screen, stock fixture for KO)
 SCENARIOS = [
     ('holdings and filings, fresh data', FRESH, OWN, with_events, 'stock-ok'),
@@ -99,11 +112,16 @@ SCENARIOS = [
     ('half in stocks with swing trades, fresh data', FRESH, techy(PROF_SWING), add_rows, 'stock-ok'),
     ('late data (advice paused)', weekday_back(6), techy(PROF_TEST), both, 'stock-ok'),
     ('unreliable company data', FRESH, techy(PROF_SWING), with_events, 'stock-unreliable'),
+    # the same advice on a night when the data health is bad: only the warning banner may differ, never the advice itself
+    ('bad data health: price history missing, fresh prices', FRESH, techy(PROF_SWING), both, 'stock-ok', health_report('history', FRESH)),
+    ('bad data health: companies missing, holdings', FRESH, OWN, with_events, 'stock-ok', health_report('coverage', FRESH)),
+    ('bad data health and late prices', weekday_back(6), techy(PROF_TEST), both, 'stock-ok', health_report('history', weekday_back(6))),
+    ('data health only warnings', FRESH, techy(PROF_TEST), both, 'stock-ok', health_report(None, FRESH)),
 ]
 PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor']
 
 
-async def grab(ctx, base, price_date, storage, patch, stock, page):
+async def grab(ctx, base, price_date, storage, patch, stock, page, health=None):
     scr = LOAD('screen.json')
     idx = LOAD('index.json')
     scr['priceDate'] = idx['priceDate'] = price_date
@@ -111,6 +129,8 @@ async def grab(ctx, base, price_date, storage, patch, stock, page):
         patch(scr)
     data = {'data/screen.json': scr, 'data/index.json': idx, 'data/backtest-summary.json': LOAD('backtest-summary.json'), 'data/lt-summary.json': LOAD('lt-summary.json'),
             'data/record-summary.json': record_fixture(), 'data/KO.json': LOAD(stock + '.json'), 'data/tech/KO.json': LOAD('tech-ok.json')}
+    if health:
+        data['data/health.json'] = health
     pg = await ctx.new_page()
     errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)))
@@ -136,6 +156,7 @@ async def grab(ctx, base, price_date, storage, patch, stock, page):
       const out = all.map((s) => { let k = s.getAttribute('aria-label') || (s.querySelector('h2,h3') || {}).textContent || s.className || '(no label)';
         seen[k] = (seen[k] || 0) + 1; if (seen[k] > 1) k += ' #' + seen[k]; return { label: k, text: s.innerText }; });
       return { full: root.innerText, secs: out }; }""", box)
+    secs['banner'] = await pg.evaluate("() => { const b = document.getElementById('healthBanner'); return b && !b.hidden ? b.innerText : ''; }")
     await pg.close()
     return secs, errs
 
@@ -156,11 +177,20 @@ async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch()
         ctx = await b.new_context()
-        for name, date, storage, patch, stock in SCENARIOS:
+        for sc in SCENARIOS:
+            name, date, storage, patch, stock = sc[:5]
+            health = sc[5] if len(sc) > 5 else None
             print(f'== {name} (prices of {date}, KO from {stock})')
             for page in PAGES:
-                (A, ea), (B, eb) = await grab(ctx, old, date, storage, patch, stock, page), await grab(ctx, new, date, storage, patch, stock, page)
+                (A, ea), (B, eb) = await grab(ctx, old, date, storage, patch, stock, page, health), await grab(ctx, new, date, storage, patch, stock, page, health)
                 totals['pages'] += 1
+                # the warning banner is the one thing allowed to differ, and only on a night with a failed ('bad') check
+                want_banner = bool(health) and health['worst'] == 'bad' and page != 'record'
+                if A['banner']:
+                    bad.append(f'{name} / {page}: the old page already shows a banner?')
+                if bool(B['banner']) != want_banner:
+                    bad.append(f'{name} / {page}: banner shown={bool(B["banner"])}, expected {want_banner}')
+                totals['banners'] = totals.get('banners', 0) + (1 if B['banner'] else 0)
                 totals['sections'] += len(B['secs'])
                 totals['chars'] += len(B['full'])
                 if ea or eb:
@@ -195,7 +225,8 @@ async def main():
                         bad.append(f'{name} / {page} / {k}: not the old text once the listed sentences are taken out')
                     elif not allowed:
                         explained.append(f'{name} / {page} / {k}')
-    print(f"\n{totals['pages']} page views compared ({totals['sections']} sections, {totals['chars']:,} characters in the new version); {totals['identical']} identical word for word")
+    print(f"\n{totals.get('banners', 0)} page views carried the warning banner (bad health nights only); every other word of every page, including each recommendation, buy zone, sell or trim call, position size, valuation and risk-limit message, was compared below")
+    print(f"{totals['pages']} page views compared ({totals['sections']} sections, {totals['chars']:,} characters in the new version); {totals['identical']} identical word for word")
     print(f'{len(explained)} sections outside the evaluation cards differ only by the listed sentence(s), checked character for character: {explained}')
     print('UNEXPECTED differences:' if bad else 'No unexpected difference: outside the evaluation cards, the only change is the added sentence(s) listed in ADDED_SENTENCES.')
     for x in bad:

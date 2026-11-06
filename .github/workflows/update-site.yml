@@ -7,9 +7,13 @@ name: Update site
 # * Any failed, skipped, cancelled or missing required job blocks the deploy (the gate job, tools/deploy-gate.mjs).
 # * The Pages artifact is created only by verify-site, from the folder that passed tools/check-site.mjs.
 # * A failed or blocked run never touches the live site: GitHub Pages replaces it only when a deployment succeeds.
-# * verify-live reads the live site and checks it serves this commit; if not, rollback redeploys the last version
-#   that was verified live (artifact "last-good-site").
-# * Runs on any branch other than main stop before deploy (a dry run) and never write to the permanent record.
+# * Restore point. Before any deployment a verified copy of the version that is live now must exist (job restore-point:
+#   found through the deploy log, every file hash and the claimed commit re-checked). If it cannot be verified, nothing
+#   is deployed. After a deployment that checks out, the new live version becomes the next restore point (kept 45 days).
+# * verify-live reads the live site and checks it serves this commit; if not, rollback puts back the verified restore point.
+# * The deploy log (branch deploy-log, append-only) records every run: analysis commit, build, record files and hashes,
+#   gate results, deployment, live check, rollback, and whether the night's advice was recorded, deployed, both or neither.
+# * Runs on any branch other than main stop before deploy (a dry run) and never write to the permanent record or the log.
 # The rules are tested in test/deploy-safety.test.mjs and test/workflow.test.py.
 on:
   schedule:
@@ -46,6 +50,8 @@ jobs:
         run: node --test test/formulas.test.mjs
       - name: Test the deployment safety tools
         run: node --test test/deploy-safety.test.mjs
+      - name: Test restore protection and the deploy log
+        run: node --test test/restore-and-log.test.mjs
 
   page-tests:
     runs-on: ubuntu-latest
@@ -84,6 +90,44 @@ jobs:
       - name: The workflow still enforces the deployment rules
         run: pip install pyyaml==6.0.2 && python test/workflow.test.py
 
+  # ------------------------------------------------------------------ a verified way back, before anything is replaced
+  restore-point:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      used_commit: ${{ steps.find.outputs.commit }}
+      used_digest: ${{ steps.find.outputs.digest }}
+      used_run: ${{ steps.find.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # read only: the deploy log names every restore point that was made, and is the second witness for each
+      - name: Get the deploy log
+        env:
+          URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          git clone -q --depth 1 --branch deploy-log "$URL" deploy-log
+          node tools/deploy-log.mjs verify deploy-log
+      - name: A verified restore point exists for the version that is live now
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/find-restore-point.mjs --ledger deploy-log --repo "${{ github.repository }}" --live-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" --out restore-found
+      - uses: actions/upload-artifact@v4
+        with:
+          name: restore-point-verified
+          path: ${{ steps.find.outputs.dir }}
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
   # ------------------------------------------------------------------ build (analysis of every company)
   build:
     needs: [formulas, page-tests, security]
@@ -91,6 +135,13 @@ jobs:
     timeout-minutes: 75
     permissions:
       contents: write # the permanent record is pushed to its own branch (main runs only)
+    outputs:
+      record_state: ${{ steps.recstate.outputs.record_state }}
+      record_before: ${{ steps.recstate.outputs.record_before }}
+      record_after: ${{ steps.recstate.outputs.record_after }}
+      record_files: ${{ steps.recstate.outputs.record_files }}
+      built_at: ${{ steps.facts.outputs.built_at }}
+      price_date: ${{ steps.facts.outputs.price_date }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,6 +166,9 @@ jobs:
           else
             echo "::warning::Could not reach the permanent record; it is not updated tonight."
           fi
+      - name: Note where the permanent record stands before tonight
+        id: recbefore
+        run: echo "head=$( [ -d records/.git ] && git -C records rev-parse HEAD 2>/dev/null || echo none )" >> "$GITHUB_OUTPUT"
       - name: Analyze companies and build the site
         run: node tools/build-site.mjs
       # adds today's files and refuses to push if any existing file would change or disappear. The site is published
@@ -127,6 +181,15 @@ jobs:
         env:
           PUSH_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         run: bash tools/save-record.sh records
+      # for the deploy log: was tonight's advice recorded, and which record files (with hashes) did this run add?
+      - name: Note what happened to the permanent record
+        id: recstate
+        run: bash tools/record-state.sh records "${{ steps.recbefore.outputs.head }}" "${{ github.ref == 'refs/heads/main' }}" "${{ steps.record.outcome }}" | tee -a "$GITHUB_OUTPUT"
+      - name: Note when the data was built
+        id: facts
+        run: |
+          echo "built_at=$(jq -r '.builtAt // empty' site/data/health.json)" >> "$GITHUB_OUTPUT"
+          echo "price_date=$(jq -r '.priceDate // empty' site/data/health.json)" >> "$GITHUB_OUTPUT"
       - name: Note that tonight's record was not saved
         if: steps.record.outcome == 'failure'
         run: |
@@ -171,7 +234,7 @@ jobs:
 
   # ------------------------------------------------------------------ the gate
   gate:
-    needs: [formulas, page-tests, security, build, verify-site]
+    needs: [formulas, page-tests, security, restore-point, build, verify-site]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -187,7 +250,7 @@ jobs:
       - name: Every required check must have succeeded
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
-          REQUIRED: formulas,page-tests,security,build,verify-site
+          REQUIRED: formulas,page-tests,security,restore-point,build,verify-site
         run: node tools/deploy-gate.mjs
       - name: Say what happens next
         run: |
@@ -222,6 +285,10 @@ jobs:
     timeout-minutes: 12
     permissions:
       contents: read
+    outputs:
+      created_commit: ${{ steps.rp.outputs.commit }}
+      created_digest: ${{ steps.rp.outputs.digest }}
+      created_files: ${{ steps.rp.outputs.files }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -231,7 +298,7 @@ jobs:
           node-version: 22
       - name: The live site serves this commit
         run: node tools/verify-live.mjs "${{ needs.deploy.outputs.page_url || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}" "${{ github.sha }}" --wait 360
-      # verified live: keep exactly these bytes as the version to return to
+      # verified live: keep exactly these bytes as the next restore point (45 days), and say so in the deploy log
       - uses: actions/download-artifact@v4
         with:
           name: site-built
@@ -240,23 +307,28 @@ jobs:
         run: |
           node tools/check-site.mjs site --commit "${{ github.sha }}" | tee check.log
           grep -q "${{ needs.verify-site.outputs.digest }}" check.log
+      - name: Make and verify the restore point of the version now live
+        id: rp
+        run: |
+          node tools/restore-point.mjs create site restore --commit "${{ github.sha }}" --source "run ${{ github.run_id }}, verified live" --run "${{ github.run_id }}"
+          node tools/restore-point.mjs verify restore --commit "${{ github.sha }}" --digest "${{ needs.verify-site.outputs.digest }}"
+          echo "files=$(jq -r .files restore/manifest.json)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: last-good-site
-          path: site
+          name: restore-point
+          path: restore
           include-hidden-files: true
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 45
 
-  # ------------------------------------------------------------------ if the live site is not what was deployed, put back the last verified version
+  # ------------------------------------------------------------------ if the live site is not what was deployed, put back the verified restore point
   rollback:
-    needs: [deploy, verify-live]
+    needs: [deploy, verify-live, restore-point]
     if: ${{ always() && needs.deploy.result == 'success' && needs.verify-live.result == 'failure' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
-      actions: read
       pages: write
       id-token: write
     environment:
@@ -268,38 +340,52 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Find the last version that was verified live
-        id: last
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          row=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=last-good-site&per_page=50" \
-            --jq '[.artifacts[] | select(.expired == false) | select(.workflow_run.head_branch == "main") | select(.workflow_run.id != ${{ github.run_id }})][0] | "\(.workflow_run.id) \(.workflow_run.head_sha)"')
-          if [ -z "$row" ] || [ "$row" = "null null" ]; then
-            echo "::error::No earlier verified version is stored, so nothing can be put back automatically. Fix or redeploy by hand."
-            exit 1
-          fi
-          echo "run_id=${row%% *}" >> "$GITHUB_OUTPUT"
-          echo "commit=${row##* }" >> "$GITHUB_OUTPUT"
-          echo "Last verified version: run ${row%% *}, commit ${row##* }"
+      # the restore point that the restore-point job verified before the deployment, checked again before it is used
       - uses: actions/download-artifact@v4
         with:
-          name: last-good-site
+          name: restore-point-verified
           path: restore
-          run-id: ${{ steps.last.outputs.run_id }}
-          github-token: ${{ github.token }}
-      - name: The stored version is intact and is the commit it claims to be
-        run: node tools/check-site.mjs restore --commit "${{ steps.last.outputs.commit }}"
+      - name: The stored version is intact and is the commit and fingerprint verified before
+        run: node tools/restore-point.mjs verify restore --commit "${{ needs.restore-point.outputs.used_commit }}" --digest "${{ needs.restore-point.outputs.used_digest }}"
       - uses: actions/upload-pages-artifact@v3
         with:
           name: rollback-pages
-          path: restore
+          path: restore/site
       - id: redeploy
         uses: actions/deploy-pages@v4
         with:
           artifact_name: rollback-pages
       - name: The live site is the restored version
-        run: node tools/verify-live.mjs "${{ steps.redeploy.outputs.page_url }}" "${{ steps.last.outputs.commit }}" --wait 360
+        run: node tools/verify-live.mjs "${{ steps.redeploy.outputs.page_url }}" "${{ needs.restore-point.outputs.used_commit }}" --wait 360
+
+  # ------------------------------------------------------------------ the permanent deployment log (append-only branch deploy-log)
+  ledger:
+    needs: [formulas, page-tests, security, restore-point, build, verify-site, gate, deploy, verify-live, rollback]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # pushes to the deploy-log branch only, and only for runs on main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Add this run to the deploy log
+        env:
+          LEDGER_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          PUSH: ${{ github.ref == 'refs/heads/main' }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: bash tools/ledger-push.sh
 
   # ------------------------------------------------------------------ housekeeping, only after a verified deploy
   keepalive:

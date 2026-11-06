@@ -249,6 +249,12 @@ header.top {
 .chip:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); color: var(--accent-ink); }
 .hint { color: var(--ink-2); font-size: 13.5px; margin: 12px 0 0; }
 .hint.stale { color: var(--bad-ink); font-weight: 650; background: var(--bad-bg); border-radius: 12px; padding: 9px 12px; }
+.health-banner { margin: 0 0 14px; padding: 12px 14px; border-radius: 14px; background: var(--bad-bg); color: var(--bad-ink); border: 1px solid var(--bad-ink); }
+.health-banner h2 { margin: 0 0 6px; font-size: 1rem; }
+.health-banner ul { margin: 6px 0; padding-left: 18px; }
+.health-banner li { margin: 4px 0; }
+.health-banner .hb-kind { font-weight: 750; }
+.health-banner p { margin: 6px 0 0; }
 .dq { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font-size: 14px; }
 .dq > span { flex: 1 1 0; min-width: 0; }
 .dq-why { flex-basis: 100%; margin: 4px 0 0; padding-left: 22px; font-size: 13px; color: var(--ink-2); }
@@ -884,6 +890,8 @@ table.data tr.me td { background: var(--accent-wash); }
     </nav>
     <button class="ghost" id="howBtn">How it works</button>
   </header>
+
+  <div id="healthBanner" class="health-banner" role="status" aria-label="Data problem tonight" hidden></div>
 
   <div id="page-stock">
     <div class="hero">
@@ -4321,6 +4329,8 @@ table.data tr.me td { background: var(--accent-wash); }
   function showPage(p) {
     page = p;
     PAGES.forEach((k) => { const el = document.getElementById('page-' + k); if (el) el.hidden = k !== p; });
+    const hb = document.getElementById('healthBanner');
+    if (hb) hb.hidden = p === 'record' || !hb.firstChild; // the Record page shows the full System health card
     document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === p ? 'page' : 'false'));
     $('#how').hidden = true;
     hideTip();
@@ -5885,6 +5895,36 @@ table.data tr.me td { background: var(--accent-wash); }
         li('The future is not the past.', 'Five years includes the 2022 bear market, but not every kind of market. Treat the averages as a rough guide, and judge your own results over 20 or more trades.')));
   }
 
+  // ------------------------------------------------------------------ data-health banner
+  // Display only. When the nightly build reports a failed check (data/health.json, lib/health.js), say which one and what it
+  // can mean, on every page that shows advice. Late prices are told apart from the build's own problems. It changes no
+  // calculation, no signal and no pause rule: advice is paused only as staleOf() decides, as before.
+  const HEALTH_KIND = {
+    history: ['Price history unavailable', 'Charts, swing signals and the chart checks are missing or a day old. Treat any swing trade idea as unconfirmed until the history is back.'],
+    coverage: ['Companies missing tonight', 'Some companies could not be analysed tonight and keep yesterday’s analysis, so their verdict or price zone may be a day old.'],
+    record: ['Track record not trusted', 'A file of the permanent record does not match its fingerprint, so the Record page’s results should not be relied on until this is fixed. The advice on the other pages is worked out separately.'],
+  };
+  async function renderHealthBanner() {
+    const hb = document.getElementById('healthBanner');
+    if (!hb || !HAS_SITE) return;
+    const [H, scr] = await Promise.all([loadHealth(), loadScreen()]);
+    hb.replaceChildren();
+    const checks = H && Array.isArray(H.checks) ? H.checks : [];
+    const bad = checks.filter((c) => c && c.status === 'bad');
+    if (!bad.length) { hb.hidden = true; return; }
+    const warn = checks.filter((c) => c && c.status === 'warn').length;
+    const st = scr ? staleOf(scr) : null;
+    hb.append(h('h2', { text: 'Data problem tonight: read this before acting' }),
+      h('p', { text: `${bad.length} check${bad.length === 1 ? '' : 's'} of the nightly update failed. Advice is not paused for this; it is shown with this warning.` }),
+      h('ul', null, bad.map((c) => {
+        const k = HEALTH_KIND[c.id] || ['Other data problem: ' + (c.label || c.id), ''];
+        return h('li', null, h('span', { class: 'hb-kind', text: k[0] + '. ' }), k[1] ? k[1] + ' ' : '', h('span', { text: c.text || '' }));
+      })),
+      scr && scr.priceDate ? h('p', { text: st ? `Prices: late. ${staleText(st)}` : `Prices: not late (close of ${niceDates(scr.priceDate)}). This warning is about the nightly update, not about the prices.` }) : null,
+      h('p', null, warn ? `${warn} other warning${warn === 1 ? '' : 's'}. ` : '', h('a', { href: '?', onclick: (e) => { e.preventDefault(); navigate('record'); } }, 'Full details on the Record page')));
+    hb.hidden = page === 'record';
+  }
+
   // ------------------------------------------------------------------ nav
   $('#howBtn').addEventListener('click', () => { const how = $('#how'); how.hidden = !how.hidden; if (!how.hidden) how.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('#howClose').addEventListener('click', () => { $('#how').hidden = true; });
@@ -5911,6 +5951,7 @@ table.data tr.me td { background: var(--accent-wash); }
     window.addEventListener('popstate', () => route());
     route();
     refreshNavDot();
+    renderHealthBanner();
   } else {
     const start = new URLSearchParams(location.search).get('t');
     if (start) run(start);

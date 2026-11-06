@@ -1,0 +1,122 @@
+name: Restore drill
+
+# A controlled rollback drill, run by hand once after the first successful deployment of the gated pipeline, and again
+# whenever the restore procedure changes. It proves the saved version can really be put back:
+#   1. find the restore point of the version that is live now and verify every file hash and its commit,
+#   2. publish exactly those bytes through GitHub Pages (the same path a real rollback uses),
+#   3. check the live site serves that commit,
+#   4. record the result in the deploy log (kind "drill").
+# Because the restore point IS the live version, the drill changes nothing a visitor can see. It refuses to run
+# anywhere except main, and it stops at step 1 if the restore point cannot be verified.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      used_commit: ${{ steps.find.outputs.commit }}
+      used_digest: ${{ steps.find.outputs.digest }}
+      used_run: ${{ steps.find.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Get the deploy log
+        env:
+          URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          git clone -q --depth 1 --branch deploy-log "$URL" deploy-log
+          node tools/deploy-log.mjs verify deploy-log
+      - name: A verified restore point exists for the version that is live now
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/find-restore-point.mjs --ledger deploy-log --repo "${{ github.repository }}" --live-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" --out restore-found
+      - uses: actions/upload-artifact@v4
+        with:
+          name: restore-point-verified
+          path: ${{ steps.find.outputs.dir }}
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  drill:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: restore-point-verified
+          path: restore
+      - name: The stored version is intact and is the commit and fingerprint verified before
+        run: node tools/restore-point.mjs verify restore --commit "${{ needs.prepare.outputs.used_commit }}" --digest "${{ needs.prepare.outputs.used_digest }}"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          name: drill-pages
+          path: restore/site
+      - id: redeploy
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: drill-pages
+      - name: The live site is the restored version
+        run: node tools/verify-live.mjs "${{ steps.redeploy.outputs.page_url }}" "${{ needs.prepare.outputs.used_commit }}" --wait 360
+
+  ledger:
+    needs: [prepare, drill]
+    if: ${{ always() && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # pushes to the deploy-log branch only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Record the drill in the deploy log
+        env:
+          LEDGER_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          PUSH: 'true'
+          KIND: drill
+          USED_JSON: '{"commit":"${{ needs.prepare.outputs.used_commit }}","digest":"${{ needs.prepare.outputs.used_digest }}","runId":"${{ needs.prepare.outputs.used_run }}"}'
+          DRILL_RESULT: ${{ needs.drill.result }}
+          LIVE_COMMIT: ${{ needs.drill.result == 'success' && needs.prepare.outputs.used_commit || '' }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: bash tools/ledger-push.sh

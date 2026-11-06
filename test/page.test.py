@@ -874,6 +874,53 @@ async def main():
             check(not errs, f'no page errors on the system health card ({what}) {errs}')
             await pg.close()
 
+        # ---- data-health banner on every page that shows advice (display only: no pause, no change to any figure)
+        def hchk(i, st, label, text):
+            return {'id': i, 'status': st, 'label': label, 'text': text}
+        base_checks = [hchk('coverage', 'ok', 'Companies analysed', '1,990 of 2,000 (99.5%).'), hchk('history', 'ok', 'Price history', '1,900 companies with a full price history.'),
+                       hchk('earnings', 'warn', 'Earnings dates', '1 day of the calendar could not be read.'), hchk('record', 'ok', 'Permanent record', '3 days recorded, every file intact.')]
+        def with_check(i, st, text):
+            return [hchk(i, st, i.title(), text) if c['id'] == i else c for c in base_checks]
+        hb_base = {'version': 1, 'builtAt': '2026-11-04T03:30:00Z', 'priceDate': fresh, 'commit': 'abc1234def', 'worst': 'bad'}
+        hb_cases = [
+            ('history unavailable', {**hb_base, 'checks': with_check('history', 'bad', 'The price-history source stopped answering tonight, so charts, swing signals and the chart checks are missing or a day old.')}, fresh,
+             ['Data problem tonight', 'Price history unavailable', 'swing trade idea as unconfirmed', 'stopped answering tonight', 'Prices: not late', 'not about the prices', '1 other warning'], ['Prices: late']),
+            ('companies missing', {**hb_base, 'checks': with_check('coverage', 'bad', '1,500 of 2,000 (75%).')}, fresh,
+             ['Companies missing tonight', 'keep yesterday', '1,500 of 2,000'], ['Price history unavailable']),
+            ('record not trusted', {**hb_base, 'checks': with_check('record', 'bad', 'A file of the record does not match its fingerprint.')}, fresh,
+             ['Track record not trusted', 'worked out separately'], ['Price history unavailable']),
+            ('unknown check', {**hb_base, 'checks': base_checks + [hchk('newcheck', 'bad', 'A new check', 'Something new failed.')]}, fresh,
+             ['Other data problem: A new check', 'Something new failed.'], []),
+            ('late prices as well', {**hb_base, 'priceDate': weekday_back(6), 'checks': with_check('history', 'bad', 'The price-history source stopped answering tonight.')}, weekday_back(6),
+             ['Price history unavailable', 'Prices: late', 'Advice paused'], ['Prices: not late']),
+        ]
+        for what, fix, pdate, want, absent in hb_cases:
+            for pname in ['stock', 'shortlist', 'watchlist', 'advisor', 'journal', 'record']:
+                pg, errs = await page_with(ctx, base, pdate, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': rec_summary, 'data/health.json': fix})
+                if pname != 'stock':
+                    await pg.click(f'#nav button[data-page="{pname}"]')
+                await pg.wait_for_timeout(900)
+                vis = await pg.locator('#healthBanner').is_visible()
+                if pname == 'record':
+                    check(not vis, f'health banner ({what}): not repeated on the Record page, which has the full card')
+                else:
+                    txt = (await pg.inner_text('#healthBanner')) if vis else ''
+                    check(vis and all(w in txt for w in want) and not any(a in txt for a in absent), f'health banner ({what}) on {pname}: {txt[:300]!r}')
+                    if what != 'late prices as well':
+                        check(await pg.locator('.hint.stale').count() == 0, f'health banner ({what}) on {pname}: advice is not paused by it')
+                check(not errs, f'no page errors with the health banner ({what}, {pname}) {errs}')
+                await pg.close()
+        for what, fix in [('a normal night', {**hb_base, 'worst': 'ok', 'checks': base_checks}), ('only warnings', {**hb_base, 'worst': 'warn', 'checks': with_check('earnings', 'warn', 'x')}), ('no report', None)]:
+            extra = {'data/lt-summary.json': LT, 'data/record-summary.json': rec_summary}
+            if fix is not None:
+                extra['data/health.json'] = fix
+            pg, errs = await page_with(ctx, base, fresh, None, '', None, extra)
+            await pg.click('#nav button[data-page="watchlist"]')
+            await pg.wait_for_timeout(900)
+            check(not await pg.locator('#healthBanner').is_visible(), f'no health banner for {what}')
+            check(not errs, f'no page errors without a health banner ({what}) {errs}')
+            await pg.close()
+
         # ---- stale data warning on the home page
         pg, errs = await page_with(ctx, base, weekday_back(6))
         check(await pg.locator('.hint.stale').count() == 1, 'old data shows a warning')
