@@ -1681,7 +1681,7 @@ already stated; both modes were then run again on the final code.
 | Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (418 sections, 386,897 characters): 47 identical word for word; the only differences are the new "Portfolio ledger" card on the Portfolio page in 7 views, and the number of sell, trim and take-profit calls on every page is unchanged. No unexpected difference |
 | Advice with a full ledger | Tested on the page: with entries, voids and breaches recorded, the Advice list rows and this month's plan are exactly as with an empty ledger |
 | Secret scan (`node tools/scan-repo.mjs`) | passed: 87 tracked files, no credentials found |
-| GitHub CI (full workflow dispatched on the branch) | to be run on the pushed commit and recorded below |
+| GitHub CI (full workflow dispatched on the branch, run 90, code commit `e96150d`) | passed: security, restore-point, formulas (includes the portfolio tests), page-tests, build, verify-site, gate and ledger all succeeded. deploy, verify-live, rollback and keepalive were skipped, as designed for any branch other than main. Main (`9b83272`), the records branch and the deploy log (newest entry 21:52 UTC, older than the run) were not touched. https://github.com/ayman-sketch97/stock-checker/actions/runs/42308818651 |
 
 **Limits and disclosures**
 
