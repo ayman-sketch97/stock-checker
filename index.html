@@ -6638,14 +6638,17 @@ table.data tr.me td { background: var(--accent-wash); }
         try {
           const inc = JSON.parse(String(rd.result));
           if (!inc || !Array.isArray(inc.trades)) throw new Error('bad');
+          const anc = { s: SHL.load().anchor, t: THS.load().anchor, p: PFL.load().anchor }; // what this device had recorded before the join
           const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load(), shariah: SHL.load(), thesis: THS.load(), portfolio: PFL.load(), pfHist: PFL.hist() }, inc);
           JR.save(m.journal);
           W.save(m.watch);
           ADV.save(m.advisor);
           let lgNote = '';
-          if (m.shariah) { if (m.shariah.ok && m.shariah.added > 0) SHL.save(m.shariah.entries); lgNote = ` Shariah ledger: ${m.shariah.note}`; }
-          if (m.thesis) { if (m.thesis.ok && m.thesis.added > 0) THS.save(m.thesis.entries); lgNote += ` Thesis record: ${m.thesis.note}`; }
-          if (m.portfolio) { if (m.portfolio.ok && m.portfolio.added > 0) PFL.save(m.portfolio.entries); lgNote += ` Portfolio ledger: ${m.portfolio.note}`; }
+          // joined entries are saved only if they still contain everything this device had recorded (its saved anchor); otherwise the join would hide the missing entries
+          const lacks = 'Not saved: after joining, it still lacks entries this device had recorded, so the backup is not the one that restores them.';
+          if (m.shariah) { if (m.shariah.ok && m.shariah.added > 0 && checkAnchor(m.shariah.entries, anc.s).ok) SHL.save(m.shariah.entries); lgNote = ` Shariah ledger: ${m.shariah.ok && m.shariah.added > 0 && !checkAnchor(m.shariah.entries, anc.s).ok ? lacks : m.shariah.note}`; }
+          if (m.thesis) { if (m.thesis.ok && m.thesis.added > 0 && checkAnchor(m.thesis.entries, anc.t).ok) THS.save(m.thesis.entries); lgNote += ` Thesis record: ${m.thesis.ok && m.thesis.added > 0 && !checkAnchor(m.thesis.entries, anc.t).ok ? lacks : m.thesis.note}`; }
+          if (m.portfolio) { if (m.portfolio.ok && m.portfolio.added > 0 && checkAnchor(m.portfolio.entries, anc.p).ok) PFL.save(m.portfolio.entries); lgNote += ` Portfolio ledger: ${m.portfolio.ok && m.portfolio.added > 0 && !checkAnchor(m.portfolio.entries, anc.p).ok ? lacks : m.portfolio.note}`; }
           if (m.pfHist && m.pfHist.added > 0) { PFL.saveHist(m.pfHist.hist); lgNote += ` Value history: ${m.pfHist.added} line${m.pfHist.added === 1 ? '' : 's'} added.`; }
           bmsg.textContent = `Added ${m.added.trades} trade${m.added.trades === 1 ? '' : 's'}, ${m.added.watch} watchlist stock${m.added.watch === 1 ? '' : 's'} and ${m.added.holdings} portfolio holding${m.added.holdings === 1 ? '' : 's'}. Anything already on this device was kept as it is.${lgNote}`;
           setTimeout(rerender, 1200);
@@ -6731,6 +6734,9 @@ table.data tr.me td { background: var(--accent-wash); }
     },
     add(fields) {
       const cur = this.load();
+      const gone = checkAnchor(cur.entries, cur.anchor);
+      // an add re-saves the anchor, which would hide entries that were cut off the end. Until they are restored from a backup, nothing is added.
+      if (!gone.ok) return { ok: false, entries: cur.entries, entry: null, errors: [`The saved anchor does not match the entries on this device (${gone.note}), so nothing can be added until that is looked at. Load your latest backup file (Journal page, Load a backup) to restore what is missing.`] };
       const r = appendEntry(cur.entries, fields, localISO(), new Date().toISOString());
       if (!r.ok) return r;
       if (!this.save(r.entries)) return { ok: false, entries: cur.entries, entry: null, errors: ['This device would not keep the entry (browser storage is full or blocked), so it was not recorded.'] };
@@ -6917,6 +6923,9 @@ table.data tr.me td { background: var(--accent-wash); }
     },
     add(fields) {
       const cur = this.load();
+      const gone = checkAnchor(cur.entries, cur.anchor);
+      // an add re-saves the anchor, which would hide entries that were cut off the end. Until they are restored from a backup, nothing is added.
+      if (!gone.ok) return { ok: false, entries: cur.entries, entry: null, errors: [`The saved anchor does not match the entries on this device (${gone.note}), so nothing can be added until that is looked at. Load your latest backup file (Journal page, Load a backup) to restore what is missing.`] };
       const r = appendThesis(cur.entries, fields, localISO(), new Date().toISOString());
       if (!r.ok) return r;
       if (!this.save(r.entries)) return { ok: false, entries: cur.entries, entry: null, errors: ['This device would not keep the entry (browser storage is full or blocked), so it was not recorded.'] };
@@ -7407,6 +7416,9 @@ table.data tr.me td { background: var(--accent-wash); }
     },
     add(fields) {
       const cur = this.load();
+      const gone = checkAnchor(cur.entries, cur.anchor);
+      // an add re-saves the anchor, which would hide entries that were cut off the end. Until they are restored from a backup, nothing is added.
+      if (!gone.ok) return { ok: false, entries: cur.entries, entry: null, errors: [`The saved anchor does not match the entries on this device (${gone.note}), so nothing can be added until that is looked at. Load your latest backup file (Journal page, Load a backup) to restore what is missing.`] };
       const r = appendPortfolio(cur.entries, fields, localISO(), new Date().toISOString());
       if (!r.ok) return r;
       if (!this.save(r.entries)) return { ok: false, entries: cur.entries, entry: null, errors: ['This device would not keep the entry (browser storage is full or blocked), so it was not recorded.'] };

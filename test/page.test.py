@@ -361,6 +361,59 @@ async def main():
             check(await pg.evaluate("localStorage.getItem('portfolio')") == legacy.replace(' ', ''), 'and the "portfolio" key is not rewritten')
             await pg.close()
 
+        # ---- stage 10, ledger anchors: an add must not re-save the anchor over entries that were cut off the end
+        ANCHOR_SEED = """() => { const S = window.__sc; const today = (() => { const n = new Date(); return new Date(n.getTime() - n.getTimezoneOffset() * 60000).toISOString().slice(0, 10); })(); const now = new Date().toISOString();
+          let e = []; const a = (f) => { const r = S.portfolio.appendPortfolio(e, f, today, now); if (!r.ok) throw new Error(r.errors.join()); e = r.entries; };
+          a({ kind: 'deposit', date: today, amount: 5000 }); a({ kind: 'buy', t: 'KO', date: today, shares: 10, price: 60, fees: 0 }); a({ kind: 'deposit', date: today, amount: 700 });
+          localStorage.setItem('portfolio', JSON.stringify({ v: 1, entries: e.slice(0, 1) })); localStorage.setItem('portfolio_anchor', JSON.stringify(S.shariah.anchorOf(e)));
+          let s = []; const b = (f) => { const r = S.shariah.appendEntry(s, f, today, now); if (!r.ok) throw new Error(r.errors.join()); s = r.entries; };
+          b({ kind: 'check', t: 'KO', status: 'compliant', source: 'zoya_app', checked: today, evidence: 'test fixture: a Zoya screen' }); b({ kind: 'check', t: 'PEP', status: 'compliant', source: 'zoya_app', checked: today, evidence: 'test fixture: a Zoya screen' });
+          localStorage.setItem('shariah', JSON.stringify({ v: 1, entries: s.slice(0, 1) })); localStorage.setItem('shariah_anchor', JSON.stringify(S.shariah.anchorOf(s)));
+          const ev = S.thesis.thesisEvidence('KO', {}); let h = []; const c = (f) => { const r = S.thesis.appendThesis(h, f, today, now); if (!r.ok) throw new Error(r.errors.join()); h = r.entries; };
+          const th = (t) => ({ kind: 'thesis', t, written: today, stance: 'owned', horizon: 'long', reason: 'r', thesis: 'c', catalysts: [{ text: 'x' }], risks: [{ text: 'y' }], invalidation: [{ text: 'Price is above $1', rule: { type: 'price_above', value: 1 } }], evidence: ev });
+          c(th('KO')); c(th('PEP'));
+          localStorage.setItem('thesis', JSON.stringify({ v: 1, entries: h.slice(0, 1) })); localStorage.setItem('thesis_anchor', JSON.stringify(S.shariah.anchorOf(h)));
+          return [e.length, s.length, h.length]; }"""
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok')
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1200)
+        seeded = await pg.evaluate(ANCHOR_SEED)
+        check(seeded == [3, 2, 2], f'anchor test: the three ledgers are seeded with entries cut off the end {seeded}')
+        snap = "JSON.stringify(['portfolio','portfolio_anchor','shariah','shariah_anchor','thesis','thesis_anchor'].map(k => localStorage.getItem(k)))"
+        before = await pg.evaluate(snap)
+        today_js = "(() => { const n = new Date(); return new Date(n.getTime() - n.getTimezoneOffset() * 60000).toISOString().slice(0, 10); })()"
+        for label, call in (
+            ('portfolio', f"(() => window.__sc.portfolio.PFL.add({{ kind: 'deposit', date: {today_js}, amount: 10 }}))()"),
+            ('Shariah', f"(() => window.__sc.shariah.SHL.add({{ kind: 'check', t: 'MSFT', status: 'compliant', source: 'zoya_app', checked: {today_js}, evidence: 'test fixture: a Zoya screen' }}))()"),
+            ('thesis', f"(() => window.__sc.thesis.THS.add({{ kind: 'close', t: 'KO', on: {today_js}, note: 'x' }}))()"),
+        ):
+            res = await pg.evaluate(call)
+            check(res.get('ok') is False and (res.get('errors') or [''])[0].startswith('The saved anchor'), f'anchor test: a {label} add is refused while the anchor shows removed entries: {res.get("errors")}')
+        check(await pg.evaluate(snap) == before, 'anchor test: a refused add changes no ledger and no anchor')
+        check(not errs, f'no page errors in the anchor tests {errs}')
+        await pg.close()
+
+        # a backup that does not hold the missing entries cannot be used to re-anchor a damaged ledger
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok')
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1200)
+        await pg.evaluate(ANCHOR_SEED)
+        before = await pg.evaluate(snap)
+        # a backup from another device that has the same first entry and one different later entry: it adds an entry, but not the ones this device lost
+        inc_pf = await pg.evaluate("""() => { const P = window.__sc.portfolio; const cur = P.PFL.load(); const today = (() => { const n = new Date(); return new Date(n.getTime() - n.getTimezoneOffset() * 60000).toISOString().slice(0, 10); })();
+          const r = P.appendPortfolio(cur.entries, { kind: 'deposit', date: today, amount: 99 }, today, new Date().toISOString()); return r.entries; }""")
+        other = {'trades': [], 'extra': {'portfolio': {'entries': inc_pf}}}
+        bp2 = os.path.join(tmp, 'no-missing-backup.json'); json.dump(other, open(bp2, 'w'))
+        await pg.goto(base + '?selftest=1&p=journal')
+        await pg.wait_for_timeout(900)
+        await pg.set_input_files('#page-journal input[type=file]', bp2)
+        await pg.wait_for_timeout(900)
+        pf_after = await pg.evaluate("[localStorage.getItem('portfolio'), localStorage.getItem('portfolio_anchor')]")
+        check(json.loads(pf_after[0])['entries'] == json.loads(json.loads(before)[0])['entries'] and pf_after[1] == json.loads(before)[1], 'anchor test: importing a backup that lacks the missing entries leaves the anchor and ledger as they were')
+        check('Not saved' in await pg.inner_text('#page-journal'), 'anchor test: and the page says it was not saved')
+        check(not errs, f'no page errors in the import anchor test {errs}')
+        await pg.close()
+
         # ---- journal: a paper trade is saved as practice and labelled
         pg, errs = await page_with(ctx, base, fresh, {'journal': {'v': 1, 'trades': [], 'backup': None}}, '#')
         await pg.click('#nav button:has-text("Journal")')
