@@ -1,0 +1,10 @@
+{"v":2,"date":"2026-11-06","built":"2026-11-07T18:18:50.762Z","prev":"e16835f7ff9274b0319d8159307044c62efb60faedfd616d6170111d7daac2f3","n":9,"baseline":false}
+{"k":"halal","t":"TPC","px":80.83,"v":"AVOID_WEAK","s":"review","fair":200.54,"bb":170.46,"tr":269.49,"from":"pass"}
+{"k":"halal","t":"KFY","px":77.22,"v":"CONTRARIAN","s":"pass","fair":96.81,"bb":82.29,"tr":128.9,"from":"review"}
+{"k":"trim_in","t":"MWA","px":24.5,"v":"PASS","s":"pass","fair":17.81,"bb":15.14,"tr":24.42}
+{"k":"halal","t":"ATMU","px":46.17,"v":"WATCH","s":"review","fair":44.85,"bb":38.12,"tr":64.61,"from":"pass"}
+{"k":"verdict","t":"YETI","px":46.95,"v":"WATCH","s":"pass","fair":49.27,"bb":41.88,"tr":67.94,"from":"BUY"}
+{"k":"verdict","t":"ALRM","px":67.12,"v":"WATCH","s":"pass","fair":49.54,"bb":42.11,"tr":68.08,"from":"BUY"}
+{"k":"halal","t":"PRIM","px":59.53,"v":"PASS","s":"review","fair":8.36,"bb":7.11,"tr":15.69,"from":"pass"}
+{"k":"verdict","t":"PTRN","px":17.26,"v":"BUY","s":"pass","fair":16.36,"bb":13.9,"tr":21.54,"from":"WATCH"}
+{"k":"verdict","t":"MZTI","px":109.01,"v":"WATCH","s":"pass","fair":81.38,"bb":69.18,"tr":114.92,"from":"BUY"}
