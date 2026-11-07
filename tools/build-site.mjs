@@ -19,6 +19,7 @@ const { analyze } = await import('../lib/engine.js');
 const { prepare, analyzeTechnical, techContextFrom, TECH_VERSION } = await import('../lib/technical.js');
 const BT = await import('../lib/backtest.js');
 const SG = await import('../lib/signals.js');
+const SC = await import('../lib/scanner.js');
 const REC = await import('../lib/records.js');
 const { healthChecks } = await import('../lib/health.js');
 const { POLICY_VERSION } = await import('../lib/policy.js');
@@ -131,6 +132,7 @@ const started = new Date();
 const dataDir = path.join(OUT, 'data');
 fs.rmSync(dataDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(dataDir, 'tech'), { recursive: true });
+fs.mkdirSync(path.join(dataDir, 'tech-ext'), { recursive: true });
 
 const [{ byTicker }, screener, prevLog] = await Promise.all([getTickerIndex(), getNasdaqScreener(), previousLog()]);
 // market gauge: S&P 500 ETF (used only to read the market's trend, never as a holding)
@@ -185,6 +187,9 @@ const priceDates = {};
 const failed = [];
 const counts = {};
 const breadth = { n: 0, above50: 0, above200: 0, highs: 0, lows: 0 };
+let scannerFile = null;
+const scanErrors = []; // stocks the scanner could not read (they are left out of it; nothing else is affected)
+const scanPending = []; // swing scanner (stage 8): the stocks that have a setup of a kind it lists, ranked after relative strength is known
 const rsData = []; // per backtested stock: trading days (yyyymmdd) and closes, for relative strength on past dates
 let lapsed = 0;
 let done = 0;
@@ -238,6 +243,7 @@ async function one(u) {
   let tech = null;
   let trades = [];
   let upd = null;
+  let scanIn = null;
   const P = hist?.daily?.length ? prepare(hist.daily) : null;
   if (P) {
     tech = analyzeTechnical(P, techContextFrom(res));
@@ -251,6 +257,17 @@ async function one(u) {
       tech.market = { regime: regimeAt(tech.asOf) };
     }
     fs.writeFileSync(path.join(dataDir, 'tech', `${u.t}.json`), JSON.stringify(tech));
+    // stage 8: weekly candles and Bollinger Bands for the chart, in their own file so the chart analysis above is unchanged
+    // A problem here costs this one stock its weekly chart and its place in the scanner, and never the nightly build: the scanner is
+    // an addition and the rest of the site does not depend on it.
+    try {
+      const wk = SC.weeklyAnalysis(hist.daily);
+      fs.writeFileSync(path.join(dataDir, 'tech-ext', `${u.t}.json`), JSON.stringify({ v: SC.SCAN_VERSION, asOf: tech.ok ? tech.asOf : null, daily: SC.dailyBands(P.C), weekly: wk ? wk.chart : null }));
+      scanIn = { wk: wk ? { ...wk, chart: undefined } : null, feats: SC.features(P), bars: P.n };
+    } catch (e) {
+      scanIn = null;
+      scanErrors.push(`${u.t}: ${String(e && e.message || e).slice(0, 80)}`);
+    }
     // live signal log for this stock
     const halalNow = res.ok && res.labels.shariah.status === 'pass';
     upd = SG.updateStock(logByTicker.get(u.t) || [], P, tech.ok && halalNow ? { setup: tech.setup, score: tech.score } : null, {
@@ -337,6 +354,21 @@ async function one(u) {
     const si = btStocks.length;
     btStocks.push([u.t, res.ok ? res.labels.shariah.status : '']);
     rsData[si] = { d: Int32Array.from(P.dates, (x) => Number(x.replace(/-/g, ''))), c: Float64Array.from(P.C) };
+    if (T && scanIn && (['pullback', 'breakout', 'reversal'].includes(T.setup.setup) || (T.setup.setup === 'trend' && T.trendLabel === 'Strong uptrend'))) {
+      scanPending.push({
+        si,
+        ticker: u.t,
+        name: res.name || rec.name,
+        sector: u.sector || '',
+        capM: Math.round(u.cap / 1e6),
+        tech: { ...T, chart: { candles: T.chart.candles.slice(-2) }, history: undefined }, // only what the scanner reads
+        ...scanIn,
+        shariah: res.ok ? res.labels.shariah.status : '',
+        dq: ok ? res.dataQuality?.level || null : null,
+        earn: earn || null,
+        earnDays: T.earnings ? T.earnings.tradingDays : null,
+      });
+    }
     for (const t of trades) if (!t.open) btTrades.push(BT.compactTrade(t, si));
     newLog.set(u.t, upd.records);
     lapsed += upd.lapsed;
@@ -453,6 +485,30 @@ if (breadth.n) {
   };
 }
 
+// ---- swing scanner (stage 8): setup candidates from the chart analysis, kept only when every data gate passes and ranked by
+// the fixed evidence checklist in lib/scanner.js. It reads the nightly numbers; it prices nothing and recommends nothing.
+try {
+  const F = Object.fromEntries(SCREEN_FIELDS.map((k, j) => [k, j]));
+  scannerFile = SC.buildScanner({
+    pending: scanPending,
+    rsData,
+    rsOf: new Map(screen.map((row) => [row[F.ticker], row[F.rs]])),
+    weighted: BT.rsWeighted,
+    calendar: { size: earnings.byTicker.size, failures: earnings.failures, days: earnings.days, from: earnings.from, to: earnings.to },
+    regime: market.regime,
+    priceDate,
+    asOf: started.toISOString(),
+    techVersion: TECH_VERSION,
+    stocksWithChart: breadth.n,
+  });
+  console.log(`scanner: ${scannerFile.summary.listed} listed, ${scannerFile.summary.blocked} blocked by a data gate, earnings calendar ${scannerFile.earningsCalendar.status}`);
+} catch (e) {
+  // no scanner file is better than a wrong one: the page then says the scanner could not be loaded and lists nothing
+  scannerFile = null;
+  console.log(`::warning::swing scanner not built: ${String(e && e.message || e).slice(0, 200)}`);
+}
+if (scanErrors.length) console.log(`::warning::swing scanner could not read ${scanErrors.length} stock(s): ${scanErrors.slice(0, 5).join('; ')}`);
+
 // ---- outputs
 const index = {
   asOf: started.toISOString(),
@@ -464,6 +520,7 @@ const index = {
 };
 fs.writeFileSync(path.join(dataDir, 'index.json'), JSON.stringify(index));
 fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: started.toISOString(), priceDate, techVersion: TECH_VERSION, market, fields: SCREEN_FIELDS, rows: screen }));
+if (scannerFile) fs.writeFileSync(path.join(dataDir, 'scanner.json'), JSON.stringify(scannerFile));
 
 // track record: site-wide backtest
 {

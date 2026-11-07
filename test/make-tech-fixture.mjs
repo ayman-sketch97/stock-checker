@@ -33,3 +33,10 @@ tech.history = BT.stockHistory(BT.backtestStock(P, { years: 5, regimeAt: () => '
 if (tech.ok) tech.market = { regime: 'up' };
 fs.writeFileSync(path.join(ROOT, 'test/fixtures/tech-ok.json'), JSON.stringify(tech) + '\n');
 console.log(`tech-ok.json: ok ${tech.ok}, ${tech.asOf}, close ${tech.close}, ${tech.signals.length} signals, setup ${tech.setup.setup} (${tech.setup.status})`);
+
+// stage 8: the weekly candles and Bollinger Bands the site writes next to the chart file (data/tech-ext/<ticker>.json)
+const SC = await import(path.join(ROOT, 'lib/scanner.js'));
+const wk = SC.weeklyAnalysis(daily);
+const ext = { v: SC.SCAN_VERSION, asOf: tech.ok ? tech.asOf : null, daily: SC.dailyBands(P.C), weekly: wk ? wk.chart : null };
+fs.writeFileSync(path.join(ROOT, 'test/fixtures/tech-ext-ok.json'), JSON.stringify(ext) + '\n');
+console.log(`tech-ext-ok.json: weekly ${ext.weekly.candles.length} bars (last ${ext.weekly.candles.at(-1)[0]}, partial ${ext.weekly.partialLast}), daily bands ${ext.daily.upper.length}`);
