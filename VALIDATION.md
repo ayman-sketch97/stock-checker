@@ -1675,21 +1675,24 @@ already stated; both modes were then run again on the final code.
 |---|---|
 | Portfolio ledger tests (`test/portfolio.test.mjs`) | 32 of 32: average cost with fees, partial and full sales, rebuy, fractional shares, dividends and fees, opening positions, the gain identity (plus 40 random records), missing prices, refused entries (oversell, borrowing, future dates, dividends before holding), date order, shapes, rounding, the rule-breach confirmation, corrections, tamper checks (edit, remove, reorder, extra, cut off, re-hashed lie), an independently computed golden hash, joining backups, limits from the policy functions and from saved limits, sector measure, the buy check's rules, sale preview, comparison with the Portfolio page, opening proposals, value history, and that the page carries exactly the library's code |
 | Do those tests fail when the logic is wrong? | 32 deliberate breakages of the library (fees left out of cost, wrong cost on a sale, sale fees ignored, overselling, borrowing, dividend before holding, voided entries counted, recorded order instead of date order, hash unchecked, replay left out of the check, future dates, breach without confirmation, gain from a partial valuation, missing price valued at zero, held positions not counted as put in, wrong trim level, sector measure including funds, lenient buy cap, funds under stock limits, corrections not renumbered on merge, joined record unchecked, past history rewritten, partial history, backup overwriting history, rounding removed, double correction, dividend tax taken off cash, wide reconcile tolerance, guessed cost, Shariah failure not counted, oversell in the preview, zero as a price): 32 of 32 caught |
-| Page tests (`test/page.test.py`) | 572 of 572 (511 before, 61 new): the Portfolio card, starting the ledger from current holdings (preview first, nothing written until confirmed), totals and gain against fixture prices, a buy that breaks a rule refused until confirmed and saved with its check, sales, dividends and fees through the form, realized results, trim and sector displays, advice and this month's plan unchanged with a full ledger, voiding and its refusal, edited and cut-off records caught and recording switched off, a missing price withholding the gain and the history line, saved limits applied, funds outside the one-stock limits, the Shariah rule in the buy check, backup round trip, tampered backup refused, a backup from before Stage 6, and unreadable storage never stopping either page |
+| Page tests (`test/page.test.py`) | 574 of 574 (511 before, 63 new; the last two check the purpose labels added at approval): the Portfolio card, starting the ledger from current holdings (preview first, nothing written until confirmed), totals and gain against fixture prices, a buy that breaks a rule refused until confirmed and saved with its check, sales, dividends and fees through the form, realized results, trim and sector displays, advice and this month's plan unchanged with a full ledger, voiding and its refusal, edited and cut-off records caught and recording switched off, a missing price withholding the gain and the history line, saved limits applied, funds outside the one-stock limits, the Shariah rule in the buy check, backup round trip, tampered backup refused, a backup from before Stage 6, and unreadable storage never stopping either page |
 | Other node suites and workflow rules | formulas 80 of 80, Shariah ledger 40 of 40, thesis 20 of 20, deploy safety 46 of 46, restore and log 50 of 50, workflow rules all hold |
-| Same advice, ledger current (`same-advice.py --ledger=current`, old = main `9b83272`) | 54 page views compared (418 sections, 384,541 characters): 47 identical word for word; the only differences are the new "Portfolio ledger" card on the Portfolio page in 7 views. No unexpected difference |
-| Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (418 sections, 386,897 characters): 47 identical word for word; the only differences are the new "Portfolio ledger" card on the Portfolio page in 7 views, and the number of sell, trim and take-profit calls on every page is unchanged. No unexpected difference |
+| Same advice, ledger current (`same-advice.py --ledger=current`, old = main `9b83272`) | 54 page views compared (418 sections, 386,025 characters): 47 identical word for word; the only differences are the new "Portfolio ledger" card on the Portfolio page in 7 views. No unexpected difference |
+| Same advice, ledger empty (`--ledger=empty`) | 54 page views compared (418 sections, 388,381 characters): 47 identical word for word; the only differences are the new "Portfolio ledger" card on the Portfolio page in 7 views, and the number of sell, trim and take-profit calls on every page is unchanged. No unexpected difference |
 | Advice with a full ledger | Tested on the page: with entries, voids and breaches recorded, the Advice list rows and this month's plan are exactly as with an empty ledger |
 | Secret scan (`node tools/scan-repo.mjs`) | passed: 87 tracked files, no credentials found |
-| GitHub CI (full workflow dispatched on the branch, run 90, code commit `e96150d`) | passed: security, restore-point, formulas (includes the portfolio tests), page-tests, build, verify-site, gate and ledger all succeeded. deploy, verify-live, rollback and keepalive were skipped, as designed for any branch other than main. Main (`9b83272`), the records branch and the deploy log (newest entry 21:52 UTC, older than the run) were not touched. https://github.com/ayman-sketch97/stock-checker/actions/runs/42308818651 |
+| GitHub CI (full workflow dispatched on the branch, run 90, code commit `e96150d`) | passed: security, restore-point, formulas (includes the portfolio tests), page-tests, build, verify-site, gate and ledger all succeeded. deploy, verify-live, rollback and keepalive were skipped, as designed for any branch other than main. Main (`9b83272`), the records branch and the deploy log (newest entry 21:52 UTC, older than the run) were not touched. https://github.com/ayman-sketch97/stock-checker/actions/runs/42308818651. Re-run after the labelling commit `8805583`: run 91 failed in page-tests on a date race in an older test (disclosed below); run 92 on the identical commit passed every job: security, restore-point, formulas, page-tests, build, verify-site, gate and ledger, with deploy, verify-live, rollback and keepalive skipped by design. https://github.com/ayman-sketch97/stock-checker/actions/runs/42315936719 |
 
 **Limits and disclosures**
 
-- **Two records, not one.** The advice still reads the holdings you enter on the Portfolio page (and the Watchlist and
+- **Two records, not one (kept separate by the owner's decision at approval).** The advice still reads the holdings you enter on the Portfolio page (and the Watchlist and
   Journal). The ledger does not feed it, and the Portfolio page does not write to the ledger. Pressing "Sold" or "Edit"
   there does not touch the ledger; the comparison card shows the difference, but you have to keep both in step. Making
   one the source of the other would change what "Sold" and "Edit" do and what the advice reads. That is a design change
-  that could remove existing behavior, so it is not built and is yours to decide (see the decisions below).
+  that could remove existing behavior, so it is not built. At approval the owner chose to keep the two records separate.
+  Their purposes are labelled where both appear (the ledger card on the Portfolio page, the ledger page and its comparison
+  card): "Your portfolio now" is the working list the advice reads; the ledger is the record that measures. Their totals are
+  never added together and no code sums them; shares held in both are counted once, by reading one total, not both.
 - **Weights differ between the two pages.** On the ledger page a weight is a share of what the ledger holds (positions plus
   cash). On the Portfolio page it is a share of "everything" there (including funds and sukuk listed under other
   holdings). The same stock can show two different percentages until the ledger holds the same things.
@@ -1715,6 +1718,20 @@ already stated; both modes were then run again on the final code.
   unknown" and the sector limit says it cannot be checked for it.
 - Nothing here is financial or Shariah advice. Zoya remains the final Shariah authority.
 
+**A test that fails across UTC midnight, disclosed.** Run 91 failed in page-tests at "ledger page: compliant then not
+compliant, with the change date", an older test from stage 4. `test/page.test.py` reads today's date once, at the start
+(`dt.date.today()`), while the page reads the live clock. That job started at 23:54 UTC and reached the check after 00:00
+UTC, so the test expected the exit deadline 2027-01-23 and the page correctly showed 2027-01-24 (78 days left). No Stage 6
+code is involved: the same check passed in run 90, in the local run, and in run 92 on the identical commit. The test was
+not changed in this stage. Any CI run that crosses 00:00 UTC can fail this way; reading the date again inside that test
+is the suggested follow-up, not done here.
+
+**Owner's decisions at approval (7 November 2026)**
+
+1. Keep the two portfolio records separate for now, with their purposes labelled and no double-counting (done: wording only,
+   commit `8805583`, tested by two added page checks; existing sections untouched, same advice identical in both modes).
+2. Deferred, not built: automatic dividend feeds, nightly value-history jobs, tax lots, corporate actions and broker integration.
+
 **Decisions for the owner (not built)**
 
 1. Whether the Portfolio page's holdings and the ledger should become one record (for example "Sold" and "Edit holding"
@@ -1722,5 +1739,6 @@ already stated; both modes were then run again on the final code.
 2. Whether dividends should be offered from a data source. None is free and reliable for what you actually received.
 3. Whether a daily value line should be saved by the nightly job. That would need the ledger to leave your device, so it is not done.
 
-**Stage 6 is built and verified on the branch, and waits for the owner's approval.** It has not been merged into main and
-Stage 7 has not been started.
+**Stage 6 is approved for merge.** Branch checks before merging: the branch holds the implementation `e96150d`, its CI
+record `271ffe1` and the labelling commit `8805583`; the full workflow passed on `e96150d` (run 90) and again on
+`8805583` (run 91, run 91 failed on a date race in an older test, disclosed above; run 92 on the identical commit passed). Stage 7 has not been started and waits for this stage to be merged, deployed and verified.

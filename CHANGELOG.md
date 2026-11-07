@@ -3,7 +3,7 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
-## 7 November 2026: a ledger for your cash, trades, dividends and fees (stage 6, built and checked on a branch, not merged into main)
+## 7 November 2026: a ledger for your cash, trades, dividends and fees (stage 6)
 
 - A new Portfolio ledger page records the money you put in and take out, your buys and sells, dividends, fees, and
   positions you already held. From that record alone it works out what you hold, the average cost of each position
@@ -23,6 +23,8 @@ checked is in `VALIDATION.md`.
 - Nothing that advises changed. Every verdict, signal, valuation formula, recommendation, risk limit, Shariah gate and
   permanent record is as before: the advice on the Portfolio page still reads the holdings entered there, and the same
   data shows the same advice word for word, apart from the new "Portfolio ledger" card.
+- The ledger and "Your portfolio now" stay two separate records: the first records and measures, the second feeds the
+  advice. Both places say so, their totals are never added together, and shares held in both are counted once.
 - Limits: the ledger and the Portfolio page's holdings are two records you keep in step (the page shows where they
   differ); dividends and fees are what you type; average cost only, no tax lots, no splits or other corporate actions;
   all in US dollars; the value history starts on the first day it is saved. How it was checked and the full list of
