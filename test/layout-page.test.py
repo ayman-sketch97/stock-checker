@@ -104,6 +104,9 @@ async def main():
                     check(small == 0, f'{w}px {theme}: every tab is at least 44px each way')
                     cut = await pg.evaluate("[...document.querySelectorAll('#nav button span')].filter((x) => x.scrollWidth > x.clientWidth + 1).map((x) => x.innerText)")
                     check(not cut, f'{w}px {theme}: no tab label is cut off: {cut}')
+                    # the labels are at least 12px, each one sits fully inside its own tab, the tabs do not overlap and none passes the screen edge
+                    lab = await pg.evaluate("(() => { const bs = [...document.querySelectorAll('#nav button')]; const vw = document.documentElement.clientWidth; let prev = -1; const out = { small: [], outside: [], overlap: [], edge: [], tight: 99 }; for (const b of bs) { const s = b.querySelector('span'); const rb = b.getBoundingClientRect(); const rs = s.getBoundingClientRect(); const fs = parseFloat(getComputedStyle(s).fontSize); if (fs < 12) out.small.push(s.innerText + ' ' + fs); if (rs.left < rb.left - 0.5 || rs.right > rb.right + 0.5) out.outside.push(s.innerText); if (rb.left < prev - 0.5) out.overlap.push(s.innerText); prev = rb.right; if (rb.left < 0 || rb.right > vw + 0.5) out.edge.push(s.innerText); out.tight = Math.min(out.tight, Math.min(rs.left - rb.left, rb.right - rs.right)); } out.n = bs.length; return out; })()")
+                    check(lab['n'] == 7 and not lab['small'] and not lab['outside'] and not lab['overlap'] and not lab['edge'], f'{w}px {theme}: all 7 tab labels are 12px or larger and inside their own tab, with no overlap or edge overflow: {lab}')
                 else:
                     check(box['pos'] != 'fixed' and box['top'] < 100, f'{w}px {theme}: the tabs sit in the header: {box}')
                 # ---- no sideways scroll and nothing wider than the screen, on every page

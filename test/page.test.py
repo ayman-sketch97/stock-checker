@@ -63,6 +63,12 @@ SEED_LEDGER = r"""(ts) => { const S = window.__sc.shariah; const p = (n) => Stri
   localStorage.setItem('shariah', JSON.stringify({ v: 1, entries: e })); localStorage.setItem('shariah_anchor', JSON.stringify(S.anchorOf(e))); }"""
 
 
+async def to_dash(pg):
+    # the daily brief and the ideas cards moved from the Search page to the Dashboard (stage 9 correction)
+    await pg.click('#nav button:has-text("Dashboard")')
+    await pg.wait_for_selector('#page-dashboard section[aria-label="Your daily brief"]', timeout=8000)
+
+
 async def page_with(ctx, base, price_date, storage=None, path='', stock=None, extra=None, patch=None, zoya=None):
     screen = json.load(open(os.path.join(FIX, 'screen.json')))
     index = json.load(open(os.path.join(FIX, 'index.json')))
@@ -342,6 +348,7 @@ async def main():
         # ---- home and shortlist: long-term ideas first, swing signals marked as paper trades
         pg, errs = await page_with(ctx, base, fresh)
         await pg.wait_for_timeout(600)
+        await to_dash(pg)
         ideas = await pg.inner_text('section[aria-label="Ideas today"]')
         check(ideas.find('Long term:') >= 0 and ideas.find('Long term:') < ideas.find('Swing signals:'), 'home: long-term ideas come first, swing signals after them')
         await pg.click('#nav button:has-text("Shortlist")')
@@ -368,6 +375,7 @@ async def main():
                     row[vi] = 'BUY'
                     row[screen['fields'].index('trimAbove')] = 120
         pg, errs = await page_with(ctx, base, fresh)
+        await to_dash(pg)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check('Add the stocks you own' in brief, f'empty brief invites you to add stocks: {brief[:120]!r}')
         await pg.close()
@@ -376,12 +384,14 @@ async def main():
         # the size rule applies at any number of stocks (PREREGISTERED.md, section 6): on its own, MSFT is 44% of the two
         # stocks, so the brief says trim it
         pg, errs = await page_with(ctx, base, fresh, own, '', None, {'data/lt-summary.json': LT}, with_events)
+        await to_dash(pg)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check('MSFT' in brief and 'of everything you own, above your 15% limit: sell about $' in brief and 'to bring it back to 10%' in brief, f'brief: with nothing else recorded, MSFT is 44% of everything and is trimmed: {brief[:500]!r}')
         await pg.close()
         # with the rest of the portfolio recorded ($10,000 in cash and funds), no stock is above 15%
         own['advisor'] = {'v': 1, 'profile': None, 'hp': {}, 'other': [{'id': 'o1', 'sym': 'CASH', 'kind': 'cash', 'market': '', 'shares': None, 'value': 10000}]}
         pg, errs = await page_with(ctx, base, fresh, own, '', None, {'data/lt-summary.json': LT}, with_events, zoya='all')
+        await to_dash(pg)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check('to look at today' in brief and 'Above its trim price' in brief, f'brief: AAPL above its trim price is a thing to look at: {brief[:300]!r}')
         check('Said earlier financial statements can no longer be relied on' in brief, 'brief: a warning filing (8-K item 4.02) on a holding is flagged')
@@ -512,7 +522,7 @@ async def main():
         link = await pg.evaluate("document.querySelector('section[aria-label=\"Use on another device\"] textarea').value")
         check(not errs, f'no page errors adding your own ticker {errs}')
         # the daily brief and the Portfolio page count it at your price and say why there is no advice
-        await pg.click('#nav button:has-text("Search")')
+        await pg.click('#nav button:has-text("Dashboard")')
         await pg.wait_for_timeout(1200)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check('Your own tickers (not on the site)' in brief and 'XYZ 10 shares at $6.00 (your price' in brief, f'own tickers: listed in the brief: {brief[:400]!r}')
@@ -522,7 +532,7 @@ async def main():
         check('Your own ticker: not analysed here' in adv and 'none of the tool’s rules' in adv and 'Counted at the price you entered ($6.00 on' in adv, f'own tickers: the Portfolio page counts it and gives no rule-based advice: {adv[:400]!r}')
         check('Only 2 US stocks, so the stock part is still concentrated (largest: AAPL' in adv and 'no concentration' not in adv, 'a portfolio still being built is called concentrated, not problem-free')
         # its ticker in the brief has no stock page to open, so it goes to the Watchlist
-        await pg.click('#nav button:has-text("Search")')
+        await pg.click('#nav button:has-text("Dashboard")')
         await pg.wait_for_timeout(1000)
         await pg.click('section[aria-label="Your daily brief"] button.tk:has-text("XYZ")')
         await pg.wait_for_timeout(800)
@@ -550,7 +560,7 @@ async def main():
         check('Your price is from' in itxt, f'own tickers: an old typed price asks to be updated: {itxt[:260]!r}')
         itxt = await pg.locator('.wl-item', has_text='OWN0').inner_text()
         check('Your price is from' not in itxt, 'own tickers: a recent typed price gives no alert')
-        await pg.click('#nav button:has-text("Search")')
+        await pg.click('#nav button:has-text("Dashboard")')
         await pg.wait_for_timeout(1000)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check(brief.count('That price is over a month old') == 1, 'own tickers: the brief asks to update an old typed price')
@@ -628,6 +638,7 @@ async def main():
         await pg.close()
         # late data: every action is paused, the numbers stay
         pg, errs = await page_with(ctx, base, weekday_back(6), techy, '', None, {'data/lt-summary.json': LT}, patch=add_rows)
+        await to_dash(pg)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check('Advice paused' in brief and 'To do' not in brief and 'Ideas for new money' not in brief, f'brief: late data pauses the to-do list and the ideas: {brief[:300]!r}')
         await pg.click('#nav button:has-text("Portfolio")')

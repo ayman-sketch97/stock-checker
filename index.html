@@ -607,13 +607,14 @@ ol.exits li { margin: 5px 0; }
     padding: 6px max(2px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(2px, env(safe-area-inset-left, 0px));
     box-shadow: 0 -8px 24px -16px rgba(15, 23, 42, 0.35);
   }
-  .nav button { flex: 1; flex-direction: column; gap: 3px; font-size: 10px; font-weight: 650; padding: 7px 0 6px; border-radius: var(--radius-sm); min-width: 0; min-height: 52px; justify-content: center; letter-spacing: -0.01em; }
+  .nav button { flex: 1 1 auto; flex-direction: column; gap: 3px; font-size: 12px; font-weight: 600; padding: 7px 0 6px; border-radius: var(--radius-sm); min-width: 44px; min-height: 52px; justify-content: center; letter-spacing: -0.01em; }
   .nav button svg { width: 22px; height: 22px; }
-  .nav button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav button span { white-space: nowrap; }
   .nav .dot { top: 5px; right: calc(50% - 17px); }
   body.has-nav footer { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
-@media (max-width: 379px) { .nav button { font-size: 9.5px; letter-spacing: -0.025em; } }
+/* below the 360px baseline (very small phones) seven 12px labels cannot fit, so they step down rather than clip */
+@media (max-width: 349px) { .nav button { font-size: 10.5px; min-width: 0; } }
 @media (min-width: 640px) and (max-width: 1023px) {
   .nav button { flex-direction: row; gap: 6px; font-size: 13px; padding: 10px 4px; min-height: 48px; }
   .nav button svg { width: 20px; height: 20px; }
@@ -783,8 +784,8 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
 .src-sys { background: var(--neutral-bg); color: var(--ink-2); }
 .dash h3 { margin-top: var(--sp-4); }
 @media (min-width: 1024px) {
-  .dash { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); grid-template-areas: "m m" "p a" "s a"; align-items: start; }
-  .dash-market { grid-area: m; } .dash-pf { grid-area: p; } .dash-scan { grid-area: s; } .dash-alerts { grid-area: a; }
+  .dash { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); grid-template-areas: "m m" "p a" "s a" "b b" "i i"; align-items: start; }
+  .dash-market { grid-area: m; } .dash-pf { grid-area: p; } .dash-scan { grid-area: s; } .dash-alerts { grid-area: a; } .dash-brief { grid-area: b; } .dash-ideas { grid-area: i; }
 }
 /* stage 9 polish: one look for "nothing here", wider lists on desktop, comfortable touch targets */
 .empty { margin: var(--sp-3) 0 0; padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--radius-sm); line-height: 1.5; }
@@ -1047,7 +1048,6 @@ table.data tr.me td { background: var(--accent-wash); }
     </section>
 
     <section id="status" aria-live="polite"></section>
-    <section id="today" aria-label="Today" hidden></section>
     <main id="result" hidden></main>
   </div>
   <section id="page-shortlist" aria-label="Shortlist" hidden></section>
@@ -1472,8 +1472,6 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!t) return;
     if (HAS_SITE && page !== 'stock') showPage('stock');
     if (HAS_SITE && !fromNav) history.pushState({ p: 'stock' }, '', '?t=' + encodeURIComponent(tickerFromInput(t)));
-    homeToken++;
-    $('#today').hidden = true;
     hideSuggest();
     q.value = t;
     q.blur();
@@ -7823,8 +7821,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (p === 'stock') {
       history.pushState({ p }, '', current && !result.hidden ? '?t=' + encodeURIComponent(current.ticker) : '?p=stock');
       showPage('stock');
-      if (result.hidden) showHome();
-      else if (tech && tech.refit) tech.refit();
+      if (!result.hidden && tech && tech.refit) tech.refit();
       return;
     }
     history.pushState({ p }, '', '?p=' + p);
@@ -7850,11 +7847,10 @@ table.data tr.me td { background: var(--accent-wash); }
     } else {
       result.hidden = true;
       statusEl.replaceChildren();
-      showHome();
     }
   }
 
-  // ------------------------------------------------------------------ home: today's overview
+  // ------------------------------------------------------------------ today's overview (the Dashboard shows these cards)
   const REGIME = {
     up: ['Rising', 'good', 'The S&P 500 is above its 200-day average, and its 50-day average is above the 200-day.', 'rising'],
     mixed: ['Mixed', 'warn', 'The S&P 500 is caught between its 50-day and 200-day averages: no clear direction.', 'mixed'],
@@ -7864,8 +7860,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const g = bt && bt.halal && (bt.halal.byRegime || []).find((x) => x.key === regime);
     return g && g.n >= 30 ? g : null;
   };
-  let homeToken = 0;
-  // ------------------------------------------------------------------ daily brief (home page)
+  // ------------------------------------------------------------------ daily brief (shown on the Dashboard)
   // What to do today with the stocks you own and follow, what changed since the last data day, and the companies'
   // own news (SEC filings). Worked out on this device from the day's public data: your list never leaves it.
   // The rules: sell when the business itself weakens or it stops being halal, consider trimming above the trim
@@ -7985,17 +7980,6 @@ table.data tr.me td { background: var(--accent-wash); }
     return card;
   }
 
-  async function showHome() {
-    const el = $('#today');
-    if (!HAS_SITE) { el.hidden = true; return; }
-    const my = ++homeToken;
-    el.hidden = false;
-    if (!el.childElementCount) el.append(loadingBox('Loading today’s overview…'));
-    const [scr, bt, lts] = await Promise.all([loadScreen(), loadBtSummary(), loadLtSummary(), loadSwingProof()]);
-    if (my !== homeToken || !result.hidden || page !== 'stock') return;
-    if (!scr) { el.replaceChildren(); el.hidden = true; return; }
-    el.replaceChildren(briefCard(scr, lts), marketCard(scr, bt), todayCard(scr), watchTeaser(scr));
-  }
   function marketCard(scr, bt) {
     const m = scr.market || {};
     const R = REGIME[m.regime];
@@ -8050,19 +8034,6 @@ table.data tr.me td { background: var(--accent-wash); }
     card.append(h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => openShortlist('signals') }, 'See all swing signals')));
     return card;
   }
-  function watchTeaser(scr) {
-    const w = W.load();
-    const card = h('section', { class: 'card', 'aria-label': 'Your watchlist' }, h('h2', { text: 'Your watchlist' }));
-    if (!w.items.length) {
-      card.append(h('p', { class: 'sub', text: 'Tap the star next to a company’s name to follow it. The watchlist flags changes to the verdict and halal status, new buy signals, earnings dates, and your own stop and target levels.' }));
-      return card;
-    }
-    const flagged = w.items.filter((it) => itemAlerts(it, scr.by.get(it.t), scr).length).length;
-    card.append(h('p', { class: 'sub', text: `${w.items.length} compan${w.items.length === 1 ? 'y' : 'ies'}, ${flagged ? `${flagged} with something to look at` : 'nothing urgent'}.` }),
-      h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('watchlist') }, 'Open the watchlist')));
-    return card;
-  }
-
   // ------------------------------------------------------------------ shortlist
   const PRESETS = {
     value: { label: 'Quality on sale', title: 'Quality businesses below fair value', sub: 'Rated a buy candidate or a possible bargain on the fundamentals.', sort: 'upside', view: 'fund', filter: (r) => ['BUY_STRONG', 'BUY', 'CONTRARIAN'].includes(r.verdict) },
@@ -9706,16 +9677,6 @@ table.data tr.me td { background: var(--accent-wash); }
   // nothing out of its own. A block with no data says so; it never shows an example.
   let dashToken = 0;
   const srcTag = (kind, text) => h('span', { class: 'src src-' + kind, text });
-  function dashMarket(scr) {
-    const m = scr.market || {};
-    const R = REGIME[m.regime];
-    const card = h('section', { class: 'card dash-market', 'aria-label': 'The market' },
-      h('div', { class: 'tech-head' }, h('h2', { text: 'The market' }),
-        R ? h('span', { class: 'badge ' + (R[1] === 'good' ? 'b-active' : R[1] === 'bad' ? 'b-bad' : 'b-watch'), text: R[0] }) : null));
-    card.append(h('p', { class: 'sub', text: R ? R[2] : 'The market trend is not in today’s data.' }));
-    if (m.spy) card.append(h('p', { class: 'note', text: `S&P 500 ETF (SPY) ${price(m.spy.close)} at the close on ${niceDates(m.spy.date)} · past month ${pctS(m.spy.r1m, 1)} · past year ${pctS(m.spy.r12m, 1)}` }));
-    return card;
-  }
   function dashPortfolio(scr) {
     const w = W.load();
     const { lt, sw } = holdingsFrom(w.items, JR.load().trades);
@@ -9843,10 +9804,17 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!HAS_SITE) { el.replaceChildren(head); return; }
     const my = ++dashToken;
     el.replaceChildren(head, loadingBox('Loading the dashboard…'));
-    const [scr, sc, H] = await Promise.all([loadScreen(), loadScanner(), loadHealth(), loadSwingProof()]);
+    const [scr, sc, H, bt, lts] = await Promise.all([loadScreen(), loadScanner(), loadHealth(), loadBtSummary(), loadLtSummary(), loadSwingProof()]);
     if (my !== dashToken || page !== 'dashboard') return;
     if (!scr) { el.replaceChildren(head, errCard('Today’s data could not be loaded. Check your connection and try again. Nothing is shown rather than old figures.')); return; }
-    el.replaceChildren(head, h('div', { class: 'dash' }, dashMarket(scr), dashAlerts(scr, H), dashPortfolio(scr), dashScanner(sc)));
+    // the daily brief, market and ideas cards are the ones the Search page used to carry; they are the same functions, unchanged
+    const mk = marketCard(scr, bt);
+    mk.classList.add('dash-market');
+    const br = briefCard(scr, lts);
+    br.classList.add('dash-brief');
+    const id = todayCard(scr);
+    id.classList.add('dash-ideas');
+    el.replaceChildren(head, h('div', { class: 'dash' }, mk, dashAlerts(scr, H), dashPortfolio(scr), dashScanner(sc), br, id));
   }
 
   // ------------------------------------------------------------------ Alert Centre (stage 9)
