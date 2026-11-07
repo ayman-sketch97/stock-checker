@@ -2097,9 +2097,9 @@ a new page with no counterpart in main to compare against, so it is covered by i
   holdings are added again (the Watchlist sync link and the backup file still carry them).
 - Watchlist and earnings alerts cover companies on the Watchlist; a holding that exists only as a Journal trade appears in the Shariah
   ledger alerts and the portfolio table but not in the watchlist alerts.
-- Seven tabs fit a 360 px bar only with labels at 9.5 px; they are tested not to be cut off, but they are small.
+- Seven tabs fit a 360 px bar only with labels at 9.5 px; they are tested not to be cut off, but they are small. (Corrected in section 27: the labels are now 12 px.)
 - The Search page still carries its own "Today" stack (daily brief, market, ideas, watchlist) because every existing feature was
-  kept; some of it overlaps the Dashboard. Merging the two is a product decision, not made here.
+  kept; some of it overlaps the Dashboard. Merging the two is a product decision, not made here. (Resolved in section 27.)
 - No visual regression tool is used: layout is checked by measurement and by looking at screenshots at the three widths in both
   themes, not by pixel comparison.
 - The live site has not been touched: nothing in Stage 9 is merged or deployed.
@@ -2158,5 +2158,42 @@ own commit (`0b33aba`) so it can be reviewed separately.
 - "The same condition" is judged by wording without numbers, so a risk that changes size but not wording stays one alert; a genuinely
   different situation with identical wording would not be announced again until the first has ended.
 - Price alerts use the latest quote the site has (the 4-minute delayed overlay when available, otherwise the daily close), and say which.
-- The 7-tab bar at 360 px needs 9.5 px labels with slightly tightened spacing.
+- The 7-tab bar at 360 px needed 9.5 px labels at the time of this section; section 27 restores 12 px.
 - The live site has not been touched: nothing in Stage 9 is merged or deployed.
+
+## 27. Stage 9, final corrections before approval (7 November 2026, branch `stage9-redesign`, not merged)
+
+Two corrections were asked for after review. Nothing else changed: no investment logic, alert logic, calculation, data source or other
+feature. Libraries under `lib/` are untouched.
+
+**1. Mobile navigation labels are 12 px again.** The 360 px bar had 9.5 px labels (section 25 and 26 limitations). The tabs now size to
+their content (`flex: 1 1 auto`), each at least 44 px wide and 52 px tall, with 12 px semi-bold labels that never wrap
+(`white-space: nowrap`) and a little negative letter-spacing. Seven labels at 12 px just fit the 360 px bar, so nothing is cut off and
+the bar does not scroll sideways. Below 350 px (older small phones, not a tested baseline) the labels step down to 10.5 px rather than
+clip. The layout test now measures every tab label at 360, 390 and 820 px in both themes: 12 px or larger, inside its own tab, no
+overlap with the next label, and no overflow at the screen edge.
+
+**2. The duplicated "Today" stack is gone from the Search page.** The Search page now holds only the hero, the search box, the
+Analyze button, the example tickers and the hint; the analysis, "How it works" and every other Search feature work as before. Reading
+the code showed the stack was not purely a duplicate: the Dashboard had a market line, but not the daily brief or "Ideas today". I
+read "retain the Today information on the Dashboard" to mean that nothing is lost, so those two cards (the same functions, unchanged)
+moved to the Dashboard, and the Dashboard's one-line market block was replaced by the fuller "The market today" card, which contains it.
+The order is: market, system alerts, your portfolio, scanner candidates, your daily brief, ideas today. The Search page's "Watchlist"
+teaser was dropped, because the Dashboard's system alerts already include the Watchlist and earnings alerts. If the owner wants a
+different arrangement (for example a shorter Dashboard with the brief and ideas on their own page), that is a product choice for later.
+
+**Tests.** `test/layout-page.test.py` gained the tab-label check. `test/page.test.py` now opens the Dashboard before reading the daily
+brief and ideas cards (no check was removed or weakened; the count stays 641). `test/dashboard-page.test.py` gained checks that the
+Search page has no Today section and keeps its search flow, that each Today card appears on the Dashboard exactly once, that the
+brief, ideas and market breadth lines read as before, and the card order. Final local run on the committed tree: all Node suites pass;
+workflow 0 failures; layout 296/296; Dashboard 64/64; Alert Centre 81/81; scanner 72/72; page 641/641; same-advice against main
+(`25f90d7`) with the ledger current: 54 identical page views, no unexpected difference; with the ledger empty: 54 identical page views,
+no unexpected difference.
+
+**Limitations.**
+
+- At 360 px the seven 12 px labels fit, but the gap between the tightest neighbours is about 1.4 px (3.7 px at 390 px). They are
+  legible and not clipped, yet the bar is crowded on the smallest supported phone. Shorter labels or showing the label only on the active
+  tab would give more room; that is left as a later choice.
+- Below 350 px the labels are 10.5 px.
+- The Dashboard is longer than before, because it now carries the daily brief and ideas.

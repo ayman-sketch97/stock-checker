@@ -2,6 +2,9 @@
 
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
+- Final corrections: the phone tab bar uses 12 px labels again (never smaller than 12 px down to 350 px wide), and the Search page no
+  longer repeats the "Today" stack. The daily brief, the market card and "Ideas today" now live on the Dashboard; Search keeps the
+  search box and every search feature. No advice, formula or data source changed.
 
 ## 7 November 2026: professional redesign and Dashboard (stage 9, on branch `stage9-redesign`, not merged)
 
