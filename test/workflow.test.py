@@ -171,6 +171,7 @@ check(any('opportunity.test.mjs' in str(s_.get('run', '')) for s_ in steps('form
 check(any('stage8-untouched.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job checks the approved stage 1 to 7 libraries are untouched')
 check(any('scanner-page.test.py' in str(s_.get('run', '')) for s_ in steps('page-tests')), 'page-tests job runs the scanner page tests')
 check(any('layout-page.test.py' in str(s_.get('run', '')) for s_ in steps('page-tests')), 'page-tests job runs the layout and navigation page tests')
+check(any('dashboard-page.test.py' in str(s_.get('run', '')) for s_ in steps('page-tests')), 'page-tests job runs the Dashboard page tests')
 
 print()
 if failures:

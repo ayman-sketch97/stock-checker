@@ -18,14 +18,14 @@ def check(cond, msg):
         failures.append(msg)
 
 
-ALL = ['stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger']
-TABS = [('stock', 'Search'), ('shortlist', 'Shortlist'), ('watchlist', 'Watchlist'), ('record', 'Record'), ('journal', 'Journal'), ('advisor', 'Portfolio')]
+ALL = ['dashboard', 'stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger']
+TABS = [('dashboard', 'Dashboard'), ('stock', 'Search'), ('shortlist', 'Shortlist'), ('watchlist', 'Watchlist'), ('record', 'Record'), ('journal', 'Journal'), ('advisor', 'Portfolio')]
 PARENT = {'scanner': 'shortlist', 'shariah': 'advisor', 'thesis': 'advisor', 'pfledger': 'advisor'}
 GROUPS = {
     'shortlist': ['shortlist', 'scanner'],
     'advisor': ['advisor', 'pfledger', 'thesis', 'shariah'],
 }
-SIZES = [(390, 844), (820, 1100), (1280, 900)]
+SIZES = [(360, 780), (390, 844), (820, 1100), (1280, 900)]
 
 
 async def main():
@@ -39,10 +39,10 @@ async def main():
         # ---- the top-level tabs and every address
         pg, errs = await page_with(ctx, base, fresh)
         tabs = await pg.evaluate("[...document.querySelectorAll('#nav button')].map((x) => [x.dataset.page, x.innerText.trim()])")
-        check(tabs == [list(t) for t in TABS], f'the tabs are Search, Shortlist, Watchlist, Record, Journal, Portfolio with their data-page ids unchanged: {tabs}')
+        check(tabs == [list(t) for t in TABS], f'the tabs are Dashboard, Search, Shortlist, Watchlist, Record, Journal, Portfolio with their data-page ids unchanged: {tabs}')
         await pg.close()
         for name in ALL:
-            pg, errs = await page_with(ctx, base, fresh, path='' if name == 'stock' else '&p=' + name)
+            pg, errs = await page_with(ctx, base, fresh, path='&p=' + name)
             vis = await pg.evaluate("(ids) => ids.filter((k) => { const e = document.getElementById('page-' + k); return e && !e.hidden; })", ALL)
             check(vis == [name], f'?p={name} shows only page-{name}: {vis}')
             cur = await pg.evaluate("[...document.querySelectorAll('#nav button[aria-current=\"page\"]')].map((x) => x.dataset.page)")
@@ -52,7 +52,7 @@ async def main():
 
         # ---- sub-navigation: shown for the two groups, hidden elsewhere, links every page of the group
         for name in ALL:
-            pg, errs = await page_with(ctx, base, fresh, path='' if name == 'stock' else '&p=' + name)
+            pg, errs = await page_with(ctx, base, fresh, path='&p=' + name)
             group = PARENT.get(name, name)
             items = await pg.evaluate("[...document.querySelectorAll('#subnav button')].map((x) => [x.dataset.page, x.getAttribute('aria-current')])")
             hidden = await pg.evaluate("document.getElementById('subnav').hidden")
@@ -88,11 +88,13 @@ async def main():
                     check(foot <= nav_top + 1, f'{w}px {theme}: the end of the page sits above the tab bar (end of footer text {foot:.0f}, bar top {nav_top:.0f})')
                     small = await pg.evaluate("[...document.querySelectorAll('#nav button')].filter((x) => { const r = x.getBoundingClientRect(); return r.height < 44 || r.width < 44; }).length")
                     check(small == 0, f'{w}px {theme}: every tab is at least 44px each way')
+                    cut = await pg.evaluate("[...document.querySelectorAll('#nav button span')].filter((x) => x.scrollWidth > x.clientWidth + 1).map((x) => x.innerText)")
+                    check(not cut, f'{w}px {theme}: no tab label is cut off: {cut}')
                 else:
                     check(box['pos'] != 'fixed' and box['top'] < 100, f'{w}px {theme}: the tabs sit in the header: {box}')
                 # ---- no sideways scroll and nothing wider than the screen, on every page
                 for name in ALL:
-                    await pg.goto(base + '?selftest=1' + ('' if name == 'stock' else '&p=' + name))
+                    await pg.goto(base + '?selftest=1' + ('&p=' + name))
                     await pg.wait_for_timeout(250)
                     ov = await pg.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
                     check(ov <= 0, f'{w}px {theme} ?p={name}: no horizontal scroll (overflow {ov})')

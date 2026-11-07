@@ -94,12 +94,13 @@ async def page_with(ctx, base, price_date, storage=None, path='', stock=None, ex
     pg.on('console', lambda m: errs.append(m.text) if m.text.startswith('stray child') else None)
     await pg.add_init_script(STRAY_CHILD)
     await pg.route(re.compile(r'.*(/data/|quotes\.json).*'), route)
-    await pg.goto(base + '?selftest=1')
+    # the tests' default page is the Search page (?p=stock); the Dashboard, which is the real default landing, is covered by test/dashboard-page.test.py
+    await pg.goto(base + '?selftest=1&p=stock')
     if storage is not None:
         await pg.evaluate('(s) => { localStorage.clear(); for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v)); }', storage)
         if zoya:
             await pg.evaluate(SEED_LEDGER, [r[0] for r in screen['rows']] if zoya == 'all' else list(zoya))
-        await pg.goto(base + '?selftest=1' + path)
+        await pg.goto(base + '?selftest=1' + (path or '&p=stock'))
     await pg.wait_for_timeout(1200)
     return pg, errs
 
@@ -511,7 +512,7 @@ async def main():
         link = await pg.evaluate("document.querySelector('section[aria-label=\"Use on another device\"] textarea').value")
         check(not errs, f'no page errors adding your own ticker {errs}')
         # the daily brief and the Portfolio page count it at your price and say why there is no advice
-        await pg.click('#homeBtn')
+        await pg.click('#nav button:has-text("Search")')
         await pg.wait_for_timeout(1200)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check('Your own tickers (not on the site)' in brief and 'XYZ 10 shares at $6.00 (your price' in brief, f'own tickers: listed in the brief: {brief[:400]!r}')
@@ -521,7 +522,7 @@ async def main():
         check('Your own ticker: not analysed here' in adv and 'none of the tool’s rules' in adv and 'Counted at the price you entered ($6.00 on' in adv, f'own tickers: the Portfolio page counts it and gives no rule-based advice: {adv[:400]!r}')
         check('Only 2 US stocks, so the stock part is still concentrated (largest: AAPL' in adv and 'no concentration' not in adv, 'a portfolio still being built is called concentrated, not problem-free')
         # its ticker in the brief has no stock page to open, so it goes to the Watchlist
-        await pg.click('#homeBtn')
+        await pg.click('#nav button:has-text("Search")')
         await pg.wait_for_timeout(1000)
         await pg.click('section[aria-label="Your daily brief"] button.tk:has-text("XYZ")')
         await pg.wait_for_timeout(800)
@@ -549,7 +550,7 @@ async def main():
         check('Your price is from' in itxt, f'own tickers: an old typed price asks to be updated: {itxt[:260]!r}')
         itxt = await pg.locator('.wl-item', has_text='OWN0').inner_text()
         check('Your price is from' not in itxt, 'own tickers: a recent typed price gives no alert')
-        await pg.click('#homeBtn')
+        await pg.click('#nav button:has-text("Search")')
         await pg.wait_for_timeout(1000)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check(brief.count('That price is over a month old') == 1, 'own tickers: the brief asks to update an old typed price')

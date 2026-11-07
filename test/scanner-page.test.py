@@ -112,12 +112,12 @@ async def page_with(ctx, base, price_date, storage=None, path='', stock=None, ex
     pg.on('console', lambda m: errs.append(m.text) if m.text.startswith('stray child') else None)
     await pg.add_init_script(STRAY_CHILD)
     await pg.route(re.compile(r'.*(/data/|quotes\.json|vendor/).*'), route)
-    await pg.goto(base + '?selftest=1')
+    await pg.goto(base + '?selftest=1&p=stock')  # the tests' default page is the Search page; the default landing is the Dashboard (test/dashboard-page.test.py)
     if storage is not None or zoya:
         await pg.evaluate('(s) => { localStorage.clear(); for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v)); }', storage or {})
         if zoya:
             await pg.evaluate(SEED_LEDGER, list(zoya))
-    await pg.goto(base + '?selftest=1' + path)
+    await pg.goto(base + '?selftest=1' + (path or '&p=stock'))
     await pg.wait_for_timeout(1200)
     return pg, errs
 

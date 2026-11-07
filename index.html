@@ -604,17 +604,18 @@ ol.exits li { margin: 5px 0; }
     position: fixed; z-index: 30; justify-content: space-around; gap: 0;
     left: 0; right: 0; bottom: 0;
     border-radius: 0; border-width: 1px 0 0; background: color-mix(in srgb, var(--surface) 94%, transparent);
-    padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
+    padding: 6px max(2px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(2px, env(safe-area-inset-left, 0px));
     box-shadow: 0 -8px 24px -16px rgba(15, 23, 42, 0.35);
   }
-  .nav button { flex: 1; flex-direction: column; gap: 3px; font-size: 10.5px; font-weight: 650; padding: 7px 2px 6px; border-radius: var(--radius-sm); min-width: 0; min-height: 52px; justify-content: center; letter-spacing: 0; }
+  .nav button { flex: 1; flex-direction: column; gap: 3px; font-size: 10px; font-weight: 650; padding: 7px 0 6px; border-radius: var(--radius-sm); min-width: 0; min-height: 52px; justify-content: center; letter-spacing: -0.01em; }
   .nav button svg { width: 22px; height: 22px; }
   .nav button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nav .dot { top: 5px; right: calc(50% - 17px); }
   body.has-nav footer { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
+@media (max-width: 379px) { .nav button { font-size: 9.5px; } }
 @media (min-width: 640px) and (max-width: 1023px) {
-  .nav button { flex-direction: row; gap: 8px; font-size: 14px; padding: 10px 8px; min-height: 48px; }
+  .nav button { flex-direction: row; gap: 6px; font-size: 13px; padding: 10px 4px; min-height: 48px; }
   .nav button svg { width: 20px; height: 20px; }
   .nav .dot { top: 8px; right: calc(50% - 44px); }
 }
@@ -769,6 +770,22 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
 .paper-note { display: flex; gap: 10px; align-items: flex-start; background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 14px; font-size: 14px; color: var(--ink); }
 .paper-note .ic { margin-top: 1px; }
 .paper-note b { color: var(--warn-ink); }
+/* dashboard: three kinds of information, three labelled cards */
+.dash { display: grid; gap: var(--sp-4); margin-top: var(--sp-3); }
+.dash > .card { margin: 0; min-width: 0; }
+.dash-card.k-you { --dash-k: var(--accent); }
+.dash-card.k-scan { --dash-k: var(--series-1); }
+.dash-card.k-sys { --dash-k: var(--muted); }
+.dash > .dash-card.card:not(.verdict):not(.err) { box-shadow: inset 0 3px 0 var(--dash-k), var(--lift), var(--shadow); }
+.src { display: inline-block; font-size: 11px; font-weight: 750; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-bottom: var(--sp-2); }
+.src-you { background: var(--accent-wash); color: var(--accent-ink); }
+.src-scan { background: color-mix(in srgb, var(--series-1) 14%, transparent); color: color-mix(in srgb, var(--series-1) 70%, var(--ink)); }
+.src-sys { background: var(--neutral-bg); color: var(--ink-2); }
+.dash h3 { margin-top: var(--sp-4); }
+@media (min-width: 1024px) {
+  .dash { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); grid-template-areas: "m m" "p a" "s a"; align-items: start; }
+  .dash-market { grid-area: m; } .dash-pf { grid-area: p; } .dash-scan { grid-area: s; } .dash-alerts { grid-area: a; }
+}
 /* stage 9 foundation: numbers line up everywhere, tables read as tables, one focus ring */
 table, th, td, .tile .v, .tile .s, .px, .pts, .count, .pill, .gchip, .chip, .stat .val, .fv-grid .val, .ind-grid .val, .row-val, .jr-top .pl, .mixkey li b, .hero-num, .act-row .av b, .wl-item, .srow, .scan-row { font-variant-numeric: tabular-nums; }
 table.data th { padding: 9px 8px; background: transparent; }
@@ -969,7 +986,8 @@ table.data tr.me td { background: var(--accent-wash); }
       <span>Stock <b>Checker</b></span>
     </button>
     <nav class="nav" id="nav" aria-label="Sections" hidden>
-      <button type="button" data-page="stock" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Search</span></button>
+      <button type="button" data-page="dashboard" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v8H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 14h7v6H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Dashboard</span></button>
+      <button type="button" data-page="stock" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Search</span></button>
       <button type="button" data-page="shortlist" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Shortlist</span></button>
       <button type="button" data-page="watchlist" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Watchlist</span><i class="dot" hidden></i></button>
       <button type="button" data-page="record" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3.5-4 3 2.5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Record</span></button>
@@ -982,6 +1000,7 @@ table.data tr.me td { background: var(--accent-wash); }
   <div id="healthBanner" class="health-banner" role="status" aria-label="Data problem tonight" hidden></div>
   <nav id="subnav" class="subnav" aria-label="Related pages" hidden></nav>
 
+  <section id="page-dashboard" aria-label="Dashboard" hidden></section>
   <div id="page-stock">
     <div class="hero">
       <span class="eyebrow"><i aria-hidden="true"></i>Halal screen · SEC filings · updated every weekday</span>
@@ -7724,7 +7743,7 @@ table.data tr.me td { background: var(--accent-wash); }
       h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => navigate('pfledger') }, pic.cur.entries.length ? 'Open the ledger' : 'Start the ledger')));
   }
 
-  const PAGES = ['stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
+  const PAGES = ['dashboard', 'stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
   // Secondary pages are reached through a parent section: the parent's tab stays highlighted and a sub-navigation strip
   // above the page links the pages of the group. Page ids and ?p= addresses are unchanged.
   const NAV_PARENT = { scanner: 'shortlist', shariah: 'advisor', thesis: 'advisor', pfledger: 'advisor' };
@@ -7752,7 +7771,8 @@ table.data tr.me td { background: var(--accent-wash); }
     renderSubnav(p);
     $('#how').hidden = true;
     hideTip();
-    if (p === 'shortlist') renderShortlist();
+    if (p === 'dashboard') renderDashboard();
+    else if (p === 'shortlist') renderShortlist();
     else if (p === 'watchlist') renderWatchlist();
     else if (p === 'scanner') renderScanner();
     else if (p === 'record') renderRecord();
@@ -7766,7 +7786,7 @@ table.data tr.me td { background: var(--accent-wash); }
   }
   function navigate(p) {
     if (p === 'stock') {
-      history.pushState({ p }, '', current && !result.hidden ? '?t=' + encodeURIComponent(current.ticker) : location.pathname);
+      history.pushState({ p }, '', current && !result.hidden ? '?t=' + encodeURIComponent(current.ticker) : '?p=stock');
       showPage('stock');
       if (result.hidden) showHome();
       else if (tech && tech.refit) tech.refit();
@@ -7785,6 +7805,8 @@ table.data tr.me td { background: var(--accent-wash); }
     const p = sp.get('p');
     if (/^#w=/.test(location.hash)) { showPage('watchlist'); return; }
     if (p && PAGES.includes(p) && p !== 'stock') { showPage(p); return; }
+    // the address with nothing after it opens the Dashboard; ?p=stock and ?t=TICKER open the Search page as before
+    if (HAS_SITE && !p && !sp.get('t')) { showPage('dashboard'); return; }
     showPage('stock');
     const t = sp.get('t');
     if (t) {
@@ -9513,6 +9535,145 @@ table.data tr.me td { background: var(--accent-wash); }
     hb.hidden = page === 'record';
   }
 
+  // ------------------------------------------------------------------ dashboard (stage 9)
+  // One page that keeps three kinds of information apart, each in its own card with a label that says where it comes from:
+  // what you hold (entered on this device), the scanner's paper candidates (the nightly chart analysis) and the system's
+  // alerts (nightly data checks, your watchlist, your Shariah ledger). It reads the functions every other page uses and works
+  // nothing out of its own. A block with no data says so; it never shows an example.
+  let dashToken = 0;
+  const srcTag = (kind, text) => h('span', { class: 'src src-' + kind, text });
+  function dashMarket(scr) {
+    const m = scr.market || {};
+    const R = REGIME[m.regime];
+    const card = h('section', { class: 'card dash-market', 'aria-label': 'The market' },
+      h('div', { class: 'tech-head' }, h('h2', { text: 'The market' }),
+        R ? h('span', { class: 'badge ' + (R[1] === 'good' ? 'b-active' : R[1] === 'bad' ? 'b-bad' : 'b-watch'), text: R[0] }) : null));
+    card.append(h('p', { class: 'sub', text: R ? R[2] : 'The market trend is not in today’s data.' }));
+    if (m.spy) card.append(h('p', { class: 'note', text: `S&P 500 ETF (SPY) ${price(m.spy.close)} at the close on ${niceDates(m.spy.date)} · past month ${pctS(m.spy.r1m, 1)} · past year ${pctS(m.spy.r12m, 1)}` }));
+    return card;
+  }
+  function dashPortfolio(scr) {
+    const w = W.load();
+    const { lt, sw } = holdingsFrom(w.items, JR.load().trades);
+    const card = h('section', { class: 'card dash-card dash-pf k-you', 'aria-label': 'Your portfolio' },
+      srcTag('you', 'Your holdings · saved on this device'), h('h2', { text: 'Your portfolio' }));
+    if (!lt.length && !sw.length) {
+      card.append(h('p', { class: 'empty', text: 'No holdings are recorded on this device yet, so nothing is shown here. This block never shows example figures.' }),
+        h('div', { class: 'ai' },
+          h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('watchlist') }, 'Add stocks you own'),
+          h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('journal') }, 'Record a trade')));
+      return card;
+    }
+    const st = staleOf(scr);
+    if (st) card.append(h('p', { class: 'hint stale', text: staleText(st) }));
+    const snap = holdingsSnapshot(scr);
+    card.append(h('div', { class: 'stats' },
+      stat('Your stocks', money0(snap.usVal), `${lt.length} compan${lt.length === 1 ? 'y' : 'ies'}`),
+      stat('All holdings counted', money0(snap.total), 'as on the Portfolio page')));
+    if (lt.length) {
+      const td = (text) => h('td', { text });
+      const rows = lt.map((x) => {
+        const r = scr.by.get(x.t);
+        const px = r ? r.price : isNum(x.px) ? x.px : null;
+        return h('tr', null,
+          h('td', null, h('button', { class: 'linkbtn', type: 'button', onclick: () => (r ? openStock(x.t) : navigate('watchlist')) }, x.t), r ? null : h('span', { class: 'sm', text: 'your price' })),
+          td(fmtShares(x.shares)), td(isNum(px) ? price(px) : 'n/a'), td(isNum(px) ? money0(px * x.shares) : 'n/a'),
+          td(r && isNum(r.chg) ? pctS(r.chg, 1) : 'n/a'), td(isNum(px) && isNum(x.cost) && x.cost > 0 ? pctS(px / x.cost - 1, 1) : 'n/a'));
+      });
+      card.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
+        h('thead', null, h('tr', null, ['Stock', 'Shares', 'Price', 'Value', 'Day', 'Vs cost'].map((x) => h('th', { text: x })))),
+        h('tbody', null, rows))));
+      card.append(h('p', { class: 'note', text: `Prices are the close of ${niceDates(scr.priceDate)}. Your own tickers use the price you entered.` }));
+    }
+    if (sw.length) card.append(h('p', { class: 'note', text: `Open swing trades: ${[...new Set(sw.map((x) => x.t))].join(', ')}. Details are in the Journal.` }));
+    card.append(h('div', { class: 'ai' },
+      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('advisor') }, 'Portfolio page'),
+      h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('pfledger') }, 'Portfolio ledger')));
+    return card;
+  }
+  function dashScanner(sc) {
+    const card = h('section', { class: 'card dash-card dash-scan k-scan', 'aria-label': 'Scanner candidates' },
+      srcTag('scan', 'Scanner · ideas to study, not buy signals'), h('h2', { text: 'Swing scanner candidates' }));
+    const open = h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('scanner') }, 'Open the Swing scanner'));
+    if (!sc || !Array.isArray(sc.rows) || !sc.summary || !Array.isArray(sc.weights)) {
+      card.append(h('p', { class: 'empty', text: 'The scanner file could not be loaded, so no candidates are shown.' }), open);
+      return card;
+    }
+    const proven = swingProven();
+    const late = sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, localISO()) : 99;
+    card.append(h('p', { class: 'note', text: `End-of-day closes of ${niceDates(sc.priceDate)}. Not real-time prices.` }));
+    card.append(h('div', { class: 'paper-note' }, icon('ok'), h('span', null, h('b', { text: proven ? 'The live record has passed its gate. ' : 'Paper trade only. ' }),
+      proven ? 'A candidate is still only an idea: it is eligible for real money only when it also has a current Zoya check in your Shariah ledger, shown on each row.' : paperWhy())));
+    if (late >= 2) {
+      card.append(h('p', { class: 'hint stale', text: `Scanner paused: the nightly update is ${late} trading days late (last full update ${niceDates(sc.priceDate)}). No candidates are shown until the next update.` }), open);
+      return card;
+    }
+    const saved = new Map(W.load().items.map((i) => [i.t, i]));
+    const top = sc.rows.slice(0, 5);
+    if (!top.length) card.append(h('p', { class: 'empty', text: 'No candidates tonight. That is normal: most nights few stocks have a clean setup.' }));
+    else {
+      card.append(h('p', { class: 'count', text: `Top ${top.length} of ${sc.rows.length.toLocaleString()} candidate${sc.rows.length === 1 ? '' : 's'} tonight, ranked by the evidence checklist.` }),
+        h('div', { class: 'list' }, top.map((r) => scanRow(r, sc, saved.get(r.ticker)))));
+    }
+    card.append(open);
+    return card;
+  }
+  function dashAlerts(scr, H) {
+    const card = h('section', { class: 'card dash-card dash-alerts k-sys', 'aria-label': 'System alerts' },
+      srcTag('sys', 'System · nightly data, your watchlist, your Shariah ledger'), h('h2', { text: 'Alerts' }));
+    // items are [tone, ticker or null, text]
+    const group = (title, items, link) => {
+      card.append(h('h3', { text: title }),
+        h('ul', { class: 'alert-list' }, items.map(([tone, t, text]) => h('li', null, toneIcon(tone),
+          h('span', null, t ? h('button', { class: 'tk', type: 'button', onclick: () => (scr.by.get(t) ? openStock(t) : navigate('watchlist')) }, t) : null, t ? ' ' : '', text)))));
+      if (link) card.append(h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate(link[0]) }, link[1])));
+    };
+    // 1. the nightly update
+    const checks = H && Array.isArray(H.checks) ? H.checks : null;
+    const bad = (checks || []).filter((c) => c && c.status === 'bad');
+    const warn = (checks || []).filter((c) => c && c.status === 'warn').length;
+    const stale = staleOf(scr);
+    const data = [];
+    if (!checks) data.push(['warn', null, 'The nightly health report could not be loaded, so data problems cannot be ruled out.']);
+    for (const c of bad) { const k = HEALTH_KIND[c.id] || ['Other data problem: ' + (c.label || c.id), '']; data.push(['bad', null, `${k[0]}. ${c.text || ''}`.trim()]); }
+    if (warn) data.push(['warn', null, `${warn} other warning${warn === 1 ? '' : 's'} from the nightly checks.`]);
+    if (stale) data.push(['bad', null, staleText(stale)]);
+    if (checks && !bad.length && !warn && !stale) data.push(['good', null, `Nightly data is current (close of ${niceDates(scr.priceDate)}) and every health check passed.`]);
+    group('Nightly data', data, ['record', 'Record page']);
+    // 2. the Shariah ledger: your record of what Zoya shows for what you hold
+    const cur = SHL.load();
+    const held = shariahHeld();
+    const view = ledgerView(cur.entries, held, localISO());
+    const okAll = view.integrity.ok && checkAnchor(cur.entries, cur.anchor).ok;
+    const sh = [];
+    if (!okAll) sh.push(['bad', null, 'The ledger failed its integrity check. Open it to see why.']);
+    for (const r of view.rows) if (r.held) for (const f of r.flags) if (f.level === 'bad' || f.level === 'warn') sh.push([f.level, r.t, f.text]);
+    if (!held.length) sh.push(['', null, 'No holdings are recorded, so no Zoya checks are due.']);
+    else if (okAll && !sh.length) sh.push(['good', null, `All ${held.length} holding${held.length === 1 ? ' is' : 's are'} recorded and up to date on Zoya.`]);
+    group('Shariah ledger', sh, ['shariah', 'Shariah ledger']);
+    // 3. what you follow: the same alerts the Watchlist page shows for each company, including earnings dates and filings
+    const w = W.load();
+    const wl = [];
+    for (const it of w.items) for (const [tone, text] of itemAlerts(it, scr.by.get(it.t), scr)) if (tone === 'bad' || tone === 'warn') wl.push([tone, it.t, text]);
+    wl.sort((a, b) => (a[0] === 'bad' ? 0 : 1) - (b[0] === 'bad' ? 0 : 1));
+    const shown = wl.slice(0, 8);
+    if (wl.length > shown.length) shown.push(['', null, `${wl.length - shown.length} more on the Watchlist page.`]);
+    if (!w.items.length) group('Watchlist and earnings', [['', null, 'Your watchlist is empty, so there is nothing to check.']], ['watchlist', 'Watchlist']);
+    else group('Watchlist and earnings', wl.length ? shown : [['good', null, `No alerts on the ${w.items.length} compan${w.items.length === 1 ? 'y' : 'ies'} you follow.`]], ['watchlist', 'Watchlist']);
+    return card;
+  }
+  async function renderDashboard() {
+    const el = $('#page-dashboard');
+    const head = pageHead('Dashboard', 'Your holdings, tonight’s scanner candidates and the system’s alerts. Each block says where its numbers come from.');
+    if (!HAS_SITE) { el.replaceChildren(head); return; }
+    const my = ++dashToken;
+    el.replaceChildren(head, loadingBox('Loading the dashboard…'));
+    const [scr, sc, H] = await Promise.all([loadScreen(), loadScanner(), loadHealth(), loadSwingProof()]);
+    if (my !== dashToken || page !== 'dashboard') return;
+    if (!scr) { el.replaceChildren(head, errCard('Today’s data could not be loaded. Check your connection and try again. Nothing is shown rather than old figures.')); return; }
+    el.replaceChildren(head, h('div', { class: 'dash' }, dashMarket(scr), dashAlerts(scr, H), dashPortfolio(scr), dashScanner(sc)));
+  }
+
   // ------------------------------------------------------------------ nav
   $('#howBtn').addEventListener('click', () => { const how = $('#how'); how.hidden = !how.hidden; if (!how.hidden) how.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('#howClose').addEventListener('click', () => { $('#how').hidden = true; });
@@ -9520,7 +9681,7 @@ table.data tr.me td { background: var(--accent-wash); }
     result.hidden = true;
     statusEl.replaceChildren();
     q.value = '';
-    if (HAS_SITE) { history.pushState({ p: 'stock' }, '', location.pathname); showPage('stock'); showHome(); }
+    if (HAS_SITE) navigate('dashboard');
     else if (MODE !== 'mcp') history.replaceState(null, '', location.pathname);
     if (window.matchMedia && window.matchMedia('(hover: hover)').matches) q.focus();
   });
