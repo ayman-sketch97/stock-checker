@@ -60,6 +60,12 @@ jobs:
         run: node --test test/portfolio.test.mjs
       - name: Test the investment reports
         run: node --test test/intel.test.mjs
+      - name: Test the swing scanner
+        run: node --test test/scanner.test.mjs
+      - name: Test opportunity tracking
+        run: node --test test/opportunity.test.mjs
+      - name: Check stages 1 to 7 are untouched
+        run: node --test test/stage8-untouched.test.mjs
 
   page-tests:
     runs-on: ubuntu-latest
@@ -77,6 +83,14 @@ jobs:
         run: pip install playwright==1.48.0 && python -m playwright install --with-deps chromium
       - name: Run the page tests
         run: python test/page.test.py
+      # the scanner page tests draw the daily and weekly charts, so they need the same pinned chart library the build installs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the chart library
+        run: npm install --no-save --no-audit --no-fund lightweight-charts@5.2.1
+      - name: Run the scanner page tests
+        run: python test/scanner-page.test.py
 
   security:
     runs-on: ubuntu-latest

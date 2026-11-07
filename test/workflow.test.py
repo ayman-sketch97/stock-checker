@@ -165,6 +165,11 @@ check(any('restore-and-log.test.mjs' in str(s_.get('run', '')) for s_ in steps('
 check(any('shariah-ledger.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the Shariah ledger tests')
 check(any('thesis.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the thesis and decision record tests')
 check(any('portfolio.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the portfolio ledger tests')
+check(any('intel.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the investment report tests')
+check(any('scanner.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the swing scanner tests')
+check(any('opportunity.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the opportunity tracking tests')
+check(any('stage8-untouched.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job checks the approved stage 1 to 7 libraries are untouched')
+check(any('scanner-page.test.py' in str(s_.get('run', '')) for s_ in steps('page-tests')), 'page-tests job runs the scanner page tests')
 
 print()
 if failures:
