@@ -23,6 +23,8 @@ def serve():
     html = open(os.path.join(ROOT, 'index.html'), encoding='utf-8').read()
     html = html.replace("const MODE = 'server'; /*BUILD:MODE*/", "const MODE = 'static';")
     open(os.path.join(d, 'index.html'), 'w', encoding='utf-8').write(html)
+    # the site's own font, served next to the page as on the real site: without it a runner falls back to a wider system font and the tab labels measure differently
+    shutil.copytree(os.path.join(ROOT, 'fonts'), os.path.join(d, 'fonts'))
 
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *a):
