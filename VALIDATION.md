@@ -1595,7 +1595,7 @@ through a person using the live site; the owner's own browser use will be the fi
 
 **Stage 5 is complete.** Stage 6 has not been started and waits for the owner's instruction.
 
-## 22. Stage 6: portfolio management (7 November 2026, branch `stage6-portfolio-management`, not merged)
+## 22. Stage 6: portfolio management (7 November 2026, merged into main as `21bbc73`, deployed and verified)
 
 Stage 6 reviewed what the Portfolio page already did, then added only what was missing: a record of your cash and trades,
 and the position, cash, profit and loss, dividend, fee, exposure and history figures that can be worked out from it. It
@@ -1739,6 +1739,12 @@ is the suggested follow-up, not done here.
 2. Whether dividends should be offered from a data source. None is free and reliable for what you actually received.
 3. Whether a daily value line should be saved by the nightly job. That would need the ledger to leave your device, so it is not done.
 
-**Stage 6 is approved for merge.** Branch checks before merging: the branch holds the implementation `e96150d`, its CI
+**Stage 6 is merged, deployed and verified.** Branch checks before merging: the branch holds the implementation `e96150d`, its CI
 record `271ffe1` and the labelling commit `8805583`; the full workflow passed on `e96150d` (run 90) and again on
-`8805583` (run 91, run 91 failed on a date race in an older test, disclosed above; run 92 on the identical commit passed). Stage 7 has not been started and waits for this stage to be merged, deployed and verified.
+`8805583` (run 91, run 91 failed on a date race in an older test, disclosed above; run 92 on the identical commit passed). Main was fast-forwarded from `9b83272` to `21bbc73` (four commits, nine files, none of them `lib/policy.js`, the
+records or the deploy log). Update site, run 93 (https://github.com/ayman-sketch97/stock-checker/actions/runs/42318354870),
+started by hand on main: security, restore-point, formulas, page-tests, build, verify-site, gate, deploy, verify-live and
+ledger all succeeded; rollback and keepalive were skipped because no rollback was needed. Live verification passed: the
+site serves commit `21bbc73`, built 2026-11-07 00:37 UTC, 4002 files, prices of 2026-11-05, and a verified restore point
+of that version was made. The deploy log gained its next entry (000007, run 93); the records branch was not changed by
+the merge. Stage 7 has not been started.
