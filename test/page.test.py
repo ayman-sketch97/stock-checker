@@ -1643,6 +1643,10 @@ async def main():
         check(await pg.inner_text('section[aria-label="This month"]') == plan0, 'a ledger full of entries changes nothing in this month’s plan')
         card = await pg.inner_text('section[aria-label="Portfolio ledger"]')
         check('Worth $' in card and 'Realized +$199.00' in card and 'over your size line' in card and 'at the limit' in card, f'portfolio: the ledger card summarizes value, realized result and the limits: {card!r}')
+        check('Two separate records' in card and 'never added together' in card and 'count them once' in card, f'portfolio: the ledger card says it is a separate record from Your portfolio now and that totals are never added together: {card!r}')
+        await pg.goto(base + '?selftest=1&p=pfledger'); await pg.wait_for_timeout(1800)
+        ltxt = await pg.inner_text('#page-pfledger')
+        check('separate record from' in ltxt and 'never added together' in ltxt, 'portfolio: the ledger page labels its purpose apart from Your portfolio now and says the totals are never added together')
         check(not errs, f'no page errors recording entries and on the Portfolio page {errs}')
         await pg.close()
 

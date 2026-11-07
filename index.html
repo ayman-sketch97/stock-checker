@@ -6579,7 +6579,7 @@ table.data tr.me td { background: var(--accent-wash); }
   // the ledger's own page
   async function renderPfLedger() {
     const el = $('#page-pfledger');
-    const head = pageHead('Portfolio ledger', 'Your cash, buys, sells, dividends and fees, kept as a record that cannot be quietly changed. From it: what you hold, average cost, profit and loss, and how each position and sector sits against your limits. Saved on this device only. Nothing here changes any advice.');
+    const head = pageHead('Portfolio ledger', 'Your cash, buys, sells, dividends and fees, kept as a record that cannot be quietly changed. From it: what you hold, average cost, profit and loss, and how each position and sector sits against your limits. Saved on this device only. Nothing here changes any advice. This is a separate record from “Your portfolio now” on the Portfolio page: that list feeds the advice, this ledger only records and measures, and the two totals are never added together.');
     el.replaceChildren(head, loadingBox('Loading prices…'));
     let scr = null;
     try { scr = await loadScreen(); } catch { scr = null; }
@@ -6670,7 +6670,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (rec.length || prop.entries.length) {
       const rc = h('section', { class: 'card', 'aria-label': 'Compared with Your portfolio' }, h('h2', { text: 'Compared with “Your portfolio now”' }));
       const bad = rec.filter((x) => x.status !== 'match');
-      rc.append(h('p', { class: 'sub', text: bad.length ? `${bad.length} of ${rec.length} line${rec.length === 1 ? '' : 's'} differ. The Portfolio page’s advice reads its own holdings, not this ledger, so a difference means one of the two is out of date.` : 'The ledger and the holdings on the Portfolio page hold the same shares.' }));
+      rc.append(h('p', { class: 'sub', text: bad.length ? `${bad.length} of ${rec.length} line${rec.length === 1 ? '' : 's'} differ. The Portfolio page’s advice reads its own holdings, not this ledger, so a difference means one of the two is out of date. The two are kept apart and their values are not added together.` : 'The ledger and the holdings on the Portfolio page hold the same shares.' }));
       if (rec.length) rc.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
         h('tr', null, ['Holding', 'In the ledger', 'On the Portfolio page', ''].map((x) => h('th', { text: x }))),
         rec.map((x) => h('tr', null, h('td', null, h('b', { text: x.t })), h('td', { text: x.ledger ? fmtShares(x.ledger) : 'none' }), h('td', { text: x.holdings ? fmtShares(x.holdings) : 'none' }),
@@ -6761,7 +6761,7 @@ table.data tr.me td { background: var(--accent-wash); }
     return h('section', { class: 'card', 'aria-label': 'Portfolio ledger' },
       h('h2', { text: 'Portfolio ledger' }),
       h('p', { class: 'sub', text: line }),
-      h('p', { class: 'note', text: 'Your own record of cash, trades, dividends and fees, with average cost and profit worked out from it. It sits beside the plan above and changes no advice.' }),
+      h('p', { class: 'note', text: 'Two separate records with different jobs. “Your portfolio now” above is the working list the advice reads. This ledger is your own record of cash, trades, dividends and fees, with average cost and profit worked out from it, and it changes no advice. Their totals are never added together: if the same shares are in both, count them once and read one total, not both.' }),
       h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => navigate('pfledger') }, pic.cur.entries.length ? 'Open the ledger' : 'Start the ledger')));
   }
 
