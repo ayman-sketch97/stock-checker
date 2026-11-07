@@ -3,6 +3,31 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 7 November 2026: investment reports on the company page (stage 7, on a branch, not merged)
+
+- Every company page now has an Investment report card with three strategies: long-term investing (1 to 5 years or
+  more), position investing (weeks to months) and swing trading (days to weeks). Position investing is not the existing
+  Medium term (1 to 3 years). Opening a report writes nothing.
+- A report separates what is sourced (with its source and date), what is calculated and what is not available. It never
+  invents a catalyst: where no reliable catalyst information exists it says so, and the only dated event it shows is
+  the results date the data already holds.
+- A report withholds its call when critical data is missing, late or unreliable, and lists every blocker (for example a
+  price or screen that is late, a missing health record, insufficient data quality, statements older than 270 days, a
+  failed record check, or no chart for the two shorter strategies). When it gives a call, the call follows the rules the
+  Portfolio advice already uses; nothing was added or changed there. A page test checks that the report and the Portfolio
+  advice agree in five owner situations.
+- Position investing reuses the short-hold rules and is marked unvalidated. Swing trading is a paper buy until the
+  existing performance gate passes.
+- "Save this call as a decision" shows a preview first and then adds a Stage 5 decision entry. "Draft a thesis from this
+  report" produces a clearly labelled tool-written draft; nothing is saved until you edit it, tick the confirmation and
+  save. The original thesis and every earlier version stay as they are.
+- The report says which record it used for exposure and size (Portfolio page and Watchlist holdings, not the Stage 6
+  ledger) and that it is not a complete portfolio-risk picture.
+- Nothing that advises changed: Portfolio advice, recommendations, policies and calculations are as before, and the same
+  data shows the same advice word for word apart from the new card. The nightly archive is deferred to Stage 7b; the
+  records branch and the public pick list were not touched. How it was checked and the limits are in `VALIDATION.md`,
+  section 23.
+
 ## 7 November 2026: a ledger for your cash, trades, dividends and fees (stage 6)
 
 - A new Portfolio ledger page records the money you put in and take out, your buys and sells, dividends, fees, and

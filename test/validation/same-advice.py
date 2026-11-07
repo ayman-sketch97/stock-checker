@@ -18,9 +18,10 @@ FIX = os.path.join(ROOT, 'test', 'fixtures')
 CHANGES_ALLOWED_IN = {'The permanent record', 'Long-term list test', 'Limits of the test'}
 # A whole section that exists only in the new version and carries no advice (stage 4: the Shariah ledger summary card; stage 5: the thesis cards on
 # the Portfolio and company pages, which only record and explain the calls shown elsewhere; stage 6: the portfolio ledger summary card on the
-# Portfolio page, which only reports what you recorded and how it sits against your own limits).
+# Portfolio page, which only reports what you recorded and how it sits against your own limits; stage 7: the investment report card on the company
+# page, which reads the calls the page already makes and adds none).
 # It is allowed only as an addition: a section of the same name in the old version would be compared like any other.
-ADDED_SECTIONS = {'Shariah ledger', 'Thesis and decisions', 'Your thesis', 'Portfolio ledger'}
+ADDED_SECTIONS = {'Shariah ledger', 'Thesis and decisions', 'Your thesis', 'Portfolio ledger', 'Investment report'}
 # Stage 4 (decision of 6 November): purification is switched off. Sentences about purification, and the sentences that point to the ledger instead,
 # may be removed or added; the rest of the section must be the old text, in the same order. Nothing here is about a buy, a sell, a size or a limit.
 PUR_RE = re.compile(r'(?i)purif|impure|dividend income|calculator|^It pays no cash dividend\.$|^Record what Zoya shows for each stock in the Shariah ledger|^Open the Shariah ledger$|^The Shariah ledger can keep a record of an amount you were given\.$|^Off$|^pending a scholar-approved method$')

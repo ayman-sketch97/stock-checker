@@ -1752,6 +1752,194 @@ async def main():
         check(not errs, f'no page errors in the backup checks {errs}')
         await pg.close()
 
+        # ---- stage 7: the investment report on the company page
+        IVH = {'version': 1, 'builtAt': fresh + 'T02:00:00.000Z', 'priceDate': fresh, 'commit': None, 'worst': 'ok',
+               'checks': [{'id': i, 'status': 'ok', 'label': l, 'text': 't'} for i, l in [('coverage', 'Companies analysed'), ('history', 'Price history'), ('record', 'Permanent record')]]}
+
+        def iv_files(d_over=None, t_over=None, health=True, setup=None):
+            d = json.load(open(os.path.join(FIX, 'stock-ok.json')))
+            T = json.load(open(os.path.join(FIX, 'tech-ok.json')))
+            d['freshness'].update({'priceDate': fresh, 'balanceSheetDate': weekday_back(25), 'daysSinceBalanceSheet': 36})
+            d['priceTime'] = 'close on ' + fresh
+            d['nextEarnings'] = {'date': (dt.date.today() + dt.timedelta(days=14)).isoformat()}
+            d['filings'] = [{'form': '8-K', 'filed': weekday_back(8), 'items': ['2.02']}]
+            T['asOf'] = fresh
+            if setup:
+                T['setup'].update(setup)
+            if d_over:
+                d_over(d)
+            if t_over:
+                t_over(T)
+            ex = {'data/KO.json': d, 'data/tech/KO.json': T, 'data/lt-summary.json': LT}
+            if health:
+                ex['data/health.json'] = IVH
+            return ex
+
+        def iv_state(shares=0, cash=10000):
+            # a second holding in another sector, so that the sector limit (40% of your stocks) does not stop a buy of KO
+            items = [{'t': 'KO', 'added': '2026-01-01', 'shares': shares, 'cost': 40}, {'t': 'MSFT', 'added': '2026-01-01', 'shares': 10, 'cost': 300}] if shares else []
+            return {'watch': {'v': 1, 'items': items, 'snap': None, 'prev': None},
+                    'advisor': {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'stocks', 'hold': 'auto', 'swing': 'no', 'broker': 'fixed', 'monthlyAed': 0}, 'hp': {}, 'other': [{'id': 'o1', 'sym': 'CASH', 'kind': 'cash', 'market': '', 'shares': None, 'value': cash}]}}
+
+        def ko_row(**kw):
+            def f(scr):
+                F = scr['fields']
+                for r in scr['rows']:
+                    if r[0] == 'KO':
+                        for k, v in kw.items():
+                            r[F.index(k)] = v
+            return f
+        KO_OK = dict(price=50.0, verdict='BUY_STRONG', buyBelow=67.87, trimAbove=110.21, trend='up', shariah='pass', fair=79.84)
+        IVC = 'section[aria-label="Investment report"]'
+
+        async def iv_open(label, shares=0, files=None, row=None, wait=900):
+            pg, errs = await page_with(ctx, base, fresh, iv_state(shares), '&t=KO', 'stock-ok', files or iv_files(), ko_row(**(row or KO_OK)), zoya=['KO'])
+            await pg.wait_for_timeout(1500)
+            if label:
+                await pg.click(f'{IVC} button:has-text("{label}")')
+                await pg.wait_for_timeout(wait)
+            return pg, errs
+
+        # the card is there but empty until a strategy is picked; opening a report changes nothing
+        pg, errs = await iv_open(None)
+        card0 = await pg.inner_text(IVC)
+        check('Investment report' in card0 and 'Not financial advice' in card0 and 'Long-term investing (1 to 5 years or more)' in card0 and 'Position investing (weeks to months)' in card0 and 'Swing trading (days to weeks)' in card0, f'report: the card offers the three strategies: {card0[:300]!r}')
+        check('Evidence' not in card0 and 'Sourced' not in card0, 'report: nothing is built until a strategy is picked')
+        rows_before = await pg.evaluate("[...document.querySelectorAll('.act-row')].map((e) => e.innerText)")
+        thesis_before = await pg.inner_text('section[aria-label="Your thesis"]')
+        store_before = await pg.evaluate("JSON.stringify(Object.entries(localStorage).sort())")
+        await pg.click(f'{IVC} button:has-text("Long-term investing")')
+        await pg.wait_for_timeout(900)
+        rep = await pg.inner_text(IVC)
+        check('Long-term investing (1 to 5 years or more)' in rep and 'Buy' in rep and 'The rule behind the call' in rep, f'report: a long-term report is built: {rep[:500]!r}')
+        for want in ['Sourced', 'Calculated', 'Not available', 'SEC filing 10-K', 'Nasdaq earnings calendar', 'Only the dated items above are known', 'no news, product, guidance or analyst feed', 'Recent company filings (already happened)', '8-K filed',
+                     'Which portfolio record this uses', 'Portfolio and Watchlist pages', 'do not use the Portfolio ledger', 'not a complete portfolio-risk picture', 'Data freshness', 'Zoya has the final word', 'allows up to $1,000.00 more']:
+            check(want in rep, f'report: shows "{want}"')
+        check('Treated as a stock you do not hold' in rep, 'report: says whether it treats the stock as held, and why')
+        rows_after = await pg.evaluate("[...document.querySelectorAll('.act-row')].map((e) => e.innerText)")
+        check(rows_after == rows_before, f'report: What to do now is word for word the same after a report is built: {rows_after!r}')
+        check(await pg.inner_text('section[aria-label="Your thesis"]') == thesis_before, 'report: the Your thesis card is unchanged')
+        check(await pg.evaluate("JSON.stringify(Object.entries(localStorage).sort())") == store_before, 'report: building a report writes nothing to this device')
+        check(not errs, f'no page errors building a long-term report {errs}')
+        await pg.close()
+
+        # a report is withheld, with every reason, when critical data is missing, old or unreliable
+        old = weekday_back(6)
+        pg, errs = await iv_open('Long-term investing', files=iv_files(lambda d: d['freshness'].update({'priceDate': old})))
+        rep = await pg.inner_text(IVC)
+        check('No call is given.' in rep and 'trading days ago: the nightly update is late' in rep and 'Save this call as a decision' not in rep, f'report: old price withholds the call: {rep[:400]!r}')
+        check('Buy' not in rep.split('No call is given.')[0].split('Long-term investing (1 to 5 years or more)')[-1], 'report: a withheld report shows no call word')
+        check(await pg.locator(f'{IVC} button:has-text("Draft a thesis from this report")').count() == 1, 'report: a withheld report can still start a draft, which says the reason must be written by the owner')
+        await pg.close()
+        pg, errs = await iv_open('Long-term investing', files=iv_files(health=False))
+        rep = await pg.inner_text(IVC)
+        check('No call is given.' in rep and 'nightly health report could not be read' in rep, f'report: a missing health report withholds the call: {rep[:300]!r}')
+        await pg.close()
+        def bad_dq(d):
+            d['dataQuality'] = {'level': 'insufficient', 'label': 'x', 'reasons': ['capital spending looks incomplete'], 'limits': []}
+        pg, errs = await iv_open('Long-term investing', files=iv_files(bad_dq))
+        rep = await pg.inner_text(IVC)
+        check('No call is given.' in rep and 'capital spending looks incomplete' in rep, 'report: insufficient data quality withholds the call and says why')
+        await pg.close()
+        def bad_health(d):
+            pass
+        hf = iv_files()
+        hf['data/health.json'] = json.loads(json.dumps(IVH)); hf['data/health.json']['checks'][2]['status'] = 'bad'
+        pg, errs = await iv_open('Long-term investing', files=hf)
+        rep = await pg.inner_text(IVC)
+        check('No call is given.' in rep and 'A nightly health check failed: Permanent record' in rep, 'report: a failed record check withholds the call')
+        await pg.close()
+        pg, errs = await iv_open('Position investing', files=iv_files(t_over=lambda T: T.update({'ok': False, 'reason': 'missing', 'error': 'x'})))
+        rep = await pg.inner_text(IVC)
+        check('No call is given.' in rep and 'no chart analysis' in rep.lower(), 'report: a position report without a chart is withheld')
+        await pg.close()
+
+        # position investing needs the uptrend; swing is paper only
+        pg, errs = await iv_open('Position investing')
+        rep = await pg.inner_text(IVC)
+        check('Position investing (weeks to months)' in rep and 'new in stage 7 and has no rules of its own' in rep and 'Unvalidated' in rep and 'the chart trend is up' in rep, f'report: position investing says it is unvalidated and buys only with an uptrend: {rep[:600]!r}')
+        await pg.close()
+        pg, errs = await iv_open('Position investing', files=iv_files(t_over=lambda T: T.update({'trend': 'down'})))
+        rep = await pg.inner_text(IVC)
+        check('Wait' in rep and 'not up' in rep, f'report: a broken trend gives wait for position investing: {rep[:300]!r}')
+        await pg.close()
+        sw = dict(setup='pullback', status='active', entry=47.4, stop=45.94, maxEntry=48.13, target1=50.13, target2=51.79, riskPct=0.0309, fill='stop', trigger='Buy above the prior high.')
+        pg, errs = await iv_open('Swing trading', files=iv_files(setup=sw))
+        rep = await pg.inner_text(IVC)
+        check('Paper buy' in rep and 'Paper trade only' in rep and 'Entry $47.40, limit $48.13, stop $45.94, target 1 $50.13' in rep, f'report: a swing signal is a paper buy until the record passes: {rep[:500]!r}')
+        check('Real money only after' in rep, 'report: the paper-trade gate is explained')
+        await pg.close()
+
+        # saving a call goes through the stage 5 record, only on a button, and keeps the report's reasons
+        pg, errs = await iv_open('Long-term investing')
+        check(await pg.evaluate("localStorage.getItem('thesis')") is None, 'report: nothing is saved before a button is pressed')
+        await pg.click(f'{IVC} button:has-text("Save this call as a decision")')
+        await pg.wait_for_timeout(500)
+        panel = await pg.inner_text(f'{IVC} .editbox')
+        check(panel.startswith('Buy KO') and 'Save this decision' in panel and 'Investment report, long-term investing' in panel, f'report: the decision is previewed before it is saved: {panel[:300]!r}')
+        check(await pg.evaluate("localStorage.getItem('thesis')") is None, 'report: previewing a decision saves nothing')
+        await pg.click(f'{IVC} button:has-text("Save this decision")')
+        await pg.wait_for_timeout(400)
+        ent = await pg.evaluate("JSON.parse(localStorage.getItem('thesis')).entries")
+        check(len(ent) == 1 and ent[0]['kind'] == 'decision' and ent[0]['action'] == 'buy' and ent[0]['call'] == 'Buy (long-term)' and ent[0]['source'] == 'stock', f'report: the saved decision: {ent[0] if ent else None}')
+        check(any('Portfolio record used:' in r for r in ent[0]['reasons']) and any(r.startswith('Data dates: Price ' + fresh) for r in ent[0]['reasons']), 'report: the saved decision keeps the portfolio record used and the data dates')
+        check(await pg.evaluate("window.__sc.thesis.verifyThesisLog(JSON.parse(localStorage.getItem('thesis')).entries).ok"), 'report: the stage 5 integrity check accepts the saved decision')
+        check(not errs, f'no page errors saving a report decision {errs}')
+        await pg.close()
+
+        # the draft: labelled, editable, never saved by itself, and an existing thesis is never replaced
+        pg, errs = await iv_open('Long-term investing')
+        await pg.click(f'{IVC} button:has-text("Draft a thesis from this report")')
+        await pg.wait_for_timeout(500)
+        dtxt = await pg.inner_text(f'{IVC} .editbox')
+        check('Tool draft: not your thesis until you edit it and confirm' in dtxt and 'has not looked at the business' in dtxt and 'None identified from reliable data' not in dtxt, f'report: the draft is labelled as a tool draft: {dtxt[:400]!r}')
+        check(await pg.locator(f'{IVC} form button:has-text("Save as my thesis")').is_disabled(), 'report: the draft cannot be saved until the box is ticked')
+        check(await pg.evaluate("localStorage.getItem('thesis')") is None, 'report: showing a draft saves nothing')
+        await pg.fill(f'{IVC} form textarea >> nth=0', 'I want a steady, cash-generating business at a price below its estimated value.')
+        await pg.check(f'{IVC} form input[type=checkbox]')
+        check(not await pg.locator(f'{IVC} form button:has-text("Save as my thesis")').is_disabled(), 'report: ticking the box enables saving')
+        await pg.click(f'{IVC} form button:has-text("Save as my thesis")')
+        await pg.wait_for_timeout(400)
+        ent = await pg.evaluate("JSON.parse(localStorage.getItem('thesis')).entries")
+        check(len(ent) == 1 and ent[0]['kind'] == 'thesis' and ent[0]['reason'].startswith('Started from a tool draft of ') and 'steady, cash-generating' in ent[0]['reason'] and ent[0]['stance'] == 'considering' and ent[0]['horizon'] == 'long', f'report: the confirmed draft is saved as the owner’s thesis with its origin: {ent[0] if ent else None}')
+        check(any(c['text'].startswith('Results due') for c in ent[0]['catalysts']) and ent[0]['catalysts'][0].get('by'), 'report: the draft’s only catalyst is the sourced results date')
+        check(await pg.evaluate("window.__sc.thesis.verifyThesisLog(JSON.parse(localStorage.getItem('thesis')).entries).ok"), 'report: the stage 5 integrity check accepts the draft thesis')
+        first = json.dumps(ent[0], sort_keys=True)
+        await pg.click(f'{IVC} button:has-text("Draft a thesis from this report")')
+        await pg.wait_for_timeout(400)
+        dtxt = await pg.inner_text(f'{IVC} .editbox')
+        check('You already have an open thesis' in dtxt and 'is not saved' in dtxt and await pg.locator(f'{IVC} form button:has-text("Save as my thesis")').count() == 0, 'report: with an open thesis a draft cannot be saved')
+        ent2 = await pg.evaluate("JSON.parse(localStorage.getItem('thesis')).entries")
+        check(len(ent2) == 1 and json.dumps(ent2[0], sort_keys=True) == first, 'report: the original thesis is untouched')
+        check(not errs, f'no page errors with a draft thesis {errs}')
+        await pg.close()
+
+        # the report's call agrees with the Portfolio page's advice for the same holding, and the advice itself does not change
+        async def advice_of(shares, row, files):
+            pg, errs = await page_with(ctx, base, fresh, iv_state(shares), '&p=advisor', None, files, ko_row(**row), zoya=['KO'])
+            await pg.wait_for_timeout(1800)
+            rows = await pg.evaluate("[...document.querySelectorAll('section[aria-label=\"Advice on what you hold\"] .srow')].map((e) => e.innerText)")
+            await pg.close()
+            line = next((r for r in rows if r.startswith('KO')), '')
+            return next((l for l in line.split('\n') if l in ('Add', 'Hold', 'Trim', 'Sell', 'Take profit', 'Check halal', 'Review', 'Paused')), None)
+        cases = [
+            ('an owner below the buy price', 10, KO_OK, None, 'Add'),
+            ('an owner over the trim price', 10, dict(KO_OK, price=120.0), lambda d: d.update({'price': 120.0}), 'Trim'),
+            ('an owner whose Shariah screen fails', 10, dict(KO_OK, shariah='fail'), lambda d: d['labels']['shariah'].update({'status': 'fail'}), 'Sell'),
+            ('an owner of a weak business', 10, dict(KO_OK, verdict='AVOID_WEAK'), lambda d: d['verdict'].update({'code': 'AVOID_WEAK'}), 'Sell'),
+            ('an owner who should wait', 10, dict(KO_OK, price=80.0), lambda d: d.update({'price': 80.0}), 'Hold'),
+        ]
+        for name, shares, row, dmod, want in cases:
+            files = iv_files(dmod)
+            got = await advice_of(shares, row, files)
+            pg, errs = await iv_open('Long-term investing', shares=shares, files=iv_files(dmod), row=row)
+            rep = await pg.inner_text(IVC)
+            calls = [l for l in rep.split('\n') if l in ('Add', 'Hold', 'Trim', 'Sell')]
+            check(got == want and bool(calls) and calls[0] == want, f'report: {name}: the Portfolio advice says {got!r}, the report says {calls[:1]!r}, both should say {want!r}')
+            check('Treated as a holding of yours' in rep, f'report: {name} is treated as held')
+            check(not errs, f'no page errors for {name} {errs}')
+            await pg.close()
+
         # ---- stale data warning on the home page
         pg, errs = await page_with(ctx, base, weekday_back(6))
         check(await pg.locator('.hint.stale').count() == 1, 'old data shows a warning')

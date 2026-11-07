@@ -58,6 +58,8 @@ jobs:
         run: node --test test/thesis.test.mjs
       - name: Test the portfolio ledger
         run: node --test test/portfolio.test.mjs
+      - name: Test the investment reports
+        run: node --test test/intel.test.mjs
 
   page-tests:
     runs-on: ubuntu-latest
