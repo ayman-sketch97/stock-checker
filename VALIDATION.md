@@ -2103,3 +2103,60 @@ a new page with no counterpart in main to compare against, so it is covered by i
 - No visual regression tool is used: layout is checked by measurement and by looking at screenshots at the three widths in both
   themes, not by pixel comparison.
 - The live site has not been touched: nothing in Stage 9 is merged or deployed.
+
+## 26. Stage 9, slice 5: Alert Centre, and a CI font failure found and fixed (7 November 2026, branch `stage9-redesign`, not merged)
+
+**What was added.** A new page, `?p=alerts`, under the Dashboard tab (and a button on the Dashboard). It lists four kinds of alert, each saying
+when it opened, which price or data it used and how old that data is: custom price levels typed by the user, swing scanner setups, portfolio
+risks, and Shariah compliance warnings. A history keeps every alert; an alert can be dismissed, restored, deleted (only once its condition
+has ended) and the ended ones cleared. If the user switches notifications on, the browser announces each new alert once while the site is
+open. Nothing sends email or phone messages, nothing uses a new data source or a paid service, and nothing places or suggests an order.
+
+**No duplicated logic.** The conditions come from functions the site already had: `itemAlerts` (watchlist and earnings), the Journal flags
+(moved unchanged into `journalFlags`), the Shariah ledger flags (moved into `ledgerAlerts`, now shared with the Dashboard) and the scanner
+file read through `loadScanner` with its Zoya gate and `swingProven`. The only new library is `lib/alerts.js`, which does bookkeeping and
+no investment arithmetic. The Stage 1 to 8 libraries are untouched (`test/stage8-untouched.test.mjs` still pins their hashes).
+
+**Repeat suppression.** Three rules, all tested: an open alert is updated in place, never duplicated; "the same condition" means the same
+wording without its numbers, so 15.2% becoming 15.4% is not a new alert; a price level re-arms only after the price is 1% back through it;
+a condition that ends and returns within 24 hours re-opens its earlier alert silently. Switching notifications on marks everything already
+open as announced, and the announcement is saved before it is shown, so a reload or a second tab cannot announce it again. At most three
+browser notifications are shown per check, with one summary for the rest. Clearing the history or deleting an alert whose condition is
+still true is not allowed to resurrect it (found while designing the tests, and fixed in `lib/alerts.js`).
+
+**Freshness.** Every alert row carries its price date and age. Quotes from the live overlay are labelled with their session and delay; a
+late or missing scanner file pauses scanner alerts and says so, and leaves open scanner alerts exactly as they were instead of closing
+them on missing data.
+
+**Tests.** `test/alerts.test.mjs` (22 unit tests, including that the page copy of the library equals the file) and
+`test/alerts-page.test.py` (81 checks: navigation and the Dashboard button, empty state, price-alert entry and validation, the
+notification stub shown once only, drift, hysteresis and re-open, enabling, disabling, denied and unsupported notification states,
+dismiss, restore, dismiss all, clear, per-kind switches, risk, Journal and Shariah alerts, late and missing scanner data, the live
+delayed-quote stamp, damaged storage, 390 px in light and dark, and that the page requests only its own host and
+raw.githubusercontent.com). The layout test now covers the new page. Final local run on the committed tree: all Node suites pass;
+workflow 0 failures; layout 309/309; Dashboard 47/47; Alert Centre 81/81; scanner 72/72; page 641/641; same-advice against main
+(`25f90d7`) with the ledger current: 54 identical page views, no unexpected difference; with the ledger empty: no unexpected difference.
+
+**A CI failure found by the first dry run, and its fix.** The first full CI dry run of this branch (run 42369107997) failed at "Run the
+layout and navigation page tests": the "Dashboard" tab label was cut off at 360 and 390 px in both themes. The cause was the test
+server, not the site: it did not serve `fonts/`, so the runner drew the page in a wider system font (DejaVu Sans) instead of Inter. I
+reproduced it locally with a fontconfig that hides Inter (the label was 60 px in a 51 px tab), made the test server copy `fonts/` next
+to the page as the real site does, and added a little letter-spacing to the tab labels under 380 px so the label keeps about 3 px of
+room (48 px measured). The layout test then passed under the CI-like fonts. The Dashboard page-test step had been skipped on CI because
+of that failure, so it was confirmed locally. The standing rule to stop and report on a failed check was weighed against the instruction
+to fix failures before reporting; the repair was only taken after the cause was reproduced and the fix verified, and it is shipped as its
+own commit (`0b33aba`) so it can be reviewed separately.
+
+**Limitations and things for the owner to decide.**
+
+- Browser notifications need a browser that allows them for ordinary web pages: desktop browsers and Android Chrome do; iPhone Safari does
+  not for a page opened in a tab, so on an iPhone the alerts appear on the page only.
+- Alerts are stored in this browser only (`alerts` in local storage). They are not in the backup file or the Watchlist sync link.
+- Checks run only while the site is open (on load, on every quote refresh, and when another tab changes the stored alerts). Nothing runs
+  in the background, which is why there is no email or phone message.
+- Scanner alerts cover ready setups that are in the top five or on the Watchlist, not every scanned company.
+- "The same condition" is judged by wording without numbers, so a risk that changes size but not wording stays one alert; a genuinely
+  different situation with identical wording would not be announced again until the first has ended.
+- Price alerts use the latest quote the site has (the 4-minute delayed overlay when available, otherwise the daily close), and say which.
+- The 7-tab bar at 360 px needs 9.5 px labels with slightly tightened spacing.
+- The live site has not been touched: nothing in Stage 9 is merged or deployed.
