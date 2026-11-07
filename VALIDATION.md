@@ -1975,6 +1975,12 @@ unchanged (the scanner file is optional).
 | Full branch CI | Update site, run 96 (https://github.com/ayman-sketch97/stock-checker/actions/runs/42353560417), started by hand on the branch as a dry run at `c9d26ce`: formulas (including the new scanner, opportunity and untouched-libraries steps), restore-point, security, page-tests (including the scanner page tests with the chart library installed), build, verify-site, gate and ledger all succeeded; deploy, verify-live, rollback and keepalive were skipped because a branch run never deploys. Nothing was deployed and the live site was not touched |
 | Build in CI | 1,999 stocks analysed, 0 failed, 534 s; log line `scanner: 130 listed, 385 blocked by a data gate, earnings calendar ok`; site check passed with 5,991 files built from `c9d26ce`; Pages artifact 40,178,510 bytes compressed |
 
+**After the label rename (`b22b0f4`).** Page tests 641 ok and scanner page tests 72 ok; stages-untouched 16, scanner 29, opportunity 14 and
+investment reports 52 pass; same-advice gave the same figures in both ledger states (no unexpected difference). Full branch CI:
+Update site, run 97 (https://github.com/ayman-sketch97/stock-checker/actions/runs/42358347817), started by hand on the branch at
+`b22b0f4`: formulas, restore-point, security, page-tests, build, verify-site, gate and ledger all succeeded; deploy, verify-live, rollback
+and keepalive were skipped because a branch run never deploys.
+
 The counts in the last row describe one run on one night. They are not a performance result, the scanner has no record
 yet, and they were not used to adjust any rule.
 
