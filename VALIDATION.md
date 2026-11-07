@@ -1748,3 +1748,114 @@ ledger all succeeded; rollback and keepalive were skipped because no rollback wa
 site serves commit `21bbc73`, built 2026-11-07 00:37 UTC, 4002 files, prices of 2026-11-05, and a verified restore point
 of that version was made. The deploy log gained its next entry (000007, run 93); the records branch was not changed by
 the merge. Stage 7 has not been started.
+
+## 23. Stage 7: investment reports (7 November 2026, branch `stage7-investment-intelligence`, not merged)
+
+Stage 7 inspected what the company page already held, then added only what was missing: one report per strategy that
+puts the existing analysis in one place, says what is sourced, calculated or missing, and withholds its call when the
+data cannot support one. It **adds no rule, threshold, formula, limit or signal**. Every call it gives is made by rules the
+Portfolio advice, the stock-page buy check or the swing plan already use. The Portfolio advice, recommendations, policies
+and calculations are untouched.
+
+**How the full engine analysis is reached (checked before coding).** The company page builds the full analysis in the
+browser from the nightly file for that stock: the verdict and its confidence, labels, fair value (bear, base, bull and
+the assumptions), price plan, data quality, freshness, filings and sources, risks and next results date, plus the chart
+analysis (setup, trend, results soon) and the market regime. The report reads exactly these objects and the existing
+page functions (`buyCheck`, `guardBuy`, `holdingsSnapshot`, `sizeTrim`, `staleOf`, `swingProven`, `loadScreen`,
+`loadHealth`, `loadTech`). No new data source, request, nightly step or workflow job was needed.
+
+**What was built, against the four decisions**
+
+1. **Recommendation gate, Investment Reports only.** `intelGate` lists every blocker and the report then shows no call.
+   Blockers for every strategy: no analysis, no price, no price date, a price more than two trading days late, no
+   nightly screen or a late one, no Shariah result, no health record, a critical health check marked bad (coverage and
+   record for long-term; coverage, record and price history for the other two) and no buy check. Long-term and position
+   add: no or insufficient data quality, no statement date or statements older than 270 days, no verdict, a verdict of
+   unreliable, no data or financial company, and no fair value. Position and swing add: no chart, no chart date, a late
+   chart and no trend. A live quote that differs from the close is only a caution; the report always uses the close.
+   Nothing in the Portfolio page, the stock-page advice or the buy check was changed to use this gate.
+2. **Strategy definitions.** Long-term investing is 1 to 5 years or more, position investing is weeks to months, swing
+   trading is days to weeks and paper-only until the existing performance gate (`swingProven`) passes. Position
+   investing is not the existing Medium term (1 to 3 years) and does not reuse that label anywhere.
+3. **Nightly archive.** Deferred to Stage 7b. The nightly workflow, the records branch and the public pick list are not
+   modified. A report is computed in the page from data already loaded and is not stored anywhere unless you save it.
+4. **Thesis generation.** "Draft a thesis from this report" shows a clearly labelled tool-written draft ("Tool draft:
+   not your thesis until you edit it and confirm"). Nothing is saved until you edit it, tick the confirmation and press
+   Save. If an open thesis already exists, the draft is shown read-only and cannot be saved over it. A saved draft goes
+   through the unchanged Stage 5 `appendThesis`, so the original thesis and every earlier version stay in the chain, and
+   the saved reason begins "Started from a tool draft of <date>.". "Save this call as a decision" shows a preview first
+   and then adds an ordinary Stage 5 decision entry; a withheld report cannot be saved as a decision.
+
+**The definition of position investing, frozen.** It is new and has no history of its own, so it has no rules of its own.
+It applies the rules the tool already uses for a short hold: a buy rating, a passed Shariah screen, a price at or below
+the buy price, and an intact chart uptrend to buy; an owner sells when the trend is down or weakening, when the Shariah
+screen fails or when the business is rated Avoid or Speculative, and trims at the trim price or over the size limit. The
+report states this, marks it "Unvalidated", and says no record yet shows how it performs. These rules were fixed before
+any result was looked at and were not tuned afterwards.
+
+**Sourced, calculated or unavailable.** Every fact in a report carries one of three kinds, its source, its date and
+(for filings) a link, and an unavailable fact reads "not available" instead of being left out or estimated. A link is
+kept only if it points at sec.gov. A test walks every string value of a full report and of a draft to check that no
+`undefined`, `null`, `NaN` or `[object Object]` text reaches the reader (this found one real defect, below).
+
+**Catalysts are never invented.** The only dated event a report shows is the next results date when the data holds
+one, labelled sourced with its source. Recent filings are listed as filed. Where none exists, the report and the draft
+say "None identified from reliable data" and stop. One calculated line, the price at which the buy zone starts, is shown
+with the catalysts and labelled "Calculated by this tool". There is no news feed, and nothing in the report is about
+events the tool cannot source.
+
+**Which portfolio record is used (disclosed in every report).** Exposure and position-size figures use the holdings on
+the Portfolio and Watchlist pages, the same record the Portfolio advice reads, and not the Stage 6 ledger, which remains
+separate. Every report says so, says it is not a complete portfolio-risk picture, and says weights use the buy-check
+totals, so a size trim can differ from what the Portfolio page shows if the holdings differ. `portfolio.complete` is
+always false in the report data, and a test asserts it.
+
+**Policy stops are shown, not hidden.** When your own limits or the Shariah review stop a buy (position size, sector
+limit, minimum order, the ledger), the report turns the call into Wait or Hold and names the stops. An owner call to sell
+or trim is never softened by them.
+
+**Horizon mapping, disclosed.** Stage 5 stores only long, mid and short horizons. A long-term report drafts a "long"
+thesis; position and swing reports draft a "short" one, and the draft says so beside the field. Stage 5 was not changed
+to add horizons.
+
+**Evidence** (all run on the branch before the code commit, on the final code)
+
+| Check | Result |
+|---|---|
+| Investment report tests (`test/intel.test.mjs`) | 52 of 52: constants, nulls kept as nulls, a table of 24 data blockers, strategy-specific blockers, cautions, live price, calls for buyer and owner in all three strategies, policy stops (only on a hold), paper-only swing, plan expiry, Journal stop and target, fact kinds, catalysts never invented, portfolio disclosure, wording (no dash, no compliance claim), rule text, provenance of numbers, SEC-only links, a leak scan of every string, draft thesis and decision accepted by the unchanged `lib/thesis.js` and verified by `verifyThesisLog`, page mirror equal to the library character for character, no imports, and Stage 1 to 6 libraries unchanged against `eb24496` |
+| Page tests (`test/page.test.py`) | 641 ok, 0 failed. The Stage 7 block checks the card on a company page, the long-term report content, that opening a report writes nothing, that What to do now and Your thesis are unchanged, withheld reports for an old price, a missing health record, insufficient data quality, a failed record check and a missing chart, position and swing reports, saving a decision, the draft flow and its confirmation box, and that the report and the real Portfolio advice agree in five owner situations (Add, Trim, Sell, Sell, Hold) |
+| Other suites | formulas 80, thesis 20, portfolio 32, shariah-ledger 40, deploy-safety 46, restore-and-log 50, workflow rules all hold |
+| Same advice, `--ledger=current` (`test/validation/same-advice.py`, run once on the final code) | 54 page views, 45 identical word for word; the other 9 differ only by the new "Investment report" section. No unexpected difference |
+| Same advice, `--ledger=empty` | same result; every added sentence is about the new section, and no sale, trim or take-profit call was added or removed |
+| Stage 1 to 6 files | `git diff --name-status eb24496 HEAD`: new `lib/intel.js` and `test/intel.test.mjs`; edited `index.html` (730 lines added, none removed), `test/page.test.py`, `test/validation/same-advice.py`, `.github/workflows/update-site.yml` (one test step added), `README.md` (one line), `CHANGELOG.md`. No other file in `lib/`, `tools/`, `test/` or the workflows changed |
+| Full branch CI | Update site, run 94 (https://github.com/ayman-sketch97/stock-checker/actions/runs/42344941933), started by hand on the branch as a dry run at commit `4470b81`: formulas (including the new "Test the investment reports" step), restore-point, security, page-tests, build, verify-site, gate and ledger all succeeded; deploy, verify-live, rollback and keepalive were skipped because a branch run never deploys. Nothing was deployed and the live site was not touched |
+
+The same-advice check was run once on the final code, after the last code change, and its two outputs were not used to
+change anything.
+
+**Defects found while building, and fixed before the commit.** (1) A health score and the health report shared one key,
+so a draft printed "[object Object] of 100"; the score is now `healthScore` and the leak test above guards it. (2) A
+policy stop was listed even on a call that was not a hold; it is now listed only with a hold. (3) A filing link was
+passed through unchecked; it is now kept only for sec.gov addresses. Three expectations in my own tests were wrong (a
+swing buy reads "Paper buy" until proven; the sector limit stopped the owner "Add" fixture, so the real advice said Hold
+and the report agreed with it; money is written with thousands separators) and the tests, not the code, were corrected.
+
+**Limitations**
+
+- **Position investing is unvalidated.** Its rules are borrowed from the short-hold rules and have no record of their
+  own. The report says so every time, and that is the honest state until a record exists.
+- **Swing buys are paper trades** until the existing live record passes its gate, as already on the Technical tab.
+- **No news or catalyst feed.** The only sourced event is the next results date and recent filings. A thesis that
+  depends on a product launch, a ruling or a deal has to be written by you.
+- **Stale or missing data withholds the call.** On a day the nightly update is late (more than two trading days), every
+  report is withheld by design. That is the gate working, not a fault.
+- **Two portfolio records.** The report reads the Portfolio and Watchlist holdings, not the Stage 6 ledger, and says so.
+- **Horizon mapping.** Position and swing drafts are stored with the "short" horizon.
+- **Not stored by the nightly job.** A report that you do not save is gone when you leave the page. Stage 7b would keep a
+  nightly archive of reports; it was deferred by your decision, and the public pick list and records branch are untouched.
+- **A draft is a starting point.** It restates the report; it contains no judgement about the business you did not
+  already see in the report.
+- Nothing here is financial or Shariah advice. Zoya remains the final Shariah authority. No order is placed by the tool.
+
+**Status.** Implementation `4470b81` on `stage7-investment-intelligence`, based on `eb24496` (Stage 6, complete). It is not
+merged and not deployed. It waits for the owner's approval; the nightly archive (Stage 7b) is a separate decision.
