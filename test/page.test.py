@@ -325,6 +325,42 @@ async def main():
         check(not errs, f'no page errors on the Technical tab {errs}')
         await pg.close()
 
+        # stage 10: the trade calculator used to share the storage key "portfolio" with the Portfolio ledger, and opening the
+        # Technical tab overwrote the whole ledger with a number. The ledger must come through untouched.
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok', {'data/tech/KO.json': tech_ok})
+        seed = """() => { const P = window.__sc.portfolio; const today = (new Date()).toISOString().slice(0,10);
+          let e = []; const a = (f) => { const r = P.appendPortfolio(e, f, today, new Date().toISOString()); if (!r.ok) throw new Error(r.errors.join()); e = r.entries; };
+          a({kind:'deposit', date: today, amount: 5000}); a({kind:'buy', t:'KO', date: today, shares: 10, price: 60, fees: 0});
+          localStorage.setItem('portfolio', JSON.stringify({v:1, entries: e})); localStorage.setItem('portfolio_anchor', JSON.stringify(window.__sc.shariah.anchorOf(e)));
+          localStorage.setItem('recent', JSON.stringify({not: 'a list'})); return localStorage.getItem('portfolio'); }"""
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(800)
+        ledger_before = await pg.evaluate(seed)
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1200)
+        await pg.locator('button:has-text("Technical")').first.click()
+        await pg.wait_for_timeout(1000)
+        for val in ('40000', '0'):
+            await pg.locator('.calc input').nth(1).fill(val)
+            await pg.wait_for_timeout(300)
+        ledger_after = await pg.evaluate("localStorage.getItem('portfolio')")
+        check(ledger_after == ledger_before, 'opening and using the trade calculator leaves the Portfolio ledger byte-for-byte unchanged')
+        calc_key = await pg.evaluate("localStorage.getItem('calcPortfolio')")
+        check(calc_key == '0', f'the calculator keeps its own value under its own key: {calc_key!r}')
+        check(not errs, f'no page errors with a damaged "recent" value {errs}')
+        await pg.close()
+        # an old plain number saved by the calculator before stage 10 is still picked up, and an object (the ledger) is never read as an amount
+        for legacy, want in (('40000', '40000'), (json.dumps({'v': 1, 'entries': []}), '')):
+            pg, errs = await page_with(ctx, base, fresh, {'portfolio': json.loads(legacy)}, '', 'stock-ok', {'data/tech/KO.json': tech_ok})
+            await pg.goto(base + '?selftest=1&t=KO')
+            await pg.wait_for_timeout(1200)
+            await pg.locator('button:has-text("Technical")').first.click()
+            await pg.wait_for_timeout(800)
+            got = await pg.evaluate("[...document.querySelectorAll('.calc input')].map(i=>i.value)[1]")
+            check(got == want, f'calculator reads a legacy {legacy[:20]} as {want!r}: got {got!r}')
+            check(await pg.evaluate("localStorage.getItem('portfolio')") == legacy.replace(' ', ''), 'and the "portfolio" key is not rewritten')
+            await pg.close()
+
         # ---- journal: a paper trade is saved as practice and labelled
         pg, errs = await page_with(ctx, base, fresh, {'journal': {'v': 1, 'trades': [], 'backup': None}}, '#')
         await pg.click('#nav button:has-text("Journal")')

@@ -1221,6 +1221,9 @@ table.data tr.me td { background: var(--accent-wash); }
     svg.innerHTML = '<path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>';
     return svg;
   };
+  // the three append-only records (Shariah, thesis, portfolio): keep only entries that are objects, so a damaged value cannot crash the page.
+  // Dropping one leaves a gap in the numbering and the anchor no longer matches, so the record's own check fails and says so.
+  const entriesOf = (d) => (d && Array.isArray(d.entries) ? d.entries.filter((e) => e && typeof e === 'object' && !Array.isArray(e)) : []);
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
@@ -1408,8 +1411,9 @@ table.data tr.me td { background: var(--accent-wash); }
   let activeIdx = -1;
 
   // ------------------------------------------------------------------ recent searches
+  const recentList = () => { const r = store.get('recent', []); return Array.isArray(r) ? r.filter((x) => typeof x === 'string') : []; };
   function renderRecent() {
-    const r = store.get('recent', []);
+    const r = recentList();
     const box = $('#recent');
     box.replaceChildren();
     if (!r.length) {
@@ -1419,7 +1423,7 @@ table.data tr.me td { background: var(--accent-wash); }
     r.slice(0, 8).forEach((t) => box.append(h('button', { class: 'chip', type: 'button', onclick: () => run(t) }, t)));
   }
   function remember(t) {
-    const r = store.get('recent', []).filter((x) => x !== t);
+    const r = recentList().filter((x) => x !== t);
     r.unshift(t);
     store.set('recent', r.slice(0, 8));
     renderRecent();
@@ -2348,13 +2352,16 @@ table.data tr.me td { background: var(--accent-wash); }
     const inv = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', 'aria-label': 'Amount to invest, in dollars' });
     const port = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'optional', 'aria-label': 'Your whole portfolio, in dollars' });
     inv.value = String(store.get('invest', 250));
-    const savedPort = store.get('portfolio', 0);
-    if (savedPort) port.value = String(savedPort);
+    // The calculator keeps its own key. Until stage 10 it shared the key "portfolio" with the Portfolio ledger, and opening the
+    // calculator overwrote the ledger. An old plain number under "portfolio" is still read once; an object there is the ledger.
+    let savedPort = store.get('calcPortfolio', null);
+    if (savedPort === null) { const legacy = store.get('portfolio', 0); savedPort = typeof legacy === 'number' ? legacy : 0; }
+    if (typeof savedPort === 'number' && savedPort > 0) port.value = String(savedPort);
     const out = h('div', { class: 'out' });
     const upd = () => {
       const a = num(inv.value), P = num(port.value);
       store.set('invest', a || 250);
-      store.set('portfolio', P || 0);
+      store.set('calcPortfolio', P || 0);
       if (!a) { out.replaceChildren(h('div', { class: 'muted', text: 'Enter the amount you would put into this trade.' })); return; }
       const z = sizePosition(p.entry, p.stop, a, P);
       if (!z) { out.replaceChildren(h('div', { class: 'muted', text: 'This plan has no stop below the entry, so the size cannot be worked out.' })); return; }
@@ -6284,11 +6291,11 @@ table.data tr.me td { background: var(--accent-wash); }
     const advisor = { ...local.advisor, other: [...(local.advisor.other || [])], hp: { ...(local.advisor.hp || {}) } };
     const added = { trades: 0, watch: 0, holdings: 0 };
     const ids = new Set(journal.trades.map((x) => x.id));
-    for (const x of inc.trades || []) if (x && x.id && x.t && isNum(x.entry) && isNum(x.shares) && x.shares > 0 && !ids.has(x.id)) { journal.trades.push(x); ids.add(x.id); added.trades++; }
+    for (const x of inc.trades || []) if (x && typeof x.id === 'string' && x.id && typeof x.t === 'string' && x.t && isNum(x.entry) && isNum(x.shares) && x.shares > 0 && !ids.has(x.id)) { journal.trades.push(x); ids.add(x.id); added.trades++; }
     const ex = inc.extra || {};
     if (ex.watch && Array.isArray(ex.watch.items)) {
       const have = new Set(watch.items.map((i) => i.t));
-      for (const i of ex.watch.items) if (i && i.t && !have.has(i.t)) { watch.items.push(i); have.add(i.t); added.watch++; }
+      for (const i of ex.watch.items) if (i && typeof i.t === 'string' && i.t && !have.has(i.t)) { watch.items.push(i); have.add(i.t); added.watch++; }
     }
     if (ex.advisor) {
       if (!advisor.profile && ex.advisor.profile) advisor.profile = ex.advisor.profile;
@@ -6713,7 +6720,7 @@ table.data tr.me td { background: var(--accent-wash); }
   const SHL = {
     load() {
       const d = store.get('shariah', null);
-      return { entries: d && Array.isArray(d.entries) ? d.entries : [], anchor: store.get('shariah_anchor', null) };
+      return { entries: entriesOf(d), anchor: store.get('shariah_anchor', null) };
     },
     // true only if what was written can be read back
     save(entries) {
@@ -6841,7 +6848,7 @@ table.data tr.me td { background: var(--accent-wash); }
             : `Correction of entry ${e.fixes}: ${e.note}`;
       const ul = h('ul', { class: 'alert-list' });
       for (const e of r.history) {
-        const li = h('li', null, h('span', { class: e.voided ? 'lg-void' : null, text: `#${e.n} · recorded ${e.recorded.slice(0, 10)} · ${describe(e)}` }));
+        const li = h('li', null, h('span', { class: e.voided ? 'lg-void' : null, text: `#${e.n} · recorded ${String(e.recorded || '').slice(0, 10)} · ${describe(e)}` }));
         if (e.kind !== 'correction' && !e.voided) {
           const box = h('div', { hidden: true });
           const why = h('input', { type: 'text', maxlength: 400, placeholder: 'Why is this entry wrong?' });
@@ -6899,7 +6906,7 @@ table.data tr.me td { background: var(--accent-wash); }
   const THS = {
     load() {
       const d = store.get('thesis', null);
-      return { entries: d && Array.isArray(d.entries) ? d.entries : [], anchor: store.get('thesis_anchor', null) };
+      return { entries: entriesOf(d), anchor: store.get('thesis_anchor', null) };
     },
     // true only if what was written can be read back
     save(entries) {
@@ -7031,7 +7038,8 @@ table.data tr.me td { background: var(--accent-wash); }
     return form;
   }
   function decisionLine(e) {
-    return `#${e.n} · recorded ${e.recorded.slice(0, 10)} · ${TH_ACTION_TEXT[e.action]} (the page said “${e.call}”) · price ${e.evidence.price !== null ? price(e.evidence.price) : 'not available'} on ${e.evidence.asOf || 'an unknown date'}${e.userAction ? ` · you: ${e.userAction}` : ''}`;
+    const ev = e.evidence && typeof e.evidence === 'object' ? e.evidence : {}; // a damaged entry still lists; the record's own check reports it
+    return `#${e.n} · recorded ${String(e.recorded || '').slice(0, 10)} · ${TH_ACTION_TEXT[e.action]} (the page said “${e.call}”) · price ${typeof ev.price === 'number' ? price(ev.price) : 'not available'} on ${ev.asOf || 'an unknown date'}${e.userAction ? ` · you: ${e.userAction}` : ''}`;
   }
   function renderThesis() {
     const el = $('#page-thesis');
@@ -7388,7 +7396,7 @@ table.data tr.me td { background: var(--accent-wash); }
   const PFL = {
     load() {
       const d = store.get('portfolio', null);
-      return { entries: d && Array.isArray(d.entries) ? d.entries : [], anchor: store.get('portfolio_anchor', null) };
+      return { entries: entriesOf(d), anchor: store.get('portfolio_anchor', null) };
     },
     // true only if what was written can be read back
     save(entries) {
@@ -7539,7 +7547,7 @@ table.data tr.me td { background: var(--accent-wash); }
         if (k === 'date') i.value = localISO();
         i.addEventListener('input', preview);
         inputs[k] = i;
-        grid.append(h('label', { class: 'field' }, h('span', { text: PF_LABELS[k] }), i));
+        grid.append(h('label', { class: 'field' }, h('span', { text: kind === 'dividend' && k === 'amount' ? 'Amount received in cash, after any tax ($)' : kind === 'dividend' && k === 'tax' ? 'Tax already taken off ($, for the record only: do not subtract it again)' : PF_LABELS[k] }), i));
       }
       body.replaceChildren(grid);
       msg.hidden = true;
