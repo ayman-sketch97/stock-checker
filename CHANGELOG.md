@@ -19,6 +19,8 @@ checked is in `VALIDATION.md`.
   Technical tab links to the Stage 7 swing report.
 - Prices are labelled as end-of-day or delayed, never live: a few sentences and labels changed word for word (listed in
   `VALIDATION.md`, section 24), and `lib/intel.js` now says "delayed last-sale price" instead of "delayed live price".
+- Two status labels were renamed so they cannot be mistaken for real-time prices: "Buy signal live" is now "Buy signal
+  active" and "Live swing setups" is now "Swing setup candidates". Wording only.
 - No recommendation, policy, Shariah calculation or Portfolio advice changed. The same data shows the same advice word for
   word apart from those labels. No new data provider; the nightly build adds `data/scanner.json` and `data/tech-ext/`.
 

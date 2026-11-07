@@ -2010,9 +2010,7 @@ for word in `WORDING` in `test/validation/same-advice.py`, so any other change i
 
 1. The one Stage 7 file touched: `lib/intel.js`, one phrase and its page mirror (above).
 2. Price-label wording changed in several places of the page (above, listed word for word in the same-advice check).
-3. Two labels still say "live" but describe signal status, not price: the "Buy signal live" status label and the "Live
-   swing setups" sub-text. They were left unchanged because they describe a signal being active. Renaming them is a
-   possible follow-up.
+3. Two labels that said "live" but described signal status, not price, were renamed at your request after review: "Buy signal live" is now "Buy signal active" (status label and its help text) and "Live swing setups" is now "Swing setup candidates" (Shortlist sub-text). Wording only; no logic, weight, threshold, calculation or recommendation changed. Page tests (641 and 72) and the same-advice check (both ledger states) were re-run on the result with the same figures as above.
 4. The data size growth noted under Limitations.
 5. The build integration could not be run end to end before CI; the CI run above is its first real exercise and it passed.
 
