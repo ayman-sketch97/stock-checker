@@ -1868,3 +1868,152 @@ used before the deployment was the version of `21bbc73` (Stage 6), and a verifie
 (`000008`, run 95, status recorded and deployed, `live.commit` `441e083`). That run also saved the 2026-11-06 price and day
 files to the records branch (head `b756fda` to `7f3b704`) through the existing nightly save step; nothing in Stage 7 writes
 there. The nightly archive (Stage 7b) has not been started.
+
+## 24. Stage 8: swing scanner, screener and market data (7 November 2026, on branch `stage8-screener-market-data`, not merged)
+
+Stage 8 adds a swing scanner and a strategy filter to the Shortlist, weekly candles and Bollinger Bands to the chart, and
+paper tracking of scanner ideas on the Watchlist. It is **additive**: no existing recommendation rule, investment policy,
+Shariah calculation, threshold or Portfolio advice was changed, and no new data provider, paid service or autonomous
+action was added. Trading stays paper-only until the existing performance gate (`swingProven`) passes. Nothing here is
+financial advice, a buy signal or Shariah approval.
+
+**Decisions this stage was built on (approved before coding)**
+
+1. No new data provider. Everything comes from the Nasdaq end-of-day prices and SEC filings the site already uses, plus
+   Nasdaq's earnings calendar, which the nightly build already read.
+2. The existing 21 EMA is kept. The scanner does not add a 20 EMA, so "EMA 20/50/200" in the brief is EMA 21, 50 and 200.
+3. Fixed, evidence-based ranking criteria and weights, written down before any scanner result was looked at.
+
+**What the scanner does.** It takes the chart analysis the site already makes every night (`lib/technical.js`), adds only what
+that analysis lacks (weekly candles, Bollinger Bands, average dollar volume and the change in relative strength), checks
+hard data gates, and ranks what passes by a fixed evidence checklist. Entry zone, stop, targets and risk/reward are the
+chart analysis' own numbers: the scanner prices nothing. Each candidate shows why it is listed, what is missing and what
+would make the setup wrong.
+
+- **Setup types.** Pullback, breakout and reversal come from the chart analysis. Momentum is the chart analysis' trend
+  setup when the trend is "Strong uptrend", relative strength is 80 or more and price is within 5% of its 52-week high.
+  Momentum has no buy point of its own: it is a continuation setup.
+- **Flags.** Accumulation (up-day volume at least 1.4 times down-day volume over 20 sessions), unusual volume (at least 2
+  times normal) and relative-strength improvement (rank up 5 or more points over 21 sessions).
+- **Data gates (a stock failing any is left out and the reason is recorded).** Shariah screen passed; company data quality
+  not insufficient; last price equal to the run's price date; at least 300 daily bars; enough weekly history; price at
+  least $5; average daily dollar volume at least $10M; daily range (ATR) at most 8% of price; a complete entry, stop,
+  target and risk/reward; stop no more than 15% below the entry; RSI, EMA 21, SMA 50 and ATR present; earnings calendar
+  readable; no earnings within 7 weekdays. A stock is never listed when a critical piece of data is missing or old.
+- **Ranking.** By evidence score, then by the number of checks met, then alphabetically. Never by a predicted or past
+  return. The 11 checks and their weights add to 100:
+
+| Check | Points | Rule |
+|---|---|---|
+| Weekly trend agrees | 15 | Last completed weekly close above a rising 50-week average |
+| Daily trend and structure | 15 | Price above a rising 50-day average, and the 50-day above the 200-day |
+| Strong relative strength | 15 | Rank 70 or more (1 to 99, against every stock the site screens) |
+| Relative strength improving | 10 | Rank at least 5 points higher than 21 sessions ago |
+| Volume supports the setup | 10 | Up-day volume at least 1.2 times down-day volume, or an up day on 1.5 times normal volume |
+| Reward at least twice the risk | 10 | First target at least 2 times as far from the entry as the stop |
+| Not stretched | 5 | Price no more than 1.5 ATRs above the 21 EMA |
+| Momentum healthy | 5 | RSI 40 to 70, and MACD histogram above zero or rising |
+| Bollinger Bands agree | 5 | Pullback, reversal, momentum: no more than 80% of the way up the bands. Breakout: bands were narrow (lowest quarter of 120 sessions) in the prior 20 |
+| No earnings soon | 5 | Next earnings at least 15 weekdays away, or none in the next 60 |
+| Market trend supportive | 5 | S&P 500 ETF above its 200-day average, with the 50-day above the 200-day |
+
+Evidence bands: 75 or more Strong, 55 to 74 Moderate, below 55 Thin. The score describes how much of the checklist is
+met. It is not a probability and not a forecast.
+
+**Fixed before any result.** The thresholds (`SCAN_RULES`) and the weights (`SCAN_WEIGHTS`) were committed in `022a57b`
+before the scanner had run on any real data, and the commit message says they are not to be tuned to results. Their
+SHA-256, pinned in `test/scanner.test.mjs`, is
+`70abc833a536b4aa98f81f95e5307a8a29f73d357affb5209abf0dadbbeb0bc2`, and it is identical at `022a57b` and in the final
+code. Changing any of them is a new `SCAN_VERSION` (now `1.0`) and a documented change. No weight or threshold was changed
+after any scanner output was seen. The first scanner output on real data came from the CI build below, after the code was
+final; it was not used to change anything.
+
+**Paper-only and Shariah.** Every candidate is labelled a paper idea until the live record passes its gate. The page
+also shows the Stage 4 ledger state per row ("Meets the live rules" appears only when the gate has passed and the ledger
+allows it). The automated Shariah screen is an early warning: a stock that does not pass it (it fails, or the screen needs checking) is hidden
+from the list and counted, and a stock that passes is still not approved until a current Zoya check is recorded in the ledger. Zoya is the final
+Shariah authority. The 0.5% portfolio risk rule applies only once swing trading is approved for live use; until then the
+page says position size does not matter. There is no leverage, margin, CFD or short selling anywhere in the scanner.
+
+**Opportunity tracking** (`lib/opportunity.js`). "Track on Watchlist" stores a paper snapshot of the idea (entry, stop,
+targets, date, rules version) on the watchlist item in the browser. Later days are scored from end-of-day prices: the idea waits for its entry to trade
+(and expires after 15 sessions if it never does), then follows to its stop or first target, with the cautious rule that a
+candle reaching both counts as the stop. Gaps fill at the open. An incomplete saved plan is reported, never guessed. Results
+are in paper R, before costs. This is bookkeeping, not a track record: the Record page keeps the track record and was not changed.
+
+**Report and Shortlist integration.** The Shortlist has a strategy filter (All, long-term, position, swing) and a "Swing
+scanner" button. A scanner row links to the company's chart (Technical tab) and to its Stage 7 swing report
+(`&report=swing`; the tab switcher now keeps that parameter). The report itself is unchanged.
+
+**Market data and price labels.** The page labels prices accurately: Nasdaq end-of-day closes are "end-of-day"; the quote
+the page already fetched is called "delayed last sale", never "live". Three user-facing sentences changed word for word
+("Live prices and returns" became "Prices and returns"; "follows the live price" became "follows the latest price";
+"Claude checks live prices and news" became "Claude looks up current prices and news"). The TradingView block is described
+as intraday and possibly real-time or delayed depending on the exchange and the viewer's own settings. The chart has a
+Daily/Weekly switch, Bollinger Bands, and a source line that says "Not real-time". `lib/intel.js` (Stage 7) changed in one
+phrase, "delayed live price" to "delayed last-sale price", with its comment and page mirror; its tests still pass.
+
+**Data added by the nightly build.** `data/scanner.json` (the ranked list, the blocked counts and reasons) and
+`data/tech-ext/<TICKER>.json` (weekly candles and Bollinger Bands, 156 weeks and 260 days kept) are written beside the
+existing chart files, which are unchanged. The scanner step is failure-safe: an error for one stock leaves that stock out,
+and an error in the scanner leaves the file out with a build warning; neither fails the build, and the page shows an
+honest "not available" message when `scanner.json` is missing (a page test covers the 404). `tools/check-site.mjs` was left
+unchanged (the scanner file is optional).
+
+**Evidence** (final code, commit `c9d26ce`)
+
+| Check | Result |
+|---|---|
+| Scanner library (`test/scanner.test.mjs`) | 29 of 29: weights add to 100 and rules frozen, rules and weights pinned by hash, Bollinger Bands, weekly candles and weekly analysis, daily bands, features, relative-strength rank history, which setups are listed (momentum has no buy point), every data gate, earnings handling, scoring (all or none of the checks, each check worth its weight, inclusive boundaries, unknown data scores nothing), the chart analysis' own entry, stop and targets unchanged, why/missing/invalidation text, flags, ranking order |
+| Opportunity tracking (`test/opportunity.test.mjs`) | 14 of 14: snapshot, incomplete plans refused, waiting and expiry, stop before entry, gap fills, stop at -1R, first target, same-candle rule, bad rows ignored, deterministic and non-mutating, no imports, page code equal to the library |
+| Stages 1 to 7 untouched (`test/stage8-untouched.test.mjs`) | 16 of 16: SHA-256 of `lib/policy`, `thesis`, `portfolio`, `records`, `engine`, `shariah-ledger`, `health`, `technical`, `backtest`, `signals`, `data`, `longterm`, `ltstats` pinned; `lib/intel.js` equals its Stage 7 text once its two last-sale strings are reverted; the scanner imports only `technical.js`; the build writes `scanner.json` and `tech-ext` |
+| Existing suites | formulas 80, deploy-safety 46, restore-and-log 50, shariah-ledger 40, thesis 20, portfolio 32, investment reports 52, workflow rules all hold |
+| Page tests (`test/page.test.py`) | 641 ok, 0 failed (unchanged count) |
+| Scanner page tests (`test/scanner-page.test.py`) | 72 ok, 0 failed: ranking, paper-only tags, ledger tags, Zoya filter, filters, 404 file, stale pause, unavailable calendar, Track on Watchlist, Stop tracking, report deep link, strategy chips, Daily/Weekly/Bollinger chart, wording on the stock page |
+| Same advice, `--ledger=current` (final code, run once) | 54 page views, 427 sections, 38 identical word for word; 21 sections differ only by the three listed price-label sentences, checked character for character. No unexpected difference |
+| Same advice, `--ledger=empty` | 54 page views, 38 identical word for word. No unexpected difference: every added sentence is about the ledger or purification, and no sale, trim or take-profit call was added or removed |
+| Full branch CI | Update site, run 96 (https://github.com/ayman-sketch97/stock-checker/actions/runs/42353560417), started by hand on the branch as a dry run at `c9d26ce`: formulas (including the new scanner, opportunity and untouched-libraries steps), restore-point, security, page-tests (including the scanner page tests with the chart library installed), build, verify-site, gate and ledger all succeeded; deploy, verify-live, rollback and keepalive were skipped because a branch run never deploys. Nothing was deployed and the live site was not touched |
+| Build in CI | 1,999 stocks analysed, 0 failed, 534 s; log line `scanner: 130 listed, 385 blocked by a data gate, earnings calendar ok`; site check passed with 5,991 files built from `c9d26ce`; Pages artifact 40,178,510 bytes compressed |
+
+The counts in the last row describe one run on one night. They are not a performance result, the scanner has no record
+yet, and they were not used to adjust any rule.
+
+**Defects found while building, and fixed before the commit.** A null child in the chart key line and legend (caught by
+the page tests' stray-child detector); a blocked-stock count that was counted twice on the scanner page; the Stage 7
+report link being dropped when the tab switcher rewrote the address; strategy chips that shared a style class with an
+older test selector. A test expected 11 of 11 checks for a fixture that meets 10; the test was corrected, not the rule.
+The same-advice check first flagged the three intentional price-label sentences as unexpected; they are now listed word
+for word in `WORDING` in `test/validation/same-advice.py`, so any other change in those sections still fails the check.
+
+**Limitations**
+
+- **End-of-day data only.** Prices are the previous close. The scanner sees yesterday's picture, and a setup can be
+  invalidated before you read it. Weekly candles are built by this site from daily closes; a week not yet at Friday's
+  close is shown as in progress and is not used as a completed week.
+- **Earnings dates come from an undocumented Nasdaq endpoint** and are often estimates. If the calendar cannot be read,
+  stocks are held back ("earnings calendar could not be read") rather than listed with unknown earnings risk.
+- **No event or news feed.** It does not know about macro events, rulings, deals or a company's plans. A clear scanner
+  list says nothing about those.
+- **Momentum has no buy point.** It is a continuation setup; use the pullback or breakout plan numbers with care.
+- **EMA 21, not EMA 20**, by decision 2 above.
+- **Relative strength is a rank among the stocks this site screens**, not a market-wide measure.
+- **No history of its own.** The scanner has no live record, so its evidence score is a checklist, not a measured edge.
+  The existing swing backtest on the Record page tests the chart analysis' rules, not this scanner's ranking.
+- **Extra data.** Each stock gains one extra file; across about 2,000 stocks the site grew, with a compressed Pages
+  artifact of about 40 MB in this run. That is still free hosting, but the size is worth watching.
+- **Browser-only tracking.** Watchlist tracking lives in the browser like the rest of the Watchlist and is lost if the
+  browser data is cleared; the sync link carries it with the watchlist.
+- **Paper-only.** Until the live record passes its gate, no scanner idea is a live trade.
+- Nothing here is financial or Shariah advice. Zoya remains the final Shariah authority. No order is placed by the tool.
+
+**For the owner's review (things I want you to see, not decisions made for you)**
+
+1. The one Stage 7 file touched: `lib/intel.js`, one phrase and its page mirror (above).
+2. Price-label wording changed in several places of the page (above, listed word for word in the same-advice check).
+3. Two labels still say "live" but describe signal status, not price: the "Buy signal live" status label and the "Live
+   swing setups" sub-text. They were left unchanged because they describe a signal being active. Renaming them is a
+   possible follow-up.
+4. The data size growth noted under Limitations.
+5. The build integration could not be run end to end before CI; the CI run above is its first real exercise and it passed.
+
+**Not merged.** The branch has not been merged and nothing was deployed. It waits for the owner's review.

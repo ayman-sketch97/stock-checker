@@ -3,6 +3,25 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 7 November 2026: swing scanner, strategy filter and weekly chart (stage 8, on branch `stage8-screener-market-data`, not merged)
+
+- New Swing scanner page: setups that could play out over days to weeks (pullback, breakout, reversal and momentum) taken
+  from the nightly chart analysis, checked against data gates (fresh price, enough history, price and trading volume,
+  daily range, a complete entry, stop and target, a readable earnings calendar and no earnings within 7 weekdays) and
+  ranked by a fixed 11-check, 100-point evidence checklist. Each row says why it is listed, what is missing and what
+  would make it wrong. The ranking never uses a predicted or past return.
+- The rules and weights were committed before the scanner ran on any real data and have not been changed since. They are
+  listed in `VALIDATION.md`, section 24.
+- Every scanner idea is a paper trade until the existing live record passes its gate. A stock that passes the automated
+  Shariah screen is still not approved until a current Zoya check is in the Shariah ledger; one that fails it is hidden.
+- The Shortlist has a strategy filter (long-term, position, swing). The chart has a Daily/Weekly switch and Bollinger
+  Bands. "Track on Watchlist" follows a scanner idea on paper from end-of-day prices, in R before costs, and the
+  Technical tab links to the Stage 7 swing report.
+- Prices are labelled as end-of-day or delayed, never live: a few sentences and labels changed word for word (listed in
+  `VALIDATION.md`, section 24), and `lib/intel.js` now says "delayed last-sale price" instead of "delayed live price".
+- No recommendation, policy, Shariah calculation or Portfolio advice changed. The same data shows the same advice word for
+  word apart from those labels. No new data provider; the nightly build adds `data/scanner.json` and `data/tech-ext/`.
+
 ## 7 November 2026: investment reports on the company page (stage 7, merged into main and live on 7 November 2026, Abu Dhabi time)
 
 - Every company page now has an Investment report card with three strategies: long-term investing (1 to 5 years or
