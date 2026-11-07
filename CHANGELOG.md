@@ -3,6 +3,24 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
+## 7 November 2026: professional redesign and Dashboard (stage 9, on branch `stage9-redesign`, not merged)
+
+- New Dashboard, now the page the site opens on. It keeps three kinds of information apart, each in its own labelled card: your
+  holdings (saved on this device), the swing scanner's candidates (paper only until the live record passes its gate, with the
+  same labels and order as the scanner page) and system alerts (nightly data checks, your Shariah ledger, and watchlist and
+  earnings alerts). A one-line market trend sits above them. It works nothing out of its own: it reads the same data and
+  functions as the other pages, and a block with nothing to show says so instead of showing example figures.
+- Navigation: a Dashboard tab and a Search tab (the old Stock tab). On phones and tablets the tabs are a bar docked to the
+  bottom edge, clear of the home indicator, and no page content is covered. The Swing scanner now sits under the Shortlist, and
+  the Shariah ledger, Thesis and Portfolio ledger under Portfolio, each with a strip of links to the pages of its group.
+- Every address still works: `?p=dashboard` is new, `?p=stock` and `?t=TICKER` open the Search page as before, and all page ids
+  are unchanged.
+- Look: tighter corners, one type and spacing scale, numbers that line up in tables and tiles, one focus ring, a 1120 px column on
+  desktop (reading pages stay at 820 px; the Shortlist uses two columns), 12 px minimum labels, 44 px touch targets on touch
+  screens. Light and dark themes both kept and tested.
+- No recommendation, formula, threshold, Shariah rule or data source changed. The same data shows the same advice word for word
+  (checked against main on 54 page views, with the ledger current and empty). Stage 1 to 8 libraries are byte-identical.
+
 ## 7 November 2026: swing scanner, strategy filter and weekly chart (stage 8, merged into main and live on 7 November 2026, Abu Dhabi time)
 
 - New Swing scanner page: setups that could play out over days to weeks (pullback, breakout, reversal and momentum) taken

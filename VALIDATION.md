@@ -2035,3 +2035,71 @@ On the live site, `data/scanner.json` is version 1.0 for prices of 2026-11-06 (1
 Bollinger Bands, Track on Watchlist, Stop tracking, report links and the renamed labels) was verified by the page tests that ran on this same
 commit in run 98 (641 and 72 checks); no browser session was run against the live address from the build environment. The nightly archive
 (Stage 7b) and Stage 9 have not been started.
+
+## 25. Stage 9: professional redesign and Dashboard (7 November 2026, branch `stage9-redesign`, not merged)
+
+**What changed.** Presentation, navigation and one new page. No investment library, formula, threshold, score, Shariah rule, data
+source or recommendation was touched: `lib/*` is byte-identical to main (`git diff 25f90d7 -- lib` is empty) and
+`test/stage8-untouched.test.mjs` still passes. Four commits, each gated by the full test suites before the next began:
+
+1. `6e59e5f` design foundation, CSS only: spacing and type tokens, 16 and 12 px corner radii, tabular numerals, table polish, one focus
+   ring, breakpoints unified at 640 and 1024 px, a 1120 px desktop column with reading pages kept at 820 px.
+2. `cd9f07b` navigation: tab bar docked to the bottom edge on phones and tablets (safe-area aware, 44 px targets, content never
+   covered), first tab renamed Search, a sub-navigation strip tying the Swing scanner to the Shortlist and the Shariah ledger,
+   Thesis and Portfolio ledger to Portfolio. Page ids, `data-page` values and every `?p=` address unchanged.
+3. `3e1a396` the Dashboard (`#page-dashboard`, `?p=dashboard`) as the default landing page.
+4. `91896f0` polish: one style for empty states, two-column Shortlist on desktop, 12 px minimum labels, 44 px touch targets on touch
+   screens, and a clipping check in the layout test.
+
+**The Dashboard keeps three kinds of information apart.** Each is its own card with a source label and a coloured top edge:
+*Your holdings, saved on this device* (from `holdingsFrom` and `holdingsSnapshot`: shares times the day's price, the day's own change,
+price over your cost; your own tickers use the price you entered and say so), *Scanner, ideas to study, not buy signals* (the first five
+rows of `data/scanner.json` drawn by the scanner page's own `scanRow`, with the Paper only, Zoya-record and end-of-day labels, paused when
+the nightly update is two or more trading days late) and *System, nightly data, your watchlist, your Shariah ledger* (the health report,
+`ledgerView` flags for what you hold, and `itemAlerts` for what you follow, which is the Watchlist page's own wording). A one-line market
+trend uses the existing regime text. Nothing is calculated twice and nothing is invented: an empty block says so in words, a missing
+health report is reported as "cannot be ruled out", never as "all is well", and the portfolio block shows no amounts when nothing is
+recorded. The Portfolio ledger summary card was left off the Dashboard on purpose: rendering it saves a value-history entry, and a page
+view should not write to your record.
+
+**Tests (all on the final code).**
+
+| Suite | Result |
+|---|---|
+| `test/page.test.py` | 641 of 641 |
+| `test/scanner-page.test.py` | 72 of 72 |
+| `test/dashboard-page.test.py` (new, runs in CI) | 47 of 47 |
+| `test/layout-page.test.py` (new, runs in CI) | 283 of 283 |
+| node suites (formulas, deploy-safety, restore-and-log, shariah-ledger, thesis, portfolio, intel, scanner, opportunity, stage8-untouched) | all pass |
+| `test/workflow.test.py` | passes, and now requires the two new page-test steps |
+| `test/validation/same-advice.py` against main (`25f90d7`), ledger current and ledger empty | 54 page views, 427 sections, all 54 identical word for word, no unexpected difference |
+
+`test/layout-page.test.py` covers all ten pages plus the Dashboard at 360, 390, 820 and 1280 px in light and dark: the tabs and their ids,
+every `?p=` address showing only its own page and highlighting the right tab, the sub-navigation of both groups (links, current page,
+back button), the tab bar docked and full width below 1024 px and in the header above it, the end of every page clear of the bar, 44 px
+tap targets, no tab label cut off, no horizontal scroll, and nothing clipped at the screen edge on any page with holdings recorded.
+(The page hides sideways overflow, so the scroll width alone cannot show a clipped element; the clipping check measures every element.)
+`test/dashboard-page.test.py` covers the default landing, the deep links (`?p=stock`, `?t=KO`), the Search tab, the brand button and the
+back button, the empty states, the three distinct source labels and that scanner, portfolio and alert content never cross blocks, the
+portfolio figures against the fixture's own price and change, the scanner rows against the scanner file's own order and labels, a missing
+and an empty and a late scanner file, healthy, failing and missing health reports, a followed company missing from the data, the Shariah
+ledger with and without a current record, and that the alert wording equals the Watchlist page's.
+
+**Existing tests that were adjusted, and why.** The bare address now opens the Dashboard, so the two page-test helpers open the Search
+page explicitly (`?p=stock`) where they used to rely on the bare address, and the three clicks on the brand button that expected the
+Search page's daily brief now use the Search tab. No check was removed or weakened (the counts are unchanged at 641 and 72). The
+same-advice script needed no change: it opens the Search page with `?t=KO` and the other pages through their tabs, and the Dashboard is
+a new page with no counterpart in main to compare against, so it is covered by its own test above.
+
+**Limitations and things for the owner to decide.**
+
+- The Dashboard's holdings come from this browser's saved data, so a new device or cleared browser data shows the empty state until the
+  holdings are added again (the Watchlist sync link and the backup file still carry them).
+- Watchlist and earnings alerts cover companies on the Watchlist; a holding that exists only as a Journal trade appears in the Shariah
+  ledger alerts and the portfolio table but not in the watchlist alerts.
+- Seven tabs fit a 360 px bar only with labels at 9.5 px; they are tested not to be cut off, but they are small.
+- The Search page still carries its own "Today" stack (daily brief, market, ideas, watchlist) because every existing feature was
+  kept; some of it overlaps the Dashboard. Merging the two is a product decision, not made here.
+- No visual regression tool is used: layout is checked by measurement and by looking at screenshots at the three widths in both
+  themes, not by pixel comparison.
+- The live site has not been touched: nothing in Stage 9 is merged or deployed.

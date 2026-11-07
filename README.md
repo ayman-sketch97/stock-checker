@@ -2,9 +2,10 @@
 
 Plain-English analysis of US-listed companies, built from official SEC filings and Nasdaq prices.
 
-- **Home:** a daily brief on the stocks you own and follow: what to do today (if anything), holdings that are down but still healthy, what changed, the companies' own news from their SEC filings, and ideas for new money.
+- **Search page:** a search box and, below it, a daily brief on the stocks you own and follow: what to do today (if anything), holdings that are down but still healthy, what changed, the companies' own news from their SEC filings, and ideas for new money.
 - **Fundamental tab:** quality, balance sheet, growth, fair value, a Shariah (AAOIFI-style) screen, a verdict, a long-term plan (buy below, trim above, and "sell if" rules), dividends with a purification calculator, and a comparison with similar-sized peers.
 - **Technical tab:** a daily chart with the 21 EMA, 50 and 200-day averages, RSI, MACD, volume, support and resistance, plus a long-only swing plan (the exact order for the next session, stop, two targets, exits), a position-size calculator, earnings and market-trend warnings, and how the same rules did on that stock and across all stocks.
+- **Dashboard:** the page the site opens on. Your holdings (kept on this device), the swing scanner's paper candidates and the system's alerts (nightly data checks, your Shariah ledger, watchlist and earnings) in three separate, labelled blocks, with a one-line market trend. It reuses the other pages' data and works nothing out of its own.
 - **Shortlist:** every company worth $2 billion or more, screened each morning into lists (swing buy signals, quality below fair value, near the buy price, market leaders, dividend payers) with halal, sector, size, strength and earnings filters.
 - **Swing scanner:** setups that could play out over days to weeks, taken from the nightly chart analysis, checked against data gates and ranked by a fixed evidence checklist (never by a predicted return). Paper ideas only until the live record passes its gate; a stock still needs a current Zoya check before it counts as halal. Prices are end-of-day.
 - **Watchlist:** companies you follow and your positions, kept in your browser only, with alerts for verdict and halal changes, new signals, earnings dates, and your own stop and target levels. A sync link copies it to another device.
