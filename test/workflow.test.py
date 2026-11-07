@@ -172,6 +172,8 @@ check(any('stage8-untouched.test.mjs' in str(s_.get('run', '')) for s_ in steps(
 check(any('scanner-page.test.py' in str(s_.get('run', '')) for s_ in steps('page-tests')), 'page-tests job runs the scanner page tests')
 check(any('layout-page.test.py' in str(s_.get('run', '')) for s_ in steps('page-tests')), 'page-tests job runs the layout and navigation page tests')
 check(any('dashboard-page.test.py' in str(s_.get('run', '')) for s_ in steps('page-tests')), 'page-tests job runs the Dashboard page tests')
+check(any('alerts-page.test.py' in str(s_.get('run', '')) for s_ in steps('page-tests')), 'page-tests job runs the Alert Centre page tests')
+check(any('alerts.test.mjs' in str(s_.get('run', '')) for s_ in steps('formulas')), 'formulas job runs the Alert Centre rule tests')
 
 print()
 if failures:

@@ -18,14 +18,16 @@ def check(cond, msg):
         failures.append(msg)
 
 
-ALL = ['dashboard', 'stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger']
+ALL = ['dashboard', 'alerts', 'stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger']
 TABS = [('dashboard', 'Dashboard'), ('stock', 'Search'), ('shortlist', 'Shortlist'), ('watchlist', 'Watchlist'), ('record', 'Record'), ('journal', 'Journal'), ('advisor', 'Portfolio')]
-PARENT = {'scanner': 'shortlist', 'shariah': 'advisor', 'thesis': 'advisor', 'pfledger': 'advisor'}
+PARENT = {'alerts': 'dashboard', 'scanner': 'shortlist', 'shariah': 'advisor', 'thesis': 'advisor', 'pfledger': 'advisor'}
 GROUPS = {
+    'dashboard': ['dashboard', 'alerts'],
     'shortlist': ['shortlist', 'scanner'],
     'advisor': ['advisor', 'pfledger', 'thesis', 'shariah'],
 }
 HELD = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 10, 'cost': 200}, {'t': 'KO', 'added': '2026-01-01', 'shares': 3, 'cost': 50}, {'t': 'MSFT', 'added': '2026-01-01'}], 'snap': None, 'prev': None}}
+HELD_AL = {**HELD, 'alerts': {'v': 1, 'rules': [{'id': 'r1', 't': 'AAPL', 'dir': 'above', 'level': 100, 'on': True, 'created': '2026-11-01'}, {'id': 'r2', 't': 'KO', 'dir': 'below', 'level': 20, 'on': True, 'created': '2026-11-01'}], 'hist': [], 'set': {'types': {}, 'notify': False}}}
 CLIPPED = r"""() => {
   const W = document.documentElement.clientWidth; const out = [];
   const scrolls = (el) => { for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) { const o = getComputedStyle(n).overflowX; if (o === 'auto' || o === 'scroll' || o === 'hidden') return true; } return false; };
@@ -62,7 +64,7 @@ async def main():
             check(not errs, f'no page errors on ?p={name} {errs[:2]}')
             await pg.close()
 
-        # ---- sub-navigation: shown for the two groups, hidden elsewhere, links every page of the group
+        # ---- sub-navigation: shown for the three groups, hidden elsewhere, links every page of the group
         for name in ALL:
             pg, errs = await page_with(ctx, base, fresh, path='&p=' + name)
             group = PARENT.get(name, name)
@@ -113,7 +115,7 @@ async def main():
                 check(not errs, f'{w}px {theme}: no page errors {errs[:2]}')
                 await pg.close()
                 # nothing sticks out past the screen edge (the page hides sideways overflow, so the scroll width alone cannot show it)
-                pg, errs = await page_with(ctx, base, fresh, storage=HELD, zoya=['AAPL', 'KO'], path='&p=dashboard')
+                pg, errs = await page_with(ctx, base, fresh, storage=HELD_AL, zoya=['AAPL', 'KO'], path='&p=dashboard')
                 for name in ALL + ['kostock']:
                     await pg.goto(base + '?selftest=1' + ('&t=KO' if name == 'kostock' else '&p=' + name))
                     await pg.wait_for_timeout(500)

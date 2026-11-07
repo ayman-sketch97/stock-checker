@@ -792,6 +792,20 @@ td .sm, th .sm { display: block; font-size: 11.5px; font-weight: 500; color: var
   #page-shortlist .list { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   #page-shortlist .count, #page-shortlist .empty { grid-column: 1 / -1; }
 }
+/* stage 9 Alert Centre */
+.ac-grid { display: grid; gap: var(--sp-4); margin-top: var(--sp-3); }
+.ac-grid > div { display: grid; gap: var(--sp-4); min-width: 0; align-content: start; }
+.ac-grid .card { margin: 0; min-width: 0; }
+.ac-grid .alert-list li { flex-wrap: wrap; }
+.al-body { flex: 1 1 14rem; min-width: 0; overflow-wrap: anywhere; }
+.al-meta { display: block; font-size: var(--fs-xs); color: var(--muted); margin-top: 3px; }
+.al-act { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.alert-kinds { display: grid; gap: 4px; margin-top: 8px; }
+.alert-kinds .chk { min-height: 32px; }
+.alert-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 12px 0; align-items: end; }
+@media (min-width: 640px) { .alert-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr) auto; } }
+@media (min-width: 1024px) { .ac-grid { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; } }
+@media (pointer: coarse) { .alert-kinds .chk { min-height: 44px; } .al-act .btn-sm { min-height: 44px; } }
 @media (pointer: coarse) {
   .btn-sm, .sl-tools select, .sl-tools input[type="search"] { min-height: 44px; }
   .chip, .subnav button, .seg button, .links a { min-height: 40px; display: inline-flex; align-items: center; }
@@ -1012,6 +1026,7 @@ table.data tr.me td { background: var(--accent-wash); }
   <nav id="subnav" class="subnav" aria-label="Related pages" hidden></nav>
 
   <section id="page-dashboard" aria-label="Dashboard" hidden></section>
+  <section id="page-alerts" aria-label="Alert Centre" hidden></section>
   <div id="page-stock">
     <div class="hero">
       <span class="eyebrow"><i aria-hidden="true"></i>Halal screen · SEC filings · updated every weekday</span>
@@ -6463,6 +6478,18 @@ table.data tr.me td { background: var(--accent-wash); }
     a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
   }
+  // what the Journal flags on one open trade (stop hit, target reached, fails the Shariah screen, earnings soon); the Alert Centre reads the same flags
+  function journalFlags(tr, scr) {
+    const r = scr && scr.by.get(tr.t);
+    const now = r && isNum(r.price) ? r.price : null;
+    const flags = [];
+    if (isNum(now) && isNum(tr.stop) && now <= tr.stop) flags.push(['bad', `At or below your stop (${price(tr.stop)}): your plan says sell.`]);
+    else if (isNum(now) && isNum(tr.target) && now >= tr.target) flags.push(['good', `Reached your target (${price(tr.target)}).`]);
+    if (r && r.shariah === 'fail') flags.push(['bad', 'Fails the Shariah screen now.']);
+    const ed = r ? earnDays(r, scr) : null;
+    if (ed != null && ed <= 7) flags.push(['warn', `Earnings in ${ed <= 1 ? 'the next session' : ed + ' trading days'}.`]);
+    return flags;
+  }
   async function renderJournal() {
     const el = $('#page-journal');
     const head = pageHead('Journal', 'Your own trades: what you bought, why, and how it went. Saved on this device only; nothing is sent anywhere.');
@@ -6490,12 +6517,7 @@ table.data tr.me td { background: var(--accent-wash); }
         const c = tradeCalc(tr, now);
         const box = h('div', { class: 'jr-item' });
         const r = scr && scr.by.get(tr.t);
-        const flags = [];
-        if (isNum(now) && isNum(tr.stop) && now <= tr.stop) flags.push(['bad', `At or below your stop (${price(tr.stop)}): your plan says sell.`]);
-        else if (isNum(now) && isNum(tr.target) && now >= tr.target) flags.push(['good', `Reached your target (${price(tr.target)}).`]);
-        if (r && r.shariah === 'fail') flags.push(['bad', 'Fails the Shariah screen now.']);
-        const ed = r ? earnDays(r, scr) : null;
-        if (ed != null && ed <= 7) flags.push(['warn', `Earnings in ${ed <= 1 ? 'the next session' : ed + ' trading days'}.`]);
+        const flags = journalFlags(tr, scr);
         const act = h('div', { class: 'row-actions' });
         const sub = h('div');
         act.append(
@@ -7754,11 +7776,12 @@ table.data tr.me td { background: var(--accent-wash); }
       h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => navigate('pfledger') }, pic.cur.entries.length ? 'Open the ledger' : 'Start the ledger')));
   }
 
-  const PAGES = ['dashboard', 'stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
+  const PAGES = ['dashboard', 'alerts', 'stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
   // Secondary pages are reached through a parent section: the parent's tab stays highlighted and a sub-navigation strip
   // above the page links the pages of the group. Page ids and ?p= addresses are unchanged.
-  const NAV_PARENT = { scanner: 'shortlist', shariah: 'advisor', thesis: 'advisor', pfledger: 'advisor' };
+  const NAV_PARENT = { alerts: 'dashboard', scanner: 'shortlist', shariah: 'advisor', thesis: 'advisor', pfledger: 'advisor' };
   const SUBNAV = {
+    dashboard: [['dashboard', 'Overview'], ['alerts', 'Alert Centre']],
     shortlist: [['shortlist', 'Shortlist'], ['scanner', 'Swing scanner']],
     advisor: [['advisor', 'Portfolio'], ['pfledger', 'Portfolio ledger'], ['thesis', 'Thesis and decisions'], ['shariah', 'Shariah ledger']],
   };
@@ -7769,7 +7792,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const items = SUBNAV[group];
     if (!items || !HAS_SITE) { sn.hidden = true; sn.replaceChildren(); return; }
     sn.className = 'subnav' + (group === 'advisor' ? ' sn-narrow' : '');
-    sn.replaceChildren(...items.map(([k, label]) => h('button', { type: 'button', 'data-page': k, 'aria-current': k === p ? 'page' : 'false', onclick: () => navigate(k) }, label)));
+    sn.replaceChildren(...items.map(([k, label]) => h('button', { type: 'button', 'data-page': k, 'aria-current': k === p ? 'page' : 'false', onclick: () => navigate(k) }, label, k === 'alerts' && alertLast && alertLast.count ? ` (${alertLast.count})` : '')));
     sn.hidden = false;
   }
   let page = 'stock';
@@ -7783,6 +7806,7 @@ table.data tr.me td { background: var(--accent-wash); }
     $('#how').hidden = true;
     hideTip();
     if (p === 'dashboard') renderDashboard();
+    else if (p === 'alerts') renderAlerts();
     else if (p === 'shortlist') renderShortlist();
     else if (p === 'watchlist') renderWatchlist();
     else if (p === 'scanner') renderScanner();
@@ -9546,6 +9570,135 @@ table.data tr.me td { background: var(--accent-wash); }
     hb.hidden = page === 'record';
   }
 
+  // ---- alerts.js (start): a copy of lib/alerts.js, checked by test/alerts.test.mjs
+  // The Alert Centre's bookkeeping (stage 9). Pure functions: no page, no storage, no clock, no network.
+  //
+  // What it is: the part of the Alert Centre that decides which alerts are NEW. The page works out which conditions are true now
+  // (a custom price level crossed, a scanner setup, a portfolio risk, a Shariah warning) by calling the functions the rest of the
+  // site already uses, and hands the list to reconcile(). reconcile() keeps the history, opens an alert the first time a condition
+  // is true, keeps it open while the condition stays true, and closes it when the condition ends. It never works out a price,
+  // a signal, a limit or a Shariah status, and it never places, suggests or changes an order: every alert is information.
+  //
+  // One alert per condition, not per look: an open alert is updated in place, so the same unchanged condition is shown once and
+  // announced once, however many times the page checks it. Three more rules keep that true when prices move all day:
+  //   1. what counts as "the same condition" is the alert's wording without its numbers (sigOf), so a share of 15.2% becoming
+  //      15.4% is the same alert, not a new one;
+  //   2. a price level, once crossed, is re-armed only after the price is back 1% on the other side of it (HYSTERESIS);
+  //   3. a condition that ends and comes back within 24 hours (REOPEN_MS) re-opens its earlier alert silently.
+  // Tests: test/alerts.test.mjs. index.html carries a character-for-character copy between the alerts.js markers.
+  const ALERT_VERSION = 1;
+  const ALERT_TYPES = ['price', 'scanner', 'risk', 'shariah'];
+  const ALERT_TYPE_NAME = { price: 'Price alerts', scanner: 'Scanner setups', risk: 'Portfolio risk', shariah: 'Shariah compliance' };
+  const HYSTERESIS = 0.01;
+  const REOPEN_MS = 24 * 3600 * 1000;
+  const MAX_HISTORY = 300;
+  const MAX_RULES = 50;
+  const MAX_NOTIFY = 3; // at most this many browser notifications in one check; the rest are summarised in one
+
+  const TICKER = /^[A-Z0-9][A-Z0-9-]{0,14}$/;
+  const finite = (x) => typeof x === 'number' && Number.isFinite(x);
+
+  // the alert's wording without its numbers: dollar amounts, percentages and counts become "#"
+  function sigOf(text) {
+    return String(text == null ? '' : text).replace(/\$?\d[\d,]*(?:\.\d+)?%?/g, '#').replace(/\s+/g, ' ').trim();
+  }
+
+  // a custom price alert as the user typed it, cleaned; null when it cannot be used
+  function cleanRule(r) {
+    if (!r || typeof r !== 'object') return null;
+    const t = String(r.t == null ? '' : r.t).trim().toUpperCase();
+    const level = typeof r.level === 'string' ? Number(r.level.replace(/[$,\s]/g, '')) : r.level;
+    if (!TICKER.test(t) || !(r.dir === 'above' || r.dir === 'below') || !finite(level) || !(level > 0) || level > 1e7) return null;
+    return { id: String(r.id || ''), t, dir: r.dir, level: Math.round(level * 10000) / 10000, on: r.on !== false, created: typeof r.created === 'string' ? r.created : '' };
+  }
+
+  // is the level crossed at price px? wasOpen: this rule's alert is already open, so the price must come back 1% past the level to end it
+  function priceMet(rule, px, wasOpen) {
+    if (!finite(px) || !(px > 0) || !rule || !finite(rule.level)) return false;
+    if (rule.dir === 'above') return px >= (wasOpen ? rule.level * (1 - HYSTERESIS) : rule.level);
+    if (rule.dir === 'below') return px <= (wasOpen ? rule.level * (1 + HYSTERESIS) : rule.level);
+    return false;
+  }
+
+  const priceKey = (rule) => `price:${rule.id}`;
+
+  // Update the history with the conditions that are true now.
+  //   history: [{id, key, type, tone, t, text, asOf, px, first, last, status:'open'|'ended', ended, dismissed, notified, count}]
+  //   conds:   [{key, type, tone, t, text, asOf, px}]   what is true now, for the types that could be checked
+  //   checked: the types that could be checked this time; open alerts of other types are left exactly as they are
+  //   now:     milliseconds since 1970 (passed in so the function stays pure)
+  // Returns {history, fresh}: fresh = the alerts opened this time (never an alert that was already open, and never a re-opened one).
+  function reconcile(history, conds, checked, now) {
+    const hist = (Array.isArray(history) ? history : []).map((e) => ({ ...e }));
+    const ck = new Set(checked || []);
+    const fresh = [];
+    const seen = new Set();
+    for (const c of conds || []) {
+      if (!c || !c.key || !ck.has(c.type) || seen.has(c.key)) continue;
+      seen.add(c.key);
+      const open = hist.find((e) => e.key === c.key && e.status === 'open');
+      const patch = { tone: c.tone || '', t: c.t || '', text: c.text, asOf: c.asOf || '', px: finite(c.px) ? c.px : null, last: now };
+      if (open) { Object.assign(open, patch); continue; }
+      // came back soon after it ended: the same alert, silently
+      let prev = null;
+      for (const e of hist) if (e.key === c.key && e.status === 'ended' && now - (e.ended || 0) < REOPEN_MS && (!prev || e.ended > prev.ended)) prev = e;
+      if (prev) { Object.assign(prev, patch, { status: 'open', ended: null, count: (prev.count || 1) + 1 }); continue; }
+      const e = { id: `${c.key}@${now}`, key: c.key, type: c.type, ...patch, first: now, status: 'open', ended: null, dismissed: false, notified: false, count: 1 };
+      hist.push(e);
+      fresh.push(e);
+    }
+    for (const e of hist) if (e.status === 'open' && ck.has(e.type) && !seen.has(e.key)) { e.status = 'ended'; e.ended = now; }
+    return { history: trim(hist), fresh };
+  }
+
+  // oldest ended or dismissed alerts go first when the history is over its size
+  function trim(hist) {
+    if (hist.length <= MAX_HISTORY) return hist;
+    const out = hist.slice();
+    const order = out.map((e, i) => [e, i]).filter(([e]) => e.status !== 'open' || e.dismissed).sort((a, b) => (a[0].last || 0) - (b[0].last || 0));
+    const drop = new Set();
+    for (const [, i] of order) { if (out.length - drop.size <= MAX_HISTORY) break; drop.add(i); }
+    return out.filter((_, i) => !drop.has(i));
+  }
+
+  // alerts that should be announced now: fresh, of an enabled type, not announced before. Marks them announced in the returned
+  // history (save it before showing anything, so a second tab or a reload cannot announce them again).
+  function takeNotifications(history, fresh, settings) {
+    const on = new Set(ALERT_TYPES.filter((k) => !settings || !settings.types || settings.types[k] !== false));
+    const ids = new Set((fresh || []).filter((e) => !e.notified && !e.dismissed && on.has(e.type)).map((e) => e.id));
+    const send = [];
+    const out = (history || []).map((e) => {
+      if (!ids.has(e.id) || e.notified) return e;
+      send.push(e);
+      return { ...e, notified: true };
+    });
+    return { history: out, send: send.slice(0, MAX_NOTIFY), more: Math.max(0, send.length - MAX_NOTIFY) };
+  }
+
+  // switching notifications on must not announce what is already open: mark every open alert as announced
+  const baseline = (history) => (history || []).map((e) => (e.status === 'open' && !e.notified ? { ...e, notified: true } : e));
+
+  // management
+  const dismissAlert = (history, id) => (history || []).map((e) => (e.id === id ? { ...e, dismissed: true } : e));
+  const dismissAll = (history) => (history || []).map((e) => (e.status === 'open' && !e.dismissed ? { ...e, dismissed: true } : e));
+  const restoreAlert = (history, id) => (history || []).map((e) => (e.id === id ? { ...e, dismissed: false } : e));
+  // only an alert whose condition has ended can be deleted: deleting a condition that is still true would just open it again, as new
+  const deleteAlert = (history, id) => (history || []).filter((e) => !(e.id === id && e.status === 'ended'));
+  // clearing the history removes the ended alerts; an alert whose condition is still true stays (dismissed or not), so it is neither
+  // shown again nor announced again until the condition ends
+  const clearHistory = (history) => (history || []).filter((e) => e.status === 'open');
+
+  // the stored object, repaired: unknown shapes become empty, never an error
+  function cleanStore(raw) {
+    const o = raw && typeof raw === 'object' ? raw : {};
+    const rules = (Array.isArray(o.rules) ? o.rules : []).map(cleanRule).filter((r) => r && r.id).slice(0, MAX_RULES);
+    const hist = (Array.isArray(o.hist) ? o.hist : []).filter((e) => e && typeof e.id === 'string' && typeof e.key === 'string' && ALERT_TYPES.includes(e.type) && typeof e.text === 'string');
+    const types = {};
+    for (const k of ALERT_TYPES) types[k] = !(o.set && o.set.types && o.set.types[k] === false);
+    return { v: ALERT_VERSION, rules, hist, set: { types, notify: !!(o.set && o.set.notify) } };
+  }
+  // ---- alerts.js (end)
+
   // ------------------------------------------------------------------ dashboard (stage 9)
   // One page that keeps three kinds of information apart, each in its own card with a label that says where it comes from:
   // what you hold (entered on this device), the scanner's paper candidates (the nightly chart analysis) and the system's
@@ -9629,6 +9782,17 @@ table.data tr.me td { background: var(--accent-wash); }
     card.append(open);
     return card;
   }
+  // the Shariah ledger's own warnings for what you hold, as [tone, ticker or null, text]; the Dashboard and the Alert Centre both read them here
+  function ledgerAlerts() {
+    const cur = SHL.load();
+    const held = shariahHeld();
+    const view = ledgerView(cur.entries, held, localISO());
+    const okAll = view.integrity.ok && checkAnchor(cur.entries, cur.anchor).ok;
+    const out = [];
+    if (!okAll) out.push(['bad', null, 'The ledger failed its integrity check. Open it to see why.']);
+    for (const r of view.rows) if (r.held) for (const f of r.flags) if (f.level === 'bad' || f.level === 'warn') out.push([f.level, r.t, f.text]);
+    return { out, held, okAll };
+  }
   function dashAlerts(scr, H) {
     const card = h('section', { class: 'card dash-card dash-alerts k-sys', 'aria-label': 'System alerts' },
       srcTag('sys', 'System · nightly data, your watchlist, your Shariah ledger'), h('h2', { text: 'Alerts' }));
@@ -9652,13 +9816,10 @@ table.data tr.me td { background: var(--accent-wash); }
     if (checks && !bad.length && !warn && !stale) data.push(['good', null, `Nightly data is current (close of ${niceDates(scr.priceDate)}) and every health check passed.`]);
     group('Nightly data', data, ['record', 'Record page']);
     // 2. the Shariah ledger: your record of what Zoya shows for what you hold
-    const cur = SHL.load();
-    const held = shariahHeld();
-    const view = ledgerView(cur.entries, held, localISO());
-    const okAll = view.integrity.ok && checkAnchor(cur.entries, cur.anchor).ok;
-    const sh = [];
-    if (!okAll) sh.push(['bad', null, 'The ledger failed its integrity check. Open it to see why.']);
-    for (const r of view.rows) if (r.held) for (const f of r.flags) if (f.level === 'bad' || f.level === 'warn') sh.push([f.level, r.t, f.text]);
+    const LA = ledgerAlerts();
+    const held = LA.held;
+    const okAll = LA.okAll;
+    const sh = LA.out.slice();
     if (!held.length) sh.push(['', null, 'No holdings are recorded, so no Zoya checks are due.']);
     else if (okAll && !sh.length) sh.push(['good', null, `All ${held.length} holding${held.length === 1 ? ' is' : 's are'} recorded and up to date on Zoya.`]);
     group('Shariah ledger', sh, ['shariah', 'Shariah ledger']);
@@ -9671,6 +9832,9 @@ table.data tr.me td { background: var(--accent-wash); }
     if (wl.length > shown.length) shown.push(['', null, `${wl.length - shown.length} more on the Watchlist page.`]);
     if (!w.items.length) group('Watchlist and earnings', [['', null, 'Your watchlist is empty, so there is nothing to check.']], ['watchlist', 'Watchlist']);
     else group('Watchlist and earnings', wl.length ? shown : [['good', null, `No alerts on the ${w.items.length} compan${w.items.length === 1 ? 'y' : 'ies'} you follow.`]], ['watchlist', 'Watchlist']);
+    const open = alertLast ? alertLast.count : alertShown(AL.load()).length;
+    card.append(h('h3', { text: 'Alert Centre' }), h('p', { class: 'note', text: `${open ? `${open} open alert${open === 1 ? '' : 's'}` : 'No open alerts'}: your price levels, scanner setups, portfolio risks and Shariah warnings, with their history.` }),
+      h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', id: 'toAlertCentre', onclick: () => navigate('alerts') }, 'Open the Alert Centre')));
     return card;
   }
   async function renderDashboard() {
@@ -9683,6 +9847,279 @@ table.data tr.me td { background: var(--accent-wash); }
     if (my !== dashToken || page !== 'dashboard') return;
     if (!scr) { el.replaceChildren(head, errCard('Today’s data could not be loaded. Check your connection and try again. Nothing is shown rather than old figures.')); return; }
     el.replaceChildren(head, h('div', { class: 'dash' }, dashMarket(scr), dashAlerts(scr, H), dashPortfolio(scr), dashScanner(sc)));
+  }
+
+  // ------------------------------------------------------------------ Alert Centre (stage 9)
+  // Alerts are information. They watch conditions the site already works out (your price levels, the scanner's setups, the same
+  // risk and Shariah alerts the Watchlist, Journal and Shariah ledger show) and say when one becomes true. Nothing here works out a
+  // price, a signal, a limit or a Shariah status of its own, and nothing here places, suggests or changes an order. What is new is
+  // decided by the alerts.js block above; this section gathers the conditions, shows the history and asks the browser to announce
+  // new ones while this site is open. Everything is saved on this device only: no email, no text messages, no server.
+  const AL = {
+    load() { return cleanStore(store.get('alerts', null)); },
+    save(a) { store.set('alerts', a); },
+  };
+  const alertShown = (al) => al.hist.filter((e) => e.status === 'open' && !e.dismissed);
+  const fmtUtc = (ms) => (ms ? new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' : '');
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  // the time of the price an alert used: the delayed last sale (with its New York time) or the close of a day
+  function alertPriceAsOf(scr, r) {
+    if (r && r.live && scr.live) {
+      const tm = /(\d{1,2}:\d{2}\s*[AP]M)/i.exec(scr.live.time || '');
+      return `delayed last sale${tm ? ', ' + tm[1].toLowerCase() + ' New York' : ', ' + niceDates(scr.live.session)}`;
+    }
+    return `close of ${niceDates(scr.priceDate)}`;
+  }
+  function alertPriceOf(scr, w, t) {
+    const r = scr.by.get(t);
+    if (r && isNum(r.price) && r.price > 0) return { px: r.price, asOf: alertPriceAsOf(scr, r) };
+    const it = w.items.find((x) => x.t === t);
+    if (it && ownPrice(it) && it.pxDate && daysApart(it.pxDate, localISO()) <= 30) return { px: ownPrice(it), asOf: `your own price from ${niceDates(it.pxDate)}` };
+    return null;
+  }
+  // The conditions that are true now. Each reuses an existing function: itemAlerts (Watchlist), journalFlags (Journal), ledgerAlerts
+  // (Shariah ledger), the scanner file and its gate (Swing scanner). A type whose data is missing or late is left out of `checked`,
+  // so its open alerts stay as they were and nothing is closed because the data was not there.
+  function alertConds(scr, sc, al) {
+    const w = W.load();
+    const jr = JR.load();
+    const conds = [];
+    const checked = new Set();
+    const info = { stale: staleOf(scr), scan: 'ok', priceAsOf: '' };
+    const add = (type, key, tone, t, text, asOf, px) => { if (al.set.types[type]) conds.push({ key, type, tone, t, text, asOf, px: isNum(px) ? px : null }); };
+    const live = Boolean(scr.live && scr.live.session >= scr.priceDate);
+    info.priceAsOf = live ? alertPriceAsOf(scr, { live: true }) : `close of ${niceDates(scr.priceDate)}`;
+    const openKeys = new Set(al.hist.filter((e) => e.status === 'open').map((e) => e.key));
+    // 1. prices
+    if (!info.stale) {
+      checked.add('price');
+      for (const rule of al.rules) {
+        if (!rule.on) continue;
+        const p = alertPriceOf(scr, w, rule.t);
+        if (!p || !priceMet(rule, p.px, openKeys.has(priceKey(rule)))) continue;
+        add('price', priceKey(rule), '', rule.t, `${rule.t} is ${rule.dir === 'above' ? 'at or above' : 'at or below'} your ${price(rule.level)} level: ${price(p.px)} now.`, p.asOf, p.px);
+      }
+    }
+    // 2. scanner setups: candidates with an entry set for the next session, among tonight's top five and the stocks you follow
+    const late = sc && sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, localISO()) : 99;
+    if (!sc || !Array.isArray(sc.rows) || !sc.setups) info.scan = 'missing';
+    else if (late >= 2 || info.stale) info.scan = 'late';
+    else {
+      checked.add('scanner');
+      const followed = new Set(w.items.map((x) => x.t));
+      const proven = swingProven();
+      sc.rows.forEach((c, i) => {
+        if (c.status !== 'ready' || !(i < 5 || followed.has(c.ticker))) return;
+        const lg = ledgerGate(c.ticker);
+        const gate = proven ? (lg.ok ? 'Meets the live rules.' : `Not eligible for real money now: ${lg.reason}.`) : 'Paper trade only.';
+        add('scanner', `scan:${c.ticker}:${c.setup}`, lg.ok && proven ? 'good' : '', c.ticker,
+          `${sc.setups[c.setup] || c.setup}: entry set for next session above ${price(c.entry)}, stop ${price(c.stop)}, target 1 ${price(c.t1)}. ${gate}`, `scanner close of ${niceDates(sc.priceDate)}`, c.close);
+      });
+    }
+    // 3. portfolio risk: what the Watchlist page flags for what you hold, then the open real trades in the Journal
+    if (!info.stale) {
+      checked.add('risk');
+      const heldW = new Set(w.items.filter((x) => x.shares > 0).map((x) => x.t));
+      for (const it of w.items) {
+        if (!(it.shares > 0)) continue;
+        const r = scr.by.get(it.t);
+        // itemAlerts puts the Shariah line first whenever the screen says fail or review: that line belongs to the Shariah type below
+        const skip = r && (r.shariah === 'fail' || r.shariah === 'review') ? 1 : 0;
+        for (const [tone, text] of itemAlerts(it, r, scr).slice(skip)) if (tone === 'bad' || tone === 'warn') add('risk', `risk:${it.t}:${sigOf(text)}`, tone, it.t, text, r ? alertPriceAsOf(scr, r) : 'your own price', r && r.price);
+      }
+      for (const tr of jr.trades) {
+        if (tr.closed || tr.paper || !(tr.shares > 0) || heldW.has(tr.t)) continue;
+        const r = scr.by.get(tr.t);
+        for (const [tone, text] of journalFlags(tr, scr)) {
+          if (text.startsWith('Fails the Shariah')) add('shariah', `shariah:${tr.t}:fail`, 'bad', tr.t, `${text} (open trade in your Journal)`, `screen of ${niceDates(scr.priceDate)}`, null);
+          else if (tone === 'bad' || tone === 'warn') add('risk', `risk:${tr.t}:journal:${sigOf(text)}`, tone, tr.t, `${text} (open trade in your Journal)`, r ? alertPriceAsOf(scr, r) : '', r && r.price);
+        }
+      }
+    }
+    // 4. Shariah: the nightly screen for stocks you follow or hold, then your own Zoya ledger. These do not need fresh prices.
+    checked.add('shariah');
+    for (const it of w.items) {
+      const r = scr.by.get(it.t);
+      if (!r || !(r.shariah === 'fail' || r.shariah === 'review')) continue;
+      const first = itemAlerts(it, r, scr)[0];
+      if (first) add('shariah', `shariah:${it.t}:${r.shariah}`, first[0], it.t, first[1], `screen of ${niceDates(scr.priceDate)}`, null);
+    }
+    for (const [tone, t, text] of ledgerAlerts().out) add('shariah', `shariah:${t || 'ledger'}:ledger:${sigOf(text)}`, tone, t, text, `your ledger, checked ${niceDates(localISO())}`, null);
+    return { conds, checked: [...checked], info };
+  }
+  // ----- browser notifications: only while this site is open, only after you turn them on, only for new alerts
+  const notifySupported = () => typeof Notification !== 'undefined';
+  const notifyReady = () => notifySupported() && Notification.permission === 'granted';
+  function announce(list, more) {
+    if (!notifyReady() || (!list.length && !more)) return;
+    const open = () => { try { window.focus(); } catch { /* ignore */ } navigate('alerts'); };
+    for (const e of list) {
+      try {
+        const n = new Notification(`${ALERT_TYPE_NAME[e.type]}${e.t ? ': ' + e.t : ''}`, { body: `${e.text} (${e.asOf}) Information only: no order was placed.`.slice(0, 240), tag: e.key });
+        n.onclick = () => { open(); n.close(); };
+      } catch { /* a browser that refuses: the alert is still in the Alert Centre */ }
+    }
+    if (more) { try { const n = new Notification(`${more} more alert${more === 1 ? '' : 's'}`, { body: 'Open the Alert Centre to read them. Information only.', tag: 'alerts-more' }); n.onclick = () => { open(); n.close(); }; } catch { /* ignore */ } }
+  }
+  let alertLast = null;
+  let alertRun = Promise.resolve();
+  // Checks every condition once and returns what the page needs. Runs after the page loads and after every live-price refresh
+  // (about every 4 minutes while the site is open); two overlapping calls are run one after the other.
+  function evaluateAlerts() {
+    alertRun = alertRun.then(async () => {
+      if (!HAS_SITE) return null;
+      const [scr, sc] = await Promise.all([loadScreen(), loadScanner()]);
+      if (!scr) return alertLast;
+      const al = AL.load();
+      const { conds, checked, info } = alertConds(scr, sc, al);
+      const r = reconcile(al.hist, conds, checked, Date.now());
+      let hist = r.history;
+      let send = [];
+      let more = 0;
+      if (al.set.notify && notifyReady()) { const n = takeNotifications(hist, r.fresh, al.set); hist = n.history; send = n.send; more = n.more; }
+      const before = JSON.stringify(al.hist);
+      al.hist = hist;
+      // saved before anything is shown, so a second tab or a reload cannot announce the same alert again
+      if (JSON.stringify(hist) !== before) AL.save(al);
+      announce(send, more);
+      const prevN = alertLast ? alertLast.count : null;
+      alertLast = { at: Date.now(), info, checked, count: alertShown(al).length, scr, sc, fresh: r.fresh.length };
+      if (prevN !== alertLast.count) renderSubnav(page);
+      if (page === 'alerts') renderAlerts(true);
+      return alertLast;
+    }).catch(() => alertLast);
+    return alertRun;
+  }
+  function renderAlertCentreCards(el, st) {
+    const al = AL.load();
+    const rerender = () => { const y = window.scrollY; renderAlerts(true); window.scrollTo(0, y); };
+    // recheck: a change to the rules or settings is applied to the alerts at once; dismissing and deleting only change the list
+    const save = (mut, recheck) => { const cur = AL.load(); mut(cur); AL.save(cur); if (alertLast) alertLast.count = alertShown(cur).length; if (recheck) evaluateAlerts(); else rerender(); renderSubnav(page); };
+    const { scr, info } = st;
+    // freshness
+    const fresh = h('section', { class: 'card', 'aria-label': 'Data freshness' }, h('h2', { text: 'How fresh the data is' }));
+    fresh.append(h('ul', { class: 'alert-list' },
+      h('li', null, toneIcon(info.stale ? 'bad' : 'good'), h('span', null, h('b', { text: 'Prices: ' }), info.stale ? staleText(info.stale) : `${info.priceAsOf}. ${scr.live && scr.live.session >= scr.priceDate && /open/i.test(scr.live.status || '') ? 'Live prices are a few minutes behind and refresh about every 4 minutes while this page is open.' : 'The market is closed or prices have not moved since the close; the next nightly update brings the next close.'}`)),
+      h('li', null, toneIcon(info.scan === 'ok' ? 'good' : 'warn'), h('span', null, h('b', { text: 'Scanner: ' }), info.scan === 'ok' ? `end-of-day closes of ${niceDates(st.sc.priceDate)}, not real-time.` : info.scan === 'late' ? 'paused: the nightly update is late, so scanner alerts are not checked.' : 'its file could not be loaded, so scanner alerts are not checked.')),
+      h('li', null, toneIcon('good'), h('span', null, h('b', { text: 'Last checked: ' }), `${fmtUtc(st.at)}. The Alert Centre checks only while this site is open. Nothing runs when it is closed, and no email or text message is ever sent.`))));
+    if (info.stale) fresh.append(h('p', { class: 'hint stale', text: 'Price, scanner and portfolio risk alerts are paused until the next nightly update. Open alerts stay as they were; Shariah alerts are still checked.' }));
+    // notifications and kinds
+    const nf = h('section', { class: 'card', 'aria-label': 'Notification settings' }, h('h2', { text: 'Browser notifications' }));
+    const perm = notifySupported() ? Notification.permission : 'unsupported';
+    const state = !notifySupported() ? 'This browser does not support notifications (Safari on iPhone does not for ordinary web pages). Alerts still appear here and on the Dashboard.'
+      : perm === 'denied' ? 'Notifications are blocked for this site in your browser settings. Allow them there to turn this on.'
+        : al.set.notify && perm === 'granted' ? 'On. A notification appears once for each new alert while this site is open in a browser tab or window.'
+          : 'Off. Alerts appear on this page and the Dashboard only.';
+    nf.append(h('p', { class: 'sub', text: state }));
+    if (notifySupported() && perm !== 'denied') {
+      const on = al.set.notify && perm === 'granted';
+      nf.append(h('div', { class: 'ai' }, h('button', { class: 'btn btn-sm' + (on ? ' btn-outline' : ''), type: 'button', id: 'notifyBtn', onclick: async () => {
+        if (on) { save((c) => { c.set.notify = false; }, true); return; }
+        let p = Notification.permission;
+        if (p !== 'granted') { try { p = await Notification.requestPermission(); } catch { p = 'denied'; } }
+        // what is already open is not announced: only alerts that open after this moment are
+        if (p === 'granted') save((c) => { c.set.notify = true; c.hist = baseline(c.hist); }, true); else rerender();
+      } }, on ? 'Turn off notifications' : 'Turn on browser notifications')));
+    }
+    nf.append(h('p', { class: 'note', text: 'A notification is sent once per alert. The same unchanged condition is not announced again, even as its numbers move or the page is reopened.' }));
+    nf.append(h('h3', { text: 'Which alerts to watch' }),
+      h('div', { class: 'alert-kinds' }, ALERT_TYPES.map((k) => {
+        const cb = h('input', { type: 'checkbox', 'data-kind': k });
+        cb.checked = al.set.types[k];
+        cb.addEventListener('change', () => save((c) => { c.set.types[k] = cb.checked; }, true));
+        return h('label', { class: 'chk' }, cb, ALERT_TYPE_NAME[k]);
+      })));
+    // open alerts
+    const shown = alertShown(al);
+    const open = h('section', { class: 'card', 'aria-label': 'Open alerts' }, h('h2', { text: `Open alerts (${shown.length})` }));
+    if (!shown.length) open.append(h('p', { class: 'empty', text: 'No open alerts. A condition appears here the first time it becomes true and stays until it ends or you dismiss it.' }));
+    else {
+      for (const k of ALERT_TYPES) {
+        const items = shown.filter((e) => e.type === k).sort((a, b) => b.first - a.first);
+        if (!items.length) continue;
+        open.append(h('h3', { text: ALERT_TYPE_NAME[k] }), h('ul', { class: 'alert-list' }, items.map((e) => alertRow(e, scr, [
+          h('button', { class: 'btn btn-outline btn-sm', type: 'button', 'data-act': 'dismiss', onclick: () => save((c) => { c.hist = dismissAlert(c.hist, e.id); }) }, 'Dismiss')]))));
+      }
+      open.append(h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', id: 'dismissAll', onclick: () => save((c) => { c.hist = dismissAll(c.hist); }) }, 'Dismiss all')));
+    }
+    open.append(h('p', { class: 'note', text: 'Alerts are information, not instructions. Nothing here places or changes an order, and a scanner setup is an idea to study, never a buy signal. Check the price in your broker app before you act.' }));
+    // custom price alerts
+    const pr = h('section', { class: 'card', 'aria-label': 'Custom price alerts' }, h('h2', { text: 'Custom price alerts' }),
+      h('p', { class: 'sub', text: 'Pick a stock and a price. The alert opens once when the price reaches it, and opens again only after the price has moved back at least 1% past the level and crossed it again.' }));
+    const tIn = h('input', { type: 'text', placeholder: 'AAPL', 'aria-label': 'Ticker', autocapitalize: 'characters', spellcheck: 'false', maxlength: '15', required: true });
+    const dIn = h('select', { 'aria-label': 'Direction' }, h('option', { value: 'above', text: 'rises to or above' }), h('option', { value: 'below', text: 'falls to or below' }));
+    const lIn = h('input', { type: 'text', inputmode: 'decimal', placeholder: '200.00', 'aria-label': 'Price level in dollars', required: true });
+    const msg = h('div', { class: 'note', 'aria-live': 'polite', hidden: true });
+    const form = h('form', { class: 'alert-form', autocomplete: 'off' },
+      h('label', { class: 'field left' }, h('span', { text: 'Stock' }), tIn), h('label', { class: 'field left' }, h('span', { text: 'When the price' }), dIn),
+      h('label', { class: 'field left' }, h('span', { text: 'Price level ($)' }), lIn), h('button', { class: 'btn btn-sm', type: 'submit' }, 'Add price alert'));
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const rule = cleanRule({ id: newId(), t: tIn.value, dir: dIn.value, level: lIn.value, created: localISO() });
+      msg.hidden = false;
+      if (!rule) { msg.textContent = 'Enter a ticker (letters, digits and hyphens) and a price above zero.'; return; }
+      if (!scr.by.has(rule.t) && !W.load().items.some((x) => x.t === rule.t)) { msg.textContent = `${rule.t} is not in today’s data, so there is no price to watch. Add it to the Watchlist with your own price first.`; return; }
+      const cur = AL.load();
+      if (cur.rules.length >= MAX_RULES) { msg.textContent = `You can keep up to ${MAX_RULES} price alerts.`; return; }
+      if (cur.rules.some((x) => x.t === rule.t && x.dir === rule.dir && x.level === rule.level)) { msg.textContent = 'You already have that price alert.'; return; }
+      cur.rules.push(rule);
+      AL.save(cur);
+      tIn.value = '';
+      lIn.value = '';
+      evaluateAlerts();
+    });
+    pr.append(form, msg);
+    if (!al.rules.length) pr.append(h('p', { class: 'empty', text: 'No price alerts yet.' }));
+    else {
+      pr.append(h('div', { class: 'tscroll' }, h('table', { class: 'data', 'aria-label': 'Your price alerts' },
+        h('thead', null, h('tr', null, ['Stock', 'Alert when', 'Price now', 'Status', ''].map((x) => h('th', { text: x })))),
+        h('tbody', null, al.rules.map((rule) => {
+          const p = alertPriceOf(scr, W.load(), rule.t);
+          const isOpen = al.hist.some((e) => e.key === priceKey(rule) && e.status === 'open');
+          const status = !rule.on ? 'Paused' : info.stale ? 'Paused: data late' : !p ? 'No price available' : isOpen ? 'Reached' : 'Waiting';
+          return h('tr', { 'data-rule': rule.id },
+            h('td', null, h('button', { class: 'linkbtn', type: 'button', onclick: () => (scr.by.has(rule.t) ? openStock(rule.t) : navigate('watchlist')) }, rule.t)),
+            h('td', { text: `${rule.dir === 'above' ? 'at or above' : 'at or below'} ${price(rule.level)}` }),
+            h('td', null, p ? price(p.px) : 'n/a', p ? h('span', { class: 'sm', text: p.asOf }) : null),
+            h('td', { text: status }),
+            h('td', null, h('div', { class: 'row-actions' },
+              h('button', { class: 'btn btn-outline btn-sm', type: 'button', 'data-act': 'toggle', onclick: () => save((c) => { const x = c.rules.find((q) => q.id === rule.id); if (x) x.on = !x.on; }, true) }, rule.on ? 'Pause' : 'Resume'),
+              h('button', { class: 'btn btn-outline btn-sm', type: 'button', 'data-act': 'remove', onclick: () => save((c) => { c.rules = c.rules.filter((q) => q.id !== rule.id); }, true) }, 'Delete'))));
+        })))));
+    }
+    // history
+    const past = al.hist.filter((e) => e.status !== 'open' || e.dismissed).sort((a, b) => (b.last || 0) - (a.last || 0));
+    const hist = h('section', { class: 'card', 'aria-label': 'Alert history' }, h('h2', { text: `History (${past.length})` }));
+    if (!past.length) hist.append(h('p', { class: 'empty', text: 'Ended and dismissed alerts are kept here.' }));
+    else {
+      hist.append(h('ul', { class: 'alert-list' }, past.slice(0, 60).map((e) => alertRow(e, scr, [
+        e.status === 'open' && e.dismissed ? h('button', { class: 'btn btn-outline btn-sm', type: 'button', 'data-act': 'restore', onclick: () => save((c) => { c.hist = restoreAlert(c.hist, e.id); }) }, 'Restore') : null,
+        e.status === 'ended' ? h('button', { class: 'btn btn-outline btn-sm', type: 'button', 'data-act': 'delete', onclick: () => save((c) => { c.hist = deleteAlert(c.hist, e.id); }) }, 'Delete') : null]))));
+      if (past.length > 60) hist.append(h('p', { class: 'note', text: `${past.length - 60} older alerts are not shown.` }));
+      hist.append(h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', id: 'clearHist', onclick: () => save((c) => { c.hist = clearHistory(c.hist); }) }, 'Clear history')));
+    }
+    el.append(h('div', { class: 'ac-grid' }, h('div', { class: 'ac-main' }, open, pr, hist), h('div', { class: 'ac-side' }, fresh, nf)));
+  }
+  // one alert as a list row: icon, ticker, wording, then when it opened and which price it used
+  function alertRow(e, scr, buttons) {
+    const state = e.status === 'ended' ? `ended ${fmtUtc(e.ended)}` : e.dismissed ? 'dismissed' : 'open';
+    return h('li', { 'data-key': e.key, 'data-type': e.type, 'data-state': e.status === 'ended' ? 'ended' : e.dismissed ? 'dismissed' : 'open' },
+      toneIcon(e.tone),
+      h('span', { class: 'al-body' },
+        e.t ? h('button', { class: 'tk', type: 'button', onclick: () => (scr.by.has(e.t) ? openStock(e.t) : navigate('watchlist')) }, e.t) : null, e.t ? ' ' : '', e.text,
+        h('span', { class: 'al-meta', text: `${ALERT_TYPE_NAME[e.type]} · opened ${fmtUtc(e.first)} · ${e.asOf ? 'data: ' + e.asOf + ' · ' : ''}${state}${e.count > 1 ? ` · seen ${e.count} times` : ''}` })),
+      h('span', { class: 'al-act' }, buttons.filter(Boolean)));
+  }
+  async function renderAlerts(quiet) {
+    const el = $('#page-alerts');
+    const head = pageHead('Alert Centre', 'Price levels you set, scanner setups, portfolio risks and Shariah warnings, in one place. Information only: no alert places or suggests an order.');
+    if (!HAS_SITE) { el.replaceChildren(head); return; }
+    if (!quiet) el.replaceChildren(head, loadingBox('Checking your alerts…'));
+    const st = alertLast && quiet ? alertLast : await evaluateAlerts();
+    if (page !== 'alerts') return;
+    if (!st || !st.scr) { el.replaceChildren(head, errCard('Today’s data could not be loaded. Check your connection and try again. Nothing is shown rather than old figures.')); return; }
+    el.replaceChildren(head);
+    renderAlertCentreCards(el, st);
   }
 
   // ------------------------------------------------------------------ nav
@@ -9712,6 +10149,10 @@ table.data tr.me td { background: var(--accent-wash); }
     route();
     refreshNavDot();
     renderHealthBanner();
+    // the Alert Centre checks after the page loads and after every live-price refresh, while this site is open
+    evaluateAlerts();
+    livePainters.add(() => { evaluateAlerts(); });
+    window.addEventListener('storage', (ev) => { if (ev.key === 'alerts' && page === 'alerts') renderAlerts(true); });
   } else {
     const start = new URLSearchParams(location.search).get('t');
     if (start) run(start);

@@ -64,12 +64,14 @@ jobs:
         run: node --test test/scanner.test.mjs
       - name: Test opportunity tracking
         run: node --test test/opportunity.test.mjs
+      - name: Test the Alert Centre rules
+        run: node --test test/alerts.test.mjs
       - name: Check stages 1 to 7 are untouched
         run: node --test test/stage8-untouched.test.mjs
 
   page-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -95,6 +97,8 @@ jobs:
         run: python test/layout-page.test.py
       - name: Run the Dashboard page tests
         run: python test/dashboard-page.test.py
+      - name: Run the Alert Centre page tests
+        run: python test/alerts-page.test.py
 
   security:
     runs-on: ubuntu-latest

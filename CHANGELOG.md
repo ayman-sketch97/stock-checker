@@ -20,6 +20,25 @@ checked is in `VALIDATION.md`.
   screens. Light and dark themes both kept and tested.
 - No recommendation, formula, threshold, Shariah rule or data source changed. The same data shows the same advice word for word
   (checked against main on 54 page views, with the ledger current and empty). Stage 1 to 8 libraries are byte-identical.
+- New Alert Centre (`?p=alerts`, under the Dashboard tab). It lists, in one place and with a history you can manage: price levels you
+  set yourself (custom price alerts), swing scanner setups that have an entry set for the next session (tonight's top five and any
+  stock you follow; paper-only wording kept), portfolio risks (the Watchlist's own alerts for what you hold, and the Journal's flags on
+  your open real trades: stop reached, trim level, size limit, weaker business, earnings soon) and Shariah warnings (the nightly screen
+  for stocks you follow or hold, and your Shariah ledger's own flags). Every alert says when it opened, which price or data it used
+  (the close of a day, the delayed last sale with its New York time, or a price you entered) and how old that is. Late or missing data
+  pauses a kind of alert without closing the ones already open.
+- Notifications: if you turn them on, the browser shows one notification per new alert while the site is open (checked after the
+  page loads and each time live prices refresh, about every four minutes). The same unchanged condition is never announced twice:
+  a changing number does not make a new alert, a price level re-arms only after the price is 1% back through it, and a condition that
+  returns within a day re-opens its earlier alert silently. Turning notifications on does not announce what is already open. There
+  is no email, text message, server or paid service; alerts and settings are saved on this device only.
+- Alerts are information. Nothing in the Alert Centre places, suggests or changes an order, and no alert is a buy signal. The alert
+  rules are one new pure library, `lib/alerts.js` (22 unit tests); the conditions come from functions the site already used
+  (`itemAlerts`, the Journal's flags, the Shariah ledger's flags, the scanner file and its Zoya gate), two of which were moved into
+  named functions (`journalFlags`, `ledgerAlerts`) so the Journal, the Dashboard and the Alert Centre share one copy.
+- Fix found by the first CI run: the "Dashboard" tab label could be cut off on a 360 to 390 px screen when the site's own Inter font
+  was not loaded and a wider system font was used instead. The page tests now serve the font as the real site does, and the label is
+  a little tighter on screens under 380 px.
 
 ## 7 November 2026: swing scanner, strategy filter and weekly chart (stage 8, merged into main and live on 7 November 2026, Abu Dhabi time)
 
