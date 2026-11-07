@@ -11,6 +11,9 @@ checked is in `VALIDATION.md`.
 - Fixed a bug that could erase your Portfolio ledger on this browser: opening the Technical tab of a stock saved the trade calculator's
   amount under the same storage name as the ledger. The calculator now has its own. If you recorded ledger entries and later opened a
   Technical tab, check the Portfolio ledger page and restore from your latest backup file if it is empty.
+- A ledger that has lost its newest entries can no longer be hidden by adding another one: the Shariah, thesis and Portfolio add forms and
+  the backup import now check the saved anchor first and refuse (or, for an import, do not save) until the missing entries are restored
+  from a backup file (Journal page, Load a backup).
 - Damaged saved data (a bad recent-searches list, a damaged ledger entry, a bad backup record) no longer crashes a page; the record's own
   integrity check reports the damage instead.
 - The dividend form says that cash received is entered after tax, and that the tax box is for the record only.

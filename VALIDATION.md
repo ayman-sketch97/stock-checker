@@ -2231,6 +2231,17 @@ key, on the pages that read them): no script ran, no dialog opened, no page erro
 **D5. Dividend form labels (wording only).** The dividend form said "Amount received or paid" and "Tax withheld". Cash received is entered
 after tax and the tax box is for the record only; the labels now say so, so tax is not subtracted twice. Accounting is unchanged.
 
+**D6. The ledger "add" forms could hide cut-off entries (release-gate follow-up).** `SHL.add`, `THS.add` and `PFL.add` checked the chain but
+not the saved anchor, and every save rewrote the anchor from the entries just saved. With entries cut off the end and the anchor still
+showing the full count, one more add made the ledger look intact: the anchor was replaced, the list page said "matches the anchor", the
+Portfolio cash and holdings were replayed from the shorter record, and the Shariah buy gate could pass on a history that had been cut. This
+was shown at run time before the fix (anchor count 3 became 2 after one add). Now all three adds check the anchor first and refuse with
+"The saved anchor does not match the entries on this device (...), so nothing can be added until that is looked at", pointing to Load a
+backup on the Journal page. The backup import does the same: joined entries are saved only if they still contain everything this device had
+recorded; otherwise the page says "Not saved". An intact ledger, a ledger with no anchor yet, and a restore from the right backup behave as
+before. New page checks: the three adds are refused with the anchor message and change nothing, and a backup that lacks the lost entries is
+not saved (page suite 657). No formula, threshold, score or recommendation changed.
+
 ### Audit results by area (evidence in the notes above and the test logs)
 
 1. **Investment engine.** The DCF (`lib/engine.js`) and the indicators (`lib/technical.js`: SMA, EMA, RSI, ATR, MACD) were re-implemented
@@ -2238,7 +2249,7 @@ after tax and the tax box is for the record only; the labels now say so, so tax 
    the price is rejected) and the 8, 9 and 10 percent discount rates behave as documented.
 2. **Portfolio.** Average-cost accounting, cash, realised and unrealised profit and loss, fees, dividends and voiding were fuzzed against an
    independent replay; tamper detection (edit, delete in the middle, reorder) holds. Truncating the newest entries is detected only through
-   the saved anchor (see limitations).
+   the saved anchor; since D6 no add or import can overwrite that anchor while it shows missing entries.
 3. **Risk.** Buy room, trim size, sector room and the minimum order were fuzzed at their boundaries (10 percent buy cap, 15 percent trim
    trigger, trim to 10 percent, 40 percent sector, $100 minimum order): no case breaks a limit, and zero room implies the position is already
    at or over its cap.
@@ -2261,15 +2272,15 @@ after tax and the tax box is for the record only; the labels now say so, so tax 
 ### Test results on the final tree
 
 Node suites: formulas 80, stage 8 pin 16, portfolio 32, Shariah ledger 40, thesis 20, alerts 22, scanner 29, intel 52, opportunity 14,
-deploy safety 46, restore and log 50, all passing, 0 failures. Workflow test 93. Page tests: page 648 (641 existing plus 7 new for D1 and
-D2), layout 315, Dashboard 64, Alert Centre 81, scanner 72. The new page checks assert that the Portfolio ledger is unchanged after using the
+deploy safety 46, restore and log 50, all passing, 0 failures. Workflow test 93. Page tests: page 657 (641 existing plus 7 new for D1 and
+D2 and 9 for D6), layout 315, Dashboard 64, Alert Centre 81, scanner 72. The new page checks assert that the Portfolio ledger is unchanged after using the
 calculator, that the calculator keeps its own key, that an old plain number is still read, that an object is not, and that a damaged
 "recent" value raises no page error.
 
 ### Limitations that remain (not fixed, by design)
 
-- The ledger "add" forms do not re-check the saved anchor before appending; the gates and the list pages do. A browser that lost its newest
-  entries and its anchor together cannot tell.
+- A browser that lost its newest ledger entries and its anchor together cannot tell (a ledger and its anchor held only in one browser; only
+  a backup file kept elsewhere shows it).
 - There is no Content Security Policy meta tag (GitHub Pages cannot set headers). Mitigation: no `eval`, no dynamic HTML.
 - Dividend tax is recorded for the record only and is not part of the cash calculation.
 - The live page was not read directly by this tool (the fetch tool refused the address); live verification rests on the CI job.
