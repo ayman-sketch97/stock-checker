@@ -3,7 +3,7 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
-## 7 November 2026: swing scanner, strategy filter and weekly chart (stage 8, on branch `stage8-screener-market-data`, not merged)
+## 7 November 2026: swing scanner, strategy filter and weekly chart (stage 8, merged into main and live on 7 November 2026, Abu Dhabi time)
 
 - New Swing scanner page: setups that could play out over days to weeks (pullback, breakout, reversal and momentum) taken
   from the nightly chart analysis, checked against data gates (fresh price, enough history, price and trading volume,

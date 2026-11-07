@@ -1869,7 +1869,7 @@ used before the deployment was the version of `21bbc73` (Stage 6), and a verifie
 files to the records branch (head `b756fda` to `7f3b704`) through the existing nightly save step; nothing in Stage 7 writes
 there. The nightly archive (Stage 7b) has not been started.
 
-## 24. Stage 8: swing scanner, screener and market data (7 November 2026, on branch `stage8-screener-market-data`, not merged)
+## 24. Stage 8: swing scanner, screener and market data (7 November 2026, merged into main as `d2f9fa5`, deployed and verified)
 
 Stage 8 adds a swing scanner and a strategy filter to the Shortlist, weekly candles and Bollinger Bands to the chart, and
 paper tracking of scanner ideas on the Watchlist. It is **additive**: no existing recommendation rule, investment policy,
@@ -2020,4 +2020,18 @@ for word in `WORDING` in `test/validation/same-advice.py`, so any other change i
 4. The data size growth noted under Limitations.
 5. The build integration could not be run end to end before CI; the CI run above is its first real exercise and it passed.
 
-**Not merged.** The branch has not been merged and nothing was deployed. It waits for the owner's review.
+**Stage 8 is merged, deployed and verified.** The owner approved the merge on 7 November 2026 after reviewing the results and the label
+rename. Main was fast-forwarded from `32c4fd4` to `d2f9fa5` (seven commits: `022a57b`, `ef45080`, `91d67d9`, `c9d26ce`, `e3f8cd1`,
+`b22b0f4`, `d2f9fa5`; no force, no rewritten commit, author unchanged). Update site, run 98
+(https://github.com/ayman-sketch97/stock-checker/actions/runs/42360176529), started by hand on main: formulas, restore-point, security,
+page-tests, build, verify-site, gate, deploy, verify-live and ledger all succeeded; rollback and keepalive were skipped because no rollback
+was needed. Live verification passed: the site serves commit `d2f9fa5` (`data/health.json`), built 2026-11-07 09:43 UTC, prices of
+2026-11-06. The restore point used before the deployment was the verified version of `441e083` (Stage 7, digest `3cff0777...`), and a
+verified restore point of `d2f9fa5` was made (5,991 files, digest `5bf5879972ef203ff69a89cedaaa5960ad4eeaf5e2358df3118fd81b6b006125`).
+The deploy log gained entry `000009` (run 98, recorded and deployed, add-only check passed).
+
+On the live site, `data/scanner.json` is version 1.0 for prices of 2026-11-06 (130 listed, 385 blocked by a data gate) and
+`data/tech-ext/<TICKER>.json` carries the weekly candles and Bollinger Bands. The page behaviour (scanner page, Daily/Weekly chart and
+Bollinger Bands, Track on Watchlist, Stop tracking, report links and the renamed labels) was verified by the page tests that ran on this same
+commit in run 98 (641 and 72 checks); no browser session was run against the live address from the build environment. The nightly archive
+(Stage 7b) and Stage 9 have not been started.
