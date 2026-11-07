@@ -1749,7 +1749,7 @@ site serves commit `21bbc73`, built 2026-11-07 00:37 UTC, 4002 files, prices of 
 of that version was made. The deploy log gained its next entry (000007, run 93); the records branch was not changed by
 the merge. Stage 7 has not been started.
 
-## 23. Stage 7: investment reports (7 November 2026, branch `stage7-investment-intelligence`, not merged)
+## 23. Stage 7: investment reports (7 November 2026, merged into main as `441e083`, deployed and verified)
 
 Stage 7 inspected what the company page already held, then added only what was missing: one report per strategy that
 puts the existing analysis in one place, says what is sourced, calculated or missing, and withholds its call when the
@@ -1857,5 +1857,14 @@ and the report agreed with it; money is written with thousands separators) and t
   already see in the report.
 - Nothing here is financial or Shariah advice. Zoya remains the final Shariah authority. No order is placed by the tool.
 
-**Status.** Implementation `4470b81` on `stage7-investment-intelligence`, based on `eb24496` (Stage 6, complete). It is not
-merged and not deployed. It waits for the owner's approval; the nightly archive (Stage 7b) is a separate decision.
+**Stage 7 is merged, deployed and verified.** The owner approved the merge on 7 November 2026. Main was fast-forwarded from
+`eb24496` to `441e083` (two commits: the implementation `4470b81` and its documentation `441e083`; no force, no rewritten
+commit, author unchanged). Update site, run 95 (https://github.com/ayman-sketch97/stock-checker/actions/runs/42346755457),
+started by hand on main: formulas, page-tests, security, restore-point, build, verify-site, gate, deploy, verify-live and
+ledger all succeeded; rollback and keepalive were skipped because no rollback was needed. Live verification passed: the
+site serves commit `441e083` (`data/health.json`), built 2026-11-07 06:34 UTC, prices of 2026-11-06. The restore point
+used before the deployment was the version of `21bbc73` (Stage 6), and a verified restore point of `441e083` was made
+(digest `3cff0777bc151b980ff207ddc3302689cd8ff1ce884534da41f23e45090dd77e`). The deploy log gained its next entry
+(`000008`, run 95, status recorded and deployed, `live.commit` `441e083`). That run also saved the 2026-11-06 price and day
+files to the records branch (head `b756fda` to `7f3b704`) through the existing nightly save step; nothing in Stage 7 writes
+there. The nightly archive (Stage 7b) has not been started.

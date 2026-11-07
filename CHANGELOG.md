@@ -3,7 +3,7 @@
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
 
-## 7 November 2026: investment reports on the company page (stage 7, on a branch, not merged)
+## 7 November 2026: investment reports on the company page (stage 7, merged into main and live on 7 November 2026, Abu Dhabi time)
 
 - Every company page now has an Investment report card with three strategies: long-term investing (1 to 5 years or
   more), position investing (weeks to months) and swing trading (days to weeks). Position investing is not the existing
