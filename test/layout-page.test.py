@@ -25,6 +25,18 @@ GROUPS = {
     'shortlist': ['shortlist', 'scanner'],
     'advisor': ['advisor', 'pfledger', 'thesis', 'shariah'],
 }
+HELD = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 10, 'cost': 200}, {'t': 'KO', 'added': '2026-01-01', 'shares': 3, 'cost': 50}, {'t': 'MSFT', 'added': '2026-01-01'}], 'snap': None, 'prev': None}}
+CLIPPED = r"""() => {
+  const W = document.documentElement.clientWidth; const out = [];
+  const scrolls = (el) => { for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) { const o = getComputedStyle(n).overflowX; if (o === 'auto' || o === 'scroll' || o === 'hidden') return true; } return false; };
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.closest('.aurora, svg, [aria-hidden="true"], .tip')) continue;
+    const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+    if (!r.width || !r.height || cs.visibility === 'hidden' || (el.offsetParent === null && cs.position !== 'fixed')) continue;
+    if ((r.right > W + 1 || r.left < -1) && !scrolls(el)) out.push(el.tagName.toLowerCase() + '.' + (typeof el.className === 'string' ? el.className : '') + ' ' + Math.round(r.left) + '..' + Math.round(r.right));
+  }
+  return out.slice(0, 5);
+}"""
 SIZES = [(360, 780), (390, 844), (820, 1100), (1280, 900)]
 
 
@@ -99,6 +111,14 @@ async def main():
                     ov = await pg.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
                     check(ov <= 0, f'{w}px {theme} ?p={name}: no horizontal scroll (overflow {ov})')
                 check(not errs, f'{w}px {theme}: no page errors {errs[:2]}')
+                await pg.close()
+                # nothing sticks out past the screen edge (the page hides sideways overflow, so the scroll width alone cannot show it)
+                pg, errs = await page_with(ctx, base, fresh, storage=HELD, zoya=['AAPL', 'KO'], path='&p=dashboard')
+                for name in ALL + ['kostock']:
+                    await pg.goto(base + '?selftest=1' + ('&t=KO' if name == 'kostock' else '&p=' + name))
+                    await pg.wait_for_timeout(500)
+                    off = await pg.evaluate(CLIPPED)
+                    check(not off, f'{w}px {theme} {name} with holdings: nothing is clipped at the screen edge {off}')
                 await pg.close()
                 await ctx.close()
         await b.close()
