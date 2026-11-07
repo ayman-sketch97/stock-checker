@@ -511,6 +511,34 @@ ol.exits li { margin: 5px 0; }
 .chart-card { padding-bottom: 14px; }
 .ranges { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 12px; }
 .ranges button { border: 0; background: transparent; border-radius: 9px; padding: 5px 11px; font-size: 13px; font-weight: 650; cursor: pointer; color: var(--ink-2); }
+.scan-row { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); min-width: 0; }
+.scan-row > summary { list-style: none; cursor: pointer; padding: 14px 16px; border-radius: 16px; }
+.scan-row > summary::-webkit-details-marker { display: none; }
+.scan-row > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.scan-row[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.scan-row .top { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.scan-row .tk { font-weight: 800; font-size: 14px; flex: none; letter-spacing: 0.02em; background: var(--surface-2); border: 1px solid var(--border); padding: 3px 8px; border-radius: 9px; }
+.scan-row .nm { color: var(--ink-2); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.scan-row .pr { font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
+.scan-row .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.scan-row .det { display: block; font-size: 13px; color: var(--ink-2); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.scan-row .det b { color: var(--ink); font-weight: 700; }
+.scan-body { padding: 4px 16px 16px; border-top: 1px solid var(--border); min-width: 0; }
+.scan-body h3 { font-size: 14px; margin: 16px 0 6px; letter-spacing: 0; }
+.scan-ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ink-2); }
+.scan-ul li { margin: 3px 0; }
+.scan-wrap { overflow-x: auto; max-width: 100%; }
+.scan-checks { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 460px; }
+.scan-checks th, .scan-checks td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.scan-checks th { color: var(--muted); font-weight: 650; font-size: 12px; }
+.scan-checks .why { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.opp-row { padding: 12px 0; border-top: 1px solid var(--border); }
+.opp-row .top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.opp-row .note { margin: 6px 0 0; }
+.scan-msg { margin: 0 0 0 4px; align-self: center; }
+.tf-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ranges button:disabled { opacity: 0.45; cursor: not-allowed; }
+.chart-src { margin-top: 8px; }
 .ranges button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm), 0 0 0 1px var(--border); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-top: 10px; font-variant-numeric: tabular-nums; min-height: 18px; }
 .legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -616,10 +644,15 @@ ol.exits li { margin: 5px 0; }
 .iv-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .iv-call { font-size: 22px; font-weight: 750; }
 .presets { display: flex; gap: 6px; overflow-x: auto; padding: 2px 1px 6px; margin-top: 16px; scrollbar-width: none; }
+.strategies { display: flex; gap: 6px; overflow-x: auto; padding: 2px 1px 6px; margin-top: 16px; scrollbar-width: none; }
 .presets::-webkit-scrollbar { display: none; }
+.strategies::-webkit-scrollbar { display: none; }
 .presets button { flex: none; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 8px 15px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--ink-2); box-shadow: var(--shadow-sm); transition: color 0.15s, border-color 0.15s; }
+.strategies button { flex: none; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 8px 15px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--ink-2); box-shadow: var(--shadow-sm); transition: color 0.15s, border-color 0.15s; }
 .presets button:hover { color: var(--ink); }
+.strategies button:hover { color: var(--ink); }
 .presets button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.strategies button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
 .filters select, .filters input[type="search"], .field input, .field select { height: 40px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface); padding: 0 11px; font-size: 15px; max-width: 100%; min-width: 0; }
 .filters input[type="search"] { flex: 1 1 140px; }
@@ -933,6 +966,7 @@ table.data tr.me td { background: var(--accent-wash); }
     <main id="result" hidden></main>
   </div>
   <section id="page-shortlist" aria-label="Shortlist" hidden></section>
+  <section id="page-scanner" aria-label="Swing scanner" hidden></section>
   <section id="page-watchlist" aria-label="Watchlist" hidden></section>
   <section id="page-record" aria-label="Track record" hidden></section>
   <section id="page-journal" aria-label="Trading journal" hidden></section>
@@ -1654,7 +1688,10 @@ table.data tr.me td { background: var(--accent-wash); }
       p.hidden = t !== id;
     }
     if (byUser) store.set('tab', id);
-    if (MODE !== 'mcp' && current) history.replaceState(null, '', '?t=' + encodeURIComponent(current.ticker) + (id === 'tech' ? '&view=technical' : ''));
+    if (MODE !== 'mcp' && current) {
+      const rep = id === 'tech' ? new URLSearchParams(location.search).get('report') : null; // stage 8: keep a swing-report link while on the technical tab
+      history.replaceState(null, '', '?t=' + encodeURIComponent(current.ticker) + (id === 'tech' ? '&view=technical' : '') + (rep === 'swing' ? '&report=swing' : ''));
+    }
     if (id === 'tech') showTech();
   }
 
@@ -2300,25 +2337,63 @@ table.data tr.me td { background: var(--accent-wash); }
     const n = parseInt(m[1], 16);
     return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
   };
+  // data/tech-ext/<ticker>.json (stage 8): weekly candles with their indicators, and the daily Bollinger Bands. It is a separate file so the
+  // chart analysis above is unchanged; if it is missing the chart simply has no weekly view and no bands.
+  function loadExt(d) {
+    if (!tech || tech.d !== d) return Promise.resolve(null);
+    if (!tech.extP) {
+      tech.extP = MODE === 'static'
+        ? fetch('data/tech-ext/' + encodeURIComponent(d.ticker) + '.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        : Promise.resolve(null);
+    }
+    return tech.extP;
+  }
   function chartCard(d, T, halalFail) {
     const card = h('section', { class: 'card chart-card', 'aria-label': 'Price chart' });
     const ranges = h('div', { class: 'ranges', role: 'group', 'aria-label': 'Chart range' });
     const legend = h('div', { class: 'legend' });
-    const box = h('div', { class: 'lw', role: 'img', 'aria-label': `Daily candlestick chart of ${d.ticker} with moving averages, RSI and MACD` }, h('div', { class: 'lw-msg', text: 'Loading chart…' }));
+    const box = h('div', { class: 'lw', role: 'img', 'aria-label': `Candlestick chart of ${d.ticker} with moving averages, RSI and MACD` }, h('div', { class: 'lw-msg', text: 'Loading chart…' }));
     const toggles = h('div', { class: 'toggles', role: 'group', 'aria-label': 'Show on chart' });
+    // stage 8: daily or weekly candles, Bollinger Bands, and a line saying where the prices come from and how old they are
+    let tf = store.get('chartTf', 'daily') === 'weekly' ? 'weekly' : 'daily';
+    const tfBar = h('div', { class: 'ranges', role: 'group', 'aria-label': 'Timeframe' });
+    const srcLine = h('p', { class: 'note chart-src' });
+    const paneKeys = h('div', { class: 'pane-keys' });
+    const paintTf = () => [...tfBar.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tf === tf)));
+    tfBar.replaceChildren(...[['daily', 'Daily'], ['weekly', 'Weekly']].map(([k, lab]) =>
+      h('button', { type: 'button', 'data-tf': k, 'aria-pressed': String(k === tf), onclick: () => { if (tf === k) return; tf = k; store.set('chartTf', k); paintTf(); build(); } }, lab)));
     card.append(
-      h('div', { class: 'tech-head' }, h('h2', { text: 'Chart' }), ranges),
-      legend, box,
-      h('div', { class: 'pane-keys' }, h('span', { text: 'Top: price, averages, volume.' }), h('span', { text: 'Middle: RSI (over 70 overbought, under 30 oversold).' }), h('span', { text: 'Bottom: MACD and its signal line.' })),
-      toggles, liveChartBlock(d));
+      h('div', { class: 'tech-head' }, h('h2', { text: 'Chart' }), h('div', { class: 'tf-tools' }, tfBar, ranges)),
+      legend, box, paneKeys, toggles, srcLine, liveChartBlock(d));
     const build = () => {
-      loadChartLib()
-        .then((LW) => {
+      Promise.all([loadChartLib(), loadExt(d)])
+        .then(([LW, ext]) => {
           if (!tech || tech.d !== d || !box.isConnected) return;
           destroyChart();
           box.replaceChildren();
           T.buyBelow = d.pricePlan && isNum(d.pricePlan.buyBelow) && !halalFail ? d.pricePlan.buyBelow : null;
-          buildChart(LW, box, legend, ranges, toggles, T, halalFail);
+          const N = T.chart.candles.length;
+          const dailyOk = ext && ext.daily && ext.daily.upper && ext.daily.lower && ext.daily.upper.length === N && ext.daily.lower.length === N;
+          const weeklyOk = ext && ext.weekly && Array.isArray(ext.weekly.candles) && ext.weekly.candles.length > 20;
+          if (tf === 'weekly' && !weeklyOk) tf = 'daily'; // no weekly data for this company today: show the daily chart
+          [...tfBar.children].forEach((b) => { if (b.dataset.tf === 'weekly') b.disabled = !weeklyOk; });
+          paintTf();
+          let Tuse;
+          if (tf === 'weekly') {
+            const W = ext.weekly;
+            Tuse = { ...T, timeframe: 'weekly', history: null, chart: { candles: W.candles, ema21: W.ema21, sma50: W.sma50, sma200: W.sma200, rsi: W.rsi, macd: W.macd, signal: W.signal, hist: W.hist, bbUpper: W.bbUpper, bbLower: W.bbLower, markers: [] } };
+          } else {
+            Tuse = dailyOk ? { ...T, chart: { ...T.chart, bbUpper: ext.daily.upper, bbLower: ext.daily.lower } } : T;
+          }
+          box.setAttribute('aria-label', `${tf === 'weekly' ? 'Weekly' : 'Daily'} candlestick chart of ${d.ticker} with moving averages, Bollinger Bands, RSI and MACD`);
+          paneKeys.replaceChildren(
+            h('span', { text: 'Top: price, averages, volume.' }), h('span', { text: 'Middle: RSI (over 70 overbought, under 30 oversold).' }), h('span', { text: 'Bottom: MACD and its signal line.' }),
+            ...(tf === 'weekly' ? [h('span', { text: 'Each candle is one week, Monday to Friday. The averages are weekly: 21-week EMA, 50-week and 200-week SMA.' })] : []));
+          const last = T.chart.candles[N - 1][0];
+          srcLine.textContent = tf === 'weekly'
+            ? `Weekly candles built by this site from Nasdaq end-of-day prices, last daily close ${niceDates(last)}. A week that has not reached Friday's close is still in progress. Not real-time.`
+            : `Daily candles from Nasdaq end-of-day prices, last close ${niceDates(last)}, refreshed each weekday. Not real-time.${dailyOk ? '' : ' Bollinger Bands are not available for this company today.'}`;
+          buildChart(LW, box, legend, ranges, toggles, Tuse, halalFail);
         })
         .catch(() => box.replaceChildren(h('div', { class: 'lw-msg', text: 'The chart could not load. The plan, levels and signals on this page still apply.' })));
     };
@@ -2352,7 +2427,8 @@ table.data tr.me td { background: var(--accent-wash); }
       localization: { locale: 'en-US' },
     });
     tech.chart = chart;
-    const on = { e21: true, s50: true, s200: true, levels: true, plan: !halalFail, volume: true, trades: true, value: true };
+    const wkly = T.timeframe === 'weekly';
+    const on = { e21: true, s50: true, s200: true, levels: true, plan: !halalFail, volume: true, trades: true, value: true, bb: false };
     const valuePrices = isNum(T.buyBelow) && T.buyBelow > T.close * 0.7 && T.buyBelow < T.close * 1.3 ? [T.buyBelow] : [];
     const planPrices = !halalFail && isNum(p.entry) && isNum(p.stop) ? [p.entry, p.stop, p.target1, p.target2].filter(isNum) : [];
     const cs = chart.addSeries(LW.CandlestickSeries, {
@@ -2375,10 +2451,10 @@ table.data tr.me td { background: var(--accent-wash); }
       const L = tech && tech.liveQ;
       if (!L) { if (nowLine) { cs.removePriceLine(nowLine); nowLine = null; } return; }
       // today's candle so far (open and latest price; the day's high and low are not known until the close)
-      if (L.newSession && L.session > lastTime && isNum(L.o)) {
+      if (!wkly && L.newSession && L.session > lastTime && isNum(L.o)) {
         try { cs.update({ time: L.session, open: L.o, high: Math.max(L.o, L.p), low: Math.min(L.o, L.p), close: L.p }); } catch { /* ignore */ }
       }
-      const opts = { price: L.p, color: col.accent, lineWidth: 1, lineStyle: LW.LineStyle.Dotted, axisLabelVisible: true, title: L.open ? 'Now' : 'Last' };
+      const opts = { price: L.p, color: col.accent, lineWidth: 1, lineStyle: LW.LineStyle.Dotted, axisLabelVisible: true, title: L.open ? 'Delayed' : 'Last sale' };
       if (nowLine) nowLine.applyOptions(opts); else nowLine = cs.createPriceLine(opts);
     };
     tech.updateNow();
@@ -2393,6 +2469,14 @@ table.data tr.me td { background: var(--accent-wash); }
     s50.setData(lineData(C.sma50));
     const s200 = chart.addSeries(LW.LineSeries, lineOpts(col.sma200));
     s200.setData(lineData(C.sma200));
+    // Bollinger Bands (20, 2): off until switched on; two dashed lines and a dotted middle line
+    const hasBB = Array.isArray(C.bbUpper) && C.bbUpper.length === N && Array.isArray(C.bbLower) && C.bbLower.length === N;
+    const bbMid = hasBB ? C.bbUpper.map((u, i) => (isNum(u) && isNum(C.bbLower[i]) ? (u + C.bbLower[i]) / 2 : null)) : null;
+    const bbOpts = (extra) => lineOpts(alpha(col.text, 0.9), { lineWidth: 1, lineStyle: LW.LineStyle.Dashed, visible: false, ...extra });
+    const bbU = hasBB ? chart.addSeries(LW.LineSeries, bbOpts()) : null;
+    const bbL = hasBB ? chart.addSeries(LW.LineSeries, bbOpts()) : null;
+    const bbM = hasBB ? chart.addSeries(LW.LineSeries, bbOpts({ lineStyle: LW.LineStyle.Dotted })) : null;
+    if (hasBB) { bbU.setData(lineData(C.bbUpper)); bbL.setData(lineData(C.bbLower)); bbM.setData(lineData(bbMid)); }
 
     // RSI pane
     const rs = chart.addSeries(LW.LineSeries, lineOpts(col.rsi, {
@@ -2436,7 +2520,7 @@ table.data tr.me td { background: var(--accent-wash); }
         if (tr.exit && inChart.has(tr.exit)) tradeMk.push({ time: tr.exit, position: 'aboveBar', color: tr.R > 0 ? col.good : col.bad, shape: 'arrowDown', text: 'Sell ' + fmtR(tr.R, 1) });
       }
       // today's signal on the last candle
-      const sigMk = !halalFail && p.status === 'active' && TRADED.includes(p.setup) ? [{ time: tm(N - 1), position: 'belowBar', color: col.good, shape: 'arrowUp', text: 'Buy signal' }] : [];
+      const sigMk = !wkly && !halalFail && p.status === 'active' && TRADED.includes(p.setup) ? [{ time: tm(N - 1), position: 'belowBar', color: col.good, shape: 'arrowUp', text: 'Buy signal' }] : [];
       const all = () => [...eventMk, ...(on.trades && !halalFail ? tradeMk.filter((m) => !(sigMk.length && m.time === tm(N - 1))) : []), ...sigMk].sort(byTime);
       const api = LW.createSeriesMarkers(cs, all());
       setMarkers = () => { try { api.setMarkers(all()); } catch { /* older library */ } };
@@ -2469,12 +2553,13 @@ table.data tr.me td { background: var(--accent-wash); }
       if (!c) return;
       const prev = i > 0 ? C.candles[i - 1][4] : c[1];
       legend.replaceChildren(
-        h('div', { class: 'ohlc' }, h('span', { text: niceDates(c[0]) }), h('span', { text: `O ${fx(c[1])}` }), h('span', { text: `H ${fx(c[2])}` }),
+        h('div', { class: 'ohlc' }, h('span', { text: (wkly ? 'Week to ' : '') + niceDates(c[0]) }), h('span', { text: `O ${fx(c[1])}` }), h('span', { text: `H ${fx(c[2])}` }),
           h('span', { text: `L ${fx(c[3])}` }), h('span', { text: `C ${fx(c[4])}` }), h('span', { text: pctS(prev ? c[4] / prev - 1 : 0, 2) })),
-        h('span', null, sw(col.ema), `21 EMA ${fx(C.ema21[i])}`),
-        h('span', null, sw(col.sma50), `50 SMA ${fx(C.sma50[i])}`),
-        h('span', null, sw(col.sma200), `200 SMA ${fx(C.sma200[i])}`),
-        h('span', null, sw(col.rsi), `RSI ${isNum(C.rsi[i]) ? Math.round(C.rsi[i]) : 'n/a'}`));
+        h('span', null, sw(col.ema), `${wkly ? '21-week EMA' : '21 EMA'} ${fx(C.ema21[i])}`),
+        h('span', null, sw(col.sma50), `${wkly ? '50-week SMA' : '50 SMA'} ${fx(C.sma50[i])}`),
+        h('span', null, sw(col.sma200), `${wkly ? '200-week SMA' : '200 SMA'} ${fx(C.sma200[i])}`),
+        h('span', null, sw(col.rsi), `RSI ${isNum(C.rsi[i]) ? Math.round(C.rsi[i]) : 'n/a'}`),
+        ...(hasBB && on.bb ? [h('span', null, sw(alpha(col.text, 0.9)), `Bands ${fx(C.bbLower[i])} to ${fx(C.bbUpper[i])}`)] : []));
     };
     setLegend(N - 1);
     chart.subscribeCrosshairMove((param) => {
@@ -2483,14 +2568,16 @@ table.data tr.me td { background: var(--accent-wash); }
     });
 
     // range buttons
-    let bars = store.get('chartRange', 126);
-    if (![63, 126, 260].includes(bars)) bars = 126;
+    const RANGES = wkly ? [['6M', 26], ['1Y', 52], ['3Y', 156]] : [['3M', 63], ['6M', 126], ['1Y', 260]];
+    const RKEY = wkly ? 'chartRangeW' : 'chartRange';
+    let bars = store.get(RKEY, wkly ? 52 : 126);
+    if (!RANGES.some((x) => x[1] === bars)) bars = wkly ? 52 : 126;
     const apply = () => {
       chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, N - bars) - 0.5, to: N - 1 + 3 });
       [...ranges.children].forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.bars) === bars)));
     };
-    ranges.replaceChildren(...[['3M', 63], ['6M', 126], ['1Y', 260]].map(([lab, n]) =>
-      h('button', { type: 'button', 'data-bars': String(n), 'aria-pressed': 'false', onclick: () => { bars = n; store.set('chartRange', n); apply(); } }, lab)));
+    ranges.replaceChildren(...RANGES.map(([lab, n]) =>
+      h('button', { type: 'button', 'data-bars': String(n), 'aria-pressed': 'false', onclick: () => { bars = n; store.set(RKEY, n); apply(); } }, lab)));
     apply();
     tech.refit = () => requestAnimationFrame(apply);
 
@@ -2506,6 +2593,7 @@ table.data tr.me td { background: var(--accent-wash); }
       tog('s200', '200 SMA', col.sma200, (v) => s200.applyOptions({ visible: v })),
       tog('levels', 'Support / resistance', null, (v) => showGroup('levels', v)),
     ];
+    if (hasBB) items.push(tog('bb', 'Bollinger Bands (20, 2)', alpha(col.text, 0.9), (v) => { [bbU, bbL, bbM].forEach((x) => x.applyOptions({ visible: v })); setLegend(N - 1); }));
     if (planPrices.length) items.push(tog('plan', 'Entry, stop, targets', null, (v) => { showGroup('plan', v); cs.applyOptions({}); }));
     if (tradeMk.length && !halalFail) items.push(tog('trades', 'Past trades by these rules', null, () => setMarkers()));
     if (lines.value.length) items.push(tog('value', 'Long-term buy price', null, (v) => { showGroup('value', v); cs.applyOptions({}); }));
@@ -2528,16 +2616,16 @@ table.data tr.me td { background: var(--accent-wash); }
     const url = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(sym);
     const box = h('div');
     const row = h('div', { class: 'ai' },
-      h('a', { class: 'btn btn-outline', href: url, target: '_blank', rel: 'noopener', style: 'display:inline-flex;align-items:center;text-decoration:none' }, 'Open live chart on TradingView'));
+      h('a', { class: 'btn btn-outline', href: url, target: '_blank', rel: 'noopener', style: 'display:inline-flex;align-items:center;text-decoration:none' }, 'Open the TradingView chart'));
     if (MODE === 'static') {
-      const btn = h('button', { class: 'btn btn-outline', type: 'button' }, 'Show live chart here');
+      const btn = h('button', { class: 'btn btn-outline', type: 'button' }, 'Show the TradingView chart here');
       btn.addEventListener('click', () => { btn.remove(); box.append(tvWidget(sym, url)); });
       row.append(btn);
     }
-    box.append(h('h3', { text: 'Live price' }),
+    box.append(h('h3', { text: 'Intraday prices (TradingView)' }),
       h('p', { class: 'sub', text: MODE === 'static'
-        ? 'The chart above uses daily closing prices and updates once a day. For live prices during market hours, open TradingView. It loads from tradingview.com, so it only loads when you tap.'
-        : 'The chart above uses daily closing prices. For live prices during market hours, open TradingView.' }),
+        ? 'The chart above uses end-of-day closing prices and updates once a day. This site has no real-time prices. TradingView is a separate service: it may show real-time or delayed prices depending on the exchange and your own TradingView settings. It loads from tradingview.com, so it only loads when you tap.'
+        : 'The chart above uses end-of-day closing prices. This site has no real-time prices. For intraday prices, open TradingView, which may show real-time or delayed prices depending on the exchange and your settings.' }),
       row);
     return box;
   }
@@ -2750,7 +2838,7 @@ table.data tr.me td { background: var(--accent-wash); }
   function liveLabel(L) {
     if (!L) return '';
     const tm = /(\d{1,2}:\d{2}\s*[AP]M)/i.exec(L.time);
-    return L.open ? `Live, a few minutes delayed${tm ? ' (' + tm[1].toLowerCase() + ' New York)' : ''}` : `Last price, ${shortDate(L.session)}`;
+    return L.open ? `Delayed last sale, a few minutes behind${tm ? ' (' + tm[1].toLowerCase() + ' New York)' : ''}` : `Last sale (delayed), ${shortDate(L.session)}`;
   }
   function overlayQuotes(scr) {
     if (!scr || !scr.list) return;
@@ -4346,7 +4434,7 @@ table.data tr.me td { background: var(--accent-wash); }
   //   d    the company's full analysis file (data/<ticker>.json), or null
   //   T    the chart analysis (data/tech/<ticker>.json), or null
   //   ctx  what the page adds: screenDate, health (data/health.json), swingProven and swingNote, owned (a Portfolio-page
-  //        holding), weight, sizeSale, buy (the page's buy check), limits, live (a delayed live quote), swingTrade
+  //        holding), weight, sizeSale, buy (the page's buy check), limits, live (a delayed last-sale quote), swingTrade
   // Nothing is guessed: a missing value stays null and the report says "not available".
   function intelGather(raw) {
     const r = raw || {};
@@ -4484,7 +4572,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!blockers.length) {
       if (ev.tech && ev.tech.earningsSoon && strategy !== 'long') warn('earnings-soon', 'Results are due within about 10 trading days: the price can move sharply.');
       if (ev.tech && ev.tech.regime === 'down' && strategy === 'swing') warn('market-down', 'The market is falling: swing signals have worked less well; consider half size.');
-      if (ev.live && ev.price && Math.abs(ev.live.p / ev.price - 1) >= INTEL_RULES.livePriceGap) warn('live-gap', `The delayed live price (${ivMoney(ev.live.p)}) differs from the close used here (${ivMoney(ev.price)}) by ${ivPct(Math.abs(ev.live.p / ev.price - 1), 1)}. This report uses the close.`);
+      if (ev.live && ev.price && Math.abs(ev.live.p / ev.price - 1) >= INTEL_RULES.livePriceGap) warn('live-gap', `The delayed last-sale price (${ivMoney(ev.live.p)}) differs from the close used here (${ivMoney(ev.price)}) by ${ivPct(Math.abs(ev.live.p / ev.price - 1), 1)}. This report uses the close.`);
       if (!ev.holdingsEntered) warn('no-holdings', 'No holdings are entered on the Portfolio or Watchlist pages, so the single-stock and sector limits could not be checked against your portfolio.');
     }
     return { blockers, cautions };
@@ -4811,6 +4899,101 @@ table.data tr.me td { background: var(--accent-wash); }
     };
   }
   // ---- intel.js (end)
+  // ---- opportunity.js (start): a copy of lib/opportunity.js, checked by test/opportunity.test.mjs
+  // Opportunity tracking (stage 8): keep a scanner idea as it stood the day you added it to the watchlist, and follow what the
+  // price did afterwards, on paper.
+  //
+  // A snapshot copies the scanner's entry, stop and targets and never changes them. The outcome is worked out from the daily
+  // candles after the snapshot date, so the same snapshot and the same candles always give the same answer. It is practice
+  // bookkeeping: no order is placed, no money is involved, costs are ignored, and a result here is not a track record (the
+  // Record page's live signal log is the track record, and it is kept by the nightly build, not by this file).
+  //
+  // Long only. Rules, in the order they are applied to each candle after the snapshot date:
+  //   1. Not yet triggered: the idea triggers when a candle's high reaches the entry price. It fills at the entry price, or at
+  //      the open when the candle opens above it. If that fill price is above the plan's limit (maxEntry), the candle does not
+  //      fill (a gap too far above the entry is not chased), and later candles can still fill.
+  //   2. A candle that reaches the stop before any trigger ends the idea as "failed before entry".
+  //   3. When one candle both triggers the idea and reaches the stop, the stop is assumed to come first (the cautious reading).
+  //   4. After the fill, a candle that reaches the stop ends it as "stopped" (at the stop, or at the open when it gaps below);
+  //      a candle that reaches target 1 ends it as "target 1 reached". If one candle reaches both, the stop counts.
+  //   5. An idea that has not triggered within 15 sessions of the snapshot date expires.
+  // R is the paper result in units of the risk taken: (exit or latest close - fill) / (fill - stop), before any costs.
+  //
+  // index.html carries the same text between the opportunity.js markers (without the export keywords), and
+  // test/opportunity.test.mjs fails if the two copies differ in any way. This file imports nothing.
+  const OPP_VERSION = 1;
+  const OPP_RULES = Object.freeze({ expireSessions: 15 });
+  const oppNum = (x) => typeof x === 'number' && Number.isFinite(x);
+  const oppISO = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+  // The snapshot kept in the watchlist item. c is a scanner row (data/scanner.json). Returns null when anything the tracker
+  // needs is missing: an idea without an entry, a stop and a target is never tracked.
+  function oppSnapshot(c, today, scanVersion) {
+    if (!c || typeof c.ticker !== 'string' || !oppISO(today) || !oppISO(c.asOf)) return null;
+    if (![c.entry, c.stop, c.t1].every(oppNum) || !(c.entry > c.stop) || !(c.t1 > c.entry)) return null;
+    return {
+      v: OPP_VERSION,
+      scanVersion: typeof scanVersion === 'string' ? scanVersion : null,
+      setup: String(c.setup || ''),
+      added: today,
+      asOf: c.asOf,
+      entry: c.entry,
+      maxEntry: oppNum(c.maxEntry) ? c.maxEntry : null,
+      stop: c.stop,
+      t1: c.t1,
+      t2: oppNum(c.t2) ? c.t2 : null,
+      rr1: oppNum(c.rr1) ? c.rr1 : null,
+      score: oppNum(c.score) ? c.score : null,
+      paper: true,
+    };
+  }
+
+  const oppR = (px, fill, stop) => (fill > stop ? Math.round(((px - fill) / (fill - stop)) * 100) / 100 : null);
+
+  // candles: [[date, open, high, low, close, volume], ...] oldest first (the chart analysis' candles)
+  function oppOutcome(opp, candles, rules = OPP_RULES) {
+    if (!opp || ![opp.entry, opp.stop, opp.t1].every(oppNum) || !oppISO(opp.asOf)) return { state: 'unknown', label: 'Cannot be followed: the saved setup is incomplete', sessions: 0, R: null };
+    const after = (Array.isArray(candles) ? candles : []).filter((c) => Array.isArray(c) && oppISO(c[0]) && c[0] > opp.asOf && [c[1], c[2], c[3], c[4]].every(oppNum));
+    if (!after.length) return { state: 'waiting', label: `Waiting for entry: buy above $${opp.entry.toFixed(2)}`, sessions: 0, R: null };
+    let fill = null;
+    let fillDate = null;
+    for (let i = 0; i < after.length; i++) {
+      const [date, open, high, low, close] = after[i];
+      const n = i + 1;
+      if (fill === null) {
+        const reached = high >= opp.entry;
+        const px = Math.max(opp.entry, open);
+        const tooFar = oppNum(opp.maxEntry) && px > opp.maxEntry;
+        if (reached && !tooFar) {
+          fill = px;
+          fillDate = date;
+          if (low <= opp.stop) return { state: 'stopped', label: `Stop hit on ${date}`, sessions: n, fill, fillDate, exitDate: date, exit: Math.min(opp.stop, open), R: oppR(Math.min(opp.stop, open), fill, opp.stop) };
+          if (high >= opp.t1) {
+            // the same candle triggered it and reached target 1, and the stop was not reached: target 1 reached
+            const ex = Math.max(opp.t1, open);
+            return { state: 'target1', label: `Target 1 reached on ${date}`, sessions: n, fill, fillDate, exitDate: date, exit: ex, R: oppR(ex, fill, opp.stop) };
+          }
+          continue;
+        }
+        if (low <= opp.stop) return { state: 'invalidated', label: `Failed before entry: price fell to the stop on ${date}`, sessions: n, R: null };
+        if (n >= rules.expireSessions) return { state: 'expired', label: `Expired: not triggered within ${rules.expireSessions} sessions`, sessions: n, R: null };
+        continue;
+      }
+      if (low <= opp.stop) {
+        const ex = Math.min(opp.stop, open);
+        return { state: 'stopped', label: `Stop hit on ${date}`, sessions: n, fill, fillDate, exitDate: date, exit: ex, R: oppR(ex, fill, opp.stop) };
+      }
+      if (high >= opp.t1) {
+        const ex = Math.max(opp.t1, open);
+        return { state: 'target1', label: `Target 1 reached on ${date}`, sessions: n, fill, fillDate, exitDate: date, exit: ex, R: oppR(ex, fill, opp.stop) };
+      }
+    }
+    const last = after[after.length - 1];
+    if (fill === null) return { state: 'waiting', label: `Waiting for entry: buy above $${opp.entry.toFixed(2)}`, sessions: after.length, R: null };
+    const R = oppR(last[4], fill, opp.stop);
+    return { state: 'triggered', label: `Triggered on ${fillDate}, still open on paper (${R >= 0 ? '+' : ''}${R.toFixed(2)}R at the ${last[0]} close)`, sessions: after.length, fill, fillDate, R };
+  }
+  // ---- opportunity.js (end)
   const LIMIT_DEFAULTS = { buyCap: POLICY_RULES.buyCap, trimAt: POLICY_RULES.trimAt, sectorMax: POLICY_RULES.sectorMax, swingRisk: 0.005 };
   const LIMIT_RANGE = { buyCap: [0.02, 0.5], trimAt: [0.03, 0.6], sectorMax: [0.1, 1], swingRisk: [0.001, 0.02] };
   // a trim goes back to the buy limit, so the trim line must sit above it; a saved pair that breaks this is ignored
@@ -5007,7 +5190,7 @@ table.data tr.me td { background: var(--accent-wash); }
     // the price in the header
     if (t.pxEl) {
       t.pxEl.textContent = price(px);
-      t.pxSub.textContent = L ? `${isNum(L.chg) ? pctS(L.chg, 1) + ' · ' : ''}${L.open ? 'live, delayed' : shortDate(L.session)}` : b.date ? `Close ${shortDate(b.date)}` : '';
+      t.pxSub.textContent = L ? `${isNum(L.chg) ? pctS(L.chg, 1) + ' · ' : ''}${L.open ? 'delayed last sale' : shortDate(L.session)}` : b.date ? `Close ${shortDate(b.date)}` : '';
       t.pxSub.className = 'm' + (L && isNum(L.chg) ? (L.chg >= 0 ? ' up' : ' down') : '');
     }
     if (t.updateNow) t.updateNow();
@@ -5544,7 +5727,7 @@ table.data tr.me td { background: var(--accent-wash); }
       h('div', { class: 'form-grid' }, h('label', { class: 'field left' }, h('span', { text: 'Type' }), oKind), symField, marketField, sharesField,
         h('label', { class: 'field' }, h('span', { text: 'Value now ($)' }), oValue)),
       h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Save holding')), oMsg,
-      h('p', { class: 'note', text: `For the funds this site follows (${FUNDS.map((f) => f.t).join(', ')} and their other lines), type the units: the value then follows the live price. For anything else, type its value in dollars from your broker app.` }));
+      h('p', { class: 'note', text: `For the funds this site follows (${FUNDS.map((f) => f.t).join(', ')} and their other lines), type the units: the value then follows the latest price. For anything else, type its value in dollars from your broker app.` }));
     function editOther(o) {
       editingId = o.id;
       oKind.value = o.kind === 'equity' ? 'fund' : o.kind;
@@ -5809,14 +5992,14 @@ table.data tr.me td { background: var(--accent-wash); }
         const swTarget = T.swing * after;
         planCard.append(h('p', { class: 'note', text: swVal > swTarget * 1.2 ? `Swing trades are ${money0(swVal)}, above your ${pct(T.swing, 0)} limit (${money0(swTarget)}): no new swing trades until some close.` : `Swing trades: keep them to about ${money0(swTarget)} in total (${pct(T.swing, 0)}), only in US stocks, and size each so its stop loses at most ${pct(limits().swingRisk, 1)} of the whole portfolio (${money0(after * limits().swingRisk)}).` }));
       }
-      planCard.append(h('p', { class: 'note', text: `Fund prices ${fundAsOf()}. Stock prices ${scr.live ? `live (${scr.live.time || scr.live.session})` : `from the ${shortDate(scr.priceDate)} close`}. Check the price in your broker app before you buy.` }));
+      planCard.append(h('p', { class: 'note', text: `Fund prices ${fundAsOf()}. Stock prices ${scr.live ? `delayed last sale (${scr.live.time || scr.live.session})` : `from the ${shortDate(scr.priceDate)} close`}. Check the price in your broker app before you buy.` }));
     } else planCard.append(h('p', { class: 'sub', text: 'Add a monthly amount in “About you” to get a buying plan.' }));
     parts.push(planCard);
 
     // 7. ask the advisor (opens Claude with the question and a summary of this page)
     const answerOf = (key) => { const q = PROFILE_Q.find((x) => x[0] === key); const o = q[2].find((x) => x[0] === pf[key]); return o ? o[1] : ''; };
     const ctxLines = [];
-    ctxLines.push(`Data as of ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC. Stock prices ${scr.live ? 'live, ' + (scr.live.time || scr.live.session) : 'from the ' + scr.priceDate + ' close'}. Fund prices ${fundAsOf()}.`);
+    ctxLines.push(`Data as of ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC. Stock prices ${scr.live ? 'delayed last sale, ' + (scr.live.time || scr.live.session) : 'from the ' + scr.priceDate + ' close'}. Fund prices ${fundAsOf()}.`);
     ctxLines.push(`Me: need the money ${answerOf('horizon').toLowerCase()}; after a 30% fall I would ${answerOf('drop').toLowerCase()}; ${answerOf('time').toLowerCase()} a week; ${answerOf('focus').toLowerCase()}; holding: ${answerOf('hold').toLowerCase()}; swing trading: ${pf.swing}; broker: ${answerOf('broker')}; invest AED ${pf.monthlyAed || 0} a month.`);
     ctxLines.push(`Target mix: ${['core', 'stocks', 'swing', 'safe'].filter((k) => T[k] > 0).map((k) => `${MIX_LABEL[k]} ${pct(T[k], 0)}`).join(', ')}. Stocks by holding period: ${splitTxt}.`);
     if (total > 0) ctxLines.push(`Now: total ${money0(total)}; fund ${pct(coreVal / total, 0)}, stocks ${pct(ltVal / total, 0)}, swing ${pct(swVal / total, 0)}, safe ${pct(safeVal / total, 0)}.`);
@@ -5842,7 +6025,7 @@ table.data tr.me td { background: var(--accent-wash); }
       return body + lines.join('\n') + '\n[Cut short to fit the link. Ask me for the rest if you need it.]';
     };
     const askCard = h('section', { class: 'card', id: 'ask-advisor', 'aria-label': 'Ask the advisor' }, h('h2', { text: 'Ask the advisor' }),
-      h('p', { class: 'sub', text: 'Ask anything about your portfolio. It opens a new Claude chat with your question and a summary of this page (your answers, holdings, plan and the site’s advice), and Claude checks live prices and news before it answers. You can keep chatting there.' }));
+      h('p', { class: 'sub', text: 'Ask anything about your portfolio. It opens a new Claude chat with your question and a summary of this page (your answers, holdings, plan and the site’s advice), and Claude looks up current prices and news before it answers. You can keep chatting there.' }));
     const qBox = h('textarea', { class: 'askbox', rows: '3', 'aria-label': 'Your question', placeholder: 'e.g. Should I sell anything before results season?' });
     const askLink = h('a', { class: 'btn btn-accent', target: '_blank', rel: 'noopener', style: 'display:inline-flex;align-items:center;text-decoration:none' }, 'Ask Claude');
     const setHref = () => { askLink.href = 'https://claude.ai/new?q=' + encodeURIComponent(promptFor(qBox.value.trim())); };
@@ -5889,7 +6072,7 @@ table.data tr.me td { background: var(--accent-wash); }
     fundCard.append(h('h3', { text: 'Avoid for a UAE resident' }), h('ul', { class: 'clean' },
       h('li', null, icon('bad'), h('span', { text: `${avoid.map((f) => f.t).join(', ')}: US-domiciled. 30% of dividends go to US tax, and US estate tax can apply above $60,000. The Irish funds above hold similar companies without these costs.` })),
       h('li', null, icon('bad'), h('span', { text: 'ISWD, HIWS and ISUS: the pound lines of the funds above. Same fund, but every buy needs a currency conversion. Use ISDW, HIWO and ISDU instead.' }))));
-    fundCard.append(h('p', { class: 'note', text: `Live prices and returns ${fundAsOf()}, converted to US dollars where the line trades in pounds or euros. Fees, sizes and yields from the fund providers, checked ${shortDate(FUND_FACTS_DATE)}. Confirm halal status with the fund’s Shariah board report before buying.` }));
+    fundCard.append(h('p', { class: 'note', text: `Prices and returns ${fundAsOf()}, converted to US dollars where the line trades in pounds or euros. Fees, sizes and yields from the fund providers, checked ${shortDate(FUND_FACTS_DATE)}. Confirm halal status with the fund’s Shariah board report before buying.` }));
     parts.push(fundCard);
 
     // 9. what buying costs, by market
@@ -6253,7 +6436,7 @@ table.data tr.me td { background: var(--accent-wash); }
         box.append(...[
           h('div', { class: 'jr-top' }, h('span', { class: 'tk', text: tr.t }), tr.paper ? tagEl('Paper', 'paper') : null, h('span', { class: 'nm', text: `${fmtShares(tr.shares)} at ${price(tr.entry)} · ${shortDate(tr.opened)}${tr.setup ? ' · ' + (SETUP_NAME[tr.setup] || (tr.setup === 'longterm' ? 'Long term' : 'Other')) : ''}` }),
             h('span', { class: 'pl ' + (c.pnl > 0 ? 'up' : c.pnl < 0 ? 'down' : ''), text: isNum(c.pnl) ? `${c.pnl >= 0 ? '+' : ''}${money0(c.pnl)}` : '' })),
-          h('div', { class: 'det', text: [isNum(now) ? `Now ${price(now)}${r && r.live ? ' (live)' : ''}` : 'No price today', isNum(c.pct) ? pctS(c.pct, 1) : '', isNum(c.R) ? fmtR(c.R, 2) : '', isNum(tr.stop) ? `stop ${price(tr.stop)}` : 'no stop set', isNum(tr.target) ? `target ${price(tr.target)}` : ''].filter(Boolean).join(' · ') }),
+          h('div', { class: 'det', text: [isNum(now) ? `Now ${price(now)}${r && r.live ? ' (delayed last sale)' : ''}` : 'No price today', isNum(c.pct) ? pctS(c.pct, 1) : '', isNum(c.R) ? fmtR(c.R, 2) : '', isNum(tr.stop) ? `stop ${price(tr.stop)}` : 'no stop set', isNum(tr.target) ? `target ${price(tr.target)}` : ''].filter(Boolean).join(' · ') }),
           flags.length ? h('ul', { class: 'alerts' }, flags.map(([tone, txt]) => h('li', null, icon(tone === 'good' ? 'good' : tone === 'bad' ? 'bad' : 'ok'), h('span', { text: txt })))) : null,
           tr.notes ? h('p', { class: 'note', text: tr.notes }) : null,
           tr.tool ? h('p', { class: 'note', text: toolSaidText(tr) }) : null,
@@ -7098,6 +7281,12 @@ table.data tr.me td { background: var(--accent-wash); }
     card.append(h('h2', { text: 'Investment report' }),
       h('p', { class: 'sub', text: 'Pick a strategy for a full report: what is sourced, what is calculated and what is missing, with a buy, hold, trim or sell call only when the data is good enough. It uses the tool’s existing rules and adds none. Not financial advice.' }),
       chips, out);
+    // stage 8: a link from the scanner opens the swing report straight away (?report=swing); nothing else about the card changes
+    try {
+      const want = new URLSearchParams(location.search).get('report');
+      const k = INTEL_STRATEGIES.indexOf(want);
+      if (k >= 0) setTimeout(() => { if (card.isConnected) { buttons[k].click(); card.scrollIntoView({ block: 'start' }); } }, 0);
+    } catch { /* no deep link */ }
     return card;
   }
   // ------------------------------------------------------------------ Portfolio ledger (stage 6): storage and pages
@@ -7495,18 +7684,19 @@ table.data tr.me td { background: var(--accent-wash); }
       h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => navigate('pfledger') }, pic.cur.entries.length ? 'Open the ledger' : 'Start the ledger')));
   }
 
-  const PAGES = ['stock', 'shortlist', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
+  const PAGES = ['stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
   let page = 'stock';
   function showPage(p) {
     page = p;
     PAGES.forEach((k) => { const el = document.getElementById('page-' + k); if (el) el.hidden = k !== p; });
     const hb = document.getElementById('healthBanner');
     if (hb) hb.hidden = p === 'record' || !hb.firstChild; // the Record page shows the full System health card
-    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === (p === 'shariah' || p === 'thesis' || p === 'pfledger' ? 'advisor' : p) ? 'page' : 'false'));
+    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === (p === 'shariah' || p === 'thesis' || p === 'pfledger' ? 'advisor' : p === 'scanner' ? 'shortlist' : p) ? 'page' : 'false'));
     $('#how').hidden = true;
     hideTip();
     if (p === 'shortlist') renderShortlist();
     else if (p === 'watchlist') renderWatchlist();
+    else if (p === 'scanner') renderScanner();
     else if (p === 'record') renderRecord();
     else if (p === 'journal') renderJournal();
     else if (p === 'advisor') renderAdvisor();
@@ -7528,7 +7718,7 @@ table.data tr.me td { background: var(--accent-wash); }
     showPage(p);
   }
   function openStock(t, view) {
-    history.pushState({ p: 'stock' }, '', '?t=' + encodeURIComponent(t) + (view === 'tech' ? '&view=technical' : view === 'fund' ? '&view=fundamental' : ''));
+    history.pushState({ p: 'stock' }, '', '?t=' + encodeURIComponent(t) + (view === 'tech' ? '&view=technical' : view === 'fund' ? '&view=fundamental' : view === 'report' ? '&view=technical&report=swing' : ''));
     showPage('stock');
     run(t, true);
   }
@@ -7778,6 +7968,8 @@ table.data tr.me td { background: var(--accent-wash); }
     score: ['Chart score', (a, b) => (b.techScore ?? -1) - (a.techScore ?? -1)],
     cap: ['Biggest first', (a, b) => (b.capM || 0) - (a.capM || 0)],
   };
+  // which of the Stage 7 strategies each list belongs to: long-term (fundamentals), position (weeks to months), swing (days to weeks)
+  const STRAT_OF = { value: 'long', zone: 'long', dividends: 'long', leaders: 'position', signals: 'swing' };
   const SL_DEFAULT = { preset: 'value', shariah: 'pass', sector: '', cap: 0, hideEarn: true, strong: true, solid: true, sort: '', q: '' };
   const WEAK = new Set(['AVOID_WEAK', 'SPECULATIVE', 'UNRELIABLE']);
   function openShortlist(preset) {
@@ -7854,6 +8046,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!PRESETS[st.preset]) st.preset = 'value';
     const save = () => store.set('sl', st);
     const presetBar = h('div', { class: 'presets', role: 'group', 'aria-label': 'Lists' });
+    const strategyBar = h('div', { class: 'strategies', role: 'group', 'aria-label': 'Strategy' });
     const intro = h('div');
     const caution = h('div');
     const count = h('div', { class: 'count', 'aria-live': 'polite' });
@@ -7891,8 +8084,15 @@ table.data tr.me td { background: var(--accent-wash); }
     let qTimer = null;
     search.addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { st.q = search.value.trim(); save(); paint(true); }, 160); });
     moreBtn.addEventListener('click', () => { shown += 40; paint(false); });
-    const paintPresets = () => presetBar.replaceChildren(...Object.entries(PRESETS).map(([k, P]) =>
-      h('button', { type: 'button', 'aria-pressed': String(k === st.preset), onclick: () => { st.preset = k; st.sort = ''; save(); paintPresets(); paint(true); } }, P.label)));
+    const paintPresets = () => presetBar.replaceChildren(...Object.entries(PRESETS).filter(([k]) => !st.strategy || STRAT_OF[k] === st.strategy).map(([k, P]) =>
+      h('button', { type: 'button', 'aria-pressed': String(k === st.preset), onclick: () => { st.preset = k; st.sort = ''; save(); paintPresets(); paint(true); } }, P.label)),
+      ...(!st.strategy || st.strategy === 'swing' ? [h('button', { type: 'button', 'aria-pressed': 'false', onclick: () => navigate('scanner') }, 'Swing scanner')] : []));
+    const paintStrategies = () => strategyBar.replaceChildren(...[['', 'All strategies'], ...INTEL_STRATEGIES.map((k) => [k, `${INTEL_STRATEGY[k].label} (${INTEL_STRATEGY[k].span})`])].map(([k, lab]) =>
+      h('button', { type: 'button', 'aria-pressed': String((st.strategy || '') === k), onclick: () => {
+        st.strategy = k;
+        if (k && STRAT_OF[st.preset] !== k) { st.preset = Object.keys(PRESETS).find((x) => STRAT_OF[x] === k); st.sort = ''; }
+        save(); paintStrategies(); paintPresets(); paint(true);
+      } }, lab)));
     function paint(reset) {
       if (reset) shown = 40;
       const P = PRESETS[st.preset];
@@ -7938,10 +8138,13 @@ table.data tr.me td { background: var(--accent-wash); }
       moreBtn.hidden = rows.length <= shown;
       moreBtn.textContent = `Show more (${(rows.length - shown).toLocaleString()} left)`;
     }
+    if (st.strategy && !INTEL_STRATEGIES.includes(st.strategy)) st.strategy = '';
+    if (st.strategy && STRAT_OF[st.preset] !== st.strategy) st.preset = Object.keys(PRESETS).find((x) => STRAT_OF[x] === st.strategy) || st.preset;
+    paintStrategies();
     paintPresets();
     fbox.append(h('div', { class: 'filters' }, shSel, secSel, capSel, strongLbl, solidLbl, earnLbl));
     if (window.matchMedia && window.matchMedia('(min-width: 800px)').matches) fbox.open = true;
-    el.replaceChildren(head, presetBar, intro, caution, h('div', { class: 'sl-tools' }, sortSel, search), fbox, count, list, moreBtn,
+    el.replaceChildren(head, strategyBar, presetBar, intro, caution, h('div', { class: 'sl-tools' }, sortSel, search), fbox, count, list, moreBtn,
       h('section', { class: 'card', style: 'margin-top:18px' }, h('h2', { text: 'Using these lists well' }),
         h('ul', { class: 'clean' },
           h('li', null, h('span', { text: 'A list is a starting point, not a buy list. Open the company, read both tabs, and confirm halal status on Zoya or Musaffa.' })),
@@ -8067,6 +8270,154 @@ table.data tr.me td { background: var(--accent-wash); }
     const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
     return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
   }
+  // ------------------------------------------------------------------ Swing scanner (stage 8)
+  // Setup candidates from the nightly chart analysis (data/scanner.json, written by lib/scanner.js), ranked by a fixed evidence
+  // checklist. It reads the file and the Shariah ledger on this device; it decides nothing and orders nothing. Every candidate is a
+  // paper trade idea until the live record passes its gate (swingProven), and none is Shariah approved: the screen is an early
+  // warning, and only a current Zoya check recorded in your ledger lets the page call a stock eligible.
+  const loadScanner = () => (HAS_SITE ? getJson('data/scanner.json') : Promise.resolve(null));
+  const SCAN_SETUP_NAME = { pullback: 'Pullback', breakout: 'Breakout', reversal: 'Trend reversal', momentum: 'Momentum' };
+  const SCAN_FLAGS = { accumulation: 'Accumulation', unusualVolume: 'Unusual volume', rsRising: 'RS improving', squeeze: 'Bollinger squeeze' };
+  const evBand = (s) => (s >= 75 ? 'Strong evidence' : s >= 55 ? 'Moderate evidence' : 'Thin evidence');
+  const SCAN_LS = { setup: '', status: '', flag: '', sector: '', min: 0, zoya: false };
+  function scanRow(c, sc, saved) {
+    const proven = swingProven();
+    const lg = ledgerGate(c.ticker);
+    const b = (x) => h('b', { text: x });
+    const tags = [tagEl(sc.setups[c.setup] || c.setup, 'neutral'), tagEl(c.status === 'ready' ? 'Entry set for next session' : 'Watch: no entry today', c.status === 'ready' ? 'good' : 'neutral')];
+    if (!proven) tags.push(tagEl('Paper only', 'paper'));
+    else if (lg.ok) tags.push(tagEl('Meets the live rules', 'good'));
+    if (!lg.ok) tags.push(ledgerTagEl(lg));
+    else if (!proven) tags.push(tagEl('Zoya check current', 'good'));
+    tags.push(tagEl(`${evBand(c.score)} · ${c.score}/100`, c.score >= 75 ? 'good' : c.score >= 55 ? 'neutral' : 'warn'));
+    if (isNum(c.earnDays) && c.earnDays <= 30) tags.push(tagEl(c.earnDays <= 1 ? 'Earnings next session' : `Earnings in ${c.earnDays} days`, 'warn'));
+    for (const f of c.flags || []) if (SCAN_FLAGS[f]) tags.push(tagEl(SCAN_FLAGS[f], 'neutral'));
+    if ((c.flags || []).includes('calendarPartial')) tags.push(tagEl('Earnings calendar incomplete', 'warn'));
+    const det = [];
+    if (c.status === 'ready') det.push(['Buy only above ', b(price(c.entry))]);
+    else if (isNum(c.zoneLow) && isNum(c.zoneHigh)) det.push(['Entry zone ', b(`${price(c.zoneLow)} to ${price(c.zoneHigh)}`)]);
+    det.push(['stop ', b(price(c.stop)), ` (−${pct(c.riskPct, 1)})`], ['target 1 ', b(price(c.t1))]);
+    if (isNum(c.t2)) det.push(['target 2 ', b(price(c.t2))]);
+    det.push(['reward/risk ', b(c.rr1.toFixed(1) + ' : 1')]);
+    const detEl = h('span', { class: 'det' });
+    det.forEach((parts, i) => { if (i) detEl.append(' · '); detEl.append(...parts); });
+    const list = (items) => h('ul', { class: 'scan-ul' }, items.map((x) => h('li', { text: x })));
+    const checks = h('table', { class: 'scan-checks' },
+      h('thead', null, h('tr', null, h('th', { text: 'Check' }), h('th', { text: 'Points' }), h('th', { text: 'Result' }))),
+      h('tbody', null, c.checks.map((k) => h('tr', { class: k.met === true ? 'met' : '' },
+        h('td', null, h('b', { text: k.label }), h('div', { class: 'why', text: k.detail })),
+        h('td', { text: String(k.weight) }),
+        h('td', null, tagEl(k.met === true ? 'Met' : k.met === false ? 'Not met' : 'Unknown', k.met === true ? 'good' : k.met === false ? 'neutral' : 'warn'))))));
+    const isTracked = !!(saved && saved.opp);
+    const msg = h('span', { class: 'note scan-msg', 'aria-live': 'polite' });
+    const trackBtn = h('button', { class: 'btn btn-outline btn-sm', type: 'button' }, isTracked ? 'Tracking on the Watchlist' : 'Track on the Watchlist');
+    trackBtn.disabled = isTracked;
+    trackBtn.addEventListener('click', () => {
+      const snap = oppSnapshot(c, localISO(), sc.version);
+      if (!snap) { msg.textContent = 'This setup has no complete entry, stop and target, so it cannot be tracked.'; return; }
+      const w = W.load();
+      let it = w.items.find((x) => x.t === c.ticker);
+      if (!it) { it = { t: c.ticker, added: todayISO(), addPx: isNum(c.close) ? c.close : null }; w.items.unshift(it); }
+      it.opp = snap;
+      W.save(w);
+      trackBtn.disabled = true;
+      trackBtn.textContent = 'Tracking on the Watchlist';
+      msg.textContent = 'Saved on this device. The Watchlist follows it on paper from today.';
+    });
+    const body = h('div', { class: 'scan-body' },
+      h('h3', { text: 'Why it is listed' }), list(c.why),
+      c.gaps.length ? h('h3', { text: 'What is missing' }) : null, c.gaps.length ? list(c.gaps) : null,
+      h('h3', { text: 'What would make it wrong' }), list(c.invalid),
+      c.trigger ? h('p', { class: 'note', text: c.trigger }) : null,
+      h('h3', { text: `The evidence checklist (${c.metN} of ${c.checks.length} met)` }), h('div', { class: 'scan-wrap' }, checks),
+      h('p', { class: 'note', text: `Facts: relative strength ${isNum(c.rs) ? c.rs : 'n/a'}${isNum(c.rsPrev) ? ` (was ${c.rsPrev} 21 sessions ago)` : ''} · RSI ${c.rsi} · daily range ${pct(c.atrPct, 1)} of price · average daily trading ${c.advUsdM >= 1000 ? '$' + (c.advUsdM / 1000).toFixed(1) + 'B' : '$' + Math.round(c.advUsdM) + 'M'} · weekly trend ${c.weekly} · last close ${price(c.close)} on ${niceDates(c.asOf)} (end of day).` }),
+      !proven ? h('p', { class: 'note', text: 'Paper only: practise this in the Journal as a paper trade. Position size does not matter until the live record passes its gate.' })
+        : h('p', { class: 'note', text: `If you trade it with real money, size it so the stop loses at most ${pct(limits().swingRisk, 1)} of your portfolio.` }),
+      !lg.ok ? h('p', { class: 'note', text: `Not eligible for real money now: ${lg.reason}.` }) : null,
+      h('div', { class: 'row-actions' },
+        h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openStock(c.ticker, 'report') }, 'Open the investment report'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => openStock(c.ticker, 'tech') }, 'Open the chart'),
+        trackBtn, msg));
+    return h('details', { class: 'scan-row' },
+      h('summary', null,
+        h('span', { class: 'top' }, h('span', { class: 'tk', text: c.ticker }), h('span', { class: 'nm', text: c.name || '' }), h('span', { class: 'pr', text: price(c.close) })),
+        h('span', { class: 'tags' }, tags), detEl),
+      body);
+  }
+  async function renderScanner() {
+    const el = $('#page-scanner');
+    const head = pageHead('Swing scanner', 'Setups that could play out over days to weeks, found in the nightly chart analysis and ranked by the evidence behind them. Ideas to study, not buy signals.');
+    el.replaceChildren(head, loadingBox('Loading the scanner…'));
+    const [sc, scr] = await Promise.all([loadScanner(), loadScreen(), loadSwingProof()]);
+    if (page !== 'scanner') return;
+    if (!sc || !Array.isArray(sc.rows) || !sc.summary || !Array.isArray(sc.weights)) { el.replaceChildren(head, errCard('The scanner file could not be loaded. Check your connection and try again. No candidates are shown without it.')); return; }
+    const late = sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, localISO()) : 99;
+    const stale = late >= 2;
+    const proven = swingProven();
+    const st = { ...SCAN_LS, ...store.get('scan', {}) };
+    const save = () => store.set('scan', st);
+    const sm = sc.summary;
+    const calMsg = { ok: null, partial: `The earnings calendar had ${sc.earningsCalendar.failures} unreadable day${sc.earningsCalendar.failures === 1 ? '' : 's'} tonight, so no candidate gets the earnings check and each says so.`,
+      unavailable: 'The earnings calendar could not be read tonight, so earnings risk is unknown and no candidate is listed.' }[sc.earningsCalendar.status];
+    const status = h('section', { class: 'card', 'aria-label': 'Scanner status' },
+      h('div', { class: 'tech-head' }, h('h2', { text: 'Status and data' }), h('span', { class: 'note', style: 'margin:0', text: `end-of-day closes of ${niceDates(sc.priceDate)}` })),
+      h('div', { class: 'paper-note' }, icon('ok'), h('span', null, h('b', { text: proven ? 'The live record has passed its gate. ' : 'Paper trade only. ' }),
+        proven ? 'A candidate is still only an idea: it is eligible for real money only when it also has a current Zoya check in your Shariah ledger, shown on each row.' : paperWhy())),
+      h('p', { class: 'note', text: `Prices: ${sc.prices} Built ${new Date(sc.asOf).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} your time. Market trend: ${sc.market.regime === 'up' ? 'rising' : sc.market.regime === 'down' ? 'falling' : sc.market.regime === 'mixed' ? 'mixed' : 'unknown'}.` }),
+      h('p', { class: 'note', text: 'The automated Shariah screen is an early warning, not approval. Zoya is the final authority; record what it shows in the Shariah ledger.' }),
+      calMsg ? h('p', { class: 'hint stale', text: calMsg }) : null,
+      stale ? h('p', { class: 'hint stale', text: `Scanner paused: the nightly update is ${late} trading days late (last full update ${niceDates(sc.priceDate)}). No candidates are shown until the next update.` }) : null);
+    const saved = new Map(W.load().items.map((i) => [i.t, i]));
+    const sectors = [...new Set(sc.rows.map((r) => r.sector).filter(Boolean))].sort();
+    const sel = (label, opts, value, on) => {
+      const s = h('select', { 'aria-label': label });
+      opts.forEach(([v, t]) => s.append(h('option', { value: String(v), selected: String(v) === String(value) ? true : null }, t)));
+      s.addEventListener('change', () => on(s.value));
+      return s;
+    };
+    const count = h('div', { class: 'count', 'aria-live': 'polite' });
+    const list = h('div', { class: 'list' });
+    const moreBtn = h('button', { class: 'btn btn-outline more', type: 'button', hidden: true }, 'Show more');
+    let shown = 25;
+    const zoyaChk = h('input', { type: 'checkbox' });
+    zoyaChk.checked = !!st.zoya;
+    zoyaChk.addEventListener('change', () => { st.zoya = zoyaChk.checked; save(); paint(true); });
+    const filters = h('div', { class: 'filters' },
+      sel('Setup type', [['', 'All setups'], ...Object.entries(sc.setups)], st.setup, (v) => { st.setup = v; save(); paint(true); }),
+      sel('Status', [['', 'Entry set and watch'], ['ready', 'Entry set for next session'], ['watch', 'Watch only']], st.status, (v) => { st.status = v; save(); paint(true); }),
+      sel('Signal', [['', 'Any signal'], ...Object.entries(SCAN_FLAGS)], st.flag, (v) => { st.flag = v; save(); paint(true); }),
+      sel('Sector', [['', 'All sectors'], ...sectors.map((x) => [x, x])], st.sector, (v) => { st.sector = v; save(); paint(true); }),
+      sel('Evidence', [[0, 'Any evidence'], [55, 'Moderate or strong (55+)'], [75, 'Strong (75+)']], st.min, (v) => { st.min = Number(v); save(); paint(true); }),
+      h('label', { class: 'chk' }, zoyaChk, 'Only with a current Zoya check'));
+    function paint(reset) {
+      if (reset) shown = 25;
+      let rows = stale ? [] : sc.rows;
+      if (st.setup) rows = rows.filter((r) => r.setup === st.setup);
+      if (st.status) rows = rows.filter((r) => r.status === st.status);
+      if (st.flag) rows = rows.filter((r) => (r.flags || []).includes(st.flag));
+      if (st.sector) rows = rows.filter((r) => r.sector === st.sector);
+      if (st.min) rows = rows.filter((r) => r.score >= st.min);
+      if (st.zoya) rows = rows.filter((r) => ledgerGate(r.ticker).ok);
+      const hid = sm.hiddenByShariahScreen;
+      const dataOut = Math.max(0, sm.blocked - hid);
+      count.textContent = stale ? 'No candidates while the data is late.' : `${rows.length.toLocaleString()} candidate${rows.length === 1 ? '' : 's'} of ${sm.listed.toLocaleString()} listed${sm.listed > sm.shown ? ` (the top ${sm.shown} are kept)` : ''} · ${dataOut.toLocaleString()} setup${dataOut === 1 ? '' : 's'} left out for missing or unreliable data · ${hid.toLocaleString()} left out by the Shariah screen`;
+      list.replaceChildren(...rows.slice(0, shown).map((r) => scanRow(r, sc, saved.get(r.ticker))));
+      if (!rows.length) list.append(h('p', { class: 'empty', text: stale ? 'The scanner is paused.' : 'Nothing matches these filters tonight. That is normal: most nights few stocks have a clean setup.' }));
+      moreBtn.hidden = rows.length <= shown;
+      moreBtn.textContent = `Show more (${(rows.length - shown).toLocaleString()} left)`;
+    }
+    moreBtn.addEventListener('click', () => { shown += 25; paint(false); });
+    const how = h('section', { class: 'card', style: 'margin-top:18px' }, h('h2', { text: 'How candidates are chosen and ranked' }),
+      h('p', { class: 'sub', text: `Only setups the chart analysis already finds are listed (pullback, breakout, trend reversal), plus momentum leaders that have no buy point yet. Entry, stop and targets are the chart analysis’ own numbers. A stock is left out when its price is not from the latest session, it has under ${sc.rules.minDailyBars} days of history, its average daily trading is under $${sc.rules.minAdvUsd / 1e6} million, the stop would be wider than ${sc.rules.maxRiskPct * 100}%, earnings are within ${sc.rules.earningsBlockDays} weekdays, the earnings calendar failed, the company data is insufficient, or it does not pass the automated Shariah screen.` }),
+      h('p', { class: 'sub', text: 'Candidates are ranked by the evidence checklist below, highest first. The points were fixed before any result was seen and are not changed to fit results. The score measures how many things line up. It is not a prediction, and a high score does not make a win likely.' }),
+      h('div', { class: 'scan-wrap' }, h('table', { class: 'scan-checks' },
+        h('thead', null, h('tr', null, h('th', { text: 'Check' }), h('th', { text: 'Points' }), h('th', { text: 'Rule' }))),
+        h('tbody', null, sc.weights.map((w) => h('tr', null, h('td', null, h('b', { text: w.label })), h('td', { text: String(w.weight) }), h('td', { text: w.rule })))))),
+      h('p', { class: 'note', text: `Limits: prices are end-of-day closes, so the scanner sees yesterday’s picture. Earnings dates come from Nasdaq’s calendar and are often estimates. It does not know about macro events, news, or a company’s plans. Weekly bars use the same end-of-day data. Version ${sc.version}.` }));
+    paint(true);
+    el.replaceChildren(head, status, filters, count, list, moreBtn, how);
+  }
+
   async function renderWatchlist() {
     const el = $('#page-watchlist');
     const head = pageHead('Watchlist', 'Companies you follow: what changed, what needs your attention, and your positions. Saved on this device only.');
@@ -8102,8 +8453,35 @@ table.data tr.me td { background: var(--accent-wash); }
     const watching = w.items.filter((it) => !(it.shares > 0));
     if (held.length) parts.push(h('h2', { class: 'page-sec', text: `Your positions (${held.length})` }), portfolioCard(held, scr), h('div', { class: 'list' }, held.map((it) => wlItem(it, scr))));
     if (watching.length) parts.push(h('h2', { class: 'page-sec', text: `Watching (${watching.length})` }), h('div', { class: 'list' }, watching.map((it) => wlItem(it, scr))));
+    const oc = await oppCard(w);
+    if (page !== 'watchlist') return;
+    if (oc) parts.push(oc);
     parts.push(reviewCard(w), syncCard(w));
     el.replaceChildren(...parts);
+  }
+  // Tracked scanner ideas (stage 8): each keeps the plan as it stood the day you added it, and the outcome is worked out on paper
+  // from the daily candles since (opportunity.js). It writes nothing and places nothing; it is not the Record page's track record.
+  const OPP_TONE = { waiting: 'neutral', triggered: 'good', target1: 'good', stopped: 'bad', invalidated: 'bad', expired: 'neutral', unknown: 'warn' };
+  const OPP_NAME = { waiting: 'Waiting', triggered: 'Open on paper', target1: 'Target 1 reached', stopped: 'Stopped out', invalidated: 'Failed before entry', expired: 'Expired', unknown: 'Cannot follow' };
+  async function oppCard(w) {
+    const items = w.items.filter((it) => it.opp);
+    if (!items.length) return null;
+    const rows = await Promise.all(items.map(async (it) => {
+      let T = null;
+      if (MODE === 'static') { try { T = await getJson('data/tech/' + encodeURIComponent(it.t) + '.json'); } catch { T = null; } }
+      const have = T && T.ok && T.chart && Array.isArray(T.chart.candles);
+      const out = have ? oppOutcome(it.opp, T.chart.candles) : null;
+      const o = it.opp;
+      return h('div', { class: 'opp-row' },
+        h('div', { class: 'top' }, h('button', { class: 'tk', type: 'button', onclick: () => openStock(it.t, 'report') }, it.t),
+          tagEl(out ? OPP_NAME[out.state] : 'No prices today', out ? OPP_TONE[out.state] : 'warn'), tagEl('Paper', 'paper'),
+          h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { W.update(it.t, { opp: undefined }); renderWatchlist(); } }, 'Stop tracking')),
+        h('p', { class: 'note', text: `${SCAN_SETUP_NAME[o.setup] || o.setup} added ${niceDates(o.added)} from the ${niceDates(o.asOf)} scan: buy above ${price(o.entry)}, stop ${price(o.stop)}, target 1 ${price(o.t1)}${isNum(o.score) ? `, evidence ${o.score}/100` : ''}.` }),
+        h('p', { class: 'note', text: out ? out.label + '.' : 'The latest prices could not be loaded, so the outcome cannot be worked out right now.' }));
+    }));
+    return h('section', { class: 'card', 'aria-label': 'Tracked swing ideas' }, h('h2', { text: `Tracked swing ideas (${items.length})` }),
+      h('p', { class: 'sub', text: 'Ideas you added from the Swing scanner, followed on paper from end-of-day prices, before costs. No order is placed. This is bookkeeping, not a track record: the Record page keeps that.' }),
+      rows);
   }
   function addBox() {
     const inp = h('input', { type: 'search', placeholder: 'Add any ticker, e.g. MSFT', 'aria-label': 'Ticker to add', autocapitalize: 'characters', spellcheck: 'false', enterkeyhint: 'done' });

@@ -29,6 +29,13 @@ PUR_STAT = re.compile(r'(?i)Purification\n[^\n]*\n[^\n]*')
 # an added sentence that only the empty-ledger run may contain: about the ledger or the record of a Zoya check
 LEDGER_RE = re.compile(r'(?i)ledger|Zoya check|^Blocked: |no record|not from Zoya|questionable on Zoya|not compliant on Zoya|^Holding and selling are not affected\.$|^Until then it stays as cash')
 SALE_RE = re.compile(r'\b(Sell|Trim|Take profit|sell about|Sell about)\b')
+# Stage 8 (price labels): delayed and end-of-day prices are no longer called "live". These exact sentences changed their wording and nothing
+# else: each old sentence is read as its new wording before the two versions are compared, so any other change to a section still fails.
+WORDING = {
+    'Live prices and returns unavailable right now, converted to US dollars where the line trades in pounds or euros.': 'Prices and returns unavailable right now, converted to US dollars where the line trades in pounds or euros.',
+    'For the funds this site follows (ISDW, HIWO, IGDA, ISDU, ISDE, HIEM, SPUS, HLAL, UMMA, SKUK, HBKU, SPSK and their other lines), type the units: the value then follows the live price.': 'For the funds this site follows (ISDW, HIWO, IGDA, ISDU, ISDE, HIEM, SPUS, HLAL, UMMA, SKUK, HBKU, SPSK and their other lines), type the units: the value then follows the latest price.',
+    'It opens a new Claude chat with your question and a summary of this page (your answers, holdings, plan and the site\u2019s advice), and Claude checks live prices and news before it answers.': 'It opens a new Claude chat with your question and a summary of this page (your answers, holdings, plan and the site\u2019s advice), and Claude looks up current prices and news before it answers.',
+}
 ADDED_SENTENCES = {'The periods overlap: together they hold about two independent five-year spans, and companies that disappeared since 2016 are missing.'}
 
 
@@ -250,7 +257,7 @@ async def main():
                         bad.append(f'{name} / {page}: the number of sell, trim or take-profit calls changed ({count(A["secs"], ())} -> {count(B["secs"], new_only)})')
                 print(f'  {page}: {len(changed)} of {len(labels)} sections differ: {changed}')
                 for k in changed:
-                    sa, sb = sentences(a.get(k, '')), sentences(bsec.get(k, ''))
+                    sa, sb = [WORDING.get(x, x) for x in sentences(a.get(k, ''))], sentences(bsec.get(k, ''))
                     gone = [s for s in sa if s not in sb]
                     added = [s for s in sb if s not in sa]
                     allowed = k in CHANGES_ALLOWED_IN
