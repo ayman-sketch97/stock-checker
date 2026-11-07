@@ -2197,3 +2197,79 @@ no unexpected difference.
   tab would give more room; that is left as a later choice.
 - Below 350 px the labels are 10.5 px.
 - The Dashboard is longer than before, because it now carries the daily brief and ideas.
+
+## 28. Stage 10: final validation for Version 1.0 (7 November 2026, branch `stage10-final`, not merged)
+
+**What this stage is.** An audit of the application as merged and deployed at `cdbe004` (main, deployed, CI run 42381364151). No feature,
+formula, threshold, score, recommendation or strategy was added or changed. Stage 1 to 8 libraries are byte-identical (the pin test
+`test/stage8-untouched.test.mjs` passes unchanged). Every change below is in `index.html` (page code that stores and shows data), plus
+tests and these notes.
+
+### Defects found and fixed
+
+**D1. The trade calculator erased the Portfolio ledger (critical, live since stage 6).** The calculator on the Technical tab of any
+stock saved its "portfolio value" box under the browser-storage key `portfolio`, which is also the key of the Portfolio ledger. The
+calculator saves when it is built, so merely opening the Technical tab of a stock replaced the ledger (`{"v":1,"entries":[...]}`) with the
+number `0` on that browser. Reproduced before the fix (ledger value before: the JSON object; after opening the tab: `0`; the calculator box
+read `[object Object]`) and verified fixed after (ledger byte-for-byte unchanged). The calculator now uses its own key `calcPortfolio`. A plain
+number saved under `portfolio` by an older version is still read once as the starting amount; an object there (the ledger) is never read as
+an amount and the `portfolio` key is never written by the calculator. Anyone who opened a Technical tab after recording ledger entries on
+the same browser should check the Portfolio ledger page; if it is empty or reports a mismatch, import the latest backup file (Backup and
+restore). The ledger is browser-local, so without a backup file the lost entries cannot be recovered by the site.
+
+**D2. A damaged "recent searches" value crashed the Search page and Dashboard** (`r.slice(...).forEach is not a function` when the stored value
+was not a list). The list is now read as a list of text items only.
+
+**D3. A damaged ledger entry crashed the page** (a null or non-object entry in the Shariah, thesis or portfolio record gave
+`Cannot read properties of null`). Entries that are not objects are now dropped on load; the gap breaks the record's numbering and the
+anchor, so the existing integrity check reports it instead of the page failing. Two list lines (Shariah history, thesis decisions) also
+tolerated a missing `recorded` or `evidence` field. Verified with 228 hostile-storage cases (damaged or script-bearing values under each
+key, on the pages that read them): no script ran, no dialog opened, no page error remained.
+
+**D4. A backup file could bring in records whose ticker or id was not text.** Import and merge now require a text ticker and text id.
+
+**D5. Dividend form labels (wording only).** The dividend form said "Amount received or paid" and "Tax withheld". Cash received is entered
+after tax and the tax box is for the record only; the labels now say so, so tax is not subtracted twice. Accounting is unchanged.
+
+### Audit results by area (evidence in the notes above and the test logs)
+
+1. **Investment engine.** The DCF (`lib/engine.js`) and the indicators (`lib/technical.js`: SMA, EMA, RSI, ATR, MACD) were re-implemented
+   independently in the audit and compared on generated and fixture inputs: they match. The sanity ceiling (an estimate at or above 3 times
+   the price is rejected) and the 8, 9 and 10 percent discount rates behave as documented.
+2. **Portfolio.** Average-cost accounting, cash, realised and unrealised profit and loss, fees, dividends and voiding were fuzzed against an
+   independent replay; tamper detection (edit, delete in the middle, reorder) holds. Truncating the newest entries is detected only through
+   the saved anchor (see limitations).
+3. **Risk.** Buy room, trim size, sector room and the minimum order were fuzzed at their boundaries (10 percent buy cap, 15 percent trim
+   trigger, trim to 10 percent, 40 percent sector, $100 minimum order): no case breaks a limit, and zero room implies the position is already
+   at or over its cap.
+4. **Shariah.** The buy gate needs the newest check to be a Zoya check, compliant, no more than 90 days old, on an intact ledger; the 90-day
+   deadline and the exit rules were checked on the day boundaries. Zoya remains the final authority; the site never overrides it.
+5. **Scanner.** Setup gates, the freshness gate (indicator date equals the price date) and the paper-only label are covered by the scanner
+   suite and the scanner page test (72 of 72 with the pinned chart library 5.2.1).
+6. **Alert Centre.** Price, scanner, risk and Shariah alerts, the de-duplication, the re-open hysteresis (24 hours), history and the one-time
+   browser notification were checked in the Node alert suite and a fuzz run, and in the Alert Centre page test.
+7. **Data integrity.** Health checks (`lib/health.js`) turn missing, late or partial nightly data into a visible banner; late data pauses
+   advice; the page tests assert that no stray "null", "undefined" or "NaN" is printed where data is missing. SHA-256 in the page matches Node's crypto.
+8. **Security.** No secrets in the repository. Three `innerHTML` uses, all static drawings; no `eval`; hostile text in imported or stored data is
+   shown as text (checked with script-bearing values in every stored key). Everything the user records stays in the browser; the backup file
+   is the only copy.
+9. **Interface.** The layout test measured 315 checks across pages, light and dark, at phone widths (360 and 390 px) and tablet and desktop widths: no horizontal scroll, 12 px minimum
+   labels, tab labels inside their tabs.
+10. **Deployment.** See the final report for the CI run on this branch. The previous release's deploy log entry 000011 and its restore point
+    were verified at stage 9.
+
+### Test results on the final tree
+
+Node suites: formulas 80, stage 8 pin 16, portfolio 32, Shariah ledger 40, thesis 20, alerts 22, scanner 29, intel 52, opportunity 14,
+deploy safety 46, restore and log 50, all passing, 0 failures. Workflow test 93. Page tests: page 648 (641 existing plus 7 new for D1 and
+D2), layout 315, Dashboard 64, Alert Centre 81, scanner 72. The new page checks assert that the Portfolio ledger is unchanged after using the
+calculator, that the calculator keeps its own key, that an old plain number is still read, that an object is not, and that a damaged
+"recent" value raises no page error.
+
+### Limitations that remain (not fixed, by design)
+
+- The ledger "add" forms do not re-check the saved anchor before appending; the gates and the list pages do. A browser that lost its newest
+  entries and its anchor together cannot tell.
+- There is no Content Security Policy meta tag (GitHub Pages cannot set headers). Mitigation: no `eval`, no dynamic HTML.
+- Dividend tax is recorded for the record only and is not part of the cash calculation.
+- The live page was not read directly by this tool (the fetch tool refused the address); live verification rests on the CI job.

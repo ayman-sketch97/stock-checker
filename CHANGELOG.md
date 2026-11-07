@@ -6,6 +6,16 @@ checked is in `VALIDATION.md`.
   longer repeats the "Today" stack. The daily brief, the market card and "Ideas today" now live on the Dashboard; Search keeps the
   search box and every search feature. No advice, formula or data source changed.
 
+## 7 November 2026: final validation for Version 1.0 (stage 10, on branch `stage10-final`, not merged)
+
+- Fixed a bug that could erase your Portfolio ledger on this browser: opening the Technical tab of a stock saved the trade calculator's
+  amount under the same storage name as the ledger. The calculator now has its own. If you recorded ledger entries and later opened a
+  Technical tab, check the Portfolio ledger page and restore from your latest backup file if it is empty.
+- Damaged saved data (a bad recent-searches list, a damaged ledger entry, a bad backup record) no longer crashes a page; the record's own
+  integrity check reports the damage instead.
+- The dividend form says that cash received is entered after tax, and that the tax box is for the record only.
+- No recommendation, formula, threshold, Shariah rule or data source changed.
+
 ## 7 November 2026: professional redesign and Dashboard (stage 9, on branch `stage9-redesign`, not merged)
 
 - New Dashboard, now the page the site opens on. It keeps three kinds of information apart, each in its own labelled card: your
