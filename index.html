@@ -581,7 +581,7 @@ ol.exits li { margin: 5px 0; }
 .sig-name { font-weight: 700; }
 .b-bad { background: var(--bad-bg); color: var(--bad-ink); }
 
-/* navigation: in the header on wide screens, a floating bar at the bottom on phones */
+/* navigation: in the header on wide screens, a tab bar docked at the bottom on phones and tablets */
 .nav { display: flex; gap: 2px; padding: 4px; background: var(--nav-bg); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow); backdrop-filter: saturate(170%) blur(16px); -webkit-backdrop-filter: saturate(170%) blur(16px); }
 .nav button { position: relative; display: inline-flex; align-items: center; gap: 7px; border: 0; background: transparent; padding: 7px 13px; border-radius: 999px; font-size: 14px; font-weight: 650; color: var(--ink-2); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: -0.01em; }
 .nav button:hover { color: var(--ink); }
@@ -599,17 +599,31 @@ ol.exits li { margin: 5px 0; }
   .nav { box-shadow: var(--shadow-sm); }
 }
 @media (max-width: 1023px) {
+  /* phones and tablets: a tab bar docked to the bottom edge, clear of the home indicator */
   .nav {
-    position: fixed; z-index: 30; justify-content: space-around; gap: 2px;
-    left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    border-radius: 24px; padding: 6px; box-shadow: var(--shadow-lg);
+    position: fixed; z-index: 30; justify-content: space-around; gap: 0;
+    left: 0; right: 0; bottom: 0;
+    border-radius: 0; border-width: 1px 0 0; background: color-mix(in srgb, var(--surface) 94%, transparent);
+    padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
+    box-shadow: 0 -8px 24px -16px rgba(15, 23, 42, 0.35);
   }
-  .nav button { flex: 1; flex-direction: column; gap: 3px; font-size: 10.5px; font-weight: 650; padding: 7px 2px 6px; border-radius: 17px; min-width: 0; letter-spacing: 0; }
+  .nav button { flex: 1; flex-direction: column; gap: 3px; font-size: 10.5px; font-weight: 650; padding: 7px 2px 6px; border-radius: var(--radius-sm); min-width: 0; min-height: 52px; justify-content: center; letter-spacing: 0; }
   .nav button svg { width: 22px; height: 22px; }
   .nav button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nav .dot { top: 5px; right: calc(50% - 17px); }
-  body.has-nav footer { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+  body.has-nav footer { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
+@media (min-width: 640px) and (max-width: 1023px) {
+  .nav button { flex-direction: row; gap: 8px; font-size: 14px; padding: 10px 8px; min-height: 48px; }
+  .nav button svg { width: 20px; height: 20px; }
+  .nav .dot { top: 8px; right: calc(50% - 44px); }
+}
+.subnav { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-3) 0 0; }
+.subnav button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 7px 14px; font-size: var(--fs-sm); font-weight: 650; color: var(--ink-2); cursor: pointer; box-shadow: var(--shadow-sm); }
+.subnav button:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.subnav button[aria-current="page"] { background: var(--accent-wash); color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.subnav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (min-width: 1024px) { .subnav.sn-narrow { max-width: var(--wrap); margin-inline: auto; } }
 .page-head { margin: 20px 0 6px; }
 .page-head h1 { font-size: clamp(28px, 6.4vw, 34px); line-height: 1.1; margin: 0; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance; }
 .page-head p { margin: 8px 0 0; color: var(--ink-2); font-size: 15.5px; max-width: 62ch; }
@@ -955,7 +969,7 @@ table.data tr.me td { background: var(--accent-wash); }
       <span>Stock <b>Checker</b></span>
     </button>
     <nav class="nav" id="nav" aria-label="Sections" hidden>
-      <button type="button" data-page="stock" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Stock</span></button>
+      <button type="button" data-page="stock" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Search</span></button>
       <button type="button" data-page="shortlist" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Shortlist</span></button>
       <button type="button" data-page="watchlist" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Watchlist</span><i class="dot" hidden></i></button>
       <button type="button" data-page="record" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3.5-4 3 2.5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Record</span></button>
@@ -966,6 +980,7 @@ table.data tr.me td { background: var(--accent-wash); }
   </header>
 
   <div id="healthBanner" class="health-banner" role="status" aria-label="Data problem tonight" hidden></div>
+  <nav id="subnav" class="subnav" aria-label="Related pages" hidden></nav>
 
   <div id="page-stock">
     <div class="hero">
@@ -7710,13 +7725,31 @@ table.data tr.me td { background: var(--accent-wash); }
   }
 
   const PAGES = ['stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
+  // Secondary pages are reached through a parent section: the parent's tab stays highlighted and a sub-navigation strip
+  // above the page links the pages of the group. Page ids and ?p= addresses are unchanged.
+  const NAV_PARENT = { scanner: 'shortlist', shariah: 'advisor', thesis: 'advisor', pfledger: 'advisor' };
+  const SUBNAV = {
+    shortlist: [['shortlist', 'Shortlist'], ['scanner', 'Swing scanner']],
+    advisor: [['advisor', 'Portfolio'], ['pfledger', 'Portfolio ledger'], ['thesis', 'Thesis and decisions'], ['shariah', 'Shariah ledger']],
+  };
+  function renderSubnav(p) {
+    const sn = document.getElementById('subnav');
+    if (!sn) return;
+    const group = NAV_PARENT[p] || p;
+    const items = SUBNAV[group];
+    if (!items || !HAS_SITE) { sn.hidden = true; sn.replaceChildren(); return; }
+    sn.className = 'subnav' + (group === 'advisor' ? ' sn-narrow' : '');
+    sn.replaceChildren(...items.map(([k, label]) => h('button', { type: 'button', 'data-page': k, 'aria-current': k === p ? 'page' : 'false', onclick: () => navigate(k) }, label)));
+    sn.hidden = false;
+  }
   let page = 'stock';
   function showPage(p) {
     page = p;
     PAGES.forEach((k) => { const el = document.getElementById('page-' + k); if (el) el.hidden = k !== p; });
     const hb = document.getElementById('healthBanner');
     if (hb) hb.hidden = p === 'record' || !hb.firstChild; // the Record page shows the full System health card
-    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === (p === 'shariah' || p === 'thesis' || p === 'pfledger' ? 'advisor' : p === 'scanner' ? 'shortlist' : p) ? 'page' : 'false'));
+    document.querySelectorAll('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === (NAV_PARENT[p] || p) ? 'page' : 'false'));
+    renderSubnav(p);
     $('#how').hidden = true;
     hideTip();
     if (p === 'shortlist') renderShortlist();

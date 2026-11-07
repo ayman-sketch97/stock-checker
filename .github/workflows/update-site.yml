@@ -91,6 +91,8 @@ jobs:
         run: npm install --no-save --no-audit --no-fund lightweight-charts@5.2.1
       - name: Run the scanner page tests
         run: python test/scanner-page.test.py
+      - name: Run the layout and navigation page tests
+        run: python test/layout-page.test.py
 
   security:
     runs-on: ubuntu-latest
