@@ -1,0 +1,17 @@
+{"v":2,"date":"2026-11-09","built":"2026-11-10T18:34:20.934Z","prev":"2440a40a953286f6c327d939977cea14a81fe13e846da60464870783e8ece550","n":16,"baseline":false}
+{"k":"verdict","t":"NUE","px":249.24,"v":"CONTRARIAN","s":"pass","fair":427.23,"bb":363.15,"tr":597.07,"from":"BUY"}
+{"k":"buy_out","t":"NUE","px":249.24,"v":"CONTRARIAN","s":"pass","fair":427.23,"bb":363.15,"tr":597.07}
+{"k":"verdict","t":"UCTT","px":45.89,"v":"AVOID_WEAK","s":"review","fair":2.74,"bb":2.33,"tr":7.17,"from":"AVOID_SHARIAH"}
+{"k":"halal","t":"UCTT","px":45.89,"v":"AVOID_WEAK","s":"review","fair":2.74,"bb":2.33,"tr":7.17,"from":"fail"}
+{"k":"verdict","t":"TGLS","px":47.09,"v":"BUY","s":"pass","fair":62.26,"bb":52.92,"tr":86.69,"from":null}
+{"k":"buy_in","t":"TGLS","px":47.09,"v":"BUY","s":"pass","fair":62.26,"bb":52.92,"tr":86.69}
+{"k":"verdict","t":"BTU","px":17.03,"v":"UNRELIABLE","s":"review","fair":null,"bb":null,"tr":null,"from":"SPECULATIVE"}
+{"k":"verdict","t":"COHU","px":43.4,"v":"AVOID_WEAK","s":"pass","fair":21.89,"bb":18.61,"tr":28.43,"from":"AVOID_SHARIAH"}
+{"k":"halal","t":"COHU","px":43.4,"v":"AVOID_WEAK","s":"pass","fair":21.89,"bb":18.61,"tr":28.43,"from":"fail"}
+{"k":"verdict","t":"SPB","px":89.33,"v":"AVOID_WEAK","s":"review","fair":59.53,"bb":50.6,"tr":88.53,"from":"AVOID_SHARIAH"}
+{"k":"halal","t":"SPB","px":89.33,"v":"AVOID_WEAK","s":"review","fair":59.53,"bb":50.6,"tr":88.53,"from":"fail"}
+{"k":"trim_in","t":"SPB","px":89.33,"v":"AVOID_WEAK","s":"review","fair":59.53,"bb":50.6,"tr":88.53}
+{"k":"verdict","t":"DBD","px":60.09,"v":"AVOID_SHARIAH","s":"fail","fair":75.42,"bb":64.11,"tr":112.19,"from":null}
+{"k":"verdict","t":"SONO","px":17.01,"v":"AVOID_WEAK","s":"pass","fair":5.21,"bb":4.43,"tr":6.51,"from":null}
+{"k":"trim_in","t":"SONO","px":17.01,"v":"AVOID_WEAK","s":"pass","fair":5.21,"bb":4.43,"tr":6.51}
+{"k":"signal","t":"SONO","rec":["SONO","2026-11-09","pullback",85,17.06,18.07,15.04,21.1,23.13,"stop","AVOID_WEAK","pass","up","1.3","pending",null,null,null,null,null,null,null,null,59,null]}
