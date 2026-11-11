@@ -1,0 +1,6 @@
+{"v":2,"date":"2026-11-10","built":"2026-11-11T18:20:21.504Z","prev":"6e13afd5d24bd88c03dc22b818bc71b153648fa73b0d41b4b3133138c605afda","n":5,"baseline":false}
+{"k":"verdict","t":"NESR","px":20.38,"v":"AVOID_WEAK","s":"pass","fair":58.69,"bb":49.89,"tr":80.04,"from":"UNRELIABLE"}
+{"k":"verdict","t":"WMK","px":82.45,"v":"AVOID_WEAK","s":"review","fair":56.77,"bb":48.25,"tr":74.42,"from":null}
+{"k":"trim_in","t":"WMK","px":82.45,"v":"AVOID_WEAK","s":"review","fair":56.77,"bb":48.25,"tr":74.42}
+{"k":"verdict","t":"ATEN","px":27.79,"v":"WATCH","s":"pass","fair":18.63,"bb":15.84,"tr":24.84,"from":null}
+{"k":"trim_in","t":"ATEN","px":27.79,"v":"WATCH","s":"pass","fair":18.63,"bb":15.84,"tr":24.84}
