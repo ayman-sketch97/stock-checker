@@ -6,7 +6,33 @@ checked is in `VALIDATION.md`.
   longer repeats the "Today" stack. The daily brief, the market card and "Ideas today" now live on the Dashboard; Search keeps the
   search box and every search feature. No advice, formula or data source changed.
 
-## 7 November 2026: final validation for Version 1.0 (stage 10, on branch `stage10-final`, not merged)
+## 15 November 2026: trust, clarity and accessibility (stage 11, on branch `improve/v1-trust-and-usability`, not merged)
+
+Display and wording only. No recommendation, formula, threshold, risk limit (10% per stock, trim above 15% back to about 10%, 40% per sector),
+Shariah rule, storage key or data source changed, and `lib/` is untouched.
+
+- One pause rule everywhere: when the nightly update is two or more trading days late, one "Advice paused" banner shows at the top of every
+  page, and every buy, sell, trim, entry and exit line is hidden on every page, including the Dashboard alerts card and the company page.
+  The numbers stay readable. The pause rule itself (`staleOf`) is the one that already existed.
+- One data stamp: where the numbers come from and the date of the close, worded the same on every page. Prices are end-of-day closes from
+  Nasdaq (a company's page names its source if a backup was used); nothing is called live or real-time.
+- Loading problems say which of three things happened (you are offline, the file is not on the site, the file is damaged), say how old the last good
+  data is, and offer Try again. Nothing is shown rather than old figures.
+- Unreliable company data is never drawn as healthy: the score tiles go grey with a note that they are not a rating.
+- Your records: a card on the Dashboard shows what is saved on this device, the date of the last backup file (a reminder after 14 days or when none
+  exists) and what the browser has promised. The site asks the browser to keep its data once there is something to keep; the answer is shown as
+  "accepted" or "not promised", never as a guarantee. An iPhone and iPad note explains Add to Home Screen and says it does not guarantee anything.
+  The Journal note no longer says Home Screen apps keep the data.
+- A note on the Watchlist, Journal, Portfolio and Portfolio ledger pages explains which record is which. Tab and page names are unchanged.
+- Dashboard: each figure and alert appears once. Company page: the Fundamental/Technical switch and a row of section shortcuts sit under the header
+  and stay in reach while you scroll.
+- Phones: tables that scroll sideways say so and fade at the edge; chips and links meet the 44 px touch size on touch screens.
+- Accessibility: the page title follows the page, focus moves to the new page, a skip link works, one main landmark is exposed at a time, sideways-
+  scrolling tables can be reached with the keyboard, empty table headers are named, chart bars have a valid role, the chart container no longer
+  wraps controls in an image role, and low-contrast chart-signal captions were fixed.
+- `npm test` now runs all 11 Node suites (401 tests); `npm run test:pages` runs the six Python page suites.
+
+## 7 November 2026: final validation for Version 1.0 (stage 10, merged and live)
 
 - Fixed a bug that could erase your Portfolio ledger on this browser: opening the Technical tab of a stock saved the trade calculator's
   amount under the same storage name as the ledger. The calculator now has its own. If you recorded ledger entries and later opened a
@@ -19,7 +45,7 @@ checked is in `VALIDATION.md`.
 - The dividend form says that cash received is entered after tax, and that the tax box is for the record only.
 - No recommendation, formula, threshold, Shariah rule or data source changed.
 
-## 7 November 2026: professional redesign and Dashboard (stage 9, on branch `stage9-redesign`, not merged)
+## 7 November 2026: professional redesign and Dashboard (stage 9, merged and live)
 
 - New Dashboard, now the page the site opens on. It keeps three kinds of information apart, each in its own labelled card: your
   holdings (saved on this device), the swing scanner's candidates (paper only until the live record passes its gate, with the

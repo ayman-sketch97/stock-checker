@@ -2036,7 +2036,7 @@ Bollinger Bands, Track on Watchlist, Stop tracking, report links and the renamed
 commit in run 98 (641 and 72 checks); no browser session was run against the live address from the build environment. The nightly archive
 (Stage 7b) and Stage 9 have not been started.
 
-## 25. Stage 9: professional redesign and Dashboard (7 November 2026, branch `stage9-redesign`, not merged)
+## 25. Stage 9: professional redesign and Dashboard (7 November 2026, merged and live)
 
 **What changed.** Presentation, navigation and one new page. No investment library, formula, threshold, score, Shariah rule, data
 source or recommendation was touched: `lib/*` is byte-identical to main (`git diff 25f90d7 -- lib` is empty) and
@@ -2104,7 +2104,7 @@ a new page with no counterpart in main to compare against, so it is covered by i
   themes, not by pixel comparison.
 - The live site has not been touched: nothing in Stage 9 is merged or deployed.
 
-## 26. Stage 9, slice 5: Alert Centre, and a CI font failure found and fixed (7 November 2026, branch `stage9-redesign`, not merged)
+## 26. Stage 9, slice 5: Alert Centre, and a CI font failure found and fixed (7 November 2026, merged and live)
 
 **What was added.** A new page, `?p=alerts`, under the Dashboard tab (and a button on the Dashboard). It lists four kinds of alert, each saying
 when it opened, which price or data it used and how old that data is: custom price levels typed by the user, swing scanner setups, portfolio
@@ -2161,7 +2161,7 @@ own commit (`0b33aba`) so it can be reviewed separately.
 - The 7-tab bar at 360 px needed 9.5 px labels at the time of this section; section 27 restores 12 px.
 - The live site has not been touched: nothing in Stage 9 is merged or deployed.
 
-## 27. Stage 9, final corrections before approval (7 November 2026, branch `stage9-redesign`, not merged)
+## 27. Stage 9, final corrections before approval (7 November 2026, merged and live)
 
 Two corrections were asked for after review. Nothing else changed: no investment logic, alert logic, calculation, data source or other
 feature. Libraries under `lib/` are untouched.
@@ -2198,7 +2198,7 @@ no unexpected difference.
 - Below 350 px the labels are 10.5 px.
 - The Dashboard is longer than before, because it now carries the daily brief and ideas.
 
-## 28. Stage 10: final validation for Version 1.0 (7 November 2026, branch `stage10-final`, not merged)
+## 28. Stage 10: final validation for Version 1.0 (7 November 2026, merged and live)
 
 **What this stage is.** An audit of the application as merged and deployed at `cdbe004` (main, deployed, CI run 42381364151). No feature,
 formula, threshold, score, recommendation or strategy was added or changed. Stage 1 to 8 libraries are byte-identical (the pin test
@@ -2284,3 +2284,34 @@ calculator, that the calculator keeps its own key, that an old plain number is s
 - There is no Content Security Policy meta tag (GitHub Pages cannot set headers). Mitigation: no `eval`, no dynamic HTML.
 - Dividend tax is recorded for the record only and is not part of the cash calculation.
 - The live page was not read directly by this tool (the fetch tool refused the address); live verification rests on the CI job.
+
+
+## 29. Stage 11: trust, clarity and accessibility (15 November 2026, branch `improve/v1-trust-and-usability`, not merged)
+
+**What this stage is.** A display-only release on top of `main` at `d790369` (stages 9 and 10, live). Every change is in `index.html`, the tests and these
+notes. `lib/`, the formulas, thresholds, the risk limits (10% per stock, 15% trim trigger back to about 10%, 40% per sector), the Shariah rules, the storage keys
+and the deployment safeguards are untouched (`test/stage8-untouched.test.mjs` passes unchanged).
+
+**Changes and the checks that cover them** (all in `test/stage11-page.test.py` unless noted):
+
+| Change | Check |
+| --- | --- |
+| Late data pauses every action line on the Dashboard, Alert Centre, Watchlist, Scanner, Portfolio and Shortlist, with one banner | six pages with prices six weekdays old: paused class, no buy/sell/trim wording, exactly one banner |
+| One data stamp and footer wording | the stamp names "close of" and a year; the footer names Nasdaq and end-of-day |
+| Offline, missing-file and damaged-file messages with Try again | three failing servers; retry recovers once the data returns |
+| Unreliable data drawn grey with a note | `stock-unreliable` fixture: muted tiles, note, no green ring |
+| Company page jump bar and switch under the header | sticky bar, four or more shortcuts |
+| Records card, backup reminder, honest storage message | empty, due, recent-backup states; storage API accepting, absent; no wording that promises |
+| Home Screen note and the corrected Journal note | text checks |
+| "Which record is which" note on four pages | text checks |
+| Titles, focus, skip link, one landmark, keyboard-reachable scrollers, named headers | navigation checks |
+
+**Same advice.** `test/validation/same-advice.py` compares the new page with `main` sentence by sentence. With fresh data the only differences allowed are the
+new wording of the date labels and the new cards listed in the script. With late data the lines that are paused are the only removals, and each is replaced by the
+pause sentence; the pause rule is the existing `staleOf`.
+
+**Accessibility scan.** An axe-core scan (WCAG 2 A and AA, best practice) of all twelve pages plus the company page at phone and desktop widths, run
+outside the repository so no dependency was added, is reported in the release notes; the in-repo checks above keep the fixed items from returning.
+
+**Limitations that remain.** The browser can still erase the records on this device; persistent storage is a request, not a promise, and only a backup file kept elsewhere
+is safe. There is still no Content Security Policy tag. Trading days still ignore market holidays, so a long holiday weekend can look like a late update.

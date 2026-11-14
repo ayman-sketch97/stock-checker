@@ -304,7 +304,7 @@ async def main():
         check('High confidence in the data' in txt and 'Strong buy candidate' in txt, 'clean data: verdict kept, data quality high')
         act = await pg.inner_text('section.card.act')
         check('null' not in act and 'undefined' not in act, f'"What to do now" with fresh data shows no stray "null": {act[:160]!r}')
-        check('Closing price, Mar 14' in act, f'without chart data the date comes from "close on 2025-03-14" (it used to be blank, which also hid live prices): {act[:60]!r}')
+        check('Close of Mar 14, 2025' in act, f'without chart data the date comes from "close on 2025-03-14" (it used to be blank, which also hid live prices): {act[:60]!r}')
         check(not errs, f'no page errors on a normal stock page {errs}')
         await pg.close()
         # the Technical tab with a full chart file, written by the site's own engine (test/make-tech-fixture.mjs), every section open
@@ -321,7 +321,7 @@ async def main():
                 pass
         await pg.wait_for_timeout(400)
         tt = await pg.inner_text('#page-stock')
-        check('Signals' in tt and 'Closing price, Nov 2' in tt and not re.search(r'\bnull\b|\bundefined\b|\bNaN\b', tt), f'Technical tab: signals and the chart date shown, no missing values printed: {tt[:120]!r}')
+        check('Signals' in tt and 'Close of Nov 2, 2026' in tt and not re.search(r'\bnull\b|\bundefined\b|\bNaN\b', tt), f'Technical tab: signals and the chart date shown, no missing values printed: {tt[:120]!r}')
         check(not errs, f'no page errors on the Technical tab {errs}')
         await pg.close()
 
@@ -466,6 +466,7 @@ async def main():
         pg, errs = await page_with(ctx, base, fresh)
         await to_dash(pg)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
+        brief = brief + '\n' + await pg.inner_text('.dash')  # stage 11: items already listed in the Alerts block are not repeated in the brief, so read both
         check('Add the stocks you own' in brief, f'empty brief invites you to add stocks: {brief[:120]!r}')
         await pg.close()
         own = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 2, 'cost': 150}, {'t': 'MSFT', 'added': '2026-02-01', 'shares': 1, 'cost': 650},
@@ -475,6 +476,7 @@ async def main():
         pg, errs = await page_with(ctx, base, fresh, own, '', None, {'data/lt-summary.json': LT}, with_events)
         await to_dash(pg)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
+        brief = brief + '\n' + await pg.inner_text('.dash')  # stage 11: items already listed in the Alerts block are not repeated in the brief, so read both
         check('MSFT' in brief and 'of everything you own, above your 15% limit: sell about $' in brief and 'to bring it back to 10%' in brief, f'brief: with nothing else recorded, MSFT is 44% of everything and is trimmed: {brief[:500]!r}')
         await pg.close()
         # with the rest of the portfolio recorded ($10,000 in cash and funds), no stock is above 15%
@@ -482,7 +484,8 @@ async def main():
         pg, errs = await page_with(ctx, base, fresh, own, '', None, {'data/lt-summary.json': LT}, with_events, zoya='all')
         await to_dash(pg)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
-        check('to look at today' in brief and 'Above its trim price' in brief, f'brief: AAPL above its trim price is a thing to look at: {brief[:300]!r}')
+        brief = brief + '\n' + await pg.inner_text('.dash')  # stage 11: items already listed in the Alerts block are not repeated in the brief, so read both
+        check('to look at today' in brief and ('Above its trim price' in brief or 'Above the trim level' in brief), f'brief: AAPL above its trim price is a thing to look at: {brief[:300]!r}')
         check('Said earlier financial statements can no longer be relied on' in brief, 'brief: a warning filing (8-K item 4.02) on a holding is flagged')
         check('Down, but keep waiting' in brief and 'MSFT' in brief and 'hold and wait' in brief, 'brief: a holding down from cost with a healthy business: hold and wait')
         check('Company news' in brief and 'Results for a quarter or year' in brief, 'brief: routine filings listed as company news')
@@ -614,6 +617,7 @@ async def main():
         await pg.click('#nav button:has-text("Dashboard")')
         await pg.wait_for_timeout(1200)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
+        brief = brief + '\n' + await pg.inner_text('.dash')  # stage 11: items already listed in the Alerts block are not repeated in the brief, so read both
         check('Your own tickers (not on the site)' in brief and 'XYZ 10 shares at $6.00 (your price' in brief, f'own tickers: listed in the brief: {brief[:400]!r}')
         await pg.click('#nav button:has-text("Portfolio")')
         await pg.wait_for_timeout(1500)
@@ -729,6 +733,7 @@ async def main():
         pg, errs = await page_with(ctx, base, weekday_back(6), techy, '', None, {'data/lt-summary.json': LT}, patch=add_rows)
         await to_dash(pg)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
+        brief = brief + '\n' + await pg.inner_text('.dash')  # stage 11: items already listed in the Alerts block are not repeated in the brief, so read both
         check('Advice paused' in brief and 'To do' not in brief and 'Ideas for new money' not in brief, f'brief: late data pauses the to-do list and the ideas: {brief[:300]!r}')
         await pg.click('#nav button:has-text("Portfolio")')
         await pg.wait_for_timeout(1800)

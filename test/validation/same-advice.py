@@ -21,7 +21,7 @@ CHANGES_ALLOWED_IN = {'The permanent record', 'Long-term list test', 'Limits of 
 # Portfolio page, which only reports what you recorded and how it sits against your own limits; stage 7: the investment report card on the company
 # page, which reads the calls the page already makes and adds none).
 # It is allowed only as an addition: a section of the same name in the old version would be compared like any other.
-ADDED_SECTIONS = {'Shariah ledger', 'Thesis and decisions', 'Your thesis', 'Portfolio ledger', 'Investment report'}
+ADDED_SECTIONS = {'Your records on this device', 'Shariah ledger', 'Thesis and decisions', 'Your thesis', 'Portfolio ledger', 'Investment report'}
 # Stage 4 (decision of 6 November): purification is switched off. Sentences about purification, and the sentences that point to the ledger instead,
 # may be removed or added; the rest of the section must be the old text, in the same order. Nothing here is about a buy, a sell, a size or a limit.
 PUR_RE = re.compile(r'(?i)purif|impure|dividend income|calculator|^It pays no cash dividend\.$|^Record what Zoya shows for each stock in the Shariah ledger|^Open the Shariah ledger$|^The Shariah ledger can keep a record of an amount you were given\.$|^Off$|^pending a scholar-approved method$')
@@ -36,6 +36,17 @@ WORDING = {
     'For the funds this site follows (ISDW, HIWO, IGDA, ISDU, ISDE, HIEM, SPUS, HLAL, UMMA, SKUK, HBKU, SPSK and their other lines), type the units: the value then follows the live price.': 'For the funds this site follows (ISDW, HIWO, IGDA, ISDU, ISDE, HIEM, SPUS, HLAL, UMMA, SKUK, HBKU, SPSK and their other lines), type the units: the value then follows the latest price.',
     'It opens a new Claude chat with your question and a summary of this page (your answers, holdings, plan and the site\u2019s advice), and Claude checks live prices and news before it answers.': 'It opens a new Claude chat with your question and a summary of this page (your answers, holdings, plan and the site\u2019s advice), and Claude looks up current prices and news before it answers.',
 }
+# Stage 11 (display only, 15 November 2026): the allowed differences, each narrow.
+#  - the date label "Closing price, Nov 2" became "Close of Nov 2, 2026" (one data-stamp wording everywhere)
+#  - the Journal's Home Screen sentence no longer says Home Screen apps keep the data (it must not promise)
+#  - empty table headers got a hidden name (read as "Group" or "Details"), the unreliable-data note, the "which record" explainer
+#  - LATE-DATA scenarios only: the pause hides buy, sell, trim, entry, exit and earnings-countdown lines and shows pause sentences instead.
+#    Shariah lines, filing warnings, valuations, quality scores and every number stay. Removed lines must be action or countdown wording;
+#    added lines must be pause wording; with both taken out the section must be the old text, in the same order.
+S11_RM = re.compile(r'^Closing price, [A-Z][a-z]{2} \d+$|Safari can clear the data of websites you have not opened for a week')
+S11_ADD = re.compile(r'^Close of [A-Z][a-z]{2} \d+, \d{4}$|^(GROUP|DETAILS)$|Safari can clear the data of websites you have not opened for about a week|^Not a rating: |^Which record is which\?|^(Watchlist positions|Portfolio ledger|Journal|Backups)$')
+LATE_RM = re.compile(r'(?i)\b(buy|sell|selling|trim|zone|entry|exit|stop|target|signal|earnings|reports results|extended run|wait|swing trade|long term|do not add|strong-buy|journal|advice paused|spread your|bring it back|above its trim|above the trim|bear-case|the portfolio as a whole|so the stock part is still concentrated)\b|\(weeks\)|\(years\)')
+LATE_ADD = re.compile(r'(?i)advice paused|reference only|hidden until|act after the next update|are still shown|no buy, hold or trim zone|hidden until then')
 ADDED_SENTENCES = {'The periods overlap: together they hold about two independent five-year spans, and companies that disappeared since 2016 are missing.'}
 
 
@@ -261,8 +272,9 @@ async def main():
                     gone = [s for s in sa if s not in sb]
                     added = [s for s in sb if s not in sa]
                     allowed = k in CHANGES_ALLOWED_IN
-                    ok_rm = lambda x: bool(PUR_RE.search(x))
-                    ok_add = lambda x: x in ADDED_SENTENCES or bool(PUR_RE.search(x)) or (mode == 'empty' and bool(LEDGER_RE.search(x)))
+                    late = 'late' in name
+                    ok_rm = lambda x: bool(PUR_RE.search(x)) or bool(S11_RM.search(x)) or (late and bool(LATE_RM.search(x)))
+                    ok_add = lambda x: x in ADDED_SENTENCES or bool(PUR_RE.search(x)) or bool(S11_ADD.search(x)) or (late and bool(LATE_ADD.search(x))) or (mode == 'empty' and bool(LEDGER_RE.search(x)))
                     if k in ADDED_SECTIONS and k not in a:
                         for s in sb:
                             print(f'      + {s[:300]}')
@@ -279,8 +291,10 @@ async def main():
                             bad.append(f'{name} / {page} / {k}: added: {s}')
                     # exact (ledger current): with the allowed purification and ledger sentences taken out of both, the sections are the same, in the same order
                     if not allowed and mode == 'current':
-                        if [x for x in sb if not ok_add(x)] != [x for x in sa if not ok_rm(x)]:
-                            bad.append(f'{name} / {page} / {k}: not the old text once the allowed sentences are taken out')
+                        keep_b = [x for x in sb if not (x in added and ok_add(x))]
+                        keep_a = [x for x in sa if not (x in gone and ok_rm(x))]
+                        if keep_b != keep_a:
+                            bad.append(f'{name} / {page} / {k}: not the old text once the allowed sentences are taken out | new left: {[x[:60] for x in keep_b if x not in keep_a][:6]} | old left: {[x[:60] for x in keep_a if x not in keep_b][:6]}')
                         else:
                             explained.append(f'{name} / {page} / {k}')
     print(f"\n{totals.get('banners', 0)} page views carried the warning banner (bad health nights only); every other word of every page, including each recommendation, buy zone, sell or trim call, position size, valuation and risk-limit message, was compared below")

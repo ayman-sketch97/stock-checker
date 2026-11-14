@@ -219,7 +219,7 @@ async def main():
         brf = await text_of(pg, 'Your daily brief')
         check('to look at today' in brf or 'Nothing needs doing today' in brf or 'Add the stocks you own' in brf, f'the daily brief reads as before: {brf[:160]!r}')
         order = await pg.evaluate("[...document.querySelectorAll('#page-dashboard .dash > section')].map((x) => x.getAttribute('aria-label'))")
-        check(order == ['The market today', 'System alerts', 'Your portfolio', 'Scanner candidates', 'Your daily brief', 'Ideas today'], f'the Dashboard order is market, alerts, portfolio, scanner, brief, ideas: {order}')
+        check(order == ['The market today', 'System alerts', 'Your portfolio', 'Your records on this device', 'Scanner candidates', 'Your daily brief', 'Ideas today'], f'the Dashboard order is market, alerts, portfolio, records, scanner, brief, ideas: {order}')
         tags = await pg.evaluate("[...document.querySelectorAll('#page-dashboard .src')].map((x) => x.className)")
         check(len(tags) == 3, f'the three source labels are unchanged: {tags}')
         await pg.click('#page-dashboard section[aria-label="Ideas today"] button:has-text("See all swing signals")')

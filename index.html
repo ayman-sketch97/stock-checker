@@ -200,7 +200,7 @@ button, input, select, textarea { font: inherit; color: inherit; letter-spacing:
   .wrap { max-width: var(--wrap-wide); }
   .wrap > #page-stock, .wrap > #page-record, .wrap > #page-journal, .wrap > #page-advisor,
   .wrap > #page-shariah, .wrap > #page-thesis, .wrap > #page-pfledger, .wrap > #how,
-  .wrap > #healthBanner { max-width: var(--wrap); margin-inline: auto; }
+  .wrap > #healthBanner, .wrap > #dataStatus.ds-narrow { max-width: var(--wrap); margin-inline: auto; }
 }
 header.top {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -635,7 +635,7 @@ ol.exits li { margin: 5px 0; }
 .glance::-webkit-scrollbar { display: none; }
 @media (min-width: 640px) { .glance { flex-wrap: wrap; overflow: visible; } }
 .gchip { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 13px 6px 10px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; color: var(--ink); box-shadow: var(--shadow-sm); }
-.gchip small { font-weight: 550; color: inherit; opacity: 0.8; font-size: 12px; }
+.gchip small { font-weight: 600; color: inherit; opacity: 1; font-size: 12px; }
 .gchip .ic { width: 16px; height: 16px; }
 .gchip.g-good { background: var(--good-bg); border-color: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good-ink); }
 .gchip.g-warn { background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn) 25%, transparent); color: var(--warn-ink); }
@@ -1001,9 +1001,90 @@ table.data tr.me td { background: var(--accent-wash); }
 @keyframes shine { to { background-position: 100% 50%; } }
 @keyframes breathe { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
 @keyframes drift { to { transform: translate3d(4%, 3%, 0) scale(1.06); } }
+
+/* ------------------------------------------------------------------ stage 11: trust, clarity and accessibility (display only) */
+.skip { position: absolute; left: 12px; top: -80px; z-index: 60; background: var(--surface); color: var(--accent-ink); border: 2px solid var(--accent); border-radius: 12px; padding: 10px 16px; font-weight: 700; font-size: 14px; text-decoration: none; }
+.skip:focus { top: 10px; }
+[role="main"]:focus { outline: none; }
+/* visually hidden text for screen readers */
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+th:has(> .vh) { position: relative; }
+/* one data stamp and one pause notice, the same on every page */
+.data-status { margin: var(--sp-3) 0 0; }
+.stampbar { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.stamp { display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.3; color: var(--ink-2); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; box-shadow: var(--shadow-sm); text-align: left; }
+button.stamp { cursor: pointer; }
+button.stamp:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+button.stamp:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stamp i { width: 8px; height: 8px; border-radius: 50%; background: var(--good); flex: none; }
+.stamp b { font-weight: 750; color: var(--ink); }
+.stamp.s-warn i { background: var(--warn); }
+.stamp.s-late { color: var(--bad-ink); background: var(--bad-bg); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+.stamp.s-late i { background: var(--bad); } .stamp.s-late b { color: var(--bad-ink); }
+.pause-banner { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 var(--sp-2); padding: 11px 14px; border-radius: var(--radius-sm); background: var(--bad-bg); color: var(--bad-ink); border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent); font-size: 14.5px; font-weight: 600; }
+.pause-banner .ic { flex: none; margin-top: 1px; }
+.pause-banner b { font-weight: 800; }
+/* while advice is paused: every "do this" line is hidden and a plain note takes its place (the numbers stay) */
+.paused-note { display: none; }
+body.advice-paused .paused-note { display: block; }
+body.advice-paused [data-act] { display: none !important; }
+.brief-head.is-stale { color: var(--bad-ink); font-weight: 650; background: var(--bad-bg); border-radius: 12px; padding: 9px 12px; }
+/* a loading problem says which of three things happened, and offers to try again */
+.load-err h2 { font-size: var(--fs-base); margin: 0 0 4px; }
+.load-err .ai { margin-top: 10px; }
+/* your records: what is kept on this device, the last backup and what the browser has promised */
+.rec-box { margin-top: var(--sp-4); padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); }
+.rec-box h3 { margin: 0 0 4px; font-size: var(--fs-base); }
+.rec-box .rec-line { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; color: var(--ink-2); margin-top: 6px; }
+.rec-box .rec-line .ic { flex: none; margin-top: 1px; }
+.rec-box .rec-line b { color: var(--ink); }
+.rec-box.rec-due { background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+.rec-box .ai { margin-top: 10px; }
+details.which { margin-top: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); padding: 0 14px; }
+details.which > summary { cursor: pointer; padding: 11px 0; font-size: 14px; font-weight: 700; color: var(--ink); list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; }
+details.which > summary::-webkit-details-marker { display: none; }
+details.which > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+details.which[open] > summary .chev { transform: rotate(180deg); }
+details.which dl { margin: 0 0 12px; display: grid; gap: 8px; }
+details.which dt { font-weight: 750; font-size: 13.5px; color: var(--ink); }
+details.which dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
+/* unreliable data is never drawn as healthy: the score tiles go grey and say so */
+.tiles.unrel .tile { background: var(--surface-2); box-shadow: none; }
+.tiles.unrel .ring { filter: none; }
+.tiles.unrel .ring-val { stroke: var(--muted); }
+.tiles.unrel .ring-num { fill: var(--muted); }
+.tiles.unrel .tbadge { background: var(--neutral-bg); color: var(--muted); }
+.tiles.unrel .tile .v { color: var(--ink-2); }
+.unrel-note { margin: var(--sp-3) 0 0; padding: 9px 12px; border-radius: 12px; background: var(--warn-bg); color: var(--warn-ink); font-size: 13.5px; font-weight: 650; }
+/* company page: the tab switch and a jump bar sit under the header and stay in reach while you scroll */
+.jumpbar { position: sticky; top: 0; z-index: 20; margin: 12px calc(-1 * var(--sp-2)) 0; padding: 6px var(--sp-2); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: saturate(160%) blur(12px); -webkit-backdrop-filter: saturate(160%) blur(12px); border-radius: 0 0 16px 16px; }
+.jumpbar .tabs { margin: 0; }
+.jumps { display: flex; gap: 6px; overflow-x: auto; padding: 8px 1px 2px; scrollbar-width: none; }
+.jumps::-webkit-scrollbar { display: none; }
+.jumps button { flex: none; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; white-space: nowrap; min-height: 32px; }
+.jumps button:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.jumps button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.jumps button[aria-current="true"] { background: var(--accent-wash); color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+#result section[data-jump], #result details[data-jump] { scroll-margin-top: 132px; }
+/* sideways-scrolling tables and chip rows show that there is more, and can be reached from the keyboard */
+.tscroll.can-scroll, .glance.can-scroll, .jumps.can-scroll { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+.tscroll.can-scroll.at-end, .glance.can-scroll.at-end, .jumps.can-scroll.at-end { -webkit-mask-image: none; mask-image: none; }
+.tscroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+.scroll-hint { display: none; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.tscroll.can-scroll + .scroll-hint { display: block; }
+@media (pointer: coarse) {
+  .gchip, .ghost, .brand, .jumps button, .chip { min-height: 44px; }
+  .alert-list .tk, td .linkbtn, .srow .tk { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+  .star { min-width: 44px; min-height: 44px; }
+}
+@media (max-width: 1023px) {
+  .jumpbar { top: 0; }
+}
 </style>
 </head>
 <body>
+<a class="skip" id="skipLink" href="#content">Skip to content</a>
+<div id="content" tabindex="-1"></div>
 <div class="aurora" aria-hidden="true"></div>
 <div class="wrap">
   <header class="top">
@@ -1025,10 +1106,11 @@ table.data tr.me td { background: var(--accent-wash); }
 
   <div id="healthBanner" class="health-banner" role="status" aria-label="Data problem tonight" hidden></div>
   <nav id="subnav" class="subnav" aria-label="Related pages" hidden></nav>
+  <aside id="dataStatus" class="data-status" aria-label="Data status" hidden></aside>
 
-  <section id="page-dashboard" aria-label="Dashboard" hidden></section>
-  <section id="page-alerts" aria-label="Alert Centre" hidden></section>
-  <div id="page-stock">
+  <section id="page-dashboard" role="main" tabindex="-1" aria-label="Dashboard" hidden></section>
+  <section id="page-alerts" role="main" tabindex="-1" aria-label="Alert Centre" hidden></section>
+  <div id="page-stock" role="main" tabindex="-1" aria-label="Search and company analysis">
     <div class="hero">
       <span class="eyebrow"><i aria-hidden="true"></i>Halal screen · SEC filings · updated every weekday</span>
       <h1>Know what a stock is <span class="grad">really worth</span> before you buy.</h1>
@@ -1048,19 +1130,19 @@ table.data tr.me td { background: var(--accent-wash); }
     </section>
 
     <section id="status" aria-live="polite"></section>
-    <main id="result" hidden></main>
+    <div id="result" hidden></div>
   </div>
-  <section id="page-shortlist" aria-label="Shortlist" hidden></section>
-  <section id="page-scanner" aria-label="Swing scanner" hidden></section>
-  <section id="page-watchlist" aria-label="Watchlist" hidden></section>
-  <section id="page-record" aria-label="Track record" hidden></section>
-  <section id="page-journal" aria-label="Trading journal" hidden></section>
-  <section id="page-advisor" aria-label="Portfolio advisor" hidden></section>
-  <section id="page-shariah" aria-label="Shariah ledger" hidden></section>
-  <section id="page-thesis" aria-label="Thesis and decisions" hidden></section>
-  <section id="page-pfledger" aria-label="Portfolio ledger" hidden></section>
+  <section id="page-shortlist" role="main" tabindex="-1" aria-label="Shortlist" hidden></section>
+  <section id="page-scanner" role="main" tabindex="-1" aria-label="Swing scanner" hidden></section>
+  <section id="page-watchlist" role="main" tabindex="-1" aria-label="Watchlist" hidden></section>
+  <section id="page-record" role="main" tabindex="-1" aria-label="Track record" hidden></section>
+  <section id="page-journal" role="main" tabindex="-1" aria-label="Trading journal" hidden></section>
+  <section id="page-advisor" role="main" tabindex="-1" aria-label="Portfolio advisor" hidden></section>
+  <section id="page-shariah" role="main" tabindex="-1" aria-label="Shariah ledger" hidden></section>
+  <section id="page-thesis" role="main" tabindex="-1" aria-label="Thesis and decisions" hidden></section>
+  <section id="page-pfledger" role="main" tabindex="-1" aria-label="Portfolio ledger" hidden></section>
 
-  <section id="how" class="card how" hidden>
+  <section id="how" class="card how" aria-label="How Stock Checker works" hidden>
     <h2>How Stock Checker works</h2>
     <p>It reads each company's official reports filed with the US SEC (up to 10 years), adds today's price, and runs the same checks every time. Nothing is hand-picked, and every number shows how it was judged.</p>
     <h3>The five checks</h3>
@@ -1113,7 +1195,7 @@ table.data tr.me td { background: var(--accent-wash); }
     <p><button class="ghost" id="howClose">Close</button></p>
   </section>
 
-  <footer>Educational tool, not financial advice. Financial data from SEC filings; prices from Nasdaq.</footer>
+  <footer>Educational tool, not financial advice. Financial data: SEC filings. Prices: Nasdaq end-of-day closes; if a backup source was used for a company, its page names it.</footer>
 </div>
 <div class="tip" id="tip" hidden></div>
 
@@ -1364,10 +1446,17 @@ table.data tr.me td { background: var(--accent-wash); }
       };
       if (!/^[A-Z0-9-]{1,12}$/.test(tk)) return notCovered();
       if (idx && !idx.items.some((it) => it[0] === tk)) return notCovered();
-      const r = await fetch('data/' + encodeURIComponent(tk) + '.json', { cache: 'no-cache' });
-      if (r.status === 404) return notCovered();
-      if (!r.ok) return { ok: false, error: 'The site could not load this company right now. Check your connection and try again.' };
-      try { return await r.json(); } catch { return { ok: false, error: 'This company’s file looks damaged. Please try again later today.' }; }
+      // stage 11: say which of the things that can go wrong happened, and offer to try again (the analysis itself is untouched)
+      let r;
+      try { r = await fetch('data/' + encodeURIComponent(tk) + '.json', { cache: 'no-cache' }); }
+      catch { return { ok: false, kind: 'offline', retry: true, error: `This device looks offline, or the site could not be reached, so ${tk} could not be loaded. Check your connection and try again.` }; }
+      if (r.status === 404) {
+        return idx && idx.items.some((it) => it[0] === tk)
+          ? { ok: false, kind: 'missing', retry: true, error: `${tk} is in today’s list, but its analysis file is not on the site: the nightly update has not written it (it may still be running, or it failed). Your connection is working. Try again later.` }
+          : notCovered();
+      }
+      if (!r.ok) return { ok: false, kind: 'server', retry: true, error: 'The site answered with an error, so this company could not be loaded right now. Try again in a few minutes.' };
+      try { return await r.json(); } catch { return { ok: false, kind: 'damaged', retry: true, error: 'This company’s file arrived but could not be read: it looks damaged or incomplete. Try again; if it stays like this, the nightly update needs looking at.' }; }
     }
     if (!/^[A-Z0-9.\-]{1,12}$/.test(t)) return { ok: false, error: 'Please enter a ticker symbol, for example AAPL.' };
     const cmd = `test -s ${REMOTE.file} && node ${REMOTE.file} analyze ${t} || echo __MISSING__`;
@@ -1491,10 +1580,11 @@ table.data tr.me td { background: var(--accent-wash); }
       statusEl.replaceChildren();
       remember(j.ticker);
       render(j);
+      setTitle('stock');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       if (err instanceof ToolProblem) showError({ error: problemMessage(err) }, t);
-      else showError({ error: 'Could not reach the analysis service. Check your connection and try again.' }, t);
+      else showError({ kind: 'offline', retry: true, error: MODE === 'static' ? 'This device looks offline, or the site could not be reached. Check your connection and try again.' : 'Could not reach the analysis service. Check your connection and try again.' }, t);
     } finally {
       go.disabled = false;
     }
@@ -1504,9 +1594,10 @@ table.data tr.me td { background: var(--accent-wash); }
     if (el) el.textContent = text;
   }
   function showError(j, t) {
-    const box = h('div', { class: 'card err' },
-      h('h2', { text: j.name ? `${j.name} (${t})` : 'Can’t analyze this one' }),
+    const box = h('div', { class: 'card err', 'data-load': j.kind || null },
+      h('h2', { text: j.name ? `${j.name} (${t})` : j.kind && LOAD_TITLE[j.kind] ? LOAD_TITLE[j.kind] : 'Can’t analyze this one' }),
       h('p', { class: 'sub', text: j.error || 'Something went wrong.' }));
+    if (j.retry) box.append(h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => run(t, true) }, 'Try again')));
     if (j.suggestions && j.suggestions.length) {
       box.append(h('p', { class: 'sub', style: 'margin-top:10px', text: 'Did you mean:' }));
       const c = h('div', { class: 'chips' });
@@ -1672,7 +1763,11 @@ table.data tr.me td { background: var(--accent-wash); }
       selectTab(next, true);
       document.getElementById('tab-' + next).focus();
     });
-    result.append(tabs, fund, techPanel);
+    // stage 11: the Fundamental/Technical switch sits under the header, with a row of shortcuts to the sections, and both stay in reach while you scroll
+    const jumps = h('nav', { class: 'jumps', 'aria-label': 'Sections on this page' });
+    result.insertBefore(h('div', { class: 'jumpbar' }, tabs, jumps), tech.action);
+    result.append(fund, techPanel);
+    new MutationObserver(() => { clearTimeout(buildJumps.t); buildJumps.t = setTimeout(buildJumps, 120); }).observe(result, { childList: true, subtree: true });
 
     // verdict
     const toneIcon = v.tone === 'good' ? 'good' : v.tone === 'bad' ? 'bad' : v.tone === 'warn' ? 'ok' : 'na';
@@ -1682,10 +1777,12 @@ table.data tr.me td { background: var(--accent-wash); }
       h('p', { text: v.summary }),
       v.code === 'UNRELIABLE' ? null : h('div', { class: 'conf' }, 'Confidence: ', h('b', { text: v.confidence }),
         v.confidenceReasons && v.confidenceReasons.length ? ` (${v.confidenceReasons.join('; ')})` : ''),
-      dataQualityLine(d.dataQuality)));
+      dataQualityLine(d.dataQuality),
+      HAS_SITE ? h('p', { class: 'hint stale paused-note', text: 'Advice paused: the nightly update is late, so this verdict is shown for reference only. Act after the next update.' }) : null));
 
     // tiles
-    const tiles = h('div', { class: 'tiles' });
+    const unrel = v.code === 'UNRELIABLE' || Boolean(d.dataQuality && d.dataQuality.level === 'insufficient');
+    const tiles = h('div', { class: 'tiles' + (unrel ? ' unrel' : '') });
     // a ring for the 0-100 scores, a badge with the rating icon for the rest
     const tile = (label, rating, value, sub, score = null) => h('div', { class: 'tile ' + (isNum(score) ? 'has-ring' : 'has-badge') },
       isNum(score) ? ringEl(score, rating) : h('div', { class: 'tbadge tb-' + rating }, icon(rating)),
@@ -1707,6 +1804,7 @@ table.data tr.me td { background: var(--accent-wash); }
       tile('Balance sheet', hR, L.health.label, `${L.health.score}/100`, L.health.score),
       tile('Shariah', sR, L.shariah.label, 'Confirm on Zoya/Musaffa'));
     fund.append(tiles);
+    if (unrel) fund.append(h('p', { class: 'unrel-note', role: 'note', text: 'Not a rating: the data behind these scores is not reliable enough, so they are shown in grey for reference only.' }));
 
     // fair value and the long-term entry/exit plan
     if (f) fund.append(fairValueCard(d));
@@ -1765,6 +1863,29 @@ table.data tr.me td { background: var(--accent-wash); }
     else updateTechTab();
   }
 
+  // the shortcuts row of the company page: one button per visible section of the page and of the tab on screen
+  function buildJumps() {
+    const nav = result.querySelector('.jumps');
+    if (!nav) return;
+    const on = ['fund', 'tech'].find((t) => { const b = document.getElementById('tab-' + t); return b && b.getAttribute('aria-selected') === 'true'; }) || 'fund';
+    const panel = document.getElementById('panel-' + on);
+    const els = [...result.querySelectorAll(':scope > section.card, :scope > details'), ...(panel ? panel.querySelectorAll(':scope > section.card, :scope > details') : [])];
+    const seen = new Set();
+    const btns = [];
+    for (const el of els) {
+      if (el.hidden || el.closest('[hidden]')) continue;
+      const hd = el.querySelector(':scope > h2, :scope > summary, :scope > .kicker');
+      const name = String(el.getAttribute('aria-label') || (hd && hd.textContent) || '').replace(/\s+/g, ' ').trim().slice(0, 28);
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      el.setAttribute('data-jump', '1');
+      btns.push(h('button', { type: 'button', text: name, onclick: () => { const rm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; el.scrollIntoView({ behavior: rm ? 'auto' : 'smooth', block: 'start' }); if (el.tagName === 'DETAILS') el.open = true; } }));
+    }
+    const sig = btns.map((b) => b.textContent).join('|');
+    if (nav.dataset.sig === sig) return;
+    nav.dataset.sig = sig;
+    nav.replaceChildren(...btns);
+  }
   function selectTab(id, byUser) {
     for (const t of ['fund', 'tech']) {
       const b = document.getElementById('tab-' + t);
@@ -1780,6 +1901,7 @@ table.data tr.me td { background: var(--accent-wash); }
       history.replaceState(null, '', '?t=' + encodeURIComponent(current.ticker) + (id === 'tech' ? '&view=technical' : '') + (rep === 'swing' ? '&report=swing' : ''));
     }
     if (id === 'tech') showTech();
+    buildJumps();
   }
 
   function titleCase(sx) {
@@ -1850,7 +1972,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!d.sources || !d.sources.length) return null;
     const val = (r) => (r.item === 'Shares outstanding' ? (isNum(r.value) ? (r.value / 1e6).toLocaleString('en-US', { maximumFractionDigits: 0 }) + 'M' : 'not reported') : r.item === 'Price' ? price(r.value) : isNum(r.value) ? bigMoney(r.value) : 'not reported');
     return h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
-      h('tr', null, ['Figure', 'Value'].map((x) => h('th', { text: x }))),
+      h('tr', null, ['Figure', 'Value'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
       d.sources.map((r) => h('tr', null,
         h('td', null, h('b', { text: r.item }), h('span', { class: 'sm', text: niceDates([r.period, r.tag, r.form ? `${r.form}${r.filed ? ' filed ' + r.filed : ''}` : ''].filter(Boolean).join(' · ')) }),
           r.url ? h('a', { class: 'sm', href: r.url, target: '_blank', rel: 'noopener', text: 'Open the filing' }) : null),
@@ -2033,7 +2155,7 @@ table.data tr.me td { background: var(--accent-wash); }
       const path = pt.value >= 0
         ? `M${x0},${y0} V${y1 + r} Q${x0},${y1} ${x0 + r},${y1} H${x0 + bw - r} Q${x0 + bw},${y1} ${x0 + bw},${y1 + r} V${y0} Z`
         : `M${x0},${y0} V${y1 - r} Q${x0},${y1} ${x0 + r},${y1} H${x0 + bw - r} Q${x0 + bw},${y1} ${x0 + bw},${y1 - r} V${y0} Z`;
-      const bar = s('path', { d: path, class: 'bar', tabindex: '0', 'aria-label': `${pt.label}: ${money(pt.value)}` });
+      const bar = s('path', { d: path, class: 'bar', tabindex: '0', role: 'img', 'aria-label': `${pt.label}: ${money(pt.value)}` });
       const hit = s('rect', { x: padL + band * i, y: padT, width: band, height: H - padT - padB, fill: 'transparent' });
       const show = (e) => showTip(e, money(pt.value), `Fiscal ${pt.label}`, bar);
       [bar, hit].forEach((el) => {
@@ -2108,8 +2230,10 @@ table.data tr.me td { background: var(--accent-wash); }
       trim: ['Trim zone', 'ok', 'The price is above even the optimistic (bull-case) value. If you own it, consider selling part to lock in gains, and don’t add more here.'],
     };
     const z = ZONE[P.zone] || ZONE.hold;
-    card.append(h('div', { class: 'zone-now zone-' + P.zone }, icon(z[1]), z[0]));
-    card.append(h('p', { class: 'sub', style: 'margin-top:8px', text: z[2] }));
+    // stage 11: while advice is paused the zone call and its instruction are hidden; the levels above stay as numbers
+    if (HAS_SITE) card.append(h('p', { class: 'hint stale paused-note', text: 'Advice paused: the nightly update is late, so no buy, hold or trim zone is given. The levels above are for reference only.' }));
+    card.append(h('div', { class: 'zone-now zone-' + P.zone, 'data-act': '' }, icon(z[1]), z[0]));
+    card.append(h('p', { class: 'sub', style: 'margin-top:8px', 'data-act': '', text: z[2] }));
     if (['AVOID_WEAK', 'PASS', 'SPECULATIVE', 'NODATA'].includes(code)) {
       card.append(h('div', { class: 'callout', text: 'The business itself is rated weak or unclear, so these levels are for reference only: a low price doesn’t make a weak business a good buy.' }));
     } else if (code === 'LOOK') {
@@ -2117,7 +2241,7 @@ table.data tr.me td { background: var(--accent-wash); }
     }
     if (d.sellIf && d.sellIf.length) card.append(sellIfList(d));
     card.append(h('p', { class: 'sub', style: 'margin-top:12px', text: 'There is no stop loss in a long-term plan: a falling price alone is not a reason to sell a business that is still strong. For a short-term trade with a stop loss, see the Technical tab.' }));
-    if (HAS_SITE) card.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => logTrade(d.ticker, { entry: tech && tech.liveQ ? tech.liveQ.p : d.price, setup: 'longterm' }) }, 'Log a buy in my journal')));
+    if (HAS_SITE) card.append(h('div', { class: 'row-actions', 'data-act': '' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => logTrade(d.ticker, { entry: tech && tech.liveQ ? tech.liveQ.p : d.price, setup: 'longterm' }) }, 'Log a buy in my journal')));
     return card;
   }
   function sellIfList(d) {
@@ -2241,7 +2365,7 @@ table.data tr.me td { background: var(--accent-wash); }
         h('span', { class: 'score' }, T.label, h('small', { text: `${T.score}/100` }))),
       h('div', { class: 'title', text: T.trendLabel }),
       h('p', { text: T.guidance }),
-      h('div', { class: 'conf', text: `Daily prices through the close on ${niceDates(T.asOf)}. The score counts how many chart signals point up (100) or down (0). It is not a probability of profit.` })));
+      h('div', { class: 'conf', text: `Daily prices: close of ${niceDates(T.asOf)}. The score counts how many chart signals point up (100) or down (0). It is not a probability of profit.` })));
     panel.append(tradePlanCard(d, T, halalFail));
     panel.append(chartCard(d, T, halalFail));
     panel.append(signalsCard(T));
@@ -2255,15 +2379,17 @@ table.data tr.me td { background: var(--accent-wash); }
     const paper = !halalFail && p.status === 'active' && TRADED.includes(p.setup) && !swingProven();
     const [bcls, btxt] = halalFail ? ['b-none', 'Not halal: no plan'] : paper ? ['b-paper', 'Paper trade only'] : STATUS[p.status] || STATUS.none;
     const card = h('section', { class: 'card', 'aria-label': 'Swing trade plan' },
-      h('div', { class: 'tech-head' }, h('h2', { text: 'Swing trade plan' }), h('span', { class: 'badge ' + bcls, text: btxt })),
-      h('p', { class: 'sub', text: `Setup: ${SETUP_NAME[p.setup] || p.setup}. A short-term plan (weeks to a few months), separate from the long-term plan on the Fundamental tab.` }));
+      h('div', { class: 'tech-head' }, h('h2', { text: 'Swing trade plan' }), h('span', { class: 'badge ' + bcls, 'data-act': '', text: btxt })),
+      h('p', { class: 'sub', text: `Setup: ${SETUP_NAME[p.setup] || p.setup}. A short-term plan (weeks to a few months), separate from the long-term plan on the Fundamental tab.` }),
+      // stage 11: while advice is paused the signal, the order and the exit steps are hidden; the levels stay as numbers
+      HAS_SITE ? h('p', { class: 'hint stale paused-note', text: 'Advice paused: the nightly update is late, so no swing signal, entry or exit instruction is given. The levels below are for reference only.' }) : null);
     if (paper) card.append(paperNote('Follow it in the Journal as a paper trade to learn the rules without risking money.'));
     if (halalFail) {
       card.append(h('div', { class: 'callout', text: 'This company fails the Shariah screen, so there is no entry or exit plan. The chart is for information only.' }));
       return card;
     }
     const lead = p.status === 'active' ? 'How to enter: ' : p.status === 'none' ? 'What to wait for: ' : 'What has to happen first: ';
-    card.append(h('div', { class: 'callout' }, h('b', { text: lead }), p.trigger));
+    card.append(h('div', { class: 'callout', 'data-act': '' }, h('b', { text: lead }), p.trigger));
     // things that make a swing trade riskier right now
     if (p.status !== 'none') {
       if (T.market && T.market.regime === 'down') {
@@ -2316,9 +2442,9 @@ table.data tr.me td { background: var(--accent-wash); }
     }
     card.append(h('p', { class: 'sub', style: 'margin-top:10px', text: `R is the reward for each unit of risk: target 1 at ${p.rr1}R means a win there is ${p.rr1} times the loss you would take at the stop.${live ? ' A limit protects you from a big gap: if the price opens above it, the order does not fill, and that is fine.' : ' These numbers only apply once the trigger above happens.'}` }));
     card.append(calcBox(p));
-    card.append(h('h3', { text: 'Exit plan' }), h('ol', { class: 'exits' }, (p.exits || []).map((x) => h('li', { text: x }))));
+    card.append(h('h3', { 'data-act': '', text: 'Exit plan' }), h('ol', { class: 'exits', 'data-act': '' }, (p.exits || []).map((x) => h('li', { text: x }))));
     if (HAS_SITE) {
-      card.append(h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => {
+      card.append(h('div', { class: 'row-actions', 'data-act': '' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => {
         const L = tech && tech.liveQ;
         logTrade(d.ticker, { entry: L && L.newSession ? L.p : p.entry, stop: p.stop, target: p.target1, setup: p.setup, paper: !swingProven() });
       } }, swingProven() ? 'Log this trade in my journal' : 'Log it as a paper trade')));
@@ -2442,7 +2568,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const card = h('section', { class: 'card chart-card', 'aria-label': 'Price chart' });
     const ranges = h('div', { class: 'ranges', role: 'group', 'aria-label': 'Chart range' });
     const legend = h('div', { class: 'legend' });
-    const box = h('div', { class: 'lw', role: 'img', 'aria-label': `Candlestick chart of ${d.ticker} with moving averages, RSI and MACD` }, h('div', { class: 'lw-msg', text: 'Loading chart…' }));
+    const box = h('div', { class: 'lw', role: 'group', 'aria-label': `Candlestick chart of ${d.ticker} with moving averages, RSI and MACD` }, h('div', { class: 'lw-msg', text: 'Loading chart…' }));
     const toggles = h('div', { class: 'toggles', role: 'group', 'aria-label': 'Show on chart' });
     // stage 8: daily or weekly candles, Bollinger Bands, and a line saying where the prices come from and how old they are
     let tf = store.get('chartTf', 'daily') === 'weekly' ? 'weekly' : 'daily';
@@ -2835,15 +2961,66 @@ table.data tr.me td { background: var(--accent-wash); }
   const SHARIAH_TAG = { pass: ['Halal', 'good'], review: ['Halal: check', 'warn'], fail: ['Not halal', 'bad'] };
   const SH_WORD = { pass: 'passes', review: 'needs checking', fail: 'fails' };
   const jsonCache = new Map();
+  // Stage 11 (display only): why a file did not load, so a page can say which of these happened instead of always blaming the connection.
+  //   offline: the request got no answer (no network, or the site could not be reached)
+  //   missing: the site answered that it has no such file (404): the nightly update has not written it
+  //   damaged: the file arrived but is not readable data, or lacks the parts the page needs
+  //   server:  the site answered with some other error
+  // What is loaded, and what a page does with it, is unchanged: a file that fails is still "no data" (null) to every caller.
+  const loadFail = new Map();
   function getJson(path) {
     if (!jsonCache.has(path)) {
       const p = fetch(path, { cache: 'no-cache' })
-        .then((r) => (r.ok ? r.json() : null))
+        .then((r) => {
+          if (!r.ok) { loadFail.set(path, r.status === 404 ? 'missing' : 'server'); return null; }
+          return r.json().then((j) => { if (j) loadFail.delete(path); else loadFail.set(path, 'damaged'); return j || null; }, () => { loadFail.set(path, 'damaged'); return null; });
+        }, () => { loadFail.set(path, 'offline'); return null; })
         .catch(() => null)
         .then((j) => { if (!j) jsonCache.delete(path); return j; });
       jsonCache.set(path, p);
     }
     return jsonCache.get(path);
+  }
+  const LOAD_TITLE = { offline: 'You appear to be offline', missing: 'Tonight’s file is not on the site', damaged: 'The file could not be read', server: 'The site answered with an error', unknown: 'The data did not load' };
+  const LOAD_WHY = {
+    offline: 'This device looks offline, or the site could not be reached. Check your connection and try again.',
+    missing: 'Your connection is working, but the file is not on the site: the nightly update has not written it (it may still be running, or it failed). Try again later.',
+    damaged: 'The file arrived but could not be read: it is damaged or incomplete. Try again; if it stays like this, the nightly update needs looking at.',
+    server: 'The site answered with an error. Try again in a few minutes.',
+    unknown: 'Check your connection and try again.',
+  };
+  function loadKind(paths) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+    const kinds = paths.map((p) => loadFail.get(p)).filter(Boolean);
+    for (const k of ['offline', 'damaged', 'missing', 'server']) if (kinds.includes(k)) return k;
+    return 'unknown';
+  }
+  // the last data day this device saw (the Watchlist already keeps it), so a loading problem can say how old the last good data is
+  let seenThisVisit = '';
+  function lastSeenDate() {
+    if (seenThisVisit) return seenThisVisit;
+    const w = store.get('watch', null);
+    const d = w && w.snap && typeof w.snap.date === 'string' ? w.snap.date : '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '';
+  }
+  function retryLoad() {
+    for (const p of [...loadFail.keys()]) jsonCache.delete(p);
+    loadFail.clear();
+    screenPromise = null;
+    indexPromise = null;
+    const t = page === 'stock' ? new URLSearchParams(location.search).get('t') : null;
+    if (t) run(t, true); else showPage(page);
+    renderHealthBanner();
+  }
+  // a loading problem: the page's own first sentence (lead), then which of the kinds above it was, then what that means here (tail)
+  function loadErrCard(lead, paths, tail) {
+    const kind = loadKind(paths);
+    const seen = lastSeenDate();
+    return h('section', { class: 'card err load-err', 'data-load': kind, 'aria-label': 'Loading problem' },
+      h('h2', { text: LOAD_TITLE[kind] }),
+      h('p', { class: 'sub', text: [lead, LOAD_WHY[kind], tail].filter(Boolean).join(' ') }),
+      seen ? h('p', { class: 'note', text: `The last data this device saw was the close of ${niceDates(seen)}.` }) : null,
+      h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: retryLoad }, 'Try again')));
   }
   let screenPromise = null;
   let SCR_NOW = null; // the loaded screen, for code that cannot wait (the stock page's risk check)
@@ -2851,7 +3028,8 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!HAS_SITE) return Promise.resolve(null);
     if (!screenPromise) {
       screenPromise = Promise.all([getJson('data/screen.json'), loadQuotes()]).then(([j]) => {
-        if (!j || !Array.isArray(j.rows) || !Array.isArray(j.fields)) { screenPromise = null; return null; }
+        if (!j || !Array.isArray(j.rows) || !Array.isArray(j.fields)) { if (j) loadFail.set('data/screen.json', 'damaged'); screenPromise = null; return null; }
+        if (typeof j.priceDate === 'string') seenThisVisit = j.priceDate;
         const list = j.rows.map((r) => { const o = {}; j.fields.forEach((k, i) => { o[k] = r[i]; }); return o; });
         const scr = { ...j, list, by: new Map(list.map((o) => [o.ticker, o])) };
         overlayQuotes(scr);
@@ -5273,14 +5451,14 @@ table.data tr.me td { background: var(--accent-wash); }
     const st = staleOf(SCR_NOW);
     // native replaceChildren/append print a null child as the word "null" (h() skips them), so filter first
     t.action.replaceChildren(...[
-      h('div', { class: 'act-h' }, h('h2', { text: 'What to do now' }), h('span', { class: 'sub', text: L ? liveLabel(L) : b.date ? `Closing price, ${shortDate(b.date)}` : '' })),
+      h('div', { class: 'act-h' }, h('h2', { text: 'What to do now' }), h('span', { class: 'sub', text: L ? liveLabel(L) : b.date ? `Close of ${niceDates(b.date)}` : '' })),
       st ? h('p', { class: 'hint stale', text: staleText(st) }) : null,
-      ...rows,
+      ...(st ? [] : rows), // stage 11: while advice is paused no row says buy, sell or wait
       h('p', { class: 'note', text: `Rules applied to the data, not a guarantee. Size every trade so the stop loses at most ${pct(limits().swingRisk, 1)} of your portfolio.` })].filter(Boolean));
     // the price in the header
     if (t.pxEl) {
       t.pxEl.textContent = price(px);
-      t.pxSub.textContent = L ? `${isNum(L.chg) ? pctS(L.chg, 1) + ' · ' : ''}${L.open ? 'delayed last sale' : shortDate(L.session)}` : b.date ? `Close ${shortDate(b.date)}` : '';
+      t.pxSub.textContent = L ? `${isNum(L.chg) ? pctS(L.chg, 1) + ' · ' : ''}${L.open ? 'delayed last sale' : shortDate(L.session)}` : b.date ? `Close of ${niceDates(b.date)}` : '';
       t.pxSub.className = 'm' + (L && isNum(L.chg) ? (L.chg >= 0 ? ' up' : ' down') : '');
     }
     if (t.updateNow) t.updateNow();
@@ -5580,13 +5758,23 @@ table.data tr.me td { background: var(--accent-wash); }
     return bar;
   }
   const MIX_LABEL = { core: 'Halal index fund', stocks: 'Your stocks', swing: 'Swing trades', safe: 'Safe part (sukuk or cash)' };
+  // stage 11: which record is which (the three places a holding can be recorded). Explains; changes nothing.
+  function withWhich(head) {
+    head.append(h('details', { class: 'which' }, h('summary', null, h('span', { text: 'Which record is which?' }), h('span', { class: 'chev', 'aria-hidden': 'true', text: '⌄' })),
+      h('dl', null,
+        h('dt', { text: 'Watchlist positions' }), h('dd', { text: 'The shares and cost you type on a followed company. They drive the daily brief, the Dashboard and the Watchlist alerts. Quick to edit; not a permanent record.' }),
+        h('dt', { text: 'Portfolio ledger' }), h('dd', { text: 'Your cash, buys, sells, dividends and fees as entries that cannot be quietly changed (a mistake is voided by a new entry). Under Portfolio. It is kept apart from the Watchlist positions and the two totals are never added together.' }),
+        h('dt', { text: 'Journal' }), h('dd', { text: 'Your own trades with the reason you took them and how they went, for learning from them. It does not change what the Portfolio page or the ledger hold.' }),
+        h('dt', { text: 'Backups' }), h('dd', { text: 'All of them live in this browser only. One backup file (Journal page, Save backup) covers all three.' }))));
+    return head;
+  }
   async function renderAdvisor() {
     const el = $('#page-advisor');
-    const head = pageHead('Portfolio', 'A plan for your whole portfolio: what mix suits you, which stocks fit and for how long, and where each month’s money should go. Saved on this device only.');
+    const head = withWhich(pageHead('Portfolio', 'A plan for your whole portfolio: what mix suits you, which stocks fit and for how long, and where each month’s money should go. Saved on this device only.'));
     el.replaceChildren(head, loadingBox('Loading today’s data…'));
     const [scr] = await Promise.all([loadScreen(), loadSwingProof(), loadLtSummary().then((x) => { LT_SUMMARY = x; })]);
     if (page !== 'advisor') return;
-    if (!scr) { el.replaceChildren(head, errCard('Could not load today’s data. Check your connection and try again.')); return; }
+    if (!scr) { el.replaceChildren(head, loadErrCard('Could not load today’s data.', ['data/screen.json'])); return; }
     const a = ADV.load();
     const rerender = () => renderAdvisor();
     const num = (v) => { const n = toNum(v); return Number.isFinite(n) && n >= 0 ? n : null; };
@@ -5740,7 +5928,7 @@ table.data tr.me td { background: var(--accent-wash); }
       const cur = { core: coreVal / total, stocks: ltVal / total, swing: swVal / total, safe: safeVal / total };
       nowCard.append(h('div', { class: 'stats' }, stat('Total', money0(total), `about AED ${Math.round(total * AED_PER_USD).toLocaleString('en-US')}`), stat('Stocks held', String(lt.length + other.filter((o) => o.kind === 'stock').length), `target ${nRange}${sw.length ? ` · ${sw.length} swing` : ''}`)));
       nowCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-        h('tr', null, ['Part', 'Now', 'Target'].map((x) => h('th', { text: x }))),
+        h('tr', null, ['Part', 'Now', 'Target'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
         ['core', 'stocks', 'swing', 'safe'].filter((k) => T[k] > 0 || cur[k] > 0).map((k) => {
           const d = cur[k] - T[k];
           return h('tr', null, h('td', { text: MIX_LABEL[k] }),
@@ -5756,7 +5944,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (lt.length) {
       nowCard.append(h('h3', { text: 'Your US stocks and how long you plan to hold each' }));
       nowCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-        h('tr', null, ['Stock', 'Value', 'Hold', ''].map((x) => h('th', { text: x }))),
+        h('tr', null, ['Stock', 'Value', 'Hold', ''].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
         lt.map((x) => {
           const s = h('select', { 'aria-label': `Holding period for ${x.t}` });
           HP_ORDER.forEach((k) => s.append(h('option', { value: k, selected: x.hp === k ? true : null }, HP[k].label)));
@@ -5790,7 +5978,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const KIND_LABEL = { fund: 'Fund (ETF)', sukuk: 'Sukuk fund', cash: 'Cash', stock: 'Stock outside the US' };
     if (other.length) {
       nowCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
-        h('tr', null, ['Holding', 'Value', ''].map((x) => h('th', { text: x }))),
+        h('tr', null, ['Holding', 'Value', ''].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
         other.map((o) => h('tr', null,
           h('td', null, h('b', { text: o.kind === 'cash' ? 'Cash' : o.sym }), h('span', { class: 'sm', text: [o.f ? o.f.name : KIND_LABEL[o.kind === 'equity' ? 'fund' : o.kind], o.kind === 'stock' && MARKETS[o.market] ? MARKETS[o.market].label : '', o.liveVal ? `${fmtShares(o.shares)} units at ${o.live.local}` : ''].filter(Boolean).join(' · ') })),
           h('td', null, money0(o.value), h('span', { class: 'sm', text: o.liveVal ? 'live' : 'as you typed it' })),
@@ -5890,7 +6078,13 @@ table.data tr.me td { background: var(--accent-wash); }
       }
       if (r && r.shariah === 'review' && !['Sell', 'Check halal'].includes(act)) why.push('Its halal status is unresolved: check it on Zoya.');
       if (x.hp === 'short' && x.since && daysApart(x.since, localISO()) > 365) why.push('Held over 12 months as a short-term position: review it.');
-      if (stale) { act = 'Paused'; tone = 'neutral'; }
+      if (stale) {
+        act = 'Paused'; tone = 'neutral';
+        // stage 11: a paused row gives no call in its words either. Only a Shariah warning stays (it does not need fresh prices).
+        const keep = why.filter((s0) => /Shariah screen|halal status/i.test(s0));
+        why.length = 0;
+        why.push(...keep, 'Advice paused: the call for this holding returns after the next nightly update.');
+      }
       const st = sinceTxt(x);
       advRows.push({ name: x.t, sub: [HP[x.hp].label, r ? price(r.price) : isNum(x.px) ? price(x.px) : ''].filter(Boolean).join(' · '), act, tone, why: (st ? st[0].toUpperCase() + st.slice(1) + '. ' : '') + why.join(' '), open: r ? x.t : null, dec: { why: why.slice(), wgt, bc: { limitsOk: bc.limitsOk, why: bc.why, ledger: bc.ledger } } });
     }
@@ -5922,6 +6116,7 @@ table.data tr.me td { background: var(--accent-wash); }
         else if (/Emerging|only/.test(o.f.region)) { why = `${o.f.region}: fine as a small extra, but the base of the portfolio should be a world fund (${best.t}).`; }
         else { tone = 'good'; why = `A good halal fund (fee ${pct(o.f.ter, 2)} a year). No need to sell it: switching costs commissions for little gain. New money can go here or into ${best.t}.`; }
       }
+      if (stale && (act === 'Add' || act === 'Invest the extra')) { act = 'Paused'; tone = 'neutral'; why = 'Advice paused: new money waits for the next nightly update.'; }
       const live = o.live && isNum(o.live.chg) ? `${o.live.local} · ${pctS(o.live.chg, 1)} today` : '';
       advRows.push({ name: o.kind === 'cash' ? 'Cash' : o.sym, sub: [money0(o.value), live].filter(Boolean).join(' · '), act, tone, why });
     }
@@ -5952,7 +6147,8 @@ table.data tr.me td { background: var(--accent-wash); }
         h('span', { class: 'top' }, h('span', { class: 'tk', text: x.name }), h('span', { class: 'nm', text: x.sub }), h('span', { class: 'pr' }, tagEl(x.act, x.tone))),
         h('span', { class: 'det', text: x.why })))));
     } else advCard.append(h('p', { class: 'sub', text: 'Nothing recorded yet. Add the US stocks you own under “Your portfolio now” (or with “I own it” on a company’s page), and your funds, sukuk and cash there too.' }));
-    if (checks.length) advCard.append(h('h3', { text: 'The portfolio as a whole' }), h('ul', { class: 'alert-list' }, checks.map(([tone, t]) => h('li', null, icon(tone === 'bad' ? 'bad' : 'ok'), h('span', { text: t })))));
+    if (stale) { /* stage 11: the whole-portfolio checks read late prices, so they wait too */ }
+    else if (checks.length) advCard.append(h('h3', { text: 'The portfolio as a whole' }), h('ul', { class: 'alert-list' }, checks.map(([tone, t]) => h('li', null, icon(tone === 'bad' ? 'bad' : 'ok'), h('span', { text: t })))));
     else if (advRows.length) advCard.append(h('p', { class: 'note', text: 'The portfolio as a whole: no concentration, tax or balance problems found.' }));
     advCard.append(h('p', { class: 'note', text: 'Based on the latest prices and today’s analysis of each company. A rule-based check, not a forecast.' }));
     parts.push(advCard);
@@ -6071,7 +6267,7 @@ table.data tr.me td { background: var(--accent-wash); }
       if (leftOver > 1 && focusOnly) planLines.push(['Cash for now', leftOver, `What your ${pct(limits().buyCap, 0)} limit for one stock leaves over this month. It goes to stocks in a later month.`]);
       planCard.append(h('p', { class: 'sub', text: `AED ${pf.monthlyAed.toLocaleString('en-US')} is about ${money0(monthlyUsd)}. It goes where your portfolio is furthest below its target mix, so you rarely have to sell anything.` }),
         h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
-          h('tr', null, ['Buy', 'Amount'].map((x) => h('th', { text: x }))),
+          h('tr', null, ['Buy', 'Amount'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
           planLines.map(([what, amt, note]) => h('tr', null, h('td', null, h('b', { text: what }), h('span', { class: 'sm', text: note })), h('td', { text: money0(amt) }))))));
       // held stocks the Shariah ledger keeps from getting new money (whatever the plan would otherwise have said)
       const noMoney = lt.filter((x) => scr.by.get(x.t) && !ledgerGate(x.t).ok).map((x) => x.t);
@@ -6172,7 +6368,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const mkts = ['US', 'LSE_USD', 'AMS_USD', 'LSE_GBP', 'EU_EUR'];
     const cell = (m, amt) => { const c = tradeCost(m, amt, plan, 60); const tone = c.pct <= 0.0025 ? 'good' : c.pct <= 0.005 ? 'warn' : 'bad'; const t = tagEl(pct(c.pct, 2), tone); t.title = money0(c.usd); return h('td', null, t); };
     costCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-      h('tr', null, ['Market', '$300', '$1,000', '$3,000'].map((x) => h('th', { text: x }))),
+      h('tr', null, ['Market', '$300', '$1,000', '$3,000'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
       mkts.map((m) => h('tr', null, h('td', { text: MARKETS[m].short }), cell(m, 300), cell(m, 1000), cell(m, 3000))))));
     const rt = tradeCost('LSE_USD', 300, plan, 60);
     costCard.append(h('ul', { class: 'clean' },
@@ -6497,7 +6693,7 @@ table.data tr.me td { background: var(--accent-wash); }
   }
   async function renderJournal() {
     const el = $('#page-journal');
-    const head = pageHead('Journal', 'Your own trades: what you bought, why, and how it went. Saved on this device only; nothing is sent anywhere.');
+    const head = withWhich(pageHead('Journal', 'Your own trades: what you bought, why, and how it went. Saved on this device only; nothing is sent anywhere.'));
     const [scr, bt] = await Promise.all([loadScreen(), loadBtSummary()]);
     if (page !== 'journal') return;
     const j = JR.load();
@@ -6517,12 +6713,14 @@ table.data tr.me td { background: var(--accent-wash); }
     const open = j.trades.filter((tr) => !tr.closed).sort((a, b) => (a.opened < b.opened ? 1 : -1));
     if (open.length) {
       const card = h('section', { class: 'card', 'aria-label': 'Open trades' }, h('h2', { text: `Open trades (${open.length})` }));
+      if (staleOf(scr)) card.append(h('p', { class: 'hint stale', text: `${staleText(staleOf(scr))} Stop, target and earnings flags on open trades are hidden until then.` }));
       for (const tr of open) {
         const now = nowOf(tr.t);
         const c = tradeCalc(tr, now);
         const box = h('div', { class: 'jr-item' });
         const r = scr && scr.by.get(tr.t);
-        const flags = journalFlags(tr, scr);
+        // stage 11: while advice is paused only a Shariah flag is shown; stop, target and earnings flags wait (as in the Alert Centre)
+        const flags = staleOf(scr) ? journalFlags(tr, scr).filter(([, text]) => text.startsWith('Fails the Shariah')) : journalFlags(tr, scr);
         const act = h('div', { class: 'row-actions' });
         const sub = h('div');
         act.append(
@@ -6587,7 +6785,7 @@ table.data tr.me td { background: var(--accent-wash); }
       for (const x of s.list) { const k = x.tr.setup || 'none'; if (!bySetup.has(k)) bySetup.set(k, []); bySetup.get(k).push(x); }
       if (bySetup.size > 1) {
         statCard.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-          h('tr', null, ['Setup', 'Trades', 'Win rate', 'Avg R'].map((x) => h('th', { text: x }))),
+          h('tr', null, ['Setup', 'Trades', 'Win rate', 'Avg R'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
           [...bySetup.entries()].map(([k, a]) => {
             const wr = a.filter((x) => x.pnl > 0).length / a.length;
             const rr = a.filter((x) => isNum(x.R));
@@ -6665,7 +6863,7 @@ table.data tr.me td { background: var(--accent-wash); }
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => fileIn.click() }, 'Load a backup'),
         h('button', { class: 'btn btn-outline btn-sm', type: 'button', disabled: j.trades.length ? null : true, onclick: () => saveFile(`trading-journal-${localISO()}.csv`, journalCsv(JR.load()), 'text/csv') }, 'Export for Excel')),
       fileIn, bmsg,
-      h('p', { class: 'note', text: 'On iPhone and iPad, add this site to your Home Screen (Share, then Add to Home Screen). Safari can clear the data of websites you have not opened for a week; Home Screen apps keep it.' })].filter(Boolean));
+      h('p', { class: 'note', text: 'On iPhone and iPad, add this site to your Home Screen (Share, then Add to Home Screen). Safari can clear the data of websites you have not opened for about a week; a Home Screen app is counted separately, which helps but is not a guarantee, so keep a backup file.' })].filter(Boolean));
     parts.push(bk);
     el.replaceChildren(...parts);
   }
@@ -7608,7 +7806,7 @@ table.data tr.me td { background: var(--accent-wash); }
   // the ledger's own page
   async function renderPfLedger() {
     const el = $('#page-pfledger');
-    const head = pageHead('Portfolio ledger', 'Your cash, buys, sells, dividends and fees, kept as a record that cannot be quietly changed. From it: what you hold, average cost, profit and loss, and how each position and sector sits against your limits. Saved on this device only. Nothing here changes any advice. This is a separate record from “Your portfolio now” on the Portfolio page: that list feeds the advice, this ledger only records and measures, and the two totals are never added together.');
+    const head = withWhich(pageHead('Portfolio ledger', 'Your cash, buys, sells, dividends and fees, kept as a record that cannot be quietly changed. From it: what you hold, average cost, profit and loss, and how each position and sector sits against your limits. Saved on this device only. Nothing here changes any advice. This is a separate record from “Your portfolio now” on the Portfolio page: that list feeds the advice, this ledger only records and measures, and the two totals are never added together.'));
     el.replaceChildren(head, loadingBox('Loading prices…'));
     let scr = null;
     try { scr = await loadScreen(); } catch { scr = null; }
@@ -7652,7 +7850,7 @@ table.data tr.me td { background: var(--accent-wash); }
       if (v.rows.length) {
         const exOf = (t) => ex.positions.find((p) => p.t === t);
         pos.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-          h('tr', null, ['Holding', 'Shares', 'Average cost', 'Price', 'Value', 'Share', 'Profit or loss', 'Against your limits'].map((x) => h('th', { text: x }))),
+          h('tr', null, ['Holding', 'Shares', 'Average cost', 'Price', 'Value', 'Share', 'Profit or loss', 'Against your limits'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
           v.rows.map((r) => {
             const e = exOf(r.t);
             const tone = e.state === 'trim' ? 'bad' : e.state === 'trim_small' || e.state === 'at_cap' ? 'warn' : 'good';
@@ -7676,7 +7874,7 @@ table.data tr.me td { background: var(--accent-wash); }
         const sec = h('section', { class: 'card', 'aria-label': 'Sector exposure' }, h('h2', { text: 'Sector exposure' }));
         sec.append(h('p', { class: 'sub', text: `A share of your long-term stocks in the ledger (${money0(ex.stocksValue)}). Funds and short-term trades are not part of it.` }));
         sec.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-          h('tr', null, ['Sector', 'Value', 'Share', ''].map((x) => h('th', { text: x }))),
+          h('tr', null, ['Sector', 'Value', 'Share', ''].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
           ex.sectors.map((x) => h('tr', null, h('td', { text: x.sector }), h('td', { text: money0(x.value) }), h('td', { text: pct(x.share, 0) }),
             h('td', null, h('span', { class: 'tag t-' + (!x.known ? 'warn' : x.open ? 'good' : 'bad'), text: !x.known ? 'Cannot be checked' : x.open ? `Under ${pct(L.sectorMax, 0)}` : `At or above ${pct(L.sectorMax, 0)}: no new money` })))))));
         parts.push(sec);
@@ -7686,7 +7884,7 @@ table.data tr.me td { background: var(--accent-wash); }
       if (st.trades.length || st.closed.length) {
         const rl = h('section', { class: 'card', 'aria-label': 'Realized results' }, h('h2', { text: 'Sales and realized results' }));
         rl.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-          h('tr', null, ['Date', 'Sold', 'At', 'Average cost', 'Fees', 'Realized'].map((x) => h('th', { text: x }))),
+          h('tr', null, ['Date', 'Sold', 'At', 'Average cost', 'Fees', 'Realized'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
           [...st.trades].reverse().map((tr) => h('tr', null, h('td', { text: pfDate(tr.date) }), h('td', { text: `${fmtShares(tr.shares)} ${tr.t}` }), h('td', { text: money0(tr.price) }), h('td', { text: money0(tr.avgCost) }), h('td', { text: money0(tr.fees) }), h('td', null, h('span', { class: pfTone(tr.realized), text: pfSigned(tr.realized) })))))));
         parts.push(rl);
       }
@@ -7701,7 +7899,7 @@ table.data tr.me td { background: var(--accent-wash); }
       const bad = rec.filter((x) => x.status !== 'match');
       rc.append(h('p', { class: 'sub', text: bad.length ? `${bad.length} of ${rec.length} line${rec.length === 1 ? '' : 's'} differ. The Portfolio page’s advice reads its own holdings, not this ledger, so a difference means one of the two is out of date. The two are kept apart and their values are not added together.` : 'The ledger and the holdings on the Portfolio page hold the same shares.' }));
       if (rec.length) rc.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-        h('tr', null, ['Holding', 'In the ledger', 'On the Portfolio page', ''].map((x) => h('th', { text: x }))),
+        h('tr', null, ['Holding', 'In the ledger', 'On the Portfolio page', ''].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
         rec.map((x) => h('tr', null, h('td', null, h('b', { text: x.t })), h('td', { text: x.ledger ? fmtShares(x.ledger) : 'none' }), h('td', { text: x.holdings ? fmtShares(x.holdings) : 'none' }),
           h('td', null, h('span', { class: 'tag t-' + (x.status === 'match' ? 'good' : 'warn'), text: { match: 'Match', differs: 'Different', only_ledger: 'Only in the ledger', only_holdings: 'Only on the Portfolio page' }[x.status] })))))));
       if (prop.entries.length || prop.skipped.length) {
@@ -7764,7 +7962,7 @@ table.data tr.me td { background: var(--accent-wash); }
       const chart = pfHistChart(lines2);
       if (chart) vh.append(chart, h('p', { class: 'note', text: 'Solid line: what the ledger was worth. Dashed line: the money put in. The gap is the gain.' }));
       vh.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-        h('tr', null, ['Price date', 'Value', 'Put in', 'Gain', 'Cash'].map((x) => h('th', { text: x }))),
+        h('tr', null, ['Price date', 'Value', 'Put in', 'Gain', 'Cash'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
         [...lines2].reverse().slice(0, 12).map((l) => h('tr', null, h('td', { text: pfDate(l.d) }), h('td', { text: money0(l.v) }), h('td', { text: money0(l.i) }), h('td', null, h('span', { class: pfTone(l.v - l.i), text: pfSigned(l.v - l.i) })), h('td', { text: money0(l.c) }))))));
     } else vh.append(h('p', { class: 'sub', text: pic.cur.entries.length ? 'No line saved yet. One line is saved for each price date, and only when every position has a price.' : 'History starts once the ledger has entries and every position has a price.' }));
     vh.append(h('p', { class: 'note', text: `${hist && hist.ok && hist.note !== 'already saved' ? 'Today’s line was just saved. ' : ''}A line is saved when you open this page or the Portfolio page, for the date of the latest prices, never for a date in the past, and never from a partial valuation. It is part of the backup file. Past prices cannot be rebuilt, so the history only starts from the first day you used the ledger.` }));
@@ -7836,21 +8034,71 @@ table.data tr.me td { background: var(--accent-wash); }
     else if (p === 'pfledger') renderPfLedger();
     window.scrollTo(0, 0);
     riseIn(document.getElementById('page-' + p));
+    setTitle(p);
+    renderDataStatus();
+  }
+  // Stage 11 (accessibility): each page has its own browser title, and moving to a page with the tabs or a button moves the keyboard and
+  // screen-reader position to that page (the page container, which stays in place while its content loads).
+  const PAGE_TITLE = { dashboard: 'Dashboard', alerts: 'Alert Centre', stock: 'Search', shortlist: 'Shortlist', scanner: 'Swing scanner', watchlist: 'Watchlist', record: 'Track record', journal: 'Journal', advisor: 'Portfolio', shariah: 'Shariah ledger', thesis: 'Thesis and decisions', pfledger: 'Portfolio ledger' };
+  function setTitle(p) {
+    const co = p === 'stock' && current && !result.hidden ? `${current.ticker} ${current.name || ''}`.trim() : '';
+    document.title = `${co || PAGE_TITLE[p] || 'Stock Checker'} · Stock Checker`;
+  }
+  function focusPage(p) {
+    const el = document.getElementById('page-' + p);
+    if (el) { try { el.focus({ preventScroll: true }); } catch { /* older browsers */ } }
   }
   function navigate(p) {
     if (p === 'stock') {
       history.pushState({ p }, '', current && !result.hidden ? '?t=' + encodeURIComponent(current.ticker) : '?p=stock');
       showPage('stock');
       if (!result.hidden && tech && tech.refit) tech.refit();
+      focusPage('stock');
       return;
     }
     history.pushState({ p }, '', '?p=' + p);
     showPage(p);
+    focusPage(p);
   }
   function openStock(t, view) {
     history.pushState({ p: 'stock' }, '', '?t=' + encodeURIComponent(t) + (view === 'tech' ? '&view=technical' : view === 'fund' ? '&view=fundamental' : view === 'report' ? '&view=technical&report=swing' : ''));
     showPage('stock');
+    focusPage('stock');
     run(t, true);
+  }
+
+  // ------------------------------------------------------------------ the data status strip (stage 11, display only)
+  // One stamp for where the numbers come from and how old they are, in the same words on every page, and one notice when advice is
+  // paused. It reads what the pages already use (the nightly screen's price date, the delayed quotes, the nightly health report) and
+  // decides nothing: advice is paused only as staleOf() says, as before.
+  const NARROW_PAGES = new Set(['stock', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger']);
+  const stampEl = (tone, k, v, extra, onclick) => h(onclick ? 'button' : 'span', { class: 'stamp' + (tone === 'late' ? ' s-late' : tone === 'warn' ? ' s-warn' : ''), type: onclick ? 'button' : null, onclick: onclick || null },
+    h('i', { 'aria-hidden': 'true' }), h('span', null, h('b', { text: k + ': ' }), v, extra ? ` · ${extra}` : ''));
+  const pausedText = (s) => `The nightly update is ${s.missed} trading days late (last full update ${niceDates(s.priceDate)}). Buy, sell and trim suggestions are hidden on every page until the next update. The numbers are shown for reference only.`;
+  let statusToken = 0;
+  async function renderDataStatus() {
+    const el = document.getElementById('dataStatus');
+    if (!el) return;
+    if (!HAS_SITE) { el.hidden = true; return; }
+    const my = ++statusToken;
+    const [scr, H] = await Promise.all([loadScreen(), loadHealth()]);
+    if (my !== statusToken) return;
+    if (!scr || !scr.priceDate) { el.hidden = true; el.replaceChildren(); document.body.classList.remove('advice-paused'); return; }
+    const st = staleOf(scr);
+    document.body.classList.toggle('advice-paused', Boolean(st));
+    const kids = [];
+    if (st) kids.push(h('p', { class: 'pause-banner', id: 'pauseBanner' }, icon('bad', 'Advice paused'), h('span', null, h('b', { text: 'Advice paused. ' }), pausedText(st))));
+    const live = scr.live && scr.live.session >= scr.priceDate ? scr.live : null;
+    const tm = live ? /(\d{1,2}:\d{2}\s*[AP]M)/i.exec(live.time || '') : null;
+    const checks = H && Array.isArray(H.checks) ? H.checks : null;
+    const bad = checks ? checks.filter((c) => c && c.status === 'bad').length : 0;
+    kids.push(h('div', { class: 'stampbar' },
+      stampEl(st ? 'late' : '', 'Prices', `close of ${niceDates(scr.priceDate)}`, st ? `${st.missed} trading days late` : 'Nasdaq, end of day'),
+      live ? stampEl('', 'Quotes', `delayed last sale${tm ? ', ' + tm[1].toLowerCase() + ' New York' : ', ' + niceDates(live.session)}`, 'not real-time') : null,
+      stampEl(!checks ? 'warn' : bad ? 'late' : '', 'Nightly checks', !checks ? 'report not loaded' : bad ? `${bad} failed` : 'passed', null, () => navigate('record'))));
+    el.replaceChildren(...kids);
+    el.className = 'data-status' + (NARROW_PAGES.has(page) ? ' ds-narrow' : '');
+    el.hidden = false;
   }
   function route() {
     const sp = new URLSearchParams(location.search);
@@ -7885,7 +8133,7 @@ table.data tr.me td { background: var(--accent-wash); }
   // own news (SEC filings). Worked out on this device from the day's public data: your list never leaves it.
   // The rules: sell when the business itself weakens or it stops being halal, consider trimming above the trim
   // price, and otherwise hold, even through a fall (losers are waited out while the business is healthy).
-  function briefCard(scr, lts) {
+  function briefCard(scr, lts, skip) {
     const w = W.load();
     const jr = JR.load();
     const { lt } = holdingsFrom(w.items, jr.trades);
@@ -7954,7 +8202,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const order = { bad: 0, warn: 1, good: 2, info: 3 };
     todo.sort((a, b) => order[a[0]] - order[b[0]]);
     const urgent = todo.filter((x) => x[0] === 'bad' || x[0] === 'warn').length;
-    if (staleB) card.append(h('p', { class: 'brief-head tone-warn', text: staleText(staleB) }));
+    if (staleB) card.append(h('p', { class: 'brief-head is-stale', text: staleText(staleB) }));
     else card.append(h('p', { class: 'brief-head ' + (urgent ? 'tone-warn' : 'tone-good'), text: urgent ? `${urgent} thing${urgent === 1 ? '' : 's'} to look at today.` : 'Nothing needs doing today.' }));
     if (lt.length && value > 0) {
       card.append(h('div', { class: 'stats' },
@@ -7964,7 +8212,14 @@ table.data tr.me td { background: var(--accent-wash); }
     }
     // a ticker with no site data has no page to open: its button goes to the Watchlist, where you edit it
     const ul = (rows) => h('ul', { class: 'alert-list' }, rows.map(([tone, t, text]) => h('li', null, toneIcon(tone === 'info' ? '' : tone), h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => (scr.by.get(t) ? openStock(t) : navigate('watchlist')) }, t), ' ', text))));
-    if (todo.length && !staleB) card.append(h('h3', { text: 'To do' }), ul(todo));
+    // stage 11: on the Dashboard a line the alerts card already shows for the same company and condition is not repeated here
+    const todoNew = skip && skip.size ? todo.filter(([, t, text]) => !skip.has(alertKey(t, text))) : todo;
+    const repeats = todo.length - todoNew.length;
+    if (todo.length && !staleB) {
+      card.append(h('h3', { text: 'To do' }));
+      if (todoNew.length) card.append(ul(todoNew));
+      if (repeats) card.append(h('p', { class: 'note dash-repeat', text: `${todoNew.length ? `${repeats} more` : repeats === 1 ? 'The one item' : `All ${repeats} items`} for today ${repeats === 1 ? 'is' : 'are'} listed under Alerts above (Watchlist and earnings), so ${repeats === 1 ? 'it is' : 'they are'} not repeated here.` }));
+    }
     if (hold.length) card.append(h('h3', { text: 'Down, but keep waiting' }), ul(hold.map(([t, text]) => ['info', t, text])),
       h('p', { class: 'note', text: 'Good businesses often fall for a while. The rule is to wait while the business stays healthy; the brief tells you if that changes.' }));
     if (own.length) card.append(h('h3', { text: 'Your own tickers (not on the site)' }), ul(own.map((x) => ['info', x.t, `${fmtShares(x.shares)} shares${isNum(x.px) ? ` at ${price(x.px)} (your price${x.pxDate ? ` from ${niceDates(x.pxDate)}` : ''})` : ', no price entered yet'}.${isNum(x.px) && x.pxDate && daysApart(x.pxDate, localISO()) > 30 ? ' That price is over a month old: update it on the Watchlist.' : ''} Not analysed here: the weekly review checks its news.`])));
@@ -8007,7 +8262,9 @@ table.data tr.me td { background: var(--accent-wash); }
       h('div', { class: 'tech-head' }, h('h2', { text: 'The market today' }),
         R ? h('span', { class: 'badge ' + (R[1] === 'good' ? 'b-active' : R[1] === 'bad' ? 'b-bad' : 'b-watch'), text: R[0] }) : null));
     if (R) card.append(h('p', { class: 'sub', text: R[2] }));
-    if (m.spy) card.append(h('p', { class: 'note', text: `S&P 500 ETF (SPY) ${price(m.spy.close)} at the close on ${niceDates(m.spy.date)} · past month ${pctS(m.spy.r1m, 1)} · past year ${pctS(m.spy.r12m, 1)}` }));
+    const stM = staleOf(scr);
+    if (stM) card.append(h('p', { class: 'hint stale', text: `Late data: these market figures are from the close of ${niceDates(scr.priceDate)}, ${stM.missed} trading days ago. They do not describe today.` }));
+    if (m.spy) card.append(h('p', { class: 'note', text: `S&P 500 ETF (SPY) ${price(m.spy.close)}, close of ${niceDates(m.spy.date)} · past month ${pctS(m.spy.r1m, 1)} · past year ${pctS(m.spy.r12m, 1)}` }));
     if (m.breadth) {
       const b = m.breadth;
       card.append(h('div', { style: 'margin-top:12px' },
@@ -8031,6 +8288,12 @@ table.data tr.me td { background: var(--accent-wash); }
     return card;
   }
   function todayCard(scr) {
+    const stT = staleOf(scr);
+    if (stT) {
+      // stage 11: no buy ideas or swing signals from late data (the scanner block already works this way)
+      return h('section', { class: 'card', 'aria-label': 'Ideas today' }, h('h2', { text: 'Ideas today' }),
+        h('p', { class: 'hint stale', text: `Ideas paused: the nightly update is ${stT.missed} trading days late (last full update ${niceDates(stT.priceDate)}). No buy ideas or swing signals are listed until the next update.` }));
+    }
     const sig = scr.list.filter((r) => r.status === 'active' && TRADED.includes(r.setup) && r.shariah === 'pass');
     const val = scr.list.filter((r) => ['BUY_STRONG', 'BUY', 'CONTRARIAN'].includes(r.verdict) && r.shariah === 'pass');
     const strong = sig.filter((r) => (r.rs ?? 0) >= 70 && !WEAK.has(r.verdict)).filter((r) => { const d = earnDays(r, scr); return d == null || d > 10; });
@@ -8040,7 +8303,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const topVal = [...sure].sort(SORTS[PRESETS.value.sort][1]).slice(0, 4);
     const card = h('section', { class: 'card', 'aria-label': 'Ideas today' },
       h('h2', { text: 'Ideas today' }),
-      h('p', { class: 'sub', text: `From ${scr.list.length.toLocaleString()} US companies worth $2 billion or more, prices as of the close on ${niceDates(scr.priceDate)}. Halal stocks only.` }),
+      h('p', { class: 'sub', text: `From ${scr.list.length.toLocaleString()} US companies worth $2 billion or more. Prices: close of ${niceDates(scr.priceDate)}. Halal stocks only.` }),
       h('h3', { text: `Long term: ${val.length} quality businesses below fair value` }),
       h('p', { class: 'sub', text: `${sure.length} of them with high confidence in the data. The most below fair value:` }));
     if (topVal.length) card.append(h('div', { class: 'list' }, topVal.map((r) => slRow(r, 'value', scr))));
@@ -8147,7 +8410,7 @@ table.data tr.me td { background: var(--accent-wash); }
     el.replaceChildren(head, loadingBox('Loading today’s list…'));
     const [scr, bt] = await Promise.all([loadScreen(), loadBtSummary(), loadSwingProof()]);
     if (page !== 'shortlist') return;
-    if (!scr) { el.replaceChildren(head, errCard('Could not load today’s list. Check your connection and try again.')); return; }
+    if (!scr) { el.replaceChildren(head, loadErrCard('Could not load today’s list.', ['data/screen.json'])); return; }
     const st = { ...SL_DEFAULT, ...store.get('sl', {}) };
     if (!PRESETS[st.preset]) st.preset = 'value';
     const save = () => store.set('sl', st);
@@ -8223,6 +8486,14 @@ table.data tr.me td { background: var(--accent-wash); }
         caution.append(h('div', { class: 'callout', style: 'border-left:4px solid var(--bad)' }, h('b', { text: 'The market is falling. ' }),
           g ? `In the backtest, signals taken in falling markets averaged ${fmtR(g.avgR)} per trade. Consider waiting, or use half your usual size.` : 'Swing signals work less well in falling markets. Consider waiting, or use half your usual size.'));
       }
+      const stS = staleOf(scr);
+      if (stS) {
+        // stage 11: a list of buy candidates or swing signals built from late data is not shown (the scanner already works this way)
+        count.textContent = '';
+        list.replaceChildren(h('p', { class: 'hint stale', text: `Shortlist paused: the nightly update is ${stS.missed} trading days late (last full update ${niceDates(stS.priceDate)}). No companies are listed until the next update. You can still open any company from Search to read its numbers.` }));
+        moreBtn.hidden = true;
+        return;
+      }
       let rows = scr.list.filter(P.filter);
       if (st.shariah === 'pass') rows = rows.filter((r) => r.shariah === 'pass');
       else if (st.shariah === 'ok') rows = rows.filter((r) => r.shariah === 'pass' || r.shariah === 'review');
@@ -8238,7 +8509,7 @@ table.data tr.me td { background: var(--accent-wash); }
       }
       if (st.q) { const qq = st.q.toUpperCase(); rows = rows.filter((r) => r.ticker.includes(qq) || String(r.name || '').toUpperCase().includes(qq)); }
       rows.sort(SORTS[sortKey][1]);
-      count.textContent = `${rows.length.toLocaleString()} compan${rows.length === 1 ? 'y' : 'ies'}` + (hiddenN ? ` (${hiddenN} hidden: earnings within 10 trading days)` : '') + (scr.live && scr.live.session > scr.priceDate ? ` · ${/open/i.test(scr.live.status || '') ? 'live prices, a few minutes delayed' : 'prices as of ' + niceDates(scr.live.session)}` : ` · prices as of the close on ${niceDates(scr.priceDate)}`);
+      count.textContent = `${rows.length.toLocaleString()} compan${rows.length === 1 ? 'y' : 'ies'}` + (hiddenN ? ` (${hiddenN} hidden: earnings within 10 trading days)` : '') + (scr.live && scr.live.session > scr.priceDate ? ` · prices: ${/open/i.test(scr.live.status || '') ? 'delayed last sale, a few minutes behind' : 'last sale of ' + niceDates(scr.live.session)}` : ` · prices: close of ${niceDates(scr.priceDate)}`);
       list.replaceChildren(...rows.slice(0, shown).map((r) => slRow(r, st.preset, scr)));
       if (!rows.length) list.append(h('p', { class: 'empty', text: 'Nothing matches these filters today.' }));
       moreBtn.hidden = rows.length <= shown;
@@ -8329,6 +8600,35 @@ table.data tr.me td { background: var(--accent-wash); }
     if (ed != null && ed <= 7) a.push(['warn', `Earnings ${ed <= 1 ? 'in the next session' : `in ${ed} trading days`} (${niceDates(r.earnings)}).`]);
     return a;
   }
+  // Stage 11: one rule for late data on every page, the one the Alert Centre already applied (its price, scanner and risk alerts
+  // pause; its Shariah alerts do not need fresh prices). While advice is paused (staleOf), a company's alerts keep only the Shariah
+  // line; every price, size, signal, buy, sell and trim line waits for the next update. No condition is worked out differently.
+  function itemAlertsNow(it, r, scr) {
+    const all = itemAlerts(it, r, scr);
+    if (!staleOf(scr)) return all;
+    // kept while paused: the Shariah line, and the warnings about a company's own filings (they do not depend on today's price)
+    const keep = r && (r.shariah === 'fail' || r.shariah === 'review') && all.length ? [all[0]] : [];
+    for (const a of all.slice(keep.length)) if (/ \(filed [A-Z][a-z]{2} \d/.test(a[1])) keep.push(a);
+    return keep;
+  }
+  const pausedCount = (n) => `Advice paused: ${n} alert${n === 1 ? '' : 's'} about prices, position sizes, signals or earnings dates ${n === 1 ? 'is' : 'are'} hidden until the next nightly update. Shariah and filing warnings are still shown.`;
+  // which condition an alert line is about, so the Dashboard can show each one once (the daily brief and the alerts card word the
+  // same condition differently). Wording only: it reads the sentence, it decides nothing.
+  const ALERT_KINDS = [
+    ['missing', /^Not in today’s data/],
+    ['shfail', /^Fails the (Shariah|halal) screen/],
+    ['zone', /^(In the long-term buy zone|Below its buy price)/],
+    ['shreview', /^Halal status needs checking/],
+    ['weak', /^The business (itself )?got worse/],
+    ['trim', /^Above (the trim level|its trim price)/],
+    ['size', /of everything you own, above your/],
+    ['earn', /^(Earnings in|Reports results)/],
+    ['filing', / \(filed [A-Z][a-z]{2} \d/],
+  ];
+  function alertKey(t, text) {
+    for (const [k, re] of ALERT_KINDS) if (re.test(text)) return `${t}|${k}${k === 'filing' ? '|' + String(text).split(' (filed')[0] : ''}`;
+    return '';
+  }
   const snapRow = (r) => (r ? { v: r.verdict, s: r.shariah, sg: r.status === 'active' && TRADED.includes(r.setup) ? r.setup : '', p: r.price } : null);
   // keeps the last two data days you have seen, so "what changed" stays visible all day
   function watchChanges(w, scr) {
@@ -8363,7 +8663,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!w.items.length) { dot.hidden = true; return; }
     loadScreen().then((scr) => {
       if (!scr) return;
-      dot.hidden = !w.items.some((it) => itemAlerts(it, scr.by.get(it.t), scr).some((x) => x[0] === 'bad'));
+      dot.hidden = !w.items.some((it) => itemAlertsNow(it, scr.by.get(it.t), scr).some((x) => x[0] === 'bad'));
     });
   }
   function b64url(str) {
@@ -8456,7 +8756,7 @@ table.data tr.me td { background: var(--accent-wash); }
     el.replaceChildren(head, loadingBox('Loading the scanner…'));
     const [sc, scr] = await Promise.all([loadScanner(), loadScreen(), loadSwingProof()]);
     if (page !== 'scanner') return;
-    if (!sc || !Array.isArray(sc.rows) || !sc.summary || !Array.isArray(sc.weights)) { el.replaceChildren(head, errCard('The scanner file could not be loaded. Check your connection and try again. No candidates are shown without it.')); return; }
+    if (!sc || !Array.isArray(sc.rows) || !sc.summary || !Array.isArray(sc.weights)) { if (sc) loadFail.set('data/scanner.json', 'damaged'); el.replaceChildren(head, loadErrCard('The scanner file could not be loaded.', ['data/scanner.json'], 'No candidates are shown without it.')); return; }
     const late = sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, localISO()) : 99;
     const stale = late >= 2;
     const proven = swingProven();
@@ -8526,7 +8826,7 @@ table.data tr.me td { background: var(--accent-wash); }
 
   async function renderWatchlist() {
     const el = $('#page-watchlist');
-    const head = pageHead('Watchlist', 'Companies you follow: what changed, what needs your attention, and your positions. Saved on this device only.');
+    const head = withWhich(pageHead('Watchlist', 'Companies you follow: what changed, what needs your attention, and your positions. Saved on this device only.'));
     el.replaceChildren(head, loadingBox('Loading…'));
     const [scr] = await Promise.all([loadScreen(), loadSwingProof()]);
     if (page !== 'watchlist') return;
@@ -8534,7 +8834,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const imp = importCard();
     if (imp) parts.push(imp);
     parts.push(addBox());
-    if (!scr) { parts.push(errCard('Could not load today’s data. Check your connection and try again.')); el.replaceChildren(...parts); return; }
+    if (!scr) { parts.push(loadErrCard('Could not load today’s data.', ['data/screen.json'])); el.replaceChildren(...parts); return; }
     const w = W.load();
     if (!w.items.length) {
       parts.push(h('section', { class: 'card' }, h('h2', { text: 'Nothing here yet' }),
@@ -8544,15 +8844,22 @@ table.data tr.me td { background: var(--accent-wash); }
     }
     const changes = watchChanges(w, scr);
     const att = [];
-    for (const it of w.items) for (const a of itemAlerts(it, scr.by.get(it.t), scr)) att.push([it.t, a[0], a[1]]);
+    const stW = staleOf(scr);
+    let heldBack = 0; // stage 11: lines held back while advice is paused
+    for (const it of w.items) {
+      const now = itemAlertsNow(it, scr.by.get(it.t), scr);
+      if (stW) heldBack += itemAlerts(it, scr.by.get(it.t), scr).length - now.length;
+      for (const a of now) att.push([it.t, a[0], a[1]]);
+    }
     const order = { bad: 0, warn: 1, good: 2 };
     att.sort((x, y) => order[x[1]] - order[y[1]]);
     parts.push(h('section', { class: 'card', 'aria-label': 'Needs attention' }, h('h2', { text: 'Needs attention' }),
+      stW ? h('p', { class: 'hint stale', text: heldBack ? pausedCount(heldBack) : staleText(stW) }) : null,
       att.length
         ? h('ul', { class: 'alert-list' }, att.map(([t, tone, text]) => h('li', null, toneIcon(tone), h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => openStock(t) }, t), ' ', text))))
         : h('p', { class: 'empty', text: 'Nothing today.' })));
     if (changes.length) {
-      parts.push(h('section', { class: 'card', 'aria-label': 'What changed' }, h('h2', { text: `Changed since the close on ${niceDates(w.prev.date)}` }),
+      parts.push(h('section', { class: 'card', 'aria-label': 'What changed' }, h('h2', { text: `Changed since the close of ${niceDates(w.prev.date)}` }),
         h('ul', { class: 'alert-list' }, changes.map(([t, lines]) => h('li', null, h('span', null, h('button', { class: 'tk', type: 'button', onclick: () => openStock(t) }, t), ': ', lines.join('; ')))))));
     }
     const held = w.items.filter((it) => it.shares > 0);
@@ -8621,7 +8928,7 @@ table.data tr.me td { background: var(--accent-wash); }
     const box = h('div', { class: 'wl-item' });
     const inner = [h('span', { class: 'top' }, h('span', { class: 'tk', text: it.t }), h('span', { class: 'nm', text: r ? r.name : it.manual ? 'Your own ticker' : 'Not in today’s data' }),
         h('span', { class: 'pr' }, r ? price(r.price) : isNum(own) ? price(own) : it.manual ? 'No price yet' : 'n/a', r && isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
-      r ? h('span', { class: 'tags' }, [verdictTag(r.verdict), shariahTag(r.shariah), setupTag(r.setup, r.status)].filter(Boolean)) : h('span', { class: 'tags' }, tagEl('No analysis here', 'neutral'))];
+      r ? h('span', { class: 'tags' }, [verdictTag(r.verdict), shariahTag(r.shariah), staleOf(scr) ? null : setupTag(r.setup, r.status)].filter(Boolean)) : h('span', { class: 'tags' }, tagEl('No analysis here', 'neutral'))];
     // a ticker without site data has no page to open
     box.append(r ? h('button', { class: 'srow', type: 'button', onclick: () => openStock(it.t, it.swing ? 'tech' : null) }, ...inner) : h('div', { class: 'srow' }, ...inner));
     const det = [];
@@ -8641,7 +8948,7 @@ table.data tr.me td { background: var(--accent-wash); }
       if (it.swing) det.push(`swing trade: stop ${price(it.stop)}, target 1 ${price(it.t1)}`);
     }
     if (det.length) box.append(h('div', { class: 'note', text: det.join(' · ') }));
-    const al = itemAlerts(it, r, scr);
+    const al = itemAlertsNow(it, r, scr);
     if (al.length) box.append(h('ul', { class: 'alerts' }, al.map(([tone, text]) => h('li', null, toneIcon(tone), h('span', { text })))));
     const form = editForm(it, r);
     form.hidden = true;
@@ -8782,7 +9089,8 @@ table.data tr.me td { background: var(--accent-wash); }
       stat('Purification', 'Off', 'pending a scholar-approved method')));
     const checks = [];
     const over = rows.filter((x) => !x.it.swing && sizeTrim(snapP.byT.get(x.it.t) || 0, everything)).map((x) => `${x.it.t} (${pct((snapP.byT.get(x.it.t) || 0) / everything, 0)})`);
-    if (over.length) checks.push(['warn', `Above your ${pct(LP.trimAt, 0)} limit for one company: ${over.join(', ')}. Trim ${over.length === 1 ? 'it' : 'them'} back to ${pct(LP.buyCap, 0)} of everything you own; the Portfolio page gives the amounts.${snapP.total > total + 1 ? '' : ' (Only these stocks are recorded: add your funds and cash on the Portfolio page, or every stock looks bigger than it is.)'}`]);
+    if (over.length && staleOf(scr)) checks.push(['na', 'Advice paused: the size check for one company waits for the next nightly update.']);
+    else if (over.length) checks.push(['warn', `Above your ${pct(LP.trimAt, 0)} limit for one company: ${over.join(', ')}. Trim ${over.length === 1 ? 'it' : 'them'} back to ${pct(LP.buyCap, 0)} of everything you own; the Portfolio page gives the amounts.${snapP.total > total + 1 ? '' : ' (Only these stocks are recorded: add your funds and cash on the Portfolio page, or every stock looks bigger than it is.)'}`]);
     for (const [k, v] of snapP.bySector) if (snapP.usVal > 0 && snapP.n >= 3 && !sectorOpen(v, snapP.usVal, LP.sectorMax)) checks.push(['warn', `${k} is ${pct(v / snapP.usVal, 0)} of your long-term stocks: your limit stops new buys there at ${pct(LP.sectorMax, 0)}.`]);
     const bad = rows.filter((x) => x.r.shariah === 'fail').map((x) => x.it.t);
     const rev = rows.filter((x) => x.r.shariah === 'review').map((x) => x.it.t);
@@ -8916,8 +9224,10 @@ table.data tr.me td { background: var(--accent-wash); }
     if (T) {
       const st = T.setup.status;
       const paperSig = st === 'active' && !swingProven();
-      chips.push(chip(st === 'active' && !paperSig ? 'good' : st === 'watch' || st === 'wait' || paperSig ? 'warn' : '', null,
-        paperSig ? 'Chart: paper signal' : st === 'active' ? 'Chart: buy signal' : st === 'wait' ? 'Chart: wait' : st === 'watch' ? 'Chart: watch' : 'Chart: no trade', SETUP_NAME[T.setup.setup] || '', () => selectTab('tech', true)));
+      const sigChip = chip(st === 'active' && !paperSig ? 'good' : st === 'watch' || st === 'wait' || paperSig ? 'warn' : '', null,
+        paperSig ? 'Chart: paper signal' : st === 'active' ? 'Chart: buy signal' : st === 'wait' ? 'Chart: wait' : st === 'watch' ? 'Chart: watch' : 'Chart: no trade', SETUP_NAME[T.setup.setup] || '', () => selectTab('tech', true));
+      sigChip.setAttribute('data-act', ''); // stage 11: the chart signal is hidden while advice is paused
+      chips.push(sigChip);
     } else if (!t.data) chips.push(chip('', null, 'Chart…', null, () => selectTab('tech', true)));
     if (r && isNum(r.rs)) chips.push(chip(r.rs >= 80 ? 'good' : r.rs <= 20 ? 'bad' : '', null, `RS ${r.rs}`, 'of 99', () => selectTab('tech', true), `Relative strength ${r.rs} of 99`));
     const earn = T && T.earnings ? T.earnings : d.nextEarnings || null;
@@ -8977,7 +9287,7 @@ table.data tr.me td { background: var(--accent-wash); }
       box.append(h('h2', { text: 'Compared with peers' }),
         h('p', { class: 'sub', text: `Similar-sized companies in ${basis} (Nasdaq’s classification). Tap one to open it.` }),
         h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-          h('tr', null, ['Company', 'Verdict', 'Halal', 'Quality', 'P/E', 'Fair value', 'RS'].map((x) => h('th', { text: x }))),
+          h('tr', null, ['Company', 'Verdict', 'Halal', 'Quality', 'P/E', 'Fair value', 'RS'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
           rows.map((r) => h('tr', { class: r.ticker === d.ticker ? 'me' : 'click', onclick: r.ticker === d.ticker ? null : () => openStock(r.ticker, 'fund') },
             h('td', { text: r.ticker }),
             h('td', { text: VERDICT_SHORT[r.verdict] || 'n/a' }),
@@ -9015,7 +9325,7 @@ table.data tr.me td { background: var(--accent-wash); }
       if (recent.length) {
         const cd = (iso) => { const m2 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '')); return m2 ? `${MONTHS[Number(m2[2]) - 1]} ${Number(m2[3])} ’${m2[1].slice(2)}` : ''; };
         wrap.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-          h('tr', null, ['Bought', 'Sold', 'Result'].map((x) => h('th', { text: x }))),
+          h('tr', null, ['Bought', 'Sold', 'Result'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
           recent.map((tr) => h('tr', null,
             h('td', null, cd(tr.fill), h('span', { class: 'sm', text: SETUP_NAME[tr.setup] || tr.setup })),
             h('td', { class: tr.open ? 'dim' : '', text: tr.open ? 'open' : cd(tr.exit) }),
@@ -9078,7 +9388,7 @@ table.data tr.me td { background: var(--accent-wash); }
       const r = Math.min(4, hgt / 2, bw / 2);
       const x0 = cx - bw / 2;
       const path = `M${x0},${y0} V${y0 - hgt + r} Q${x0},${y0 - hgt} ${x0 + r},${y0 - hgt} H${x0 + bw - r} Q${x0 + bw},${y0 - hgt} ${x0 + bw},${y0 - hgt + r} V${y0} Z`;
-      const bar = s('path', { d: path, fill: loss ? 'var(--bad)' : 'var(--good)', tabindex: '0', 'aria-label': `${labels[i] || lab}: ${c} trades, ${pct(shares[i], 0)}` });
+      const bar = s('path', { d: path, fill: loss ? 'var(--bad)' : 'var(--good)', tabindex: '0', role: 'img', 'aria-label': `${labels[i] || lab}: ${c} trades, ${pct(shares[i], 0)}` });
       const hit = s('rect', { x: padL + band * i, y: padT, width: band, height: Ht - padT - padB, fill: 'transparent' });
       const show = (e) => showTip(e, `${pct(shares[i], 0)} of trades`, `${labels[i] || lab}: ${c.toLocaleString()} trades`, bar);
       [bar, hit].forEach((el2) => { el2.addEventListener('pointermove', show); el2.addEventListener('pointerleave', hideTip); });
@@ -9122,7 +9432,7 @@ table.data tr.me td { background: var(--accent-wash); }
     el.replaceChildren(head, loadingBox('Loading the record…'));
     const [bt, log, lts, rec, hl, scrH] = await Promise.all([loadBtSummary(), getJson('data/signals.json'), loadLtSummary(), loadRecordSummary(), loadHealth(), loadScreen()]);
     if (page !== 'record') return;
-    if (!bt) { el.replaceChildren(head, errCard('Could not load the track record. Check your connection and try again.')); return; }
+    if (!bt) { el.replaceChildren(head, loadErrCard('Could not load the track record.', ['data/backtest-summary.json'])); return; }
     const COSTS = (bt.costs || [bt.cost]).map((c) => [c, `${(c * 100).toFixed(1)}%`]);
     const UNIS = [['halal', 'Halal'], ['strong', 'Halal + filters'], ['all', 'All']].filter(([k]) => bt[k]);
     const savedUni = store.get('recUni', 'halal');
@@ -9205,7 +9515,7 @@ table.data tr.me td { background: var(--accent-wash); }
     };
     const ORDER = ['buy', 'pick_long', 'pick_mid', 'trim', 'sell_weak', 'hold_fall'];
     const tableOf = (G, skipEmpty = false, standing = false) => h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' },
-      h('tr', null, ['Call', ...H.map(([, t]) => t)].map((x) => h('th', { text: x }))),
+      h('tr', null, ['Call', ...H.map(([, t]) => t)].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))),
       ORDER.filter((k) => G && G[k] && (!skipEmpty || G[k].n)).map((k) => h('tr', null,
         h('td', null, h('span', { text: G[k].label }), h('div', { class: 'sm', text: `${G[k].n || 0} call${G[k].n === 1 ? '' : 's'}${G[k].up ? '' : ' · lower is better'}` })),
         ...H.map(([k2]) => cellEl(G[k].h && G[k].h[k2], k2, standing))))));
@@ -9288,7 +9598,7 @@ table.data tr.me td { background: var(--accent-wash); }
       const card = h('section', { class: 'card' }, h('h2', { text: title }), h('p', { class: 'sub', text: sub }));
       if (!rows.length) { card.append(h('p', { class: 'empty', text: 'No data.' })); return card; }
       card.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-        h('tr', null, h('th', { text: '' }), h('th', { text: 'Trades' }), h('th', { text: 'Winners' }), h('th', null, 'Average', h('span', { class: 'sm', text: 'likely range' }))),
+        h('tr', null, h('th', null, h('span', { class: 'vh', text: 'Group' })), h('th', { text: 'Trades' }), h('th', { text: 'Winners' }), h('th', null, 'Average', h('span', { class: 'sm', text: 'likely range' }))),
         rows.map((g) => h('tr', null,
           h('td', null, labelFn(g.key), h('span', { class: 'sm', text: `held ${g.avgDays} days on average` })),
           h('td', { text: g.n.toLocaleString() }),
@@ -9329,7 +9639,7 @@ table.data tr.me td { background: var(--accent-wash); }
       h('h2', { text: 'Against simple alternatives' }),
       h('p', { class: 'sub', text: `Average return on the money in each trade, over the same ${b.avgDays} trading days or so. Trades and random entries are charged the same ${(c * 100).toFixed(1)}% round trip.` }),
       h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
-        h('tr', null, h('th', { text: '' }), h('th', null, 'Per trade', h('span', { class: 'sm', text: 'likely range' }))),
+        h('tr', null, h('th', null, h('span', { class: 'vh', text: 'Group' })), h('th', null, 'Per trade', h('span', { class: 'sm', text: 'likely range' }))),
         row('These trades', `${b.trade.n.toLocaleString()} trades, after costs`, tr, range(b.trade, c)),
         row('Same stocks, random day', 'bought on a random day in the test, held as long, after costs', rn, range(b.random, c)),
         b.market && b.market.n ? row('S&P 500 (SPY)', 'bought on a random day in the test, held as long, no costs, no dividends', b.market.mean, range(b.market, 0)) : null)),
@@ -9350,7 +9660,7 @@ table.data tr.me td { background: var(--accent-wash); }
       h('h2', { text: 'If you had followed these trades' }),
       h('p', { class: 'sub', text: `Each trade risks ${pct(R.risk, 0)} of the account (the stop sets the size), at most ${R.maxPositions} trades open, no position above ${pct(R.maxWeight, 0)}, no borrowing, ${(st.cost * 100).toFixed(1)}% cost per round trip. Signals that came when the money was already in use were skipped.` }),
       h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
-        h('tr', null, h('th', { text: '' }), h('th', { text: 'Per year' }), h('th', { text: 'Worst fall' })),
+        h('tr', null, h('th', null, h('span', { class: 'vh', text: 'Group' })), h('th', { text: 'Per year' }), h('th', { text: 'Worst fall' })),
         tr('These trades', `${r.taken.toLocaleString()} trades taken, ${r.skipped.toLocaleString()} skipped; money invested ${pct(r.avgExposure, 0)} of the time`, r.cagr, r.maxDrawdown),
         spy ? tr('S&P 500 (SPY), bought and held', P.spy.total ? 'dividends reinvested' : 'price only, like the trades', spy.cagr, spy.maxDrawdown) : null)),
       h('div', { class: 'callout' }, h('b', { text: 'What it means. ' }),
@@ -9427,7 +9737,7 @@ table.data tr.me td { background: var(--accent-wash); }
           : d.verdict === 'fund' ? ' So the Portfolio plan puts most of the monthly money in the index fund and keeps stocks to 20%, if you let the test decide.'
             : d.verdict === 'mixed' ? ' So the Portfolio plan splits the monthly money half and half between the index fund and stocks, if you let the test decide.'
               : ' So the Portfolio plan puts 70% of the monthly money in stocks, if you let the test decide.'))));
-    const table = (cols, rows) => h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' }, h('tr', null, cols.map((x) => h('th', { text: x }))), rows.map((r) => h('tr', null, r.map((x) => h('td', { text: x }))))));
+    const table = (cols, rows) => h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' }, h('tr', null, cols.map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' }))))), rows.map((r) => h('tr', null, r.map((x) => h('td', { text: x }))))));
     card.append(h('h3', { text: 'Return after buying (average over every month)' }),
       table(['', '1 year later', '3 years later'], [
         ['Stocks on the list', pctS(f12.picks, 1), pctS(f36.picks, 1)],
@@ -9726,7 +10036,7 @@ table.data tr.me td { background: var(--accent-wash); }
           td(r && isNum(r.chg) ? pctS(r.chg, 1) : 'n/a'), td(isNum(px) && isNum(x.cost) && x.cost > 0 ? pctS(px / x.cost - 1, 1) : 'n/a'));
       });
       card.append(h('div', { class: 'tscroll' }, h('table', { class: 'data' },
-        h('thead', null, h('tr', null, ['Stock', 'Shares', 'Price', 'Value', 'Day', 'Vs cost'].map((x) => h('th', { text: x })))),
+        h('thead', null, h('tr', null, ['Stock', 'Shares', 'Price', 'Value', 'Day', 'Vs cost'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' })))))),
         h('tbody', null, rows))));
       card.append(h('p', { class: 'note', text: `Prices are the close of ${niceDates(scr.priceDate)}. Your own tickers use the price you entered.` }));
     }
@@ -9741,7 +10051,8 @@ table.data tr.me td { background: var(--accent-wash); }
       srcTag('scan', 'Scanner · ideas to study, not buy signals'), h('h2', { text: 'Swing scanner candidates' }));
     const open = h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('scanner') }, 'Open the Swing scanner'));
     if (!sc || !Array.isArray(sc.rows) || !sc.summary || !Array.isArray(sc.weights)) {
-      card.append(h('p', { class: 'empty', text: 'The scanner file could not be loaded, so no candidates are shown.' }), open);
+      if (sc) loadFail.set('data/scanner.json', 'damaged');
+      card.append(h('p', { class: 'empty', 'data-load': loadKind(['data/scanner.json']), text: `The scanner file could not be loaded, so no candidates are shown. ${LOAD_WHY[loadKind(['data/scanner.json'])]}` }), open);
       return card;
     }
     const proven = swingProven();
@@ -9807,17 +10118,87 @@ table.data tr.me td { background: var(--accent-wash); }
     // 3. what you follow: the same alerts the Watchlist page shows for each company, including earnings dates and filings
     const w = W.load();
     const wl = [];
-    for (const it of w.items) for (const [tone, text] of itemAlerts(it, scr.by.get(it.t), scr)) if (tone === 'bad' || tone === 'warn') wl.push([tone, it.t, text]);
+    let hiddenN = 0; // stage 11: lines held back while advice is paused (the same rule as the Alert Centre)
+    for (const it of w.items) {
+      const r = scr.by.get(it.t);
+      const now = itemAlertsNow(it, r, scr).filter(([tone]) => tone === 'bad' || tone === 'warn');
+      if (stale) hiddenN += itemAlerts(it, r, scr).filter(([tone]) => tone === 'bad' || tone === 'warn').length - now.length;
+      for (const [tone, text] of now) wl.push([tone, it.t, text]);
+    }
     wl.sort((a, b) => (a[0] === 'bad' ? 0 : 1) - (b[0] === 'bad' ? 0 : 1));
     const shown = wl.slice(0, 8);
+    card.shownKeys = new Set(shown.map(([, t, text]) => alertKey(t, text)).filter(Boolean)); // what the daily brief need not repeat
     if (wl.length > shown.length) shown.push(['', null, `${wl.length - shown.length} more on the Watchlist page.`]);
+    if (hiddenN) shown.push(['', null, pausedCount(hiddenN)]);
     if (!w.items.length) group('Watchlist and earnings', [['', null, 'Your watchlist is empty, so there is nothing to check.']], ['watchlist', 'Watchlist']);
-    else group('Watchlist and earnings', wl.length ? shown : [['good', null, `No alerts on the ${w.items.length} compan${w.items.length === 1 ? 'y' : 'ies'} you follow.`]], ['watchlist', 'Watchlist']);
+    else group('Watchlist and earnings', shown.length ? shown : [['good', null, `No alerts on the ${w.items.length} compan${w.items.length === 1 ? 'y' : 'ies'} you follow.`]], ['watchlist', 'Watchlist']);
     const open = alertLast ? alertLast.count : alertShown(AL.load()).length;
     card.append(h('h3', { text: 'Alert Centre' }), h('p', { class: 'note', text: `${open ? `${open} open alert${open === 1 ? '' : 's'}` : 'No open alerts'}: your price levels, scanner setups, portfolio risks and Shariah warnings, with their history.` }),
       h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', id: 'toAlertCentre', onclick: () => navigate('alerts') }, 'Open the Alert Centre')));
     return card;
   }
+  // ------------------------------------------------------------------ your records on this device (stage 11, display and one browser request)
+  // What you record here lives in this browser only. This card says what is kept, when the last backup file was saved and whether the
+  // browser has agreed to keep the data. It reads the same stores as the Journal page and writes nothing except the backup date the
+  // Journal's own "Save backup" button already writes. "Persistent storage" is a request the browser may refuse; it is never a promise.
+  let persistState = 'unknown'; // 'yes' | 'no' | 'unsupported' | 'unknown'
+  let persistAsked = false;
+  async function checkPersist(ask) {
+    try {
+      const sm = typeof navigator !== 'undefined' ? navigator.storage : null;
+      if (!sm || typeof sm.persisted !== 'function') { persistState = 'unsupported'; return; }
+      let ok = await sm.persisted();
+      if (!ok && ask && !persistAsked && typeof sm.persist === 'function') { persistAsked = true; ok = await sm.persist(); }
+      persistState = ok ? 'yes' : 'no';
+    } catch { persistState = 'unknown'; }
+  }
+  function recordCounts() {
+    const j = JR.load();
+    const w = W.load();
+    const owned = w.items.filter((x) => isNum(x.shares) && x.shares > 0).length;
+    const n = { trades: j.trades.length, owned, watch: w.items.length, ledger: PFL.load().entries.length, shariah: SHL.load().entries.length, thesis: THS.load().entries.length, profile: Boolean(ADV.load().profile) };
+    n.any = Boolean(n.trades || n.watch || n.ledger || n.shariah || n.thesis || n.profile);
+    return { n, backup: j.backup || '' };
+  }
+  function recordsCard() {
+    const { n, backup } = recordCounts();
+    const age = backup ? daysApart(backup, localISO()) : null;
+    const due = n.any && (!backup || (isNum(age) && age > 14));
+    const box = h('section', { class: 'rec-box' + (due ? ' rec-due' : ''), 'aria-label': 'Your records on this device' });
+    box.append(h('h3', { text: 'Your records: kept on this device only' }));
+    if (!n.any) {
+      box.append(h('p', { class: 'rec-line', text: 'Nothing is recorded yet. When you add holdings, journal trades or ledger entries, they are saved in this browser only, and this card tells you when to save a backup file.' }));
+    } else {
+      const bits = [];
+      if (n.owned) bits.push(`${n.owned} position${n.owned === 1 ? '' : 's'}`);
+      if (n.watch - n.owned > 0) bits.push(`${n.watch - n.owned} followed`);
+      if (n.trades) bits.push(`${n.trades} journal trade${n.trades === 1 ? '' : 's'}`);
+      if (n.ledger) bits.push(`${n.ledger} portfolio-ledger entr${n.ledger === 1 ? 'y' : 'ies'}`);
+      if (n.shariah) bits.push(`${n.shariah} Shariah record${n.shariah === 1 ? '' : 's'}`);
+      if (n.thesis) bits.push(`${n.thesis} thesis entr${n.thesis === 1 ? 'y' : 'ies'}`);
+      if (n.profile) bits.push('your plan answers');
+      box.append(h('p', { class: 'rec-line' }, icon('na', 'Saved on this device'), h('span', null, h('b', { text: 'Saved here: ' }), bits.join(', ') || 'records', '.')));
+      box.append(h('p', { class: 'rec-line' }, icon(due ? 'ok' : 'good', due ? 'Backup due' : 'Backup recent'), h('span', null, h('b', { text: 'Last backup file: ' }),
+        backup ? `${shortDate(backup)} (${age === 0 ? 'today' : age === 1 ? '1 day ago' : `${age} days ago`}).${due ? ' Time for a new one.' : ''}` : 'none yet. If the browser’s data is cleared, these records are gone, and only a backup file can bring them back.')));
+    }
+    const ps = persistState === 'yes'
+      ? 'The browser has accepted a request to keep this data. That is not a guarantee: clearing website data, freeing space or removing the app can still erase it.'
+      : persistState === 'unsupported'
+        ? 'This browser does not offer a way to ask it to keep this data, so it may clear it. A backup file is the only safe copy.'
+        : 'The browser has not promised to keep this data and may clear it (Safari can clear a website you have not opened for about a week). A backup file is the only safe copy.';
+    box.append(h('p', { class: 'rec-line', 'data-persist': persistState }, icon(persistState === 'yes' ? 'good' : 'ok', persistState === 'yes' ? 'Requested and accepted' : 'Not promised'), h('span', null, h('b', { text: 'Browser storage: ' }), ps)));
+    const acts = h('div', { class: 'ai' });
+    if (n.any) acts.append(h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`stock-checker-backup-${localISO()}.json`, JSON.stringify(backupOf(k), null, 1), 'application/json'); setTimeout(() => { if (page === 'dashboard') renderDashboard(); }, 800); } }, 'Save a backup now'));
+    acts.append(h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('journal') }, 'Backup and restore'));
+    box.append(acts);
+    box.append(h('details', { class: 'which' }, h('summary', null, h('span', { text: 'iPhone and iPad: add to Home Screen' }), h('span', { class: 'chev', 'aria-hidden': 'true', text: '⌄' })),
+      h('dl', null,
+        h('dt', { text: 'How' }), h('dd', { text: 'In Safari, tap Share, then Add to Home Screen, and open the site from that icon.' }),
+        h('dt', { text: 'Why' }), h('dd', { text: 'Safari can clear a website’s saved data after about a week without a visit. A Home Screen app is counted separately, so it is less likely to be cleared.' }),
+        h('dt', { text: 'What it does not do' }), h('dd', { text: 'It does not guarantee anything. The browser can still erase the data, so keep a backup file in Files or iCloud and save a new one after you record something.' }))));
+    return box;
+  }
+
   async function renderDashboard() {
     const el = $('#page-dashboard');
     const head = pageHead('Dashboard', 'Your holdings, tonight’s scanner candidates and the system’s alerts. Each block says where its numbers come from.');
@@ -9826,15 +10207,29 @@ table.data tr.me td { background: var(--accent-wash); }
     el.replaceChildren(head, loadingBox('Loading the dashboard…'));
     const [scr, sc, H, bt, lts] = await Promise.all([loadScreen(), loadScanner(), loadHealth(), loadBtSummary(), loadLtSummary(), loadSwingProof()]);
     if (my !== dashToken || page !== 'dashboard') return;
-    if (!scr) { el.replaceChildren(head, errCard('Today’s data could not be loaded. Check your connection and try again. Nothing is shown rather than old figures.')); return; }
+    if (!scr) { el.replaceChildren(head, loadErrCard('Today’s data could not be loaded.', ['data/screen.json'], 'Nothing is shown rather than old figures.')); return; }
     // the daily brief, market and ideas cards are the ones the Search page used to carry; they are the same functions, unchanged
     const mk = marketCard(scr, bt);
     mk.classList.add('dash-market');
-    const br = briefCard(scr, lts);
+    // stage 11: each figure and each alert appears once. The alerts card is built first, the brief leaves out what it already lists,
+    // and the brief's two portfolio tiles (today's move, gain since you bought) join the portfolio card, whose total they repeat.
+    const al = dashAlerts(scr, H);
+    const br = briefCard(scr, lts, al.shownKeys);
     br.classList.add('dash-brief');
+    const pfCard = dashPortfolio(scr);
+    const brStats = br.querySelector(':scope > .stats');
+    const pfStats = pfCard.querySelector(':scope > .stats');
+    if (brStats && pfStats) {
+      [...brStats.children].slice(1).forEach((tile) => pfStats.append(tile));
+      brStats.remove();
+    }
     const id = todayCard(scr);
     id.classList.add('dash-ideas');
-    el.replaceChildren(head, h('div', { class: 'dash' }, mk, dashAlerts(scr, H), dashPortfolio(scr), dashScanner(sc), br, id));
+    const recs = recordsCard();
+    el.replaceChildren(head, h('div', { class: 'dash' }, mk, al, pfCard, recs, dashScanner(sc), br, id));
+    // ask the browser to keep the data (only once there is something to keep), then redraw the card with its answer
+    const before = persistState;
+    checkPersist(recordCounts().n.any).then(() => { if (persistState !== before && my === dashToken && page === 'dashboard') { const cur = el.querySelector('.rec-box'); if (cur) cur.replaceWith(recordsCard()); } });
   }
 
   // ------------------------------------------------------------------ Alert Centre (stage 9)
@@ -10060,7 +10455,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!al.rules.length) pr.append(h('p', { class: 'empty', text: 'No price alerts yet.' }));
     else {
       pr.append(h('div', { class: 'tscroll' }, h('table', { class: 'data', 'aria-label': 'Your price alerts' },
-        h('thead', null, h('tr', null, ['Stock', 'Alert when', 'Price now', 'Status', ''].map((x) => h('th', { text: x })))),
+        h('thead', null, h('tr', null, ['Stock', 'Alert when', 'Price now', 'Status', ''].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Details' })))))),
         h('tbody', null, al.rules.map((rule) => {
           const p = alertPriceOf(scr, W.load(), rule.t);
           const isOpen = al.hist.some((e) => e.key === priceKey(rule) && e.status === 'open');
@@ -10105,7 +10500,7 @@ table.data tr.me td { background: var(--accent-wash); }
     if (!quiet) el.replaceChildren(head, loadingBox('Checking your alerts…'));
     const st = alertLast && quiet ? alertLast : await evaluateAlerts();
     if (page !== 'alerts') return;
-    if (!st || !st.scr) { el.replaceChildren(head, errCard('Today’s data could not be loaded. Check your connection and try again. Nothing is shown rather than old figures.')); return; }
+    if (!st || !st.scr) { el.replaceChildren(head, loadErrCard('Today’s data could not be loaded.', ['data/screen.json'], 'Nothing is shown rather than old figures.')); return; }
     el.replaceChildren(head);
     renderAlertCentreCards(el, st);
   }
@@ -10123,6 +10518,8 @@ table.data tr.me td { background: var(--accent-wash); }
   });
 
   renderRecent();
+  // the skip link goes to whichever page is showing
+  { const sk = document.getElementById('skipLink'); if (sk) sk.addEventListener('click', (e) => { e.preventDefault(); focusPage(page); const el = document.getElementById('page-' + page); if (el) el.scrollIntoView({ block: 'start' }); }); }
   if (!HAS_SITE) { const hs = document.getElementById('howSite'); if (hs) hs.hidden = true; }
   if (MODE === 'mcp') {
     $('#hint').textContent = 'Works for US-listed companies that file 10-K reports. Runs through your Composio connection, so the first analysis may ask you to allow it.';
@@ -10133,10 +10530,38 @@ table.data tr.me td { background: var(--accent-wash); }
     document.body.classList.add('has-nav');
     $('#nav').hidden = false;
     document.querySelectorAll('#nav button').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.page)));
-    window.addEventListener('popstate', () => route());
+  
+  // stage 11: a sideways-scrolling table or chip row that really overflows can be reached from the keyboard, says so, and fades at the edge
+  (function wireScrollers() {
+    let queued = false;
+    const label = (el) => { const c = el.closest('section, .card, details, [role="main"]'); const hd = c && c.querySelector('h2, h3, summary'); return hd ? hd.textContent.trim().slice(0, 60) : 'Table'; };
+    const sync = (el) => { const over = el.scrollWidth > el.clientWidth + 2; el.classList.toggle('can-scroll', over); el.classList.toggle('at-end', !over || el.scrollLeft + el.clientWidth >= el.scrollWidth - 2); };
+    function run() {
+      queued = false;
+      for (const el of document.querySelectorAll('.tscroll, .glance, .jumps, .scan-wrap')) {
+        if (!el.offsetParent) continue;
+        sync(el);
+        if (el.classList.contains('can-scroll')) {
+          if (!el.hasAttribute('tabindex')) {
+            el.setAttribute('tabindex', '0');
+            if (el.tagName !== 'NAV') { el.setAttribute('role', 'region'); el.setAttribute('aria-label', (el.classList.contains('glance') ? 'At a glance' : label(el)) + ' (scrolls sideways)'); }
+          }
+          if (!el.dataset.sw) { el.dataset.sw = '1'; el.addEventListener('scroll', () => sync(el), { passive: true }); }
+          if (el.classList.contains('tscroll') && !(el.nextElementSibling && el.nextElementSibling.classList.contains('scroll-hint'))) el.after(h('p', { class: 'scroll-hint', text: 'Swipe sideways to see more columns.' }));
+        }
+      }
+    }
+    const queue = () => { if (!queued) { queued = true; requestAnimationFrame(run); } };
+    new MutationObserver(queue).observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', queue);
+    queue();
+  })();
+  window.addEventListener('popstate', () => route());
     route();
     refreshNavDot();
     renderHealthBanner();
+    renderDataStatus();
+    livePainters.add(() => { renderDataStatus(); });
     // the Alert Centre checks after the page loads and after every live-price refresh, while this site is open
     evaluateAlerts();
     livePainters.add(() => { evaluateAlerts(); });
@@ -10150,7 +10575,7 @@ table.data tr.me td { background: var(--accent-wash); }
     loadIndex().then((idx) => {
       if (!idx) return;
       const when = idx.priceDate
-        ? `prices as of the close on ${niceDates(idx.priceDate)}`
+        ? `prices: close of ${niceDates(idx.priceDate)}`
         : `data as of ${new Date(idx.asOf).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
       $('#hint').textContent = `Covers ${idx.count.toLocaleString()} US companies worth $2 billion or more, ${when}. The full analysis is meant to refresh every night and prices every 15 minutes while the US market is open.`;
       // GitHub sometimes delays or skips scheduled runs: say so when the data is more than one session old

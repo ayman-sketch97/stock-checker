@@ -17,4 +17,6 @@ The site is rebuilt every weekday morning (US time) by a GitHub Actions workflow
 
 Code map: `lib/data.js` (network), `lib/engine.js` (fundamentals), `lib/technical.js` (indicators, setups, trade simulation), `lib/backtest.js` (track record), `lib/signals.js` (live log), `lib/longterm.js` and `lib/ltstats.js` (10-year test), `lib/records.js` (the permanent record of every call, kept on the `records` branch, append-only), `lib/intel.js` (investment reports and tool-written thesis drafts, page only), `lib/scanner.js` (swing scanner rules, weights and ranking), `lib/opportunity.js` (paper tracking of scanner ideas), `tools/build-site.mjs` (daily build), `index.html` (the whole page).
 
+Tests: `npm test` runs the 11 Node suites; `npm run test:pages` runs the six Python page suites (needs Python Playwright with Chromium).
+
 Educational tool, not financial advice. Always confirm halal status with a dedicated screener before investing.
