@@ -6,6 +6,10 @@ checked is in `VALIDATION.md`.
   longer repeats the "Today" stack. The daily brief, the market card and "Ideas today" now live on the Dashboard; Search keeps the
   search box and every search feature. No advice, formula or data source changed.
 
+## Visual polish after stage 11 (15 November 2026)
+
+Display only. The Dashboard portfolio card gains a holdings mix bar, green and red gain and loss colours, a larger total tile and a soft tint on each card. No words, figures, rules or storage changed; the same-advice comparison, accessibility scan (0 violations) and every test suite pass.
+
 ## 15 November 2026: trust, clarity and accessibility (stage 11, on branch `improve/v1-trust-and-usability`, not merged)
 
 Display and wording only. No recommendation, formula, threshold, risk limit (10% per stock, trim above 15% back to about 10%, 40% per sector),
