@@ -1,0 +1,6 @@
+{"v":2,"date":"2026-11-18","built":"2026-11-19T19:27:02.587Z","prev":"74702014a9a14dfd59aed2957de2dafe1fccb82735759c9c00227924dafd2df1","n":5,"baseline":false}
+{"k":"verdict","t":"APD","px":308.11,"v":"AVOID_WEAK","s":"review","fair":null,"bb":null,"tr":null,"from":"SPECULATIVE"}
+{"k":"halal","t":"APD","px":308.11,"v":"AVOID_WEAK","s":"review","fair":null,"bb":null,"tr":null,"from":"pass"}
+{"k":"verdict","t":"WWD","px":319.07,"v":"WATCH","s":"pass","fair":257.42,"bb":218.81,"tr":357.26,"from":"PASS"}
+{"k":"trim_out","t":"WWD","px":319.07,"v":"WATCH","s":"pass","fair":257.42,"bb":218.81,"tr":357.26}
+{"k":"trim_out","t":"WMG","px":32.96,"v":"AVOID_WEAK","s":"review","fair":22.55,"bb":19.17,"tr":33.85}
