@@ -1,0 +1,3 @@
+{"v":2,"date":"2026-11-23","built":"2026-11-24T21:10:05.217Z","prev":"49d3c76e97b6dfb41523db6ccc645c1931a9167e0913a055440d5a2f19ff92f2","n":2,"baseline":false}
+{"k":"verdict","t":"COR","px":338.04,"v":"BUY","s":"pass","fair":336.79,"bb":286.27,"tr":475.87,"from":"WATCH"}
+{"k":"trim_in","t":"DY","px":218.37,"v":"AVOID_SHARIAH","s":"fail","fair":100.71,"bb":85.6,"tr":167.45}
