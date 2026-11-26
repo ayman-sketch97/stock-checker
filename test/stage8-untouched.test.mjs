@@ -1,6 +1,7 @@
 // Stage 8 must not change any recommendation rule, investment policy or Shariah calculation of stages 1 to 7.
 // This pins the libraries that hold them by sha256, taken from main commit 32c4fd4 (the commit stage 8 started from). If one of these
 // files changes, this test fails and the change has to be reviewed and approved on purpose: update the hash only with that approval.
+// lib/engine.js was re-pinned on 2026-11-26 with the owner's approval (two debt-reading fixes, METHOD_VERSION 1.4, PR #2).
 // lib/intel.js is the one exception: stage 8 changed two strings there (a comment and a warning that called a delayed last-sale price
 // "live"). The test undoes exactly those two strings and checks the file is then identical to the commit stage 8 started from.
 // Run: node --test test/stage8-untouched.test.mjs
@@ -16,7 +17,7 @@ const PINNED = {
   'lib/thesis.js': 'f8b243c1cf7e734d5ab6ba9174ea267895a57de696fe78d4559dd216d160b664',
   'lib/portfolio.js': 'f526d054751fdf52456e38b2fc9f15d2e6e29492424fd6c5267c3eda55071ec1',
   'lib/records.js': 'd4cab8bb2c381b9a8503e202eb6db0fb1ca7ebf73ba88278d74748c1f0843407',
-  'lib/engine.js': 'bc16abd68312ae33f9b2195f2b84f8f50969ac3929efdac1edc01acf68d05213',
+  'lib/engine.js': '5d03f408529e4865d4ae30b069470e27e0a083b6c156ccd8efe76a776bf863ce',
   'lib/shariah-ledger.js': 'f9ebd96c0cc049d6c63b013359f0f265755ebb51c86dee6584b71767edf5b7a8',
   'lib/health.js': 'caa4e262afc101f8fc5dd4ec4d34b9a504b37c2ed949c70c9421f71202f839f3',
   'lib/technical.js': '909156951eda0b122a95432a8b944f997eb1cd2bf347049eac6d22ad76ef8df2',

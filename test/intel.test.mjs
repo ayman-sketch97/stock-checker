@@ -531,9 +531,10 @@ test('the library imports nothing, and the page carries exactly the same code', 
   const mod = src.split('\nexport {')[0].replace(/\s+$/, '');
   assert.equal(inPage, mod, 'index.html and lib/intel.js must hold the same rules, character for character');
 });
+// lib/engine.js is no longer in this list: the owner approved two debt-reading fixes on 2026-11-26 (PR #2); test/stage8-untouched.test.mjs pins its new hash.
 test('the approved policy, thesis and portfolio libraries are untouched by this stage', async (t) => {
   const { execFileSync } = await import('node:child_process');
   let out;
-  try { out = execFileSync('git', ['diff', '--name-only', 'eb24496', 'HEAD', '--', 'lib/policy.js', 'lib/thesis.js', 'lib/portfolio.js', 'lib/records.js', 'lib/engine.js', 'lib/shariah-ledger.js', 'lib/health.js', 'lib/technical.js', 'test/portfolio.test.mjs', 'test/thesis.test.mjs'], { encoding: 'utf8', cwd: new URL('..', import.meta.url) }); } catch { t.skip('the stage 6 commit is not in this checkout'); return; }
+  try { out = execFileSync('git', ['diff', '--name-only', 'eb24496', 'HEAD', '--', 'lib/policy.js', 'lib/thesis.js', 'lib/portfolio.js', 'lib/records.js', 'lib/shariah-ledger.js', 'lib/health.js', 'lib/technical.js', 'test/portfolio.test.mjs', 'test/thesis.test.mjs'], { encoding: 'utf8', cwd: new URL('..', import.meta.url) }); } catch { t.skip('the stage 6 commit is not in this checkout'); return; }
   eq(out.trim(), '', 'no earlier stage library or test changed');
 });
