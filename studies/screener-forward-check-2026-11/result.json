@@ -1,0 +1,120 @@
+{
+ "stocks": 1913,
+ "obs": 19130,
+ "dates": 10,
+ "all": {
+  "n": 19130,
+  "mean": "-0.03%",
+  "median": "-0.32%",
+  "up": "48.88%"
+ },
+ "bySetup": {
+  "pullback": {
+   "all": {
+    "n": 2741,
+    "mean": "-2.14%",
+    "median": "-2.57%",
+    "up": "40.20%"
+   },
+   "active": {
+    "n": 2552,
+    "mean": "-2.06%",
+    "median": "-2.43%",
+    "up": "40.79%"
+   },
+   "resolved": 1457,
+   "targetFirst": "20.04%"
+  },
+  "breakout": {
+   "all": {
+    "n": 592,
+    "mean": "-1.80%",
+    "median": "-2.02%",
+    "up": "42.74%"
+   },
+   "active": {
+    "n": 72,
+    "mean": "-1.97%",
+    "median": "-1.58%",
+    "up": "38.89%"
+   },
+   "resolved": 421,
+   "targetFirst": "33.02%"
+  },
+  "reversal": {
+   "all": {
+    "n": 789,
+    "mean": "4.45%",
+    "median": "5.02%",
+    "up": "65.65%"
+   },
+   "active": {
+    "n": 368,
+    "mean": "3.61%",
+    "median": "3.88%",
+    "up": "62.23%"
+   },
+   "resolved": 275,
+   "targetFirst": "49.82%"
+  },
+  "range": {
+   "all": {
+    "n": 3924,
+    "mean": "-0.70%",
+    "median": "-1.56%",
+    "up": "44.11%"
+   },
+   "active": {
+    "n": 707,
+    "mean": "-0.51%",
+    "median": "-1.29%",
+    "up": "44.70%"
+   },
+   "resolved": 1008,
+   "targetFirst": "30.46%"
+  }
+ },
+ "excessBySetup": {
+  "pullback": {
+   "n": 2741,
+   "meanExcessVsSameDay": "-1.51%",
+   "datesWithSetup": 10
+  },
+  "breakout": {
+   "n": 592,
+   "meanExcessVsSameDay": "-1.08%",
+   "datesWithSetup": 10
+  },
+  "reversal": {
+   "n": 789,
+   "meanExcessVsSameDay": "4.17%",
+   "datesWithSetup": 10
+  },
+  "range": {
+   "n": 3924,
+   "meanExcessVsSameDay": "-0.67%",
+   "datesWithSetup": 10
+  }
+ },
+ "datesMeanFwd": {
+  "2026-09-02": "-3.98%",
+  "2026-09-09": "-2.57%",
+  "2026-09-15": "-0.84%",
+  "2026-09-21": "-1.60%",
+  "2026-09-25": "0.88%",
+  "2026-10-01": "3.81%",
+  "2026-10-07": "4.77%",
+  "2026-10-13": "3.19%",
+  "2026-10-19": "1.55%",
+  "2026-10-23": "-5.52%"
+ },
+ "scoreVsFwd": {
+  "n": 15206,
+  "spearman": -0.086,
+  "allRows": -0.08
+ },
+ "scoreHalves": {
+  "lowHalfMean": "1.72%",
+  "highHalfMean": "-1.43%"
+ }
+}
