@@ -1098,6 +1098,56 @@ details.which dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
 @media (max-width: 1023px) {
   .jumpbar { top: 0; }
 }
+
+/* ---- design refresh (v1.1): a clear bottom line first, calmer cards, stronger hierarchy ---- */
+:root { --radius: 20px; --radius-sm: 16px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 14px 34px -18px rgba(15, 23, 42, 0.20);
+  --hairline: color-mix(in srgb, var(--ink) 7%, transparent); }
+body { letter-spacing: -0.003em; }
+.card:not(.verdict):not(.err) { border-radius: var(--radius); padding: var(--sp-6) var(--sp-6); border-color: var(--hairline); }
+.card h2 { font-size: 19px; letter-spacing: -0.025em; }
+.card .sub { color: var(--ink-2); line-height: 1.5; }
+.co { margin-top: 26px; padding: 22px 24px; border-radius: 22px; align-items: center;
+  background: radial-gradient(120% 140% at 0% 0%, var(--accent-wash), transparent 55%), var(--surface); border: 1px solid var(--hairline); box-shadow: var(--shadow); }
+.co h1 { font-size: 30px; letter-spacing: -0.04em; }
+.px .p { font-size: 34px; letter-spacing: -0.045em; }
+.dbanner { display: flex; gap: 16px; align-items: flex-start; margin: 14px 0 0; padding: 20px 22px; border-radius: 22px; border: 1px solid var(--hairline); position: relative; overflow: hidden;
+  background: var(--surface); box-shadow: var(--shadow); border-left: 6px solid var(--muted); }
+.dbanner .db-ic { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--neutral-bg); color: var(--ink-2); }
+.dbanner .db-ic .ic { width: 24px; height: 24px; }
+.dbanner .db-body { min-width: 0; }
+.db-k { font-size: 11.5px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.db-t { font-size: 24px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.15; margin: 4px 0 6px; text-wrap: balance; }
+.db-p { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.5; max-width: 62ch; }
+.db-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.db-chip { font-size: 12.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: var(--neutral-bg); color: var(--ink-2); }
+.db-chip.dbc-good { background: var(--good-bg); color: var(--good-ink); }
+.db-chip.dbc-warn { background: var(--warn-bg); color: var(--warn-ink); }
+.db-chip.dbc-bad { background: var(--bad-bg); color: var(--bad-ink); }
+.db-good { border-left-color: var(--good); background: linear-gradient(100deg, var(--good-bg), var(--surface) 60%); } .db-good .db-ic { background: var(--good-bg-2); color: var(--good-ink); } .db-good .db-t { color: var(--good-ink); }
+.db-warn { border-left-color: var(--warn); background: linear-gradient(100deg, var(--warn-bg), var(--surface) 60%); } .db-warn .db-ic { background: var(--warn-bg-2); color: var(--warn-ink); } .db-warn .db-t { color: var(--warn-ink); }
+.db-bad { border-left-color: var(--bad); background: linear-gradient(100deg, var(--bad-bg), var(--surface) 60%); } .db-bad .db-ic { background: var(--bad-bg-2); color: var(--bad-ink); } .db-bad .db-t { color: var(--bad-ink); }
+.db-neutral { border-left-color: var(--axis); }
+.tiles { gap: 12px; margin: 18px 0; }
+.tile { border-radius: var(--radius-sm); border-color: var(--hairline); padding: 16px; transition: transform 0.15s, box-shadow 0.15s; }
+.tile:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.tile .l { letter-spacing: 0.09em; font-size: 11.5px; }
+.tile .v { font-size: 17px; }
+.tiles.unrel .tile { background: repeating-linear-gradient(135deg, var(--surface-2), var(--surface-2) 8px, var(--surface-3) 8px, var(--surface-3) 9px); }
+.tiles.unrel .tile:hover { transform: none; box-shadow: none; }
+.tiles.unrel .tile .v { color: var(--muted); font-style: italic; }
+.gchip { border-radius: 999px; font-weight: 700; }
+.tabs { border-radius: 20px; padding: 6px; }
+.tab { padding: 12px 10px; border-radius: 15px; }
+.tab[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow-sm), 0 0 0 1px var(--hairline); }
+.verdict .title { font-size: 26px; }
+.act-row { border-radius: 14px; }
+@media (max-width: 560px) {
+  .co { padding: 18px 16px; } .co h1 { font-size: 24px; } .px .p { font-size: 28px; }
+  .dbanner { padding: 16px; gap: 12px; } .dbanner .db-ic { width: 38px; height: 38px; } .db-t { font-size: 21px; }
+  .card:not(.verdict):not(.err) { padding: var(--sp-5) var(--sp-4); }
+}
+@media (prefers-reduced-motion: reduce) { .tile { transition: none; } .tile:hover { transform: none; } }
 </style>
 </head>
 <body>
@@ -1727,6 +1777,42 @@ details.which dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
     if (q.level === 'limited' && q.reasons && q.reasons.length) wrap.append(h('ul', { class: 'dq-why' }, q.reasons.map((t) => h('li', { text: t.charAt(0).toUpperCase() + t.slice(1) + '.' }))));
     return wrap;
   }
+  // data the tool itself does not trust: nothing derived from it is shown as a rating
+  const isUnreliable = (d) => Boolean(d && d.verdict && (d.verdict.code === 'UNRELIABLE' || (d.dataQuality && d.dataQuality.level === 'insufficient')));
+  // the halal screen is a screen on the same filings, never a ruling: say so in the words themselves
+  function shariahWords(d) {
+    const st = d && d.labels && d.labels.shariah && d.labels.shariah.status;
+    if (isUnreliable(d)) return st === 'fail' ? 'Fails (unverified)' : 'Unverified';
+    return st === 'pass' ? 'Likely passes' : st === 'fail' ? 'Fails' : 'Needs checking';
+  }
+  // one line at the very top: what the tool concludes, and how far to trust it
+  function decisionBanner(d, px, stale) {
+    const v = d.verdict || {};
+    const unrel = isUnreliable(d);
+    const sh = d.labels && d.labels.shariah && d.labels.shariah.status;
+    let tone = 'neutral', title, text, ic = 'na';
+    if (unrel) {
+      tone = 'warn'; ic = 'ok';
+      title = 'No decision from this tool';
+      text = 'The numbers behind it do not hold together. Do not buy or sell on the scores below. Read the latest annual report first.';
+    } else {
+      const a = stale ? { tone: 'warn', title: 'Advice paused', text: 'The nightly update is late, so wait for the next one before acting.' } : guardBuy(longTermNow(d, px), d, SCR_NOW) || {};
+      tone = a.tone === 'good' ? 'good' : a.tone === 'bad' ? 'bad' : a.tone === 'warn' ? 'warn' : 'neutral';
+      title = a.title || (VERDICT_SHORT[v.code] || 'Verdict');
+      text = a.text ? firstSentence(a.text) : '';
+      ic = tone === 'good' ? 'good' : tone === 'bad' ? 'bad' : tone === 'warn' ? 'ok' : 'na';
+    }
+    const halal = sh === 'fail' ? ['bad', 'Fails the halal screen'] : unrel ? ['warn', 'Halal status unverified: confirm on Zoya or Musaffa'] : sh === 'pass' ? ['good', 'Likely halal, not confirmed: check Zoya or Musaffa'] : ['warn', 'Halal status needs checking'];
+    return h('section', { class: 'dbanner db-' + tone, 'aria-label': 'Bottom line' },
+      h('div', { class: 'db-ic' }, icon(ic)),
+      h('div', { class: 'db-body' },
+        h('div', { class: 'db-k', text: 'Bottom line' }),
+        h('div', { class: 'db-t', text: title }),
+        text ? h('p', { class: 'db-p', text }) : null,
+        h('div', { class: 'db-chips' },
+          h('span', { class: 'db-chip dbc-' + halal[0], text: halal[1] }),
+          unrel ? h('span', { class: 'db-chip dbc-warn', text: 'Data check failed' }) : (d.dataQuality && d.dataQuality.level === 'limited' ? h('span', { class: 'db-chip dbc-warn', text: 'Data limited' }) : null))));
+  }
   let tech = null; // technical tab state for the company on screen
   function render(d) {
     destroyChart();
@@ -1744,6 +1830,8 @@ details.which dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
         (tech.pxSub = h('div', { class: 'm' })),
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' })),
       (tech.spark = h('div', { class: 'spark', hidden: true }))));
+    tech.banner = decisionBanner(d, d.price, null);
+    result.append(tech.banner);
     const own = ownRow(d);
     if (own) result.append(own);
     paintSpark();
@@ -1811,18 +1899,18 @@ details.which dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
     const qR = L.quality.score >= 70 ? 'good' : L.quality.score >= 50 ? 'ok' : 'bad';
     const hR = L.health.score >= 70 ? 'good' : L.health.score >= 40 ? 'ok' : 'bad';
     const gR = !isNum(L.growth.rate) ? 'na' : L.growth.rate >= 0.07 ? 'good' : L.growth.rate >= 0.02 ? 'ok' : 'bad';
-    const vR = L.valuation.label === 'Undervalued' ? 'good' : L.valuation.label === 'Fairly valued' ? 'ok' : L.valuation.label === 'Overvalued' ? 'bad' : 'na';
-    const sR = L.shariah.status === 'pass' ? 'good' : L.shariah.status === 'fail' ? 'bad' : 'ok';
+    const vR = unrel ? 'na' : L.valuation.label === 'Undervalued' ? 'good' : L.valuation.label === 'Fairly valued' ? 'ok' : L.valuation.label === 'Overvalued' ? 'bad' : 'na';
+    const sR = unrel ? 'na' : L.shariah.status === 'pass' ? 'good' : L.shariah.status === 'fail' ? 'bad' : 'ok';
     tiles.append(
-      tile('Quality', qR, L.quality.label, `${L.quality.score}/100`, L.quality.score),
-      tile('Growth', gR, L.growth.label, isNum(L.growth.rate)
+      tile('Quality', qR, unrel ? 'Unverified' : L.quality.label, unrel ? `${L.quality.score}/100, not trusted` : `${L.quality.score}/100`, L.quality.score),
+      tile('Growth', gR, unrel ? 'Unverified' : L.growth.label, isNum(L.growth.rate)
         ? `${pct(L.growth.rate, 1)} a year` + (isNum(L.growth.recent) && Math.abs(L.growth.recent - L.growth.rate) >= 0.05 ? `, recently ${pct(L.growth.recent, 0)}` : '')
         : '', isNum(L.growth.score) && isNum(L.growth.rate) ? L.growth.score : null),
-      tile('Valuation', vR, L.valuation.label, f ? `Fair value ~${price(f.base)}` : ''),
-      tile('Balance sheet', hR, L.health.label, `${L.health.score}/100`, L.health.score),
-      tile('Shariah', sR, L.shariah.label, 'Confirm on Zoya/Musaffa'));
+      tile('Valuation', vR, unrel ? 'n/a' : L.valuation.label, unrel ? 'No reliable fair value' : f ? `Fair value ~${price(f.base)}` : ''),
+      tile('Balance sheet', hR, unrel ? 'Unverified' : L.health.label, unrel ? `${L.health.score}/100, not trusted` : `${L.health.score}/100`, L.health.score),
+      tile('Shariah', sR, shariahWords(d), unrel ? 'Confirm on Zoya/Musaffa' : 'A screen, not a ruling: confirm on Zoya/Musaffa'));
     fund.append(tiles);
-    if (unrel) fund.append(h('p', { class: 'unrel-note', role: 'note', text: 'Not a rating: the data behind these scores is not reliable enough, so they are shown in grey for reference only.' }));
+    if (unrel) fund.append(h('p', { class: 'unrel-note', role: 'note', text: 'Not a rating: the data behind these scores did not pass the tool’s own checks, so they are marked unverified and shown in grey. Nothing here should drive a decision.' }));
 
     // fair value and the long-term entry/exit plan
     if (f) fund.append(fairValueCard(d));
@@ -2098,7 +2186,7 @@ details.which dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
     const S = d.shariah;
     const det = h('details', { class: 'sec shariah', open: S.status !== 'pass' ? true : null });
     det.append(h('summary', null, h('span', { class: 'st', text: 'Shariah screen' }),
-      h('span', { class: 'sc' }, icon(S.status === 'pass' ? 'good' : S.status === 'fail' ? 'bad' : 'ok'), h('span', { text: d.labels.shariah.label }), chevron())));
+      h('span', { class: 'sc' }, icon(S.status === 'pass' ? 'good' : S.status === 'fail' ? 'bad' : 'ok'), h('span', { text: shariahWords(d) }), chevron())));
     const body = h('div', { class: 'sec-body' });
     body.append(h('p', { class: 'sub', style: 'margin-bottom:6px', text: S.headline }));
     S.checks.forEach((c) => {
@@ -2976,7 +3064,7 @@ details.which dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
   const TRADED = ['pullback', 'breakout', 'reversal', 'range'];
   const GOOD_VERDICTS = new Set(['BUY_STRONG', 'BUY', 'CONTRARIAN', 'WATCH']);
   const VERDICT_TONE = { BUY_STRONG: 'good', BUY: 'good', CONTRARIAN: 'warn', WATCH: 'accent', LOOK: 'neutral', PASS: 'neutral', AVOID_WEAK: 'bad', AVOID_SHARIAH: 'bad', SPECULATIVE: 'bad', NODATA: 'neutral', FINANCIAL: 'neutral', UNRELIABLE: 'neutral' };
-  const SHARIAH_TAG = { pass: ['Halal', 'good'], review: ['Halal: check', 'warn'], fail: ['Not halal', 'bad'] };
+  const SHARIAH_TAG = { pass: ['Likely halal', 'good'], review: ['Halal: check', 'warn'], fail: ['Not halal', 'bad'] };
   const SH_WORD = { pass: 'passes', review: 'needs checking', fail: 'fails' };
   const jsonCache = new Map();
   // Stage 11 (display only): why a file did not load, so a page can say which of these happened instead of always blaming the connection.
@@ -5462,6 +5550,7 @@ details.which dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
     const halalFail = d.labels && d.labels.shariah && d.labels.shariah.status === 'fail';
     if (HAS_SITE && !swingProofDone) loadSwingProof().then(() => paintAction());
     if (HAS_SITE && !SCR_NOW) loadScreen().then((s) => { if (s) paintAction(); });
+    if (t.banner && t.banner.isConnected) { const nb = decisionBanner(d, px, staleOf(SCR_NOW)); t.banner.replaceWith(nb); t.banner = nb; }
     const rows = [actionRow('Long term (years)', guardBuy(longTermNow(d, px), d, SCR_NOW), () => selectTab('fund', true))];
     const sw = T ? guardBuy(swingNow(T, L, halalFail), d, SCR_NOW) : null;
     if (sw) rows.push(actionRow('Swing trade (weeks)', sw, () => selectTab('tech', true)));
@@ -9233,7 +9322,7 @@ details.which dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
     chips.push(chip(vt === 'good' || vt === 'bad' || vt === 'warn' ? vt : '', null, VERDICT_SHORT[v] || 'Verdict', null, () => selectTab('fund', true)));
     const sh = d.labels && d.labels.shariah && d.labels.shariah.status;
     if (sh) {
-      chips.push(chip(sh === 'pass' ? 'good' : sh === 'fail' ? 'bad' : 'warn', sh === 'pass' ? 'good' : sh === 'fail' ? 'bad' : 'ok', SHARIAH_TAG[sh] ? SHARIAH_TAG[sh][0] : 'Halal', null, () => {
+      chips.push(chip(sh === 'fail' ? 'bad' : isUnreliable(d) || sh !== 'pass' ? 'warn' : 'good', sh === 'fail' ? 'bad' : isUnreliable(d) || sh !== 'pass' ? 'ok' : 'good', isUnreliable(d) && sh !== 'fail' ? 'Halal: unverified' : SHARIAH_TAG[sh] ? SHARIAH_TAG[sh][0] : 'Halal', null, () => {
         selectTab('fund', true);
         const s = document.querySelector('#panel-fund details.shariah');
         if (s) { s.open = true; s.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
