@@ -8,7 +8,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "test": "node --test test/formulas.test.mjs test/stage8-untouched.test.mjs test/portfolio.test.mjs test/shariah-ledger.test.mjs test/thesis.test.mjs test/alerts.test.mjs test/scanner.test.mjs test/intel.test.mjs test/opportunity.test.mjs test/deploy-safety.test.mjs test/restore-and-log.test.mjs",
+    "test": "node --test test/formulas.test.mjs test/stage8-untouched.test.mjs test/portfolio.test.mjs test/shariah-ledger.test.mjs test/thesis.test.mjs test/alerts.test.mjs test/scanner.test.mjs test/intel.test.mjs test/opportunity.test.mjs test/deploy-safety.test.mjs test/restore-and-log.test.mjs test/simexit.test.mjs",
     "test:pages": "for f in test/page.test.py test/layout-page.test.py test/dashboard-page.test.py test/alerts-page.test.py test/scanner-page.test.py test/stage11-page.test.py; do python3 \"$f\" || exit 1; done"
   }
 }
