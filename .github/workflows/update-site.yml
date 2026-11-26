@@ -66,6 +66,8 @@ jobs:
         run: node --test test/opportunity.test.mjs
       - name: Test the Alert Centre rules
         run: node --test test/alerts.test.mjs
+      - name: Test the blocked-stock analysis card
+        run: node --test test/assessment.test.mjs
       - name: Check stages 1 to 7 are untouched
         run: node --test test/stage8-untouched.test.mjs
 
