@@ -3,6 +3,7 @@
 // files changes, this test fails and the change has to be reviewed and approved on purpose: update the hash only with that approval.
 // lib/engine.js was re-pinned on 2026-11-26 with the owner's approval (two debt-reading fixes, METHOD_VERSION 1.4, PR #2).
 // Re-pinned again on 2026-11-26 (owner said yes to both in chat): cash/capex tag fixes, stale small debt rule, METHOD_VERSION 1.5.
+// Re-pinned 2026-11-26 (owner standing instruction to act on the audit): data-quality note when 15+ score points are estimated, METHOD_VERSION 1.6. No score or verdict change.
 // lib/intel.js is the one exception: stage 8 changed two strings there (a comment and a warning that called a delayed last-sale price
 // "live"). The test undoes exactly those two strings and checks the file is then identical to the commit stage 8 started from.
 // Run: node --test test/stage8-untouched.test.mjs
@@ -18,7 +19,7 @@ const PINNED = {
   'lib/thesis.js': 'f8b243c1cf7e734d5ab6ba9174ea267895a57de696fe78d4559dd216d160b664',
   'lib/portfolio.js': 'f526d054751fdf52456e38b2fc9f15d2e6e29492424fd6c5267c3eda55071ec1',
   'lib/records.js': 'd4cab8bb2c381b9a8503e202eb6db0fb1ca7ebf73ba88278d74748c1f0843407',
-  'lib/engine.js': '040fbdc207627b0432947e05ffc60d5e48e05db9c6708b04bb64bc458e8ad314',
+  'lib/engine.js': 'a1c56b65f9696437add78f2e41030300c5a31ef3a73e59f4bcb1297d2684a1dc',
   'lib/shariah-ledger.js': 'f9ebd96c0cc049d6c63b013359f0f265755ebb51c86dee6584b71767edf5b7a8',
   'lib/health.js': 'caa4e262afc101f8fc5dd4ec4d34b9a504b37c2ed949c70c9421f71202f839f3',
   'lib/technical.js': 'b17d2c4b1de4469c5c8691f4757f0d04ac58cd0432ce907f7248610ed7205517',

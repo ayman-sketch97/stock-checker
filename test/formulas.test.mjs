@@ -1590,3 +1590,14 @@ test('permanent record: a call counts from the first close after it was publishe
   assert.ok(Math.abs(lagged.buy.h['1m'].ret) < 1e-9, 'entered at 120 on Tuesday, after the jump');
   assert.ok(Math.abs(plain.buy.h['1m'].ret - 0.2) < 1e-9, 'without a publication time it would have been credited with the jump');
 });
+
+test('estimated points: the data-quality note appears exactly when 15 or more score points are estimated, and scores are untouched', () => {
+  for (const opts of [{}, { noDebtEver: true }, { noCashLatest: true }]) {
+    const r = company(opts);
+    const all = [...r.sections.quality, ...r.sections.health, ...r.sections.growth];
+    const est = all.filter((m) => m.rating === 'na' && Number.isFinite(m.points) && m.points > 0).reduce((a, m) => a + m.points, 0);
+    const noted = [...(r.dataQuality.reasons || []), ...(r.dataQuality.limits || [])].some((x) => /points in the quality, balance-sheet and growth scores are estimated/.test(x));
+    assert.equal(noted, est >= 15, `note iff 15+ estimated points (estimated ${est})`);
+    assert.equal(r.labels.quality.score, Math.round(r.sections.quality.reduce((a, m) => a + (m.points || 0), 0)), 'quality score is still the plain sum of points');
+  }
+});

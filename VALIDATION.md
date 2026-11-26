@@ -2315,3 +2315,11 @@ outside the repository so no dependency was added, is reported in the release no
 
 **Limitations that remain.** The browser can still erase the records on this device; persistent storage is a request, not a promise, and only a backup file kept elsewhere
 is safe. There is still no Content Security Policy tag. Trading days still ignore market holidays, so a long holiday weekend can look like a late update.
+
+## Estimated points in the scores (27 Nov 2026 audit)
+
+When a metric cannot be calculated, its score gets neutral fallback points (rating "na"): about a third to a half of that metric's maximum. In the 1,522 live stocks that carry the per-metric detail, 843 had at least one such metric, 258 had 15 or more estimated points, and 95 had 30 or more.
+
+Tested alternative: drop the missing metrics and rescale the rest to 100. Per-stock effect: 298 quality and 324 balance-sheet scores change, single scores move by up to 30 to 50 points (for example MAIN 51 to 100, MANE 38 to 0), and 19 stocks cross the quality-70 line and 13 the quality-50 line. That is less stable than the neutral points, so scores were NOT changed.
+
+Instead (METHOD_VERSION 1.6) the data-quality level lists a limit when 15 or more points are estimated: "N points in the quality, balance-sheet and growth scores are estimated because ... could not be calculated". Projected on the live data: 29 stocks move from "high" to "limited" data quality (152 were already "limited", 77 "insufficient"). No score, verdict code, threshold or Record number changes. The Fundamental tab also names the estimated metrics in each section (PR #16).
