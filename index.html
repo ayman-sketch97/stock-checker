@@ -291,6 +291,7 @@ header.top {
 .px .p { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .px .m { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
 .px .m.up { color: var(--good-ink); font-weight: 650; } .px .m.down { color: var(--bad-ink); font-weight: 650; }
+.rv-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; } .rv-f { display: grid; gap: 3px; font-size: 13px; } .rv-f input { width: 120px; padding: 6px 8px; border: 1px solid var(--line, #cfd8d3); border-radius: 8px; font: inherit; } .rv-f small { color: var(--ink-2); }
 .px .rt-line { font-size: 12px; max-width: 170px; white-space: normal; text-align: right; margin-left: auto; }
 .act { display: grid; gap: 10px; }
 .act-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
@@ -2558,11 +2559,150 @@ body { letter-spacing: -0.003em; }
       h('p', { text: T.guidance }),
       h('div', { class: 'conf', text: `Daily prices: close of ${niceDates(T.asOf)}. The score counts how many chart signals point up (100) or down (0). It is not a probability of profit.` })));
     panel.append(tradePlanCard(d, T, halalFail));
+    panel.append(reversalCard(d, T, halalFail));
     panel.append(chartCard(d, T, halalFail));
     panel.append(signalsCard(T));
     panel.append(levelsCard(T));
     panel.append(indicatorsSection(T));
     panel.append(techHowSection());
+  }
+
+  // REVERSAL:BEGIN (the reversal / pullback plan: pure rules, tested in test/reversal.test.mjs; information only, never an order)
+  const REV_DEFAULTS = { capPct: 5, maxAdds: 2, addPcts: [10, 20], targetPct: 25, sellFrac: 0.5, trailAtr: 3, pullbackMin: 20 };
+  const REV_NUM = (x) => typeof x === 'number' && Number.isFinite(x);
+  // price part: close at least pullbackMin % under the highest high of the last 252 bars, and a bullish reversal bar
+  // (close above the prior bar's high and above its own open). candles: [date, open, high, low, close, volume].
+  function revSetup(candles, pullbackMin) {
+    const c = (candles || []).filter((x) => Array.isArray(x) && [1, 2, 3, 4].every((i) => REV_NUM(x[i])));
+    if (c.length < 30) return { ok: false, reason: 'fewer than 30 daily candles' };
+    const last = c[c.length - 1], prev = c[c.length - 2];
+    const win = c.slice(-252);
+    const high = Math.max(...win.map((x) => x[2]));
+    const pullback = (high - last[4]) / high; // 0.25 = 25% under the high
+    const reversalBar = last[4] > prev[2] && last[4] > last[1];
+    const deep = pullback >= pullbackMin / 100;
+    return { ok: true, date: last[0], close: last[4], high, pullbackPct: pullback * 100, reversalBar, deep, active: deep && reversalBar, bars: win.length };
+  }
+  // quality from the checker's own numbers: each check passes, fails or is unknown (missing data is never a pass)
+  function revQuality(d) {
+    const sec = (d && d.sections) || {};
+    const val = (g, k) => { const m = (sec[g] || []).find((x) => x.key === k); return m && REV_NUM(m.value) ? m.value : null; };
+    const L = (d && d.labels) || {};
+    const checks = [];
+    const add = (label, v, ok, txt) => checks.push({ label, state: v === null || v === undefined ? 'unknown' : ok ? 'pass' : 'fail', text: txt });
+    add('Operating margin above zero', val('quality', 'op_margin'), val('quality', 'op_margin') > 0, 'operating margin');
+    add('Free cash flow positive', val('quality', 'fcf_margin'), val('quality', 'fcf_margin') > 0, 'free cash flow margin');
+    const hs = L.health && REV_NUM(L.health.score) ? L.health.score : null;
+    add('Debt and balance sheet not weak', hs, hs >= 40, 'balance-sheet score');
+    const gr = L.growth && REV_NUM(L.growth.rate) ? L.growth.rate : null;
+    add('Revenue not shrinking', gr, gr >= 0, 'revenue growth');
+    const qs = L.quality && REV_NUM(L.quality.score) ? L.quality.score : null;
+    add('Quality score at least 50', qs, qs >= 50, 'quality score');
+    const dqInsufficient = d && d.dataQuality && d.dataQuality.level === 'insufficient';
+    const fails = checks.filter((x) => x.state === 'fail'), unk = checks.filter((x) => x.state === 'unknown');
+    const flag = dqInsufficient || unk.length ? 'unknown' : fails.length ? 'fail' : 'pass';
+    return { flag, checks, reasons: [...fails.map((x) => x.label), ...unk.map((x) => x.label + ' (unknown)'), ...(dqInsufficient ? ['the tool rates the data insufficient'] : [])] };
+  }
+  // plan: the cap on total cost is split into equal tranches (the first buy plus maxAdds adds)
+  function revPlan(o) {
+    const S = { ...REV_DEFAULTS, ...(o.settings || {}) };
+    const cap = Math.min(S.capPct / 100, REV_NUM(o.policyCap) ? o.policyCap : 1);
+    const portfolio = REV_NUM(o.portfolio) && o.portfolio > 0 ? o.portfolio : null;
+    const n = 1 + S.maxAdds;
+    const capDollars = portfolio ? portfolio * cap : null;
+    const tranche = capDollars ? capDollars / n : null;
+    const first = REV_NUM(o.firstEntry) && o.firstEntry > 0 ? o.firstEntry : o.close;
+    const supports = (o.supports || []).filter(REV_NUM);
+    const rows = [];
+    for (let i = 0; i < n; i++) {
+      const level = i === 0 ? first : first * (1 - (S.addPcts[i - 1] ?? S.addPcts[S.addPcts.length - 1] * i) / 100);
+      let support = null;
+      if (i > 0) for (const s of supports) if (Math.abs(s / level - 1) <= 0.04 && (support === null || Math.abs(s - level) < Math.abs(support - level))) support = s;
+      rows.push({ label: i === 0 ? 'First buy' : `Add ${i}`, price: level, support, dollars: tranche, shares: tranche ? tranche / level : null });
+    }
+    const spent = rows.reduce((a, r) => a + (r.dollars || 0), 0), sh = rows.reduce((a, r) => a + (r.shares || 0), 0);
+    const avg = sh > 0 ? spent / sh : null;
+    const owned = REV_NUM(o.ownedCost) && o.ownedCost > 0 ? o.ownedCost : 0;
+    const bought = Math.max(0, Math.floor(o.tranchesBought || 0));
+    const blocks = [];
+    if (capDollars && owned >= capDollars) blocks.push('The cap on total cost for this stock is reached: no more adds.');
+    if (bought >= n) blocks.push(`All ${n} tranches (the first buy and ${S.maxAdds} adds) are used: no more adds.`);
+    return { cap, capDollars, tranche, rows, avg, target: avg ? avg * (1 + S.targetPct / 100) : null, sellFrac: S.sellFrac, trailDist: REV_NUM(o.atr) ? S.trailAtr * o.atr : null, blocks, settings: S };
+  }
+  // warnings from the checker's own numbers only; news (going concern, restatement, dividend or guidance cut) is not watched here
+  function revThesis(d, quality) {
+    const w = [];
+    if (quality.flag === 'fail') w.push('The quality checks now fail: ' + quality.reasons.join(', ') + '.');
+    const sec = (d && d.sections) || {};
+    const fcf = (sec.quality || []).find((x) => x.key === 'fcf_margin');
+    if (fcf && REV_NUM(fcf.value) && fcf.value < 0) w.push('Free cash flow is negative.');
+    const gr = d && d.labels && d.labels.growth && d.labels.growth.rate;
+    if (REV_NUM(gr) && gr < 0) w.push('Revenue is shrinking.');
+    return w;
+  }
+  // REVERSAL:END
+
+  // the reversal plan card on the Technical tab: setup, quality, plan, evidence note. Information only.
+  function reversalCard(d, T, halalFail) {
+    const KEY = 'revSet';
+    const saved = store.get(KEY, {}) || {};
+    const st = { ...REV_DEFAULTS, portfolio: null, bought: 0, owned: 0, ...saved };
+    const card = h('section', { class: 'card', 'aria-label': 'Reversal plan' });
+    const body = h('div');
+    const candles = T.chart && T.chart.candles;
+    const setup = revSetup(candles, st.pullbackMin);
+    const quality = revQuality(d);
+    const paint = () => {
+      store.set(KEY, { capPct: st.capPct, maxAdds: st.maxAdds, addPcts: st.addPcts, targetPct: st.targetPct, sellFrac: st.sellFrac, trailAtr: st.trailAtr, pullbackMin: st.pullbackMin, portfolio: st.portfolio, bought: st.bought, owned: st.owned });
+      const sSet = revSetup(candles, st.pullbackMin);
+      const stale = staleOf(SCR_NOW);
+      const kids = [];
+      const badge = halalFail ? ['b-none', 'Not halal: no plan'] : stale ? ['b-wait', 'Paused'] : !sSet.ok ? ['b-none', 'No data'] : sSet.active && quality.flag === 'pass' ? ['b-wait', 'Setup active'] : sSet.active ? ['b-wait', 'Setup active, quality ' + quality.flag] : ['b-none', 'No setup now'];
+      kids.push(h('div', { class: 'tech-head' }, h('h2', { text: 'Reversal plan (information only)' }), h('span', { class: 'badge ' + badge[0], text: badge[1] })));
+      kids.push(h('p', { class: 'sub', text: 'For a stock that has gone down and is turning up: how to split one capped position into a first buy and a few adds, where the average cost would land, and the target. It is a plan for managing risk. Information only, not an order, not advice.' }));
+      kids.push(h('div', { class: 'callout' }, h('b', { text: 'Evidence. ' }), 'Tested on about 500 S&P stocks from 2006 to 2026, this setup returned about the same as buying on random dates (the edge was between -0.9 and +0.4 percentage points, which is noise). The test data has no delisted stocks, so results are flattered, and company quality could not be tested as it looked at the time. This is not a proven edge. Pullback setups also did not beat random entries in this site\u2019s own swing tests (Record page).'));
+      if (halalFail) { kids.push(h('p', { class: 'note', text: 'This company fails the Shariah screen, so no plan is shown.' })); body.replaceChildren(...kids); return; }
+      if (stale) { kids.push(h('p', { class: 'hint stale', text: staleText(stale) })); body.replaceChildren(...kids); return; }
+      if (!sSet.ok) { kids.push(h('p', { class: 'note', text: 'Not enough daily prices to check the setup (' + sSet.reason + ').' })); body.replaceChildren(...kids); return; }
+      kids.push(h('ul', { class: 'clean' },
+        h('li', { text: `Pullback: ${sSet.pullbackPct.toFixed(1)}% below the highest high of the last ${sSet.bars} trading days (${price(sSet.high)}). Needs at least ${st.pullbackMin}%: ${sSet.deep ? 'yes' : 'not yet'}.` }),
+        h('li', { text: `Turning up: the last bar (${niceDates(sSet.date)}) ${sSet.reversalBar ? 'closed above the previous high and above its open: yes' : 'did not close above the previous high and its open: not yet'}.` }),
+        h('li', { text: `Quality (the checker\u2019s own numbers): ${quality.flag}${quality.reasons.length ? ' (' + quality.reasons.join(', ') + ')' : ''}. Missing data counts as unknown, never as a pass.` }),
+        h('li', { text: 'The longer-term uptrend test (price a year ago above price three years ago) needs three years of prices, which this site does not store. It is not part of this check.' })));
+      kids.push(h('p', { class: 'note', text: d.labels && d.labels.shariah && d.labels.shariah.status === 'pass' ? 'Shariah: preliminary screen only, not certification. A current Zoya check is still needed before any buy.' : 'Shariah: this screen is not certain. Treat it as preliminary only, not certification, and check it before any buy.' }));
+      const warn = revThesis(d, quality);
+      if (warn.length) kids.push(h('div', { class: 'hint stale' }, h('b', { text: 'Thesis check, needs your judgment (not an order to sell): ' }), warn.join(' '), ' News such as a going-concern warning, a restatement or a dividend or guidance cut is not watched here.'));
+      const num = (id, label, key, step, min, max, unit) => h('label', { class: 'rv-f' }, h('span', { text: label }), h('input', { type: 'number', id, step, min, max, value: st[key] === null ? '' : String(st[key]), oninput: (e) => { const v = e.target.value === '' ? null : Number(e.target.value); if (v === null || Number.isFinite(v)) { st[key] = v; if (key !== 'pullbackMin') paintPlan(); store.set(KEY, { ...(store.get(KEY, {}) || {}), [key]: v }); } }, onchange: key === 'pullbackMin' ? () => paint() : null }), unit ? h('small', { text: unit }) : null);
+      kids.push(h('h3', { text: 'Your position' }),
+        h('div', { class: 'rv-row' }, num('rvPort', 'Portfolio value', 'portfolio', '100', '0', '1e9', '$'), num('rvBought', 'Tranches already bought', 'bought', '1', '0', '5', ''), num('rvOwned', 'Cost already invested in it', 'owned', '10', '0', '1e9', '$')));
+      const planBox = h('div', { id: 'rvPlan' });
+      kids.push(planBox,
+        h('details', { class: 'sec' }, h('summary', null, h('span', { class: 'st', text: 'Settings' }), h('span', { class: 'sc' }, h('span', { text: 'defaults, not confirmed by you' }), chevron())),
+          h('div', { class: 'sec-body' },
+            h('div', { class: 'rv-row' }, num('rvCap', 'Cap per stock', 'capPct', '0.5', '0.5', '25', '% of portfolio'), num('rvAdds', 'Adds', 'maxAdds', '1', '0', '4', ''), num('rvTarget', 'Sell part at', 'targetPct', '1', '5', '200', '% over average cost')),
+            h('div', { class: 'rv-row' }, num('rvFrac', 'Sell fraction', 'sellFrac', '0.05', '0.1', '1', '(0.5 = half)'), num('rvTrail', 'Trail the rest by', 'trailAtr', '0.5', '1', '8', 'x ATR'), num('rvPull', 'Pullback needed', 'pullbackMin', '1', '5', '70', '% below the high')),
+            h('p', { class: 'note', text: 'Add levels are 10% and 20% below the first buy, or the nearest support within 4%. There is no stop loss in this plan: you chose to keep a stop as a reference only, so none is shown or alerted.' }))));
+      body.replaceChildren(...kids);
+      paintPlan();
+      function paintPlan() {
+        const box = document.getElementById('rvPlan'); if (!box) return;
+        const P = revPlan({ settings: st, policyCap: limits().buyCap, portfolio: st.portfolio, close: sSet.close, supports: (T.levels && T.levels.supports || []).map((x) => x.price), ownedCost: st.owned, tranchesBought: st.bought, atr: T.indicators && T.indicators.atr });
+        const out = [h('h3', { text: 'The plan' })];
+        out.push(h('p', { class: 'note', text: `Cap on total cost: ${pct(P.cap, 1)} of the portfolio${st.capPct / 100 > P.cap ? ' (your portfolio limit is lower than the setting)' : ''}${P.capDollars ? ' = ' + money(P.capDollars, 0) : ''}. Split into ${P.rows.length} equal tranches${P.tranche ? ' of ' + money(P.tranche, 0) : ''}.` }));
+        if (!P.capDollars) out.push(h('p', { class: 'note', text: 'Enter your portfolio value above to see dollar amounts.' }));
+        if (!(sSet.active)) out.push(h('p', { class: 'note', text: 'The setup is not active now, so these levels are for planning only.' }));
+        if (P.blocks.length) out.push(h('p', { class: 'hint stale', text: P.blocks.join(' ') }));
+        out.push(h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
+          h('tr', null, h('th', { text: 'Step' }), h('th', { text: 'Price' }), h('th', { text: 'Amount' })),
+          ...P.rows.map((r) => h('tr', null, h('td', null, r.label, r.support ? h('span', { class: 'sm', text: `support near ${price(r.support)}` }) : null), h('td', { text: price(r.price) }), h('td', { text: r.dollars ? `${money(r.dollars, 0)} (${r.shares.toFixed(r.shares < 10 ? 2 : 0)} sh)` : 'n/a' }))))));
+        if (P.avg) out.push(h('p', { text: `If every tranche fills, the average cost is about ${price(P.avg)}. Target for selling ${pct(P.sellFrac, 0)} of the position: ${price(P.target)} (${P.settings.targetPct}% over average cost).${P.trailDist ? ` For the rest: trail ${price(P.trailDist)} (${P.settings.trailAtr} x the 14-day ATR) below the highest close after the target, and sell when the close falls below that line.` : ''}` }));
+        out.push(h('p', { class: 'note', text: 'Information only, not an order. This site never places trades.' }));
+        box.replaceChildren(...out);
+      }
+    };
+    card.append(body);
+    paint();
+    return card;
   }
 
   function tradePlanCard(d, T, halalFail) {
