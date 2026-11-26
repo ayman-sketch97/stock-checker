@@ -388,3 +388,6 @@ the same day.
 - Footer and data note separate end-of-day closes (analysis, signals) from delayed and display-only quotes.
 - Scores with metrics that could not be calculated say how many points are estimated and which metrics.
 - Record page: a key separating historical simulation, live paper signals, independent verification and real money; a note under the portfolio replay that it still uses 1% per trade, not the user's 0.5% limit.
+
+## Estimated-points data-quality limit (method 1.6)
+- Data quality now lists a limit when 15+ score points are estimated. Scores and verdict codes are unchanged; rescaling was tested and rejected (see VALIDATION.md).
