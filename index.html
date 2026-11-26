@@ -1119,6 +1119,7 @@ body { letter-spacing: -0.003em; }
 .db-k { font-size: 11.5px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
 .db-t { font-size: 24px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.15; margin: 4px 0 6px; text-wrap: balance; }
 .db-p { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.5; max-width: 62ch; }
+.jr-review { background: var(--warn-bg); color: var(--warn-ink); padding: 7px 10px; border-radius: 10px; }
 .assess { display: grid; gap: 0; padding: 0; overflow: hidden; }
 .ac-row { padding: 14px 18px; border-left: 4px solid var(--line, #d8dee6); }
 .ac-row + .ac-row { border-top: 1px solid var(--line, #e3e8ee); }
@@ -6644,6 +6645,65 @@ body { letter-spacing: -0.003em; }
     const maxPos = portfolio > 0 ? Math.min((portfolio * risk) / stopPct, portfolio) : null;
     return { shares: amount / entry, loss: amount * stopPct, maxPos, overLimit: isNum(maxPos) && amount > maxPos * 1.05 };
   }
+  // SIMEXIT:BEGIN (paper-trade stop/target exits, pure rules; tested in test/simexit.test.mjs)
+  // Applies only to PAPER trades. A real trade is never closed by the site: the user closes it with the real fill.
+  // Rules, on daily candles [date, open, high, low, close, volume] dated AFTER the entry day (the entry day's own order of
+  // events is unknown, so it is never judged):
+  //   1. open at or below the stop: a gap. The exit is the open (not the stop), less slippage.
+  //   2. low at or below the stop: the exit is the stop, less slippage.
+  //   3. open at or above the target: a gap. The exit is the open (the sell limit fills at the better price), no slippage.
+  //   4. high at or above the target: the exit is the target, no slippage.
+  //   5. a candle that reaches both the stop and the target counts as the stop (the cautious reading).
+  // Costs: slippage SIM_RULES.slippage against the trader on stop exits (they are market-type orders); the exit fee is assumed
+  // equal to the fee recorded on entry. If candles are missing, out of order, invalid, or have a hole of more than
+  // SIM_RULES.maxGapDays weekdays before a trigger could be judged, nothing is closed and the trade is flagged for review.
+  const SIM_RULES = Object.freeze({ slippage: 0.001, maxGapDays: 4, staleDays: 2, version: 1 });
+  function simExit(tr, candles, today, rules = SIM_RULES) {
+    const num = (x) => typeof x === 'number' && Number.isFinite(x);
+    const iso = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+    const between = (a, b) => { let n = 0; for (let t = Date.parse(a + 'T12:00:00Z') + 86400000; t < Date.parse(b + 'T12:00:00Z'); t += 86400000) { const w = new Date(t).getUTCDay(); if (w !== 0 && w !== 6) n++; } return n; };
+    if (!tr || tr.paper !== true || tr.closed || !num(tr.entry) || !(tr.shares > 0) || !iso(tr.opened) || !iso(today)) return { state: 'skip' };
+    const hasStop = num(tr.stop) && tr.stop < tr.entry;
+    const hasTarget = num(tr.target) && tr.target > tr.entry;
+    if (!hasStop && !hasTarget) return { state: 'skip' };
+    if (!Array.isArray(candles) || !candles.length) return { state: 'review', checkedThrough: null, flag: 'No daily prices are available for this stock, so the stop and target cannot be checked. It stays open.' };
+    let prev = tr.opened;
+    let through = null;
+    for (const c of candles) {
+      if (Array.isArray(c) && iso(c[0]) && c[0] <= tr.opened) continue; // before or on the entry day
+      if (!Array.isArray(c) || !iso(c[0]) || ![c[1], c[2], c[3], c[4]].every(num) || c[3] > c[2]) return { state: 'review', checkedThrough: through, flag: 'The saved daily prices contain an invalid candle, so the trade was not checked past that point. It stays open.' };
+      if (c[0] <= prev) { if (c[0] < prev) { return { state: 'review', checkedThrough: through, flag: 'The saved daily prices are out of order, so the trade was not checked. It stays open.' }; } continue; }
+      if (c[0] > today) continue;
+      if (between(prev, c[0]) > rules.maxGapDays) return { state: 'review', checkedThrough: through, flag: `Daily prices are missing between ${prev} and ${c[0]}, so a stop or target in that gap cannot be ruled out. It stays open: review it by hand.` };
+      const [date, open, high, low] = c;
+      const stopHit = hasStop && low <= tr.stop;
+      const targetHit = hasTarget && high >= tr.target;
+      if (stopHit || targetHit) {
+        const isStop = stopHit; // both in one candle counts as the stop
+        const gap = isStop ? open <= tr.stop : open >= tr.target;
+        const trigger = isStop ? tr.stop : tr.target;
+        const base = gap ? open : trigger;
+        const exit = Math.round((isStop ? base * (1 - rules.slippage) : base) * 100) / 100;
+        return { state: 'closed', closed: date, exit, trigger: isStop ? 'stop' : 'target', triggerPrice: trigger, gap, slippage: isStop ? rules.slippage : 0, exitFees: tr.fees || 0, checkedThrough: date, both: stopHit && targetHit };
+      }
+      prev = date;
+      through = date;
+    }
+    if (through === null) {
+      if (between(tr.opened, today) > rules.maxGapDays) return { state: 'review', checkedThrough: null, flag: 'There are no daily prices after the entry date, so the stop and target cannot be checked. It stays open.' };
+      return { state: 'open', checkedThrough: null, stale: false };
+    }
+    const stale = between(through, today) > rules.staleDays;
+    return { state: 'open', checkedThrough: through, stale, flag: stale ? `Price data stops at ${through}, so the stop and target are not being checked right now. Checking resumes when the data updates.` : null };
+  }
+  function simNote(r, tr) {
+    const pc = (x) => `${(x * 100).toFixed(2)}%`;
+    const what = r.trigger === 'stop' ? 'Stop' : 'Target';
+    const fill = r.gap ? `The market opened beyond the ${what.toLowerCase()} on ${r.closed}, so the simulated exit is the open, not the ${what.toLowerCase()} price.` : `The ${what.toLowerCase()} (${r.triggerPrice.toFixed(2)}) was reached on ${r.closed}, so the simulated exit is at that price.`;
+    const cost = `${r.slippage ? `Slippage ${pc(r.slippage)} against you is included. ` : 'No slippage on a limit-type target exit. '}Exit fee assumed equal to the entry fee ($${(r.exitFees || 0).toFixed(2)}).${r.both ? ' That day also reached the target; the stop is assumed to have come first.' : ''}`;
+    return `Simulated exit (price-triggered, paper only, not a broker execution). ${fill} ${cost}`;
+  }
+  // SIMEXIT:END
   function tradeCalc(tr, nowPx) {
     const exit = tr.closed ? tr.exit : nowPx;
     const risk = isNum(tr.stop) && tr.stop < tr.entry ? tr.entry - tr.stop : null;
@@ -6706,6 +6766,43 @@ body { letter-spacing: -0.003em; }
   function logTrade(t, plan) {
     journalPrefill = { t, ...plan };
     navigate('journal');
+  }
+  // Looks at every open PAPER trade against the saved daily prices and records the simulated exit when a stop or target was
+  // reached. Original entry, stop, target and tool evidence are never touched. Nothing is closed on stale or missing data.
+  const JR_AUTO = new Map(); // trade id -> latest check result, for the Journal's status lines
+  let jrAutoRun = null;
+  function autoCloseJournal() {
+    if (MODE !== 'static') return Promise.resolve([]);
+    if (jrAutoRun) return jrAutoRun;
+    jrAutoRun = (async () => {
+      const j = JR.load();
+      const open = j.trades.filter((tr) => !tr.closed && tr.paper === true && !tr.noAuto);
+      if (!open.length) return [];
+      const today = localISO();
+      const cache = new Map();
+      const candlesOf = async (t) => {
+        if (!cache.has(t)) {
+          let c = null;
+          try { const T = await getJson('data/tech/' + encodeURIComponent(t) + '.json'); c = T && T.ok && T.chart && Array.isArray(T.chart.candles) ? T.chart.candles : null; } catch { c = null; }
+          cache.set(t, c);
+        }
+        return cache.get(t);
+      };
+      const done = [];
+      const fresh = JR.load(); // re-read after the awaits so nothing saved meanwhile is overwritten
+      for (const tr of open) {
+        const r = simExit(tr, await candlesOf(tr.t), today);
+        JR_AUTO.set(tr.id, r);
+        if (r.state !== 'closed') continue;
+        const x = fresh.trades.find((y) => y.id === tr.id);
+        if (!x || x.closed) continue;
+        Object.assign(x, { closed: r.closed, exit: r.exit, exitFees: r.exitFees, exitNotes: simNote(r, x), sim: { kind: 'price-triggered-simulation', rulesVersion: SIM_RULES.version, trigger: r.trigger, triggerPrice: r.triggerPrice, gap: r.gap, slippage: r.slippage, exitFeesAssumed: r.exitFees, bothInOneCandle: r.both, source: 'daily candles, data/tech', checkedAt: today } });
+        done.push(x);
+      }
+      if (done.length) JR.save(fresh);
+      return done;
+    })().finally(() => { jrAutoRun = null; });
+    return jrAutoRun;
   }
   function journalStats(closed) {
     const n = closed.length;
@@ -6871,10 +6968,24 @@ body { letter-spacing: -0.003em; }
     if (ed != null && ed <= 7) flags.push(['warn', `Earnings in ${ed <= 1 ? 'the next session' : ed + ' trading days'}.`]);
     return flags;
   }
+  // the automatic paper-trade check, in words: what is being watched and how fresh the prices are
+  function autoLine(tr) {
+    if (tr.paper !== true) return null;
+    if (tr.noAuto) return h('p', { class: 'note', text: 'Automatic checks are off for this paper trade (you reopened it).' });
+    if (!isNum(tr.stop) && !isNum(tr.target)) return null;
+    const r = JR_AUTO.get(tr.id);
+    if (!r) return h('p', { class: 'note', text: 'Automatic paper-trade check: not run yet.' });
+    if (r.state === 'review') return h('p', { class: 'note jr-review', role: 'note', text: 'Needs review: ' + r.flag });
+    if (r.state === 'open' && r.flag) return h('p', { class: 'note jr-review', role: 'note', text: 'Check paused: ' + r.flag });
+    if (r.state === 'open') return h('p', { class: 'note', text: `Watching the stop and target on daily prices${r.checkedThrough ? ', checked through ' + shortDate(r.checkedThrough) : ''}. A simulated exit is recorded if one is reached; it is not a broker execution.` });
+    return null;
+  }
   async function renderJournal() {
     const el = $('#page-journal');
     const head = withWhich(pageHead('Journal', 'Your own trades: what you bought, why, and how it went. Saved on this device only; nothing is sent anywhere.'));
     const [scr, bt] = await Promise.all([loadScreen(), loadBtSummary()]);
+    if (page !== 'journal') return;
+    await autoCloseJournal();
     if (page !== 'journal') return;
     const j = JR.load();
     const rerender = () => renderJournal();
@@ -6913,6 +7024,7 @@ body { letter-spacing: -0.003em; }
             h('span', { class: 'pl ' + (c.pnl > 0 ? 'up' : c.pnl < 0 ? 'down' : ''), text: isNum(c.pnl) ? `${c.pnl >= 0 ? '+' : ''}${money0(c.pnl)}` : '' })),
           h('div', { class: 'det', text: [isNum(now) ? `Now ${price(now)}${r && r.live ? ' (delayed last sale)' : ''}` : 'No price today', isNum(c.pct) ? pctS(c.pct, 1) : '', isNum(c.R) ? fmtR(c.R, 2) : '', isNum(tr.stop) ? `stop ${price(tr.stop)}` : 'no stop set', isNum(tr.target) ? `target ${price(tr.target)}` : ''].filter(Boolean).join(' · ') }),
           flags.length ? h('ul', { class: 'alerts' }, flags.map(([tone, txt]) => h('li', null, icon(tone === 'good' ? 'good' : tone === 'bad' ? 'bad' : 'ok'), h('span', { text: txt })))) : null,
+          autoLine(tr),
           tr.notes ? h('p', { class: 'note', text: tr.notes }) : null,
           tr.tool ? h('p', { class: 'note', text: toolSaidText(tr) }) : null,
           act, sub].filter(Boolean));
@@ -6986,13 +7098,13 @@ body { letter-spacing: -0.003em; }
           const c = tradeCalc(tr);
           const sub = h('div');
           return h('div', { class: 'jr-item' },
-            h('div', { class: 'jr-top' }, h('span', { class: 'tk', text: tr.t }), tr.paper ? tagEl('Paper', 'paper') : null,
+            h('div', { class: 'jr-top' }, h('span', { class: 'tk', text: tr.t }), tr.paper ? tagEl('Paper', 'paper') : null, tr.sim ? tagEl('Simulated exit', 'warn') : null,
               h('span', { class: 'nm', text: `${shortDate(tr.opened)} to ${shortDate(tr.closed)} · ${price(tr.entry)} → ${price(tr.exit)}` }),
               h('span', { class: 'pl ' + (c.pnl > 0 ? 'up' : c.pnl < 0 ? 'down' : ''), text: `${c.pnl >= 0 ? '+' : ''}${money0(c.pnl)}` })),
             h('div', { class: 'det', text: [isNum(c.pct) ? pctS(c.pct, 1) : '', isNum(c.R) ? fmtR(c.R, 2) : '', tr.setup ? SETUP_NAME[tr.setup] || (tr.setup === 'longterm' ? 'Long term' : 'Other') : '', tr.followed === true ? 'followed the plan' : tr.followed === false ? 'broke a rule' : ''].filter(Boolean).join(' · ') }),
             tr.notes || tr.exitNotes ? h('p', { class: 'note', text: [tr.notes, tr.exitNotes].filter(Boolean).join(' / ') }) : null,
             h('div', { class: 'row-actions' },
-              h('button', { class: 'linkbtn', type: 'button', onclick: () => { const k = JR.load(); const x = k.trades.find((y) => y.id === tr.id); if (x) { x.closed = null; x.exit = null; x.exitFees = 0; x.followed = null; JR.save(k); } rerender(); } }, 'Reopen'),
+              h('button', { class: 'linkbtn', type: 'button', onclick: () => { const k = JR.load(); const x = k.trades.find((y) => y.id === tr.id); if (x) { x.closed = null; x.exit = null; x.exitFees = 0; x.followed = null; if (x.sim) { x.sim = null; x.exitNotes = ''; x.noAuto = true; } JR.save(k); } rerender(); } }, 'Reopen'),
               h('button', { class: 'linkbtn', type: 'button', onclick: () => { sub.replaceChildren(confirmBox(`Delete this ${tr.t} trade? This cannot be undone.`, 'Delete', () => { const k = JR.load(); k.trades = k.trades.filter((x) => x.id !== tr.id); JR.save(k); rerender(); }, () => sub.replaceChildren())); } }, 'Delete')),
             sub);
         }));
@@ -10749,6 +10861,7 @@ body { letter-spacing: -0.003em; }
     // the Alert Centre checks after the page loads and after every live-price refresh, while this site is open
     evaluateAlerts();
     livePainters.add(() => { evaluateAlerts(); });
+    autoCloseJournal().then((d) => { if (d.length) { refreshNavDot(); if (page === 'journal') renderJournal(); } }).catch(() => {});
     window.addEventListener('storage', (ev) => { if (ev.key === 'alerts' && page === 'alerts') renderAlerts(true); });
   } else {
     const start = new URLSearchParams(location.search).get('t');
