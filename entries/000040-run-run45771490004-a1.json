@@ -1,0 +1,75 @@
+{
+ "v": 1,
+ "kind": "run",
+ "run": {
+  "id": 45771490004,
+  "attempt": 1,
+  "event": "push",
+  "ref": "refs/heads/main",
+  "url": "https://github.com/ayman-sketch97/stock-checker/actions/runs/45771490004"
+ },
+ "analysisCommit": "da14ddcd111085c378695c8cc27874960f3f02d1",
+ "build": {
+  "builtAt": "2026-11-26T07:14:56.058Z",
+  "priceDate": "2026-11-25",
+  "siteDigest": "9309636093d710111b7ebd89b6d89647fab3a581d525c169f89baeada5790813"
+ },
+ "record": {
+  "state": "saved",
+  "headBefore": "b23029a8c575fd98e06cd8c20f300500a36b15ea",
+  "headAfter": "665494c5ab02b9de5300b49a278c0c5fbdae7af0",
+  "files": [
+   {
+    "path": "days/2026/2026-11-25.ndjson",
+    "sha256": "87695d27e8af66f36818a4169c0fcaf57f1053df6c1809439fc60b73ff01f7c1"
+   },
+   {
+    "path": "prices/2026/2026-11-25.json",
+    "sha256": "54d2befdaeaa7e15a387fa2c41ab2b0f61d18cba2af3f854c4b8f6554888ace4"
+   },
+   {
+    "path": "state/2026-11-25.json",
+    "sha256": "1d545452787a760d9a7838a47a603d6ca1d9cad4391cc9f5776a0b4810d7c369"
+   }
+  ]
+ },
+ "gates": {
+  "formulas": "success",
+  "page-tests": "success",
+  "security": "success",
+  "build": "success",
+  "verify-site": "success",
+  "restore-point": "success",
+  "gate": "success"
+ },
+ "deploy": {
+  "result": "success"
+ },
+ "live": {
+  "result": "success",
+  "commit": "da14ddcd111085c378695c8cc27874960f3f02d1"
+ },
+ "rollback": {
+  "result": "skipped"
+ },
+ "restorePoint": {
+  "used": {
+   "commit": "00bee413685962270fe54849cd81ab6afc8905d7",
+   "digest": "a4b7ca43e92247ac3e10dece6b9606d66973ffe93eac9438382facf29f2de944",
+   "runId": 45692641991
+  },
+  "created": {
+   "commit": "da14ddcd111085c378695c8cc27874960f3f02d1",
+   "digest": "9309636093d710111b7ebd89b6d89647fab3a581d525c169f89baeada5790813",
+   "runId": 45771490004,
+   "artifact": "restore-point",
+   "manifestFiles": 5918
+  }
+ },
+ "status": "recorded_and_deployed",
+ "rolledBack": false,
+ "seq": 40,
+ "prev": "003619cb59b038827c513850c02852e6ac7e03bbfb5262a28e5363ed969bd045",
+ "recordedAt": "2026-11-26T07:26:15.156Z",
+ "hash": "a83f14de6c2d3f561967b8b091ac29b7d0cabb65b0c37ffc37165131a5f7cd59"
+}
