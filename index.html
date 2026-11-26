@@ -1119,6 +1119,15 @@ body { letter-spacing: -0.003em; }
 .db-k { font-size: 11.5px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
 .db-t { font-size: 24px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.15; margin: 4px 0 6px; text-wrap: balance; }
 .db-p { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.5; max-width: 62ch; }
+.assess { display: grid; gap: 0; padding: 0; overflow: hidden; }
+.ac-row { padding: 14px 18px; border-left: 4px solid var(--line, #d8dee6); }
+.ac-row + .ac-row { border-top: 1px solid var(--line, #e3e8ee); }
+.ac-row.a-good { border-left-color: var(--good-ink); } .ac-row.a-warn { border-left-color: var(--warn-ink); } .ac-row.a-bad { border-left-color: var(--bad-ink); }
+.ac-k { font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ac-t { font-size: 17px; font-weight: 750; margin-top: 3px; }
+.ac-p, .ac-range { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.ac-needs { margin-top: 10px; padding: 9px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-ink); font-size: 13.5px; }
+.ac-needs ul { margin: 4px 0 0; padding-left: 18px; }
 .db-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .db-chip { font-size: 12.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: var(--neutral-bg); color: var(--ink-2); }
 .db-chip.dbc-good { background: var(--good-bg); color: var(--good-ink); }
@@ -1786,6 +1795,38 @@ body { letter-spacing: -0.003em; }
     return st === 'pass' ? 'Likely passes' : st === 'fail' ? 'Fails' : 'Needs checking';
   }
   // one line at the very top: what the tool concludes, and how far to trust it
+  // ASSESS:BEGIN (investment assessment vs personal eligibility; pure text rules, tested in test/assessment.test.mjs)
+  // A is what the evidence says about the company. B is whether YOUR rules allow a new purchase. B never changes because A is
+  // good, and A never claims a stock is halal: the halal screen is a screen, and only a recorded Zoya check opens the gate.
+  function assessmentOf(code, unrel, dqLevel, valuation, quality) {
+    let kind, title, text;
+    if (unrel || code === 'UNRELIABLE') { kind = 'none'; title = 'No investment conclusion'; text = 'The financial data did not pass the tool’s own checks, so it reaches no conclusion. The available analysis is shown below for research only.'; }
+    else if (code === 'NODATA') { kind = 'none'; title = 'No investment conclusion'; text = 'There is too little reported history to judge this company. What exists is shown below for research only.'; }
+    else if (code === 'FINANCIAL') { kind = 'none'; title = 'No investment conclusion'; text = 'This is a financial company, and the tool’s cash-flow valuation does not fit it. The analysis is shown for research only.'; }
+    else if (code === 'BUY_STRONG' || code === 'BUY') { kind = 'positive'; title = 'Positive investment assessment'; text = 'The evidence points to a sound business priced below its estimated value.'; }
+    else if (code === 'CONTRARIAN') { kind = 'opportunity'; title = 'Potential opportunity, higher risk'; text = 'Priced below its estimated value, but the business itself is not top quality. Read the risks first.'; }
+    else if (code === 'WATCH' || code === 'LOOK') { kind = 'neutral'; title = 'Neutral investment assessment'; text = 'Worth watching, not clearly attractive yet.'; }
+    else if (code === 'PASS') { kind = 'neutral'; title = 'No margin of safety'; text = 'The price is at or above the estimated value, so there is little room for error.'; }
+    else if (code === 'AVOID_WEAK' || code === 'SPECULATIVE') { kind = 'negative'; title = 'Negative investment assessment'; text = 'Significant financial or valuation concerns. Read the risks below.'; }
+    else if (code === 'AVOID_SHARIAH') { kind = 'none'; title = 'No investment conclusion'; text = `The verdict is replaced by the halal screen. For research only: quality ${quality == null ? 'n/a' : quality + '/100'}, valuation ${valuation || 'n/a'}.`; }
+    else { kind = 'none'; title = 'No investment conclusion'; text = 'The tool has no verdict for this company. The available analysis is shown for research only.'; }
+    if (dqLevel === 'limited' && kind !== 'none') text += ' The data is limited: confirm the key figures before relying on this.';
+    return { kind, title, text };
+  }
+  // c = buyCheck() result: { ok, why[], limitsOk, ledger }. needs = what must change before a new purchase is allowed.
+  function eligibilityOf(c, unrel, halalFail, stale) {
+    if (!c) return { ok: false, pending: true, title: 'Checking your rules', text: 'Your limits are checked once the nightly screen has loaded.', needs: [] };
+    const needs = [];
+    if (stale) needs.push('Wait for the nightly update; advice is paused until it arrives.');
+    if (halalFail) needs.push('It fails the halal screen. Only a current Zoya check that says compliant, recorded in your Shariah ledger, changes this.');
+    else if (c.ledger && !c.ledger.ok) needs.push('Check it on Zoya and record the result in your Shariah ledger. Until then do not treat it as halal.');
+    if (!c.limitsOk) needs.push('Your own limits (position size or sector) must leave room for a new buy.');
+    if (unrel) needs.push('The tool needs reliable financial data for it (it re-checks every night).');
+    if (c.ok && !unrel) return { ok: true, pending: false, title: 'Eligible under your rules', text: 'Your limits and the Shariah ledger allow a new purchase. This is not a buy signal: see the plan below for price.', needs: [] };
+    const why = (c.why || []).length ? ' ' + c.why.map((w) => w.charAt(0).toUpperCase() + w.slice(1) + '.').join(' ') : '';
+    return { ok: false, pending: false, title: 'Not eligible for a new purchase now', text: 'Review the analysis, but this stock is not currently eligible for a new purchase.' + why, needs };
+  }
+  // ASSESS:END
   function decisionBanner(d, px, stale) {
     const v = d.verdict || {};
     const unrel = isUnreliable(d);
@@ -1813,6 +1854,27 @@ body { letter-spacing: -0.003em; }
           h('span', { class: 'db-chip dbc-' + halal[0], text: halal[1] }),
           unrel ? h('span', { class: 'db-chip dbc-warn', text: 'Data check failed' }) : (d.dataQuality && d.dataQuality.level === 'limited' ? h('span', { class: 'db-chip dbc-warn', text: 'Data limited' }) : null))));
   }
+  function assessmentCard(d, px, stale) {
+    const unrel = isUnreliable(d);
+    const code = d.verdict && d.verdict.code;
+    const halalFail = Boolean(d.labels && d.labels.shariah && d.labels.shariah.status === 'fail');
+    const A = assessmentOf(code, unrel, d.dataQuality && d.dataQuality.level, d.labels && d.labels.valuation && d.labels.valuation.label, d.labels && d.labels.quality && isNum(d.labels.quality.score) ? d.labels.quality.score : null);
+    const B = eligibilityOf(SCR_NOW ? buyCheck(d.ticker, SCR_NOW) : null, unrel, halalFail, stale);
+    const aTone = { positive: 'good', opportunity: 'warn', neutral: '', negative: 'bad', none: 'warn' }[A.kind];
+    const f = d.fairValue;
+    const range = !unrel && f && isNum(f.bear) && isNum(f.base) && isNum(f.bull) && isNum(px)
+      ? h('p', { class: 'ac-range', text: `Estimated fair value ${price(f.base)} (range ${price(f.bear)} to ${price(f.bull)}); the price is ${price(px)}, ${px <= f.base ? pct(1 - px / f.base, 0) + ' below' : pct(px / f.base - 1, 0) + ' above'} the base estimate. An estimate, not a promise.` }) : null;
+    return h('section', { class: 'card assess', 'aria-label': 'Assessment and eligibility' },
+      h('div', { class: 'ac-row a-' + aTone },
+        h('div', { class: 'ac-k', text: 'A. Investment assessment' }),
+        h('div', { class: 'ac-t', text: A.title }),
+        h('p', { class: 'ac-p', text: A.text }), range),
+      h('div', { class: 'ac-row a-' + (B.ok ? 'good' : B.pending ? '' : 'warn') },
+        h('div', { class: 'ac-k', text: 'B. Personal eligibility' }),
+        h('div', { class: 'ac-t', text: B.title }),
+        h('p', { class: 'ac-p', text: B.text }),
+        B.needs.length ? h('div', { class: 'ac-needs' }, h('b', { text: 'What needs to change' }), h('ul', null, B.needs.map((n) => h('li', { text: n })))) : null));
+  }
   let tech = null; // technical tab state for the company on screen
   function render(d) {
     destroyChart();
@@ -1832,6 +1894,8 @@ body { letter-spacing: -0.003em; }
       (tech.spark = h('div', { class: 'spark', hidden: true }))));
     tech.banner = decisionBanner(d, d.price, null);
     result.append(tech.banner);
+    tech.assess = assessmentCard(d, d.price, null);
+    result.append(tech.assess);
     const own = ownRow(d);
     if (own) result.append(own);
     paintSpark();
@@ -5551,6 +5615,7 @@ body { letter-spacing: -0.003em; }
     if (HAS_SITE && !swingProofDone) loadSwingProof().then(() => paintAction());
     if (HAS_SITE && !SCR_NOW) loadScreen().then((s) => { if (s) paintAction(); });
     if (t.banner && t.banner.isConnected) { const nb = decisionBanner(d, px, staleOf(SCR_NOW)); t.banner.replaceWith(nb); t.banner = nb; }
+    if (t.assess && t.assess.isConnected) { const na = assessmentCard(d, px, staleOf(SCR_NOW)); t.assess.replaceWith(na); t.assess = na; }
     const rows = [actionRow('Long term (years)', guardBuy(longTermNow(d, px), d, SCR_NOW), () => selectTab('fund', true))];
     const sw = T ? guardBuy(swingNow(T, L, halalFail), d, SCR_NOW) : null;
     if (sw) rows.push(actionRow('Swing trade (weeks)', sw, () => selectTab('tech', true)));
