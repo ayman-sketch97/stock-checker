@@ -74,6 +74,8 @@ jobs:
         run: node --test test/freshness.test.mjs
       - name: Test the screener has no look-ahead
         run: node --test test/screener-lookahead.test.mjs
+      - name: Test the price-data safety checks
+        run: node --test test/pricesafety.test.mjs
       - name: Check stages 1 to 7 are untouched
         run: node --test test/stage8-untouched.test.mjs
 

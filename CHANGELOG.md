@@ -2,6 +2,20 @@
 
 Dated record of changes that affect what the site tells you. The full history is in the git log; how each change was
 checked is in `VALIDATION.md`.
+
+## 26 November 2026: price-data safety for the nightly build (proposed, not merged)
+
+Data reliability only. No recommendation, formula, threshold, risk limit, Shariah rule or stored record changed.
+
+- If Nasdaq's daily history fails for a company, the build now tries Yahoo Finance's free chart data for that company only. The series is
+  refused unless it has at least 250 bars, is in date order and its latest close is within 25% of the Nasdaq screener price. A company
+  served this way names Yahoo Finance as its price source, and the Record page lists it.
+- New "Price data" card on the Record page: how many trading days behind the prices are, which companies used the backup source, how many
+  backup series were refused, and any price that moved more than 40% since the last published build (a split or a data error).
+- A build more than 4 trading days behind the latest close stops before publishing (set STALE_FAIL_DAYS to change it), so the live site
+  keeps its last good version and the existing "advice paused" rule applies.
+- The last good published prices (the live site's data/screen.json) are the cached comparison; nothing new is stored.
+- New tests: test/pricesafety.test.mjs (added to `npm test` and the formulas job).
 - Final corrections: the phone tab bar uses 12 px labels again (never smaller than 12 px down to 350 px wide), and the Search page no
   longer repeats the "Today" stack. The daily brief, the market card and "Ideas today" now live on the Dashboard; Search keeps the
   search box and every search feature. No advice, formula or data source changed.

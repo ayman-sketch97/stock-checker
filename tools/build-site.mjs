@@ -23,6 +23,7 @@ const SC = await import('../lib/scanner.js');
 const REC = await import('../lib/records.js');
 const { healthChecks } = await import('../lib/health.js');
 const { POLICY_VERSION } = await import('../lib/policy.js');
+const PS = await import('../lib/pricesafety.js');
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const args = process.argv.slice(2);
@@ -198,30 +199,49 @@ let done = 0;
 // a short timeout, and if Nasdaq keeps failing (e.g. it slows down automated requests) the run carries on without it.
 let historyFailsInARow = 0;
 let historyOff = false;
-async function historyFor(t) {
-  if (historyOff) return null;
-  try {
-    const h = await getNasdaqHistory(t, 10000, 1);
-    historyFailsInARow = 0;
-    return h;
-  } catch {
-    if (++historyFailsInARow >= 40 && !historyOff) {
-      historyOff = true;
-      console.log('Nasdaq price history keeps failing; continuing without charts and past-valuation comparisons.');
+// A second free source (lib/pricesafety.js) covers a company whose Nasdaq history failed, and only then. It is refused
+// unless its latest close matches the screener's price, and any company served by it is named in the health report.
+const fallbackUsed = new Set();
+const fallbackRefused = [];
+async function historyFor(t, refPrice = null) {
+  if (!historyOff) {
+    try {
+      const h = await getNasdaqHistory(t, 10000, 1);
+      historyFailsInARow = 0;
+      return h;
+    } catch {
+      if (++historyFailsInARow >= 40 && !historyOff) {
+        historyOff = true;
+        console.log('Nasdaq price history keeps failing; trying the backup source for each company.');
+      }
     }
+  }
+  if (!(refPrice > 0)) return null;
+  try {
+    const daily = await PS.getYahooDaily(t.replace(/\./g, '-'));
+    const why = PS.refuseDaily(daily, refPrice);
+    if (why) { fallbackRefused.push(`${t}: ${why}`); return null; }
+    fallbackUsed.add(t);
+    return { daily, monthly: monthlyOf(daily), fallback: 'Yahoo Finance' };
+  } catch {
     return null;
   }
+}
+function monthlyOf(daily) {
+  const m = new Map();
+  for (const d of daily) m.set(d.date.slice(0, 7), { date: d.date, close: d.c });
+  return [...m.values()];
 }
 
 async function one(u) {
   const rec = byTicker.get(u.t);
-  const [submissions, facts, hist] = await Promise.all([getSubmissions(rec.cik), getCompanyFacts(rec.cik), historyFor(u.t)]);
+  const [submissions, facts, hist] = await Promise.all([getSubmissions(rec.cik), getCompanyFacts(rec.cik), historyFor(u.t, u.price)]);
   // use the latest daily close (dated) when we have it; the screener price can lag a session
   const lastBar = hist?.daily?.length ? hist.daily[hist.daily.length - 1] : null;
   const px = lastBar ? lastBar.c : u.price;
   if (lastBar) priceDates[lastBar.date] = (priceDates[lastBar.date] || 0) + 1;
   const price = {
-    source: 'Nasdaq',
+    source: hist?.fallback || 'Nasdaq',
     price: px,
     currency: 'USD',
     priceTime: lastBar ? `close on ${lastBar.date}` : `${fmtTime(started)}, last sale`,
@@ -415,6 +435,34 @@ failed.push(...retry);
 items.sort((a, b) => b[6] - a[6]);
 screen.sort((a, b) => b[4] - a[4]);
 const priceDate = Object.entries(priceDates).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+// ---- price safety (lib/pricesafety.js): how late is the data, and did any price jump since the last published build?
+// Reported in the health card only. A build more than LATE_FAIL_DAYS trading days behind stops here, so nothing new is
+// published and the live site keeps its last good version (the site's own pause rule then withholds advice).
+const lateDays = PS.tradingDaysLate(priceDate);
+let jumps = [];
+if (!ONLY.length && !LIMIT) {
+  try {
+    const r = await fetch(`${SITE_URL}data/screen.json?t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(30000) });
+    if (r.ok) {
+      const prev = await r.json();
+      const ti = prev.fields.indexOf('ticker');
+      const pi = prev.fields.indexOf('price');
+      const was = {};
+      for (const row of prev.rows) was[row[ti]] = row[pi];
+      const nowP = {};
+      for (const row of screen) nowP[row[0]] = row[SCREEN_FIELDS.indexOf('price')];
+      jumps = PS.jumpsSince(nowP, was);
+    }
+  } catch (e) {
+    console.log('last published prices unavailable for the jump check:', e.message);
+  }
+  console.log(`price safety: ${lateDays === null ? 'no price date' : lateDays + ' trading day(s) late'}, backup source used for ${fallbackUsed.size}, refused for ${fallbackRefused.length}, ${jumps.length} price move(s) over ${PS.JUMP_FLAG * 100}%`);
+  if (lateDays !== null && lateDays >= Number(process.env.STALE_FAIL_DAYS || PS.LATE_FAIL_DAYS)) {
+    console.error(`::error::Price data is ${lateDays} trading days late (latest close ${priceDate}). Not publishing; the live site keeps its last good version.`);
+    process.exit(1);
+  }
+}
 
 // ---- relative strength: rank of the weighted 3/6/12-month return (recent months count most), 1 to 99
 {
@@ -721,6 +769,8 @@ if (!ONLY.length && !LIMIT && priceDate && !fs.existsSync(RECORDS_DIR)) {
     policyVersion: POLICY_VERSION,
     record,
   });
+  const pdCard = PS.priceDataCheck({ lateDays, fallback: [...fallbackUsed], refused: fallbackRefused.length, jumps: jumps.slice(0, 10), jumpCount: jumps.length });
+  if (pdCard) { health.checks.push(pdCard); if (pdCard.status === 'warn' && health.worst === 'ok') health.worst = 'warn'; }
   fs.writeFileSync(path.join(dataDir, 'health.json'), JSON.stringify(health));
   console.log(`health: ${health.worst}; ${health.checks.map((c) => `${c.id} ${c.status}`).join(', ')}`);
 }
