@@ -391,3 +391,6 @@ the same day.
 
 ## Estimated-points data-quality limit (method 1.6)
 - Data quality now lists a limit when 15+ score points are estimated. Scores and verdict codes are unchanged; rescaling was tested and rejected (see VALIDATION.md).
+
+## Record replay at 0.5% risk
+- Portfolio replay on the Record page now uses 0.5% of the account per trade (was 1%), matching the owner's swing risk limit. Per-trade results are unchanged; replay growth and worst fall will differ. See VALIDATION.md.

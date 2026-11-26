@@ -592,7 +592,8 @@ if (scannerFile) fs.writeFileSync(path.join(dataDir, 'scanner.json'), JSON.strin
   const bench = (list) => BT.benchmarkTrades(list, rsData, mkt, firstSignal, 20211015);
   // portfolio replay (growth per year and worst fall) under stated rules, against SPY bought at the first fill.
   // Prices only on both sides: the trades' prices are not dividend-adjusted, and neither is SPY here.
-  const RULES = { risk: 0.01, maxPositions: 10, maxWeight: 0.2 };
+  // 27 Nov 2026: 0.5% of the account per trade, matching the owner's swing risk limit (it was 1%; earlier Record numbers used 1%).
+  const RULES = { risk: 0.005, maxPositions: 10, maxWeight: 0.2 };
   const port = (list) => (mkt ? Object.fromEntries([BT.DEFAULT_COST, 0.005, 0.008].map((c) => [String(c), BT.portfolioSim(list, Array.from(mkt.d), { ...RULES, cost: c })])) : null);
   const summary = {
     version: BT.BT_VERSION,

@@ -10011,14 +10011,14 @@ body { letter-spacing: -0.003em; }
     const r = P && P[st.uni] && P[st.uni][String(st.cost)];
     if (!r || !r.taken) return null;
     const spy = P.spy && (P.spy.total || P.spy.price);
-    const R = P.rules || { risk: 0.01, maxPositions: 10, maxWeight: 0.2 };
+    const R = P.rules || { risk: 0.005, maxPositions: 10, maxWeight: 0.2 };
     const tr = (label, sub, cagr, dd) => h('tr', null, h('td', null, label, h('span', { class: 'sm', text: sub })),
       h('td', null, h('span', { class: cagr > 0 ? 'up' : cagr < 0 ? 'down' : '', text: pctS(cagr, 1) })), h('td', { text: pct(dd, 0) }));
     const beat = spy && isNum(spy.cagr) ? (r.cagr > spy.cagr ? 'grew faster than' : 'grew more slowly than') : null;
     return h('section', { class: 'card', 'aria-label': 'As a portfolio' },
       h('h2', { text: 'If you had followed these trades' }),
-      h('p', { class: 'sub', text: `Each trade risks ${pct(R.risk, 0)} of the account (the stop sets the size), at most ${R.maxPositions} trades open, no position above ${pct(R.maxWeight, 0)}, no borrowing, ${(st.cost * 100).toFixed(1)}% cost per round trip. Signals that came when the money was already in use were skipped.` }),
-      h('p', { class: 'note', text: `Your own swing risk limit is ${pct(limits().swingRisk, 1)} (Portfolio page). The figures below have not been re-run at your limit.` }),
+      h('p', { class: 'sub', text: `Each trade risks ${pct(R.risk, 1)} of the account (the stop sets the size), at most ${R.maxPositions} trades open, no position above ${pct(R.maxWeight, 0)}, no borrowing, ${(st.cost * 100).toFixed(1)}% cost per round trip. Signals that came when the money was already in use were skipped.` }),
+      Math.abs(R.risk - limits().swingRisk) > 1e-9 ? h('p', { class: 'note', text: `This replay uses ${pct(R.risk, 1)} of the account per trade. Your own swing risk limit is ${pct(limits().swingRisk, 1)} (Portfolio page).` }) : null,
       h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
         h('tr', null, h('th', null, h('span', { class: 'vh', text: 'Group' })), h('th', { text: 'Per year' }), h('th', { text: 'Worst fall' })),
         tr('These trades', `${r.taken.toLocaleString()} trades taken, ${r.skipped.toLocaleString()} skipped; money invested ${pct(r.avgExposure, 0)} of the time`, r.cagr, r.maxDrawdown),
