@@ -68,6 +68,12 @@ jobs:
         run: node --test test/alerts.test.mjs
       - name: Test the blocked-stock analysis card
         run: node --test test/assessment.test.mjs
+      - name: Test the journal's simulated exits
+        run: node --test test/simexit.test.mjs
+      - name: Test the quote freshness labels
+        run: node --test test/freshness.test.mjs
+      - name: Test the screener has no look-ahead
+        run: node --test test/screener-lookahead.test.mjs
       - name: Check stages 1 to 7 are untouched
         run: node --test test/stage8-untouched.test.mjs
 
