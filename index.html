@@ -1119,6 +1119,7 @@ body { letter-spacing: -0.003em; }
 .db-k { font-size: 11.5px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
 .db-t { font-size: 24px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.15; margin: 4px 0 6px; text-wrap: balance; }
 .db-p { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.5; max-width: 62ch; }
+.db-note { margin: 10px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-ink); font-size: 13px; line-height: 1.45; }
 .db-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .db-chip { font-size: 12.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: var(--neutral-bg); color: var(--ink-2); }
 .db-chip.dbc-good { background: var(--good-bg); color: var(--good-ink); }
@@ -1777,6 +1778,11 @@ body { letter-spacing: -0.003em; }
     if (q.level === 'limited' && q.reasons && q.reasons.length) wrap.append(h('ul', { class: 'dq-why' }, q.reasons.map((t) => h('li', { text: t.charAt(0).toUpperCase() + t.slice(1) + '.' }))));
     return wrap;
   }
+  // the engine uses a company's last known (small) debt figure when the filings stop tagging it: say so wherever that figure feeds the analysis
+  const debtAssumption = (d) => {
+    const g = d && Array.isArray(d.dataGaps) ? d.dataGaps.find((x) => typeof x === 'string' && x.startsWith('Debt is no longer tagged')) : null;
+    return g || null;
+  };
   // data the tool itself does not trust: nothing derived from it is shown as a rating
   const isUnreliable = (d) => Boolean(d && d.verdict && (d.verdict.code === 'UNRELIABLE' || (d.dataQuality && d.dataQuality.level === 'insufficient')));
   // the halal screen is a screen on the same filings, never a ruling: say so in the words themselves
@@ -1809,6 +1815,7 @@ body { letter-spacing: -0.003em; }
         h('div', { class: 'db-k', text: 'Bottom line' }),
         h('div', { class: 'db-t', text: title }),
         text ? h('p', { class: 'db-p', text }) : null,
+        !unrel && debtAssumption(d) ? h('p', { class: 'db-note', role: 'note', text: 'Debt assumption. ' + debtAssumption(d) }) : null,
         h('div', { class: 'db-chips' },
           h('span', { class: 'db-chip dbc-' + halal[0], text: halal[1] }),
           unrel ? h('span', { class: 'db-chip dbc-warn', text: 'Data check failed' }) : (d.dataQuality && d.dataQuality.level === 'limited' ? h('span', { class: 'db-chip dbc-warn', text: 'Data limited' }) : null))));
@@ -2031,6 +2038,7 @@ body { letter-spacing: -0.003em; }
     const f = d.fairValue;
     const card = h('section', { class: 'card', 'aria-label': 'Fair value' }, h('h2', { text: 'Price vs. fair value' }),
       h('p', { class: 'sub', text: `Estimated from future owner cash flow, discounted at ${Math.round(f.discountRate * 100)}% a year.` }));
+    if (debtAssumption(d)) card.append(h('p', { class: 'db-note', role: 'note', text: 'Debt assumption. ' + debtAssumption(d) }));
     // range figure
     const lo = Math.min(f.bear, f.buyBelow, d.price) * 0.92;
     const hi = Math.max(f.bull, d.price) * 1.06;
