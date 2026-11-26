@@ -378,3 +378,7 @@ the same day.
   pre-registered rule, "let the test decide" now suggests 20% stocks and 80% fund (it was half and half). Most of the
   drop comes from the 40% sector limit; the 10% limit on new buys alone raised the result. Details in `VALIDATION.md`,
   section 9. The Record page shows the result before and after the limits.
+
+## Near-live quote line (display only)
+- Company header shows an extra labelled line from a Finnhub free-tier relay (Cloudflare Worker, `relay/worker.js`). Labels: "Real-time, Finnhub" when the market is open and the last trade is under 2 min old, otherwise the age; "US market closed (holiday)" plus the date when closed; hidden if the relay is unreachable.
+- It never feeds scoring, signals, zones or the existing delayed Nasdaq quotes. Free tier: 60 calls/min, US stocks only; the relay caps itself at 50 calls/min and caches 30 s.

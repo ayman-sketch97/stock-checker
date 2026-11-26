@@ -291,6 +291,7 @@ header.top {
 .px .p { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .px .m { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
 .px .m.up { color: var(--good-ink); font-weight: 650; } .px .m.down { color: var(--bad-ink); font-weight: 650; }
+.px .rt-line { font-size: 12px; max-width: 170px; white-space: normal; text-align: right; margin-left: auto; }
 .act { display: grid; gap: 10px; }
 .act-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .act-h h2 { margin: 0; }
@@ -1898,6 +1899,7 @@ body { letter-spacing: -0.003em; }
       h('div', { class: 'px' },
         (tech.pxEl = h('div', { class: 'p', text: price(d.price) })),
         (tech.pxSub = h('div', { class: 'm' })),
+        (tech.rtEl = h('div', { class: 'm rt-line', hidden: true })),
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' })),
       (tech.spark = h('div', { class: 'spark', hidden: true }))));
     tech.banner = decisionBanner(d, d.price, null);
@@ -5629,6 +5631,36 @@ body { letter-spacing: -0.003em; }
     // priceTime reads "close on 2026-11-02": take the date out of it (its first 10 characters are "close on 2")
     return { date: (T && T.asOf) || (/\d{4}-\d{2}-\d{2}/.exec(String(t.d.priceTime || '')) || [''])[0], close: T ? T.close : t.d.price };
   }
+  // Display-only near-live quote from the Finnhub relay (free tier). It never feeds scoring, signals or the advice rows.
+  const RELAY_URL = 'https://stock-quotes-relay.aymanali12321.workers.dev/quotes';
+  function relayLine(r, sym, nowMs) {
+    const q = r && r.quotes && r.quotes[sym];
+    if (!q || !isNum(q.c) || !isNum(q.t) || q.t <= 0) return '';
+    const mk = r.market || {};
+    const ageS = Math.max(0, Math.round(nowMs / 1000 - q.t));
+    const px = price(q.c);
+    if (mk.isOpen) {
+      if (ageS <= 120) return `Real-time, Finnhub ${px} · ${ageS < 10 ? 'just now' : ageS + ' s ago'}`;
+      const min = Math.round(ageS / 60);
+      return `Finnhub ${px} · last trade ${min < 90 ? min + ' min' : Math.round(min / 60) + ' h'} ago`;
+    }
+    const day = new Date(q.t * 1000).toISOString().slice(0, 10);
+    return `US market closed${mk.holiday ? ' (' + mk.holiday + ')' : ''} · Finnhub ${px}, ${shortDate(day)}`;
+  }
+  function paintRelay(t) {
+    if (!t || !t.rtEl || !t.rtEl.isConnected || !t.d || !t.d.ticker) return;
+    const sym = String(t.d.ticker).toUpperCase();
+    fetch(RELAY_URL + '?s=' + encodeURIComponent(sym), { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((r) => {
+        if (!t.rtEl.isConnected) return;
+        const txt = relayLine(r, sym, Date.now());
+        t.rtEl.textContent = txt; t.rtEl.hidden = !txt;
+        if (txt) t.rtEl.title = 'Display only. Source: Finnhub free plan via a relay. It does not change any score or signal.';
+      })
+      .catch(() => { if (t.rtEl) t.rtEl.hidden = true; });
+    if (!t.rtTimer) t.rtTimer = setInterval(() => { if (!t.rtEl || !t.rtEl.isConnected) { clearInterval(t.rtTimer); t.rtTimer = null; } else paintRelay(t); }, 60000);
+  }
   function paintAction() {
     const t = tech;
     if (!t || !t.action || !t.action.isConnected) return;
@@ -5661,6 +5693,7 @@ body { letter-spacing: -0.003em; }
       t.pxSub.className = 'm' + (L && isNum(L.chg) ? (L.chg >= 0 ? ' up' : ' down') : '');
     }
     if (t.updateNow) t.updateNow();
+    if (!t.rtStarted) { t.rtStarted = true; paintRelay(t); }
   }
 
 
