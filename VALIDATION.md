@@ -2323,3 +2323,7 @@ When a metric cannot be calculated, its score gets neutral fallback points (rati
 Tested alternative: drop the missing metrics and rescale the rest to 100. Per-stock effect: 298 quality and 324 balance-sheet scores change, single scores move by up to 30 to 50 points (for example MAIN 51 to 100, MANE 38 to 0), and 19 stocks cross the quality-70 line and 13 the quality-50 line. That is less stable than the neutral points, so scores were NOT changed.
 
 Instead (METHOD_VERSION 1.6) the data-quality level lists a limit when 15 or more points are estimated: "N points in the quality, balance-sheet and growth scores are estimated because ... could not be calculated". Projected on the live data: 29 stocks move from "high" to "limited" data quality (152 were already "limited", 77 "insufficient"). No score, verdict code, threshold or Record number changes. The Fundamental tab also names the estimated metrics in each section (PR #16).
+
+## Portfolio replay risk changed to 0.5% (27 Nov 2026)
+
+The Record page's portfolio replay now risks 0.5% of the account per trade (it was 1%), matching the owner's swing risk limit. The replay tables above (and the figures quoted from earlier runs) were produced at 1% and are kept as history; the Record page shows the current build's numbers at 0.5%. Per-trade results (R, percent per trade, the out-of-sample table and the random-entry comparison) do not depend on this setting.

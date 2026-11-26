@@ -91,7 +91,7 @@ for (const [name, keep] of [['unseen (to Oct 2021)', (t) => Number(t.signal) < S
   const lastDay = name.startsWith('unseen') ? SPLIT : dates[dates.length - 1];
   const dd = dates.filter((d) => d <= lastDay);
   for (const u of ['halal', 'strong']) {
-    const ps = BT.portfolioSim(uni[u], dd, { risk: 0.01, maxPositions: 10, maxWeight: 0.2, cost: 0.002 });
+    const ps = BT.portfolioSim(uni[u], dd, { risk: 0.005, maxPositions: 10, maxWeight: 0.2, cost: 0.002 });
     res[u].portfolio = ps;
     console.log(`  portfolio ${u.padEnd(6)} CAGR ${pct(ps.cagr)}  worst fall ${pct(ps.maxDrawdown)}  invested ${pct(ps.avgExposure)} of the time  trades ${ps.taken} (skipped ${ps.skipped})`);
   }
