@@ -394,3 +394,7 @@ the same day.
 
 ## Record replay at 0.5% risk
 - Portfolio replay on the Record page now uses 0.5% of the account per trade (was 1%), matching the owner's swing risk limit. Per-trade results are unchanged; replay growth and worst fall will differ. See VALIDATION.md.
+
+## Reversal plan (information only)
+- New card on the Technical tab: a stock that has gone at least 20% below its 252-day high with a bullish reversal bar; quality from the checker's own numbers (unknown is never a pass); a plan that splits a capped position (5% default, never above the portfolio's own buy cap) into a first buy and two adds at -10% and -20% (or support within 4%), average cost, a +25% target to sell half, and a 3 x ATR trail for the rest. No stop loss is shown. Shariah fail shows no plan; the Shariah note says preliminary only. The evidence note is always visible: no proven edge. Settings are adjustable and marked as unconfirmed defaults. Not part of any score or signal.
+- Not included: the spec's 3-year uptrend test (the site stores about one year of daily prices).
