@@ -21,7 +21,7 @@ const PINNED = {
   'lib/engine.js': '040fbdc207627b0432947e05ffc60d5e48e05db9c6708b04bb64bc458e8ad314',
   'lib/shariah-ledger.js': 'f9ebd96c0cc049d6c63b013359f0f265755ebb51c86dee6584b71767edf5b7a8',
   'lib/health.js': 'caa4e262afc101f8fc5dd4ec4d34b9a504b37c2ed949c70c9421f71202f839f3',
-  'lib/technical.js': '909156951eda0b122a95432a8b944f997eb1cd2bf347049eac6d22ad76ef8df2',
+  'lib/technical.js': '85ead73b6e99513f058c79da2c9c1b24c3ab8207f182acc4cccae50f012187b0',
   'lib/backtest.js': '9a7f66f6d8af0df21390faf069274c2d4032c32fc015a4abed6f2e61565319bb',
   'lib/signals.js': '345dd43c435b6a43a0c9ab58d74226afb09e24c95f6517b085be77edd9da1387',
   'lib/data.js': 'e17ce1aa7e5a108de37bb2d0081145383e3f0f370fe17cea488b2447799fd1c9',
