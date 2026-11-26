@@ -22,3 +22,20 @@ test('signal texts never say "1 days ago"', () => {
   }
   assert.ok(seen > 0, 'the test must exercise cross texts');
 });
+
+// Support/resistance zones: nearby swing points merge, but a run of them must not chain into one wide band.
+import { levels } from '../lib/technical.js';
+test('a zone is at most 2 tolerances wide, even when swing points chain', () => {
+  const tol = 4;
+  // 12 swing highs each 2 apart (within tolerance of the previous), spanning 22 = 5.5 tolerances
+  const piv = Array.from({ length: 12 }, (_, k) => ({ i: k * 10, price: 100 + k * 2, kind: 'high' }));
+  const zones = levels(piv, tol, 200);
+  assert.ok(zones.length >= 3, 'a long chain splits into several zones');
+  for (const z of zones) {
+    const own = piv.filter((p) => Math.abs(p.price - z.price) <= 2 * tol);
+    assert.ok(own.length >= z.touches);
+    assert.ok(z.touches <= 5, 'at most 5 points of the chain in one zone');
+  }
+  // close points still merge
+  assert.equal(levels([{ i: 1, price: 100 }, { i: 9, price: 101 }, { i: 20, price: 102 }], tol, 30).length, 1);
+});
