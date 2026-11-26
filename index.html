@@ -3281,10 +3281,28 @@ body { letter-spacing: -0.003em; }
     if (Q.session === baseDate && isNum(close) && Math.abs(a[0] / close - 1) < 0.0005) return null;
     return { p: a[0], chg: a[1], o: isNum(a[2]) ? a[2] : null, session: Q.session, open: /open/i.test(Q.status || '') && !/pre|after|closed/i.test(Q.status || ''), time: Q.time || '', newSession: Q.session > baseDate };
   }
+  // FRESH:BEGIN (how old the intraday quote file is, in words; pure, tested in test/freshness.test.mjs)
+  // The quote file is rebuilt about every 15 minutes while the US market is open, but GitHub can run its schedule late. The
+  // source prices are Nasdaq's delayed last sale. So a quote is never given a vague "minutes behind" label: the page says how
+  // long ago the file was built, and calls it stale when the market is open and the file is older than FRESH_RULES.staleMin.
+  const FRESH_RULES = Object.freeze({ staleMin: 35 });
+  function quoteFreshness(asOfIso, nowMs, marketOpen, rules = FRESH_RULES) {
+    const t = Date.parse(asOfIso);
+    if (!Number.isFinite(t) || !Number.isFinite(nowMs)) return { state: 'unknown', ageMin: null, text: 'update time unknown', stale: true };
+    const ageMin = Math.max(0, Math.round((nowMs - t) / 60000));
+    const ago = ageMin < 1 ? 'under a minute ago' : ageMin < 60 ? `${ageMin} min ago` : ageMin < 1440 ? `${Math.round(ageMin / 60)} h ago` : `${Math.round(ageMin / 1440)} d ago`;
+    if (marketOpen && ageMin > rules.staleMin) return { state: 'stale', ageMin, text: `STALE: prices last updated ${ago} (the 15-minute update is late)`, stale: true };
+    if (marketOpen) return { state: 'delayed', ageMin, text: `delayed prices, updated ${ago}`, stale: false };
+    return { state: 'closed', ageMin, text: `market closed, prices updated ${ago}`, stale: false };
+  }
+  // FRESH:END
+  const quoteAgeText = () => (QUOTES && QUOTES.asOf ? quoteFreshness(QUOTES.asOf, Date.now(), true).text : 'update time unknown');
   function liveLabel(L) {
     if (!L) return '';
     const tm = /(\d{1,2}:\d{2}\s*[AP]M)/i.exec(L.time);
-    return L.open ? `Delayed last sale, a few minutes behind${tm ? ' (' + tm[1].toLowerCase() + ' New York)' : ''}` : `Last sale (delayed), ${shortDate(L.session)}`;
+    const F = QUOTES && QUOTES.asOf ? quoteFreshness(QUOTES.asOf, Date.now(), L.open) : null;
+    if (L.open) return F ? `Delayed last sale${tm ? ' (' + tm[1].toLowerCase() + ' New York)' : ''}, ${F.state === 'stale' ? F.text : 'updated ' + (F.ageMin < 1 ? 'under a minute' : F.ageMin + ' min') + ' ago'}` : `Delayed last sale${tm ? ' (' + tm[1].toLowerCase() + ' New York)' : ''}, update time unknown`;
+    return `Last sale (delayed), ${shortDate(L.session)}`;
   }
   function overlayQuotes(scr) {
     if (!scr || !scr.list) return;
@@ -8274,7 +8292,7 @@ body { letter-spacing: -0.003em; }
     const bad = checks ? checks.filter((c) => c && c.status === 'bad').length : 0;
     kids.push(h('div', { class: 'stampbar' },
       stampEl(st ? 'late' : '', 'Prices', `close of ${niceDates(scr.priceDate)}`, st ? `${st.missed} trading days late` : 'Nasdaq, end of day'),
-      live ? stampEl('', 'Quotes', `delayed last sale${tm ? ', ' + tm[1].toLowerCase() + ' New York' : ', ' + niceDates(live.session)}`, 'not real-time') : null,
+      live ? (() => { const F = QUOTES && QUOTES.asOf ? quoteFreshness(QUOTES.asOf, Date.now(), /open/i.test(live.status || '') && !/pre|after|closed/i.test(live.status || '')) : null; return stampEl(F && F.stale ? 'late' : '', 'Quotes', `delayed last sale${tm ? ', ' + tm[1].toLowerCase() + ' New York' : ', ' + niceDates(live.session)}`, F ? F.text + ' · not real-time' : 'not real-time'); })() : null,
       stampEl(!checks ? 'warn' : bad ? 'late' : '', 'Nightly checks', !checks ? 'report not loaded' : bad ? `${bad} failed` : 'passed', null, () => navigate('record'))));
     el.replaceChildren(...kids);
     el.className = 'data-status' + (NARROW_PAGES.has(page) ? ' ds-narrow' : '');
@@ -8689,7 +8707,7 @@ body { letter-spacing: -0.003em; }
       }
       if (st.q) { const qq = st.q.toUpperCase(); rows = rows.filter((r) => r.ticker.includes(qq) || String(r.name || '').toUpperCase().includes(qq)); }
       rows.sort(SORTS[sortKey][1]);
-      count.textContent = `${rows.length.toLocaleString()} compan${rows.length === 1 ? 'y' : 'ies'}` + (hiddenN ? ` (${hiddenN} hidden: earnings within 10 trading days)` : '') + (scr.live && scr.live.session > scr.priceDate ? ` · prices: ${/open/i.test(scr.live.status || '') ? 'delayed last sale, a few minutes behind' : 'last sale of ' + niceDates(scr.live.session)}` : ` · prices: close of ${niceDates(scr.priceDate)}`);
+      count.textContent = `${rows.length.toLocaleString()} compan${rows.length === 1 ? 'y' : 'ies'}` + (hiddenN ? ` (${hiddenN} hidden: earnings within 10 trading days)` : '') + (scr.live && scr.live.session > scr.priceDate ? ` · prices: ${/open/i.test(scr.live.status || '') ? `delayed last sale, ${quoteAgeText()}` : 'last sale of ' + niceDates(scr.live.session)}` : ` · prices: close of ${niceDates(scr.priceDate)}`);
       list.replaceChildren(...rows.slice(0, shown).map((r) => slRow(r, st.preset, scr)));
       if (!rows.length) list.append(h('p', { class: 'empty', text: 'Nothing matches these filters today.' }));
       moreBtn.hidden = rows.length <= shown;
@@ -10566,7 +10584,7 @@ body { letter-spacing: -0.003em; }
     // freshness
     const fresh = h('section', { class: 'card', 'aria-label': 'Data freshness' }, h('h2', { text: 'How fresh the data is' }));
     fresh.append(h('ul', { class: 'alert-list' },
-      h('li', null, toneIcon(info.stale ? 'bad' : 'good'), h('span', null, h('b', { text: 'Prices: ' }), info.stale ? staleText(info.stale) : `${info.priceAsOf}. ${scr.live && scr.live.session >= scr.priceDate && /open/i.test(scr.live.status || '') ? 'Live prices are a few minutes behind and refresh about every 4 minutes while this page is open.' : 'The market is closed or prices have not moved since the close; the next nightly update brings the next close.'}`)),
+      h('li', null, toneIcon(info.stale ? 'bad' : 'good'), h('span', null, h('b', { text: 'Prices: ' }), info.stale ? staleText(info.stale) : `${info.priceAsOf}. ${scr.live && scr.live.session >= scr.priceDate && /open/i.test(scr.live.status || '') ? `Delayed prices (${quoteAgeText()}). This page rechecks about every 4 minutes while open; the price file itself is rebuilt about every 15 minutes and Nasdaq's last sale is already delayed.` : 'The market is closed or prices have not moved since the close; the next nightly update brings the next close.'}`)),
       h('li', null, toneIcon(info.scan === 'ok' ? 'good' : 'warn'), h('span', null, h('b', { text: 'Scanner: ' }), info.scan === 'ok' ? `end-of-day closes of ${niceDates(st.sc.priceDate)}, not real-time.` : info.scan === 'late' ? 'paused: the nightly update is late, so scanner alerts are not checked.' : 'its file could not be loaded, so scanner alerts are not checked.')),
       h('li', null, toneIcon('good'), h('span', null, h('b', { text: 'Last checked: ' }), `${fmtUtc(st.at)}. The Alert Centre checks only while this site is open. Nothing runs when it is closed, and no email or text message is ever sent.`))));
     if (info.stale) fresh.append(h('p', { class: 'hint stale', text: 'Price, scanner and portfolio risk alerts are paused until the next nightly update. Open alerts stay as they were; Shariah alerts are still checked.' }));
