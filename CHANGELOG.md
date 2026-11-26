@@ -382,3 +382,9 @@ the same day.
 ## Near-live quote line (display only)
 - Company header shows an extra labelled line from a Finnhub free-tier relay (Cloudflare Worker, `relay/worker.js`). Labels: "Real-time, Finnhub" when the market is open and the last trade is under 2 min old, otherwise the age; "US market closed (holiday)" plus the date when closed; hidden if the relay is unreachable.
 - It never feeds scoring, signals, zones or the existing delayed Nasdaq quotes. Free tier: 60 calls/min, US stocks only; the relay caps itself at 50 calls/min and caches 30 s.
+
+## Wording and labels only (no score, threshold or Record-number change)
+- How-it-works text now shows the live swing risk limit (0.5% by default) instead of a fixed 1%.
+- Footer and data note separate end-of-day closes (analysis, signals) from delayed and display-only quotes.
+- Scores with metrics that could not be calculated say how many points are estimated and which metrics.
+- Record page: a key separating historical simulation, live paper signals, independent verification and real money; a note under the portfolio replay that it still uses 1% per trade, not the user's 0.5% limit.

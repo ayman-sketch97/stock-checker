@@ -1247,7 +1247,7 @@ body { letter-spacing: -0.003em; }
     <p>The tool projects 10 years of owner cash flow. Revenue grows at a blend of the company's track record (the lower of its 5-year and 3-year growth rates, so one unusual year like 2020 can't inflate it) and its recent growth (capped at 20% a year), then slows to 2.5%. Cash margins stay at their typical recent level. Future cash is discounted at 8% for strong, large companies, 9% for typical ones and 10% for weaker or small ones. The bear and bull cases change growth and margins. It also works backwards: what growth does today's price assume? That one number often teaches more than the fair value itself.</p>
     <p>Limits to know: it assumes today's cash margins continue, so companies spending heavily now to grow later can look expensive, and hypergrowth companies are capped at 20% growth.</p>
     <h3>The Technical tab</h3>
-    <p>A second view of the same stock: the chart. It reads about five years of daily prices and checks the trend (21-day EMA, 50-day and 200-day averages), momentum (RSI, MACD), volume, and support and resistance levels from past swing highs and lows. It then looks for one of a few long-only setups (a pullback to the averages in an uptrend, a breakout on strong volume, an oversold reversal, a bounce at range support) and builds a swing plan: entry trigger, stop loss, two targets and an exit plan. A calculator shows what that means in dollars, and the most you should invest so one loss costs at most 1% of your portfolio.</p>
+    <p>A second view of the same stock: the chart. It reads about five years of daily prices and checks the trend (21-day EMA, 50-day and 200-day averages), momentum (RSI, MACD), volume, and support and resistance levels from past swing highs and lows. It then looks for one of a few long-only setups (a pullback to the averages in an uptrend, a breakout on strong volume, an oversold reversal, a bounce at range support) and builds a swing plan: entry trigger, stop loss, two targets and an exit plan. A calculator shows what that means in dollars, and the most you should invest so one loss costs at most <span id="howRisk">0.5%</span> of your portfolio (your swing risk limit, set on the Portfolio page).</p>
     <p>The long-term plan on the Fundamental tab is different: buy and trim levels from the fair value, and "sell if" rules based on the business, with no stop loss. The best entries have both tabs on their side. No set of indicators wins most of the time, so judge any plan over many trades.</p>
     <p>Real money or practice: every swing signal is recorded the day it appears and followed with the same rules. Each trade is then compared with the S&amp;P 500 over the same 20 trading days after it was bought, after costs, whether it has closed or not, so quick stop-outs or quick wins cannot skew the result. Until at least 6 months of these trades beat the index by more than luck can explain, signals are shown as paper trades, the Portfolio plan gives them no money, and the Journal can keep them apart as practice.</p>
     <div id="howSite">
@@ -1271,11 +1271,11 @@ body { letter-spacing: -0.003em; }
       <li>Re-check after each quarterly report. Verdicts change when the numbers or the price change.</li>
     </ul>
     <h3>Data</h3>
-    <p id="dataNote">Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq, with backups. Results are cached for about 30 minutes. This is an educational tool, not financial advice.</p>
+    <p id="dataNote">Financials: SEC EDGAR (official XBRL filings). Prices: Nasdaq, with backups. Analysis and signals use end-of-day closes. Quotes shown during US trading hours are delayed and display-only, and a separate Finnhub quote line is display-only too; none of them feeds a score or signal. Results are cached for about 30 minutes. This is an educational tool, not financial advice.</p>
     <p><button class="ghost" id="howClose">Close</button></p>
   </section>
 
-  <footer>Educational tool, not financial advice. Financial data: SEC filings. Prices: Nasdaq end-of-day closes; if a backup source was used for a company, its page names it.</footer>
+  <footer>Educational tool, not financial advice. Financial data: SEC filings. Prices: analysis and signals use Nasdaq end-of-day closes. Quotes shown while the US market is open are delayed and for display only, and each is labelled with its source and age. If a backup source was used for a company, its page names it.</footer>
 </div>
 <div class="tip" id="tip" hidden></div>
 
@@ -2227,6 +2227,16 @@ body { letter-spacing: -0.003em; }
     det.append(h('summary', null, h('span', { class: 'st', text: title }), h('span', { class: 'sc' }, h('span', { text: summary }), chevron())));
     const body = h('div', { class: 'sec-body' });
     metrics.forEach((m) => body.append(metricRow(m)));
+    if (scored) {
+      // display only: metrics that could not be calculated get neutral fallback points in the score; say so
+      const est = metrics.filter((m) => m.rating === 'na' && isNum(m.points) && m.points > 0);
+      if (est.length) {
+        const n = est.reduce((a, m) => a + m.points, 0);
+        body.prepend(h('p', { class: 'note est-note', text: `${n} of the points in this score are estimated: ${est.map((m) => m.label).join(', ')} could not be calculated or was not reported, so each got a neutral number of points instead of a real result.` }));
+        const sc = det.querySelector('summary .sc > span');
+        if (sc) sc.textContent = `${summary} · ${n} pts estimated`;
+      }
+    }
     if (extra) body.append(extra);
     det.append(body);
     return det;
@@ -9791,7 +9801,13 @@ body { letter-spacing: -0.003em; }
       const pack = st.cost === bt.cost ? bt[st.uni] : bt.byCost && bt.byCost[String(st.cost)] && bt.byCost[String(st.cost)][st.uni];
       body.replaceChildren(...(pack ? recordBody(pack, bt, st) : [errCard('That combination is not available.')]));
     };
-    el.replaceChildren(head, healthCard(hl, scrH, rec), recordCard(rec), ltCard(lts), h('h2', { class: 'page-sec', text: 'The swing plan' }),
+    const evKey = h('section', { class: 'card', 'aria-label': 'What kind of evidence' }, h('h2', { text: 'Four kinds of evidence, kept apart' }),
+      h('ul', { class: 'clean' },
+        h('li', { text: 'Historical simulation: the rules replayed on past prices. It shows what would have happened, not what will.' }),
+        h('li', { text: 'Live recorded paper signals: signals logged on the day they appeared and followed with the same rules. No real money.' }),
+        h('li', { text: 'Independently verified performance: none yet. No outside party has checked these results.' }),
+        h('li', { text: 'Real-money performance: none is recorded here. Your broker statement is the record.' })));
+    el.replaceChildren(head, evKey, healthCard(hl, scrH, rec), recordCard(rec), ltCard(lts), h('h2', { class: 'page-sec', text: 'The swing plan' }),
       h('div', { class: 'callout' }, h('b', { text: 'How it was tested. ' }),
         `Every trading day of the past ${bt.years} years, on ${bt.stocks.toLocaleString()} stocks, the rules looked only at prices up to that day, wrote the same plan this site shows, and followed it: the order for the next session, the stop, target 1, and the exit rule. One trade per stock at a time. Results are in R: +1R means you made as much as you risked, −1R means the stop was hit.`),
       controls, body, liveCard(log, bt), limitsCard(bt));
@@ -10002,6 +10018,7 @@ body { letter-spacing: -0.003em; }
     return h('section', { class: 'card', 'aria-label': 'As a portfolio' },
       h('h2', { text: 'If you had followed these trades' }),
       h('p', { class: 'sub', text: `Each trade risks ${pct(R.risk, 0)} of the account (the stop sets the size), at most ${R.maxPositions} trades open, no position above ${pct(R.maxWeight, 0)}, no borrowing, ${(st.cost * 100).toFixed(1)}% cost per round trip. Signals that came when the money was already in use were skipped.` }),
+      h('p', { class: 'note', text: `Your own swing risk limit is ${pct(limits().swingRisk, 1)} (Portfolio page). The figures below have not been re-run at your limit.` }),
       h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1' },
         h('tr', null, h('th', null, h('span', { class: 'vh', text: 'Group' })), h('th', { text: 'Per year' }), h('th', { text: 'Worst fall' })),
         tr('These trades', `${r.taken.toLocaleString()} trades taken, ${r.skipped.toLocaleString()} skipped; money invested ${pct(r.avgExposure, 0)} of the time`, r.cagr, r.maxDrawdown),
@@ -10853,7 +10870,7 @@ body { letter-spacing: -0.003em; }
   }
 
   // ------------------------------------------------------------------ nav
-  $('#howBtn').addEventListener('click', () => { const how = $('#how'); how.hidden = !how.hidden; if (!how.hidden) how.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  $('#howBtn').addEventListener('click', () => { const how = $('#how'); how.hidden = !how.hidden; { const hr = $('#howRisk'); if (hr) hr.textContent = pct(limits().swingRisk, 1); } if (!how.hidden) how.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('#howClose').addEventListener('click', () => { $('#how').hidden = true; });
   $('#homeBtn').addEventListener('click', () => {
     result.hidden = true;
