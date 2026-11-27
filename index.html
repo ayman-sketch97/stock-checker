@@ -1298,6 +1298,32 @@ th { letter-spacing: 0.06em; }
 table td, table th { padding-block: 11px; }
 .srow { border-radius: 18px; }
 @media (max-width: 700px) { .co { padding: 20px 18px 18px; border-radius: 22px; } .spark-plot { height: 84px; } #page-dashboard .card:first-of-type { padding: 22px 18px; } }
+
+/* First view of a company (display only) */
+.fv { display: grid; grid-template-columns: 1.1fr 1.2fr 1fr 1.2fr; gap: 12px; margin: 14px 0; }
+.fv-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; padding: 14px; min-width: 0; }
+.fv-box h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #8fa0bd); font-weight: 650; }
+.fv-big { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.fv-sub { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted, #8fa0bd); }
+.fv-pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 650; background: var(--surface, #1a2438); }
+.fv-good { background: rgba(46,204,142,.16); color: #4ee8a4; } .fv-bad { background: rgba(255,107,129,.16); color: #ff8a98; }
+.fv-warn { background: rgba(255,200,87,.16); color: #ffcf5a; } .fv-na { background: rgba(143,160,189,.16); color: #9fb0cc; }
+.fv-unk { border-color: rgba(255,200,87,.35); } .fv-unk ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.5; }
+@media (max-width: 900px) { .fv { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .fv { grid-template-columns: 1fr; } }
+
+/* Shortlist table view */
+#page-shortlist .list.as-table { display: block; }
+.tbl-scroll { overflow-x: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th, .tbl td { padding: 9px 7px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl th { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted, #8fa0bd); font-weight: 650; position: sticky; top: 0; }
+.th-btn { all: unset; cursor: pointer; } .th-btn:focus-visible { outline: 2px solid var(--accent, #3ddc97); }
+.tbl-row { cursor: pointer; } .tbl-row:hover, .tbl-row:focus-visible { background: rgba(127,160,200,.08); outline: none; }
+.tbl .tag { font-size: 11px; padding: 2px 8px; }
+.tbl-unk { color: var(--muted, #8fa0bd); }
+@media (max-width: 700px) { .tbl th:nth-child(2), .tbl td:nth-child(2), .tbl th:nth-child(4), .tbl td:nth-child(4), .tbl th:nth-child(7), .tbl td:nth-child(7), .tbl th:nth-child(8), .tbl td:nth-child(8) { display: none; } }
 </style>
 </head>
 <body>
@@ -2023,6 +2049,29 @@ table td, table th { padding-block: 11px; }
         B.needs.length ? h('div', { class: 'ac-needs' }, h('b', { text: 'What needs to change' }), h('ul', null, B.needs.map((n) => h('li', { text: n })))) : null));
   }
   let tech = null; // technical tab state for the company on screen
+  // First view of a company: four separate boxes (quote, Shariah status, quality, what the tool does not know). Display only: it
+  // reads fields the page already has and decides nothing. A missing field is shown as unknown, never filled in or carried over.
+  function firstView(d) {
+    const box = (title, ...kids) => h('div', { class: 'fv-box' }, h('h2', { text: title }), ...kids);
+    const sh = d.shariah && typeof d.shariah === 'object' ? d.shariah : null;
+    const SH = { pass: ['good', 'Passes the tool’s screen'], fail: ['bad', 'Fails the tool’s screen'], review: ['warn', 'Needs checking'] };
+    const shp = sh && SH[sh.status] ? SH[sh.status] : ['na', 'Unknown'];
+    const ql = d.labels && d.labels.quality && d.labels.quality.label ? d.labels.quality : null;
+    const dq = d.dataQuality && d.dataQuality.label ? d.dataQuality.label : null;
+    const unknown = ['News, guidance and management changes are not watched here.'];
+    if (!d.nextEarnings) unknown.push('The next earnings date is not in the data.');
+    if (!sh || !SH[sh.status]) unknown.push('The Shariah status is unknown.');
+    if (!ql) unknown.push('The quality score is unknown.');
+    if (Array.isArray(d.dataGaps)) for (const g of d.dataGaps.slice(0, 3)) if (typeof g === 'string' && g) unknown.push(g.charAt(0).toUpperCase() + g.slice(1) + (/[.!?]$/.test(g) ? '' : '.'));
+    const pt = typeof d.priceTime === 'string' && d.priceTime ? d.priceTime.charAt(0).toUpperCase() + d.priceTime.slice(1) : 'Price date unknown';
+    return h('section', { class: 'fv', 'aria-label': 'First view' },
+      box('Analysis price', h('div', { class: 'fv-big', text: price(d.price) }), h('p', { class: 'fv-sub', text: `${pt} · ${d.priceSource || 'source unknown'} · end-of-day close, not real time` })),
+      box('Shariah status', h('span', { class: 'fv-pill fv-' + shp[0], text: shp[1] }),
+        h('p', { class: 'fv-sub', text: `AAOIFI-style ratios from SEC filings${sh && sh.dataDate ? ', data as of ' + sh.dataDate : ''}. Preliminary, not certification: confirm on Zoya or Musaffa.` })),
+      box('Quality', h('span', { class: 'fv-pill fv-' + (ql ? 'good' : 'na'), text: ql ? `${ql.label}${isNum(ql.score) ? ' (' + ql.score + ')' : ''}` : 'Unknown' }),
+        h('p', { class: 'fv-sub', text: `${dq ? 'Data quality: ' + dq + '. ' : 'Data quality unknown. '}The checker’s own score, not a proven edge.` })),
+      h('div', { class: 'fv-box fv-unk' }, h('h2', { text: 'What the tool does not know' }), h('ul', null, unknown.map((t) => h('li', { text: t })))));
+  }
   function render(d) {
     destroyChart();
     result.replaceChildren();
@@ -2040,6 +2089,7 @@ table td, table th { padding-block: 11px; }
         (tech.rtEl = h('div', { class: 'm rt-line', hidden: true })),
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' })),
       (tech.spark = h('div', { class: 'spark', hidden: true }))));
+    result.append(firstView(d));
     tech.banner = decisionBanner(d, d.price, null);
     result.append(tech.banner);
     tech.assess = assessmentCard(d, d.price, null);
@@ -8995,6 +9045,33 @@ table td, table th { padding-block: 11px; }
     const g = ledgerGate(r.ticker);
     return g.ok ? null : ledgerTagEl(g);
   }
+  // The shortlist as a sortable table (same rows, same filters; only the layout differs). Unknown values read Unknown.
+  const TBL_COLS = [
+    ['ticker', 'Ticker', (r) => r.ticker, 'l'], ['name', 'Company', (r) => r.name, 'l'], ['price', 'Price', (r) => r.price, 'r'], ['chg', 'Day', (r) => r.chg, 'r'],
+    ['shariah', 'Shariah', (r) => ({ pass: 0, review: 1, fail: 2 })[r.shariah] ?? 3, 'l'], ['quality', 'Quality', (r) => r.quality, 'r'],
+    ['verdict', 'Verdict', (r) => VERDICT_SHORT[r.verdict] || '', 'l'], ['fair', 'Value estimate', (r) => r.fair, 'r'], ['upside', 'Vs estimate', (r) => r.upside, 'r'],
+  ];
+  function slTable(rows, srt, onSort) {
+    const col = TBL_COLS.find((c) => c[0] === srt.k);
+    if (col) rows = [...rows].sort((a, b) => { const x = col[2](a), y = col[2](b); const ux = x == null || x === '' || (typeof x === 'number' && !Number.isFinite(x)), uy = y == null || y === '' || (typeof y === 'number' && !Number.isFinite(y)); if (ux || uy) return ux === uy ? 0 : ux ? 1 : -1; return (x < y ? -1 : x > y ? 1 : 0) * srt.dir; });
+    const unk = () => h('span', { class: 'tbl-unk', text: 'Unknown' });
+    const cell = (k, r) => {
+      if (k === 'ticker') return h('b', { text: r.ticker });
+      if (k === 'name') return String(r.name || '').slice(0, 24) || unk();
+      if (k === 'price') return isNum(r.price) ? price(r.price) : unk();
+      if (k === 'chg') return isNum(r.chg) ? h('span', { class: r.chg >= 0 ? 'up' : 'down', text: pctS(r.chg, 1) }) : unk();
+      if (k === 'shariah') { const t = shariahTag(r.shariah); return t || unk(); }
+      if (k === 'quality') return isNum(r.quality) ? String(r.quality) : unk();
+      if (k === 'verdict') return VERDICT_SHORT[r.verdict] || unk();
+      if (k === 'fair') return isNum(r.fair) ? price(r.fair) : unk();
+      return isNum(r.upside) ? h('span', { class: r.upside >= 0 ? 'up' : 'down', text: pctS(r.upside, 0) }) : unk();
+    };
+    const head = h('tr', null, TBL_COLS.map(([k, lab, , al]) => h('th', { class: al === 'r' ? 'num' : '', 'aria-sort': srt.k === k ? (srt.dir > 0 ? 'ascending' : 'descending') : 'none' },
+      h('button', { type: 'button', class: 'th-btn', onclick: () => onSort(k) }, lab, srt.k === k ? (srt.dir > 0 ? ' ▲' : ' ▼') : ''))));
+    const body = rows.map((r) => h('tr', { class: 'tbl-row', tabindex: '0', onclick: () => openStock(r.ticker, 'fund'), onkeydown: (e) => { if (e.key === 'Enter') openStock(r.ticker, 'fund'); } },
+      TBL_COLS.map(([k, , , al]) => h('td', { class: al === 'r' ? 'num' : '' }, cell(k, r)))));
+    return h('div', { class: 'tbl-scroll' }, h('table', { class: 'tbl' }, h('thead', null, head), h('tbody', null, body)));
+  }
   function slRow(r, preset, scr) {
     const P = PRESETS[preset] || PRESETS.value;
     const tags = [verdictTag(r.verdict), shariahTag(r.shariah), limitTag(r, scr), ledgerTag(r, scr)];
@@ -9064,6 +9141,11 @@ table td, table th { padding-block: 11px; }
     const capSel = sel('Company size', [[0, 'Any size'], [10000, '$10B or more'], [50000, '$50B or more'], [200000, '$200B or more']], st.cap, (v) => { st.cap = Number(v); save(); paint(true); });
     const sortSel = h('select', { 'aria-label': 'Sort by' });
     sortSel.addEventListener('change', () => { st.sort = sortSel.value; save(); paint(true); });
+    let tblSort = { k: '', dir: -1 };
+    const viewBtn = h('button', { class: 'btn btn-outline btn-sm', type: 'button', 'aria-pressed': String(st.view === 'table') });
+    const paintView = () => { viewBtn.textContent = st.view === 'table' ? 'Show as cards' : 'Show as table'; viewBtn.setAttribute('aria-pressed', String(st.view === 'table')); };
+    viewBtn.addEventListener('click', () => { st.view = st.view === 'table' ? 'cards' : 'table'; save(); paintView(); paint(true); });
+    paintView();
     const earnChk = h('input', { type: 'checkbox' });
     earnChk.checked = !!st.hideEarn;
     earnChk.addEventListener('change', () => { st.hideEarn = earnChk.checked; save(); paint(true); });
@@ -9140,7 +9222,9 @@ table td, table th { padding-block: 11px; }
       if (st.q) { const qq = st.q.toUpperCase(); rows = rows.filter((r) => r.ticker.includes(qq) || String(r.name || '').toUpperCase().includes(qq)); }
       rows.sort(SORTS[sortKey][1]);
       count.textContent = `${rows.length.toLocaleString()} compan${rows.length === 1 ? 'y' : 'ies'}` + (hiddenN ? ` (${hiddenN} hidden: earnings within 10 trading days)` : '') + (scr.live && scr.live.session > scr.priceDate ? ` · prices: ${/open/i.test(scr.live.status || '') ? `delayed last sale, ${quoteAgeText()}` : 'last sale of ' + niceDates(scr.live.session)}` : ` · prices: close of ${niceDates(scr.priceDate)}`);
-      list.replaceChildren(...rows.slice(0, shown).map((r) => slRow(r, st.preset, scr)));
+      list.classList.toggle('as-table', st.view === 'table');
+      if (st.view === 'table') list.replaceChildren(slTable(rows.slice(0, shown), tblSort, (k) => { tblSort = tblSort.k === k ? { k, dir: -tblSort.dir } : { k, dir: k === 'ticker' || k === 'name' ? 1 : -1 }; paint(false); }));
+      else list.replaceChildren(...rows.slice(0, shown).map((r) => slRow(r, st.preset, scr)));
       if (!rows.length) list.append(h('p', { class: 'empty', text: 'Nothing matches these filters today.' }));
       moreBtn.hidden = rows.length <= shown;
       moreBtn.textContent = `Show more (${(rows.length - shown).toLocaleString()} left)`;
@@ -9151,7 +9235,7 @@ table td, table th { padding-block: 11px; }
     paintPresets();
     fbox.append(h('div', { class: 'filters' }, shSel, secSel, capSel, strongLbl, solidLbl, earnLbl));
     if (window.matchMedia && window.matchMedia('(min-width: 800px)').matches) fbox.open = true;
-    el.replaceChildren(head, strategyBar, presetBar, intro, caution, h('div', { class: 'sl-tools' }, sortSel, search), fbox, count, list, moreBtn,
+    el.replaceChildren(head, strategyBar, presetBar, intro, caution, h('div', { class: 'sl-tools' }, sortSel, search, viewBtn), fbox, count, list, moreBtn,
       h('section', { class: 'card', style: 'margin-top:18px' }, h('h2', { text: 'Using these lists well' }),
         h('ul', { class: 'clean' },
           h('li', null, h('span', { text: 'A list is a starting point, not a buy list. Open the company, read both tabs, and confirm halal status on Zoya or Musaffa.' })),
