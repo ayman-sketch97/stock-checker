@@ -65,7 +65,7 @@ SEED_LEDGER = r"""(ts) => { const S = window.__sc.shariah; const p = (n) => Stri
 
 async def to_dash(pg):
     # the daily brief and the ideas cards moved from the Search page to the Dashboard (stage 9 correction)
-    await pg.click('#nav button:has-text("Dashboard")')
+    await pg.click('#nav button:has-text("Home")')
     await pg.wait_for_selector('#page-dashboard section[aria-label="Your daily brief"]', timeout=8000)
 
 
@@ -249,7 +249,7 @@ async def main():
 
         # ---- track record: the setups are compared with random entries and the S&P 500, after the same costs
         pg, errs = await page_with(ctx, base, fresh)
-        await pg.click('#nav button:has-text("Record")')
+        await pg.click('#nav button:has-text("Journal")'); await pg.click('#subnav button[data-page="record"]')
         await pg.wait_for_timeout(1200)
         txt = await pg.inner_text('section[aria-label="Against simple alternatives"]')
         check('+0.56%' in txt and '+1.51%' in txt and '+1.42%' in txt, 'benchmark card shows trades and random entries net of 0.2% and SPY')
@@ -279,7 +279,7 @@ async def main():
         async def sig_route(r):
             await r.fulfill(status=200, body=json.dumps(young), headers={'content-type': 'application/json'})
         await pg.route('**/data/signals.json*', sig_route)
-        await pg.click('#nav button:has-text("Record")')
+        await pg.click('#nav button:has-text("Journal")'); await pg.click('#subnav button[data-page="record"]')
         await pg.wait_for_timeout(1200)
         live = await pg.inner_text('section[aria-label="Live record"]')
         check('No trade has been followed for 20 trading days yet (5 are on the way)' in live, f'young log: nothing measured yet, and how many trades are on the way: {live[:240]!r}')
@@ -440,7 +440,7 @@ async def main():
         await to_dash(pg)
         ideas = await pg.inner_text('section[aria-label="Ideas today"]')
         check(ideas.find('Long term:') >= 0 and ideas.find('Long term:') < ideas.find('Swing signals:'), 'home: long-term ideas come first, swing signals after them')
-        await pg.click('#nav button:has-text("Shortlist")')
+        await pg.click('#nav button:has-text("Discover")'); await pg.click('#subnav button[data-page="shortlist"]')
         await pg.wait_for_timeout(900)
         first = await pg.inner_text('#page-shortlist .presets button[aria-pressed="true"]')
         check(first.strip() == 'Quality on sale', f'shortlist opens on the long-term list: {first!r}')
@@ -536,7 +536,7 @@ async def main():
 
         # ---- record: the long-term list test
         pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT})
-        await pg.click('#nav button:has-text("Record")')
+        await pg.click('#nav button:has-text("Journal")'); await pg.click('#subnav button[data-page="record"]')
         await pg.wait_for_timeout(1200)
         ltc = await pg.inner_text('section[aria-label="Long-term list test"]')
         check('The list did not beat the average stock' in ltc and '17.6%' in ltc and 'Companies that disappeared are missing' in ltc and 'Whether that flatters or understates the results, against random halal stocks or the S&P 500, cannot be measured with free data' in ltc, f'record: the long-term test, its verdict and its limits: {ltc[:200]!r}')
@@ -614,7 +614,7 @@ async def main():
         link = await pg.evaluate("document.querySelector('section[aria-label=\"Use on another device\"] textarea').value")
         check(not errs, f'no page errors adding your own ticker {errs}')
         # the daily brief and the Portfolio page count it at your price and say why there is no advice
-        await pg.click('#nav button:has-text("Dashboard")')
+        await pg.click('#nav button:has-text("Home")')
         await pg.wait_for_timeout(1200)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         brief = brief + '\n' + await pg.inner_text('.dash')  # stage 11: items already listed in the Alerts block are not repeated in the brief, so read both
@@ -625,7 +625,7 @@ async def main():
         check('Your own ticker: not analysed here' in adv and 'none of the tool’s rules' in adv and 'Counted at the price you entered ($6.00 on' in adv, f'own tickers: the Portfolio page counts it and gives no rule-based advice: {adv[:400]!r}')
         check('Only 2 US stocks, so the stock part is still concentrated (largest: AAPL' in adv and 'no concentration' not in adv, 'a portfolio still being built is called concentrated, not problem-free')
         # its ticker in the brief has no stock page to open, so it goes to the Watchlist
-        await pg.click('#nav button:has-text("Dashboard")')
+        await pg.click('#nav button:has-text("Home")')
         await pg.wait_for_timeout(1000)
         await pg.click('section[aria-label="Your daily brief"] button.tk:has-text("XYZ")')
         await pg.wait_for_timeout(800)
@@ -653,7 +653,7 @@ async def main():
         check('Your price is from' in itxt, f'own tickers: an old typed price asks to be updated: {itxt[:260]!r}')
         itxt = await pg.locator('.wl-item', has_text='OWN0').inner_text()
         check('Your price is from' not in itxt, 'own tickers: a recent typed price gives no alert')
-        await pg.click('#nav button:has-text("Dashboard")')
+        await pg.click('#nav button:has-text("Home")')
         await pg.wait_for_timeout(1000)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         check(brief.count('That price is over a month old') == 1, 'own tickers: the brief asks to update an old typed price')
@@ -751,7 +751,7 @@ async def main():
                                   'hold_fall': {'label': 'Fell 20% with the business still sound: hold', 'up': True, 'n': 6, 'h': {'1m': {'n': 0}, '3m': {'n': 6, 'ret': 0.05, 'spy': 0.01, 'diff': 0.04, 'beat': 0.67, 'y': {'n': 6, 'diff': -0.01, 'beat': 0.4, 't10': 0.3, 'b10': 0.1, 'b20': 0.05, 'gap': 0.05, 'lo': 0.01, 'hi': 0.09, 'p': 0.01, 'ahead': True, 'behind': False, 'months': 6, 'need': 6, 'periods': 6, 'short': False}}, '6m': {'n': 0}, '12m': {'n': 34, 'matured': 35, 'up': 1, 'st': 0, 'po': 34, 'ret': 0.15, 'spy': 0.1, 'diff': 0.05, 'wrong': 0.3, 'beat': 0.6, 't10': 0.27, 'b10': 0.4, 'b20': 0.2, 'verdict': 'pass', 'provisional': True, 'previous': {'version': 3, 'verdict': 'pass'}, 'y': {'n': 34, 'diff': -0.02, 'beat': 0.45, 't10': 0.44, 'b10': 0.3, 'b20': 0.2, 'gap': 0.07, 'lo': 0.01, 'hi': 0.12, 'p': 0.001, 'ahead': True, 'behind': False, 'months': 26, 'need': 24, 'periods': 3, 'short': False}}}}},
                        'standing': {}, 'recent': [{'d': '2026-11-06', 't': 'MSFT', 'g': 'hold_fall', 'px': 320, 'v': 'BUY'}, {'d': '2026-11-05', 't': 'KO', 'g': 'buy', 'px': 60, 'v': 'BUY'}], 'url': 'https://github.com/ayman-sketch97/stock-checker/tree/records'}
         pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': rec_summary})
-        await pg.click('#nav button:has-text("Record")')
+        await pg.click('#nav button:has-text("Journal")'); await pg.click('#subnav button[data-page="record"]')
         await pg.wait_for_timeout(1500)
         rc = await pg.inner_text('section[aria-label="The permanent record"]')
         check('every file intact' in rc and '4 days recorded' in rc and '+2.0%' in rc and '5 followed, 60% beat it' in rc and '12 calls' in rc and 'waiting' in rc and 'lower is better' in rc and 'KO, entered the long-term buy zone at $60.00' in rc,
@@ -792,7 +792,7 @@ async def main():
                                                'sell_weak': {'label': 'Business weakened: sell', 'up': False, 'n': 0, 'h': {'1m': {'n': 0}, '3m': {'n': 0}, '6m': {'n': 0}, '12m': {'n': 0}}}}},
                                  ['No new calls yet', '41 calls', 'first close after it was published'], 'the first day')]:
             pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': fix})
-            await pg.click('#nav button:has-text("Record")')
+            await pg.click('#nav button:has-text("Journal")'); await pg.click('#subnav button[data-page="record"]')
             await pg.wait_for_timeout(1500)
             rc = await pg.inner_text('section[aria-label="The permanent record"]')
             check(all(w in rc for w in want), f'record: {what} are shown on the card: {rc[:700]!r}')
@@ -984,7 +984,7 @@ async def main():
             if fix is not None:
                 extra['data/health.json'] = fix
             pg, errs = await page_with(ctx, base, fresh, None, '', None, extra)
-            await pg.click('#nav button:has-text("Record")')
+            await pg.click('#nav button:has-text("Journal")'); await pg.click('#subnav button[data-page="record"]')
             await pg.wait_for_timeout(1500)
             hc = await pg.inner_text('section[aria-label="System health"]')
             check(all(w in hc for w in want), f'system health ({what}): {hc[:500]!r}')
