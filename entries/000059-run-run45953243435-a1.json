@@ -1,0 +1,71 @@
+{
+ "v": 1,
+ "kind": "run",
+ "run": {
+  "id": 45953243435,
+  "attempt": 1,
+  "event": "push",
+  "ref": "refs/heads/main",
+  "url": "https://github.com/ayman-sketch97/stock-checker/actions/runs/45953243435"
+ },
+ "analysisCommit": "07af4633e2f9da556c3c079a1df8de356dcc78cc",
+ "build": {
+  "builtAt": "2026-11-27T06:57:31.661Z",
+  "priceDate": "2026-11-25",
+  "siteDigest": "9522f7a43bac27e66e03475cc67d473beb579cc4b494065c472a7f99b21db325"
+ },
+ "record": {
+  "state": "saved",
+  "headBefore": "ffab7f3067b8c8a2fbfff4c7bad8f2a9d7ba15ba",
+  "headAfter": "8223d29896bbcc5d3e726cb786d29e5b0db3cde6",
+  "files": [
+   {
+    "path": "days/2026/2026-11-25_5.ndjson",
+    "sha256": "7ab74f9cfe5123bd810071402b92c506979e02b33e4d75604c72641c15bac6c6"
+   },
+   {
+    "path": "state/2026-11-25_5.json",
+    "sha256": "a91585fcb2baaf7d4e8b97f1d78f02547576be0b2c2522b86561d43c76fc15e7"
+   }
+  ]
+ },
+ "gates": {
+  "formulas": "success",
+  "page-tests": "success",
+  "security": "success",
+  "build": "success",
+  "verify-site": "success",
+  "restore-point": "success",
+  "gate": "success"
+ },
+ "deploy": {
+  "result": "success"
+ },
+ "live": {
+  "result": "success",
+  "commit": "07af4633e2f9da556c3c079a1df8de356dcc78cc"
+ },
+ "rollback": {
+  "result": "skipped"
+ },
+ "restorePoint": {
+  "used": {
+   "commit": "5851fb165404cf602b0aea7885a04f0c52a96498",
+   "digest": "3b14ddab96092ad7f18694517aff149ff0e6059bc25f69290b086a3a548f97aa",
+   "runId": 45891381320
+  },
+  "created": {
+   "commit": "07af4633e2f9da556c3c079a1df8de356dcc78cc",
+   "digest": "9522f7a43bac27e66e03475cc67d473beb579cc4b494065c472a7f99b21db325",
+   "runId": 45953243435,
+   "artifact": "restore-point",
+   "manifestFiles": 5926
+  }
+ },
+ "status": "recorded_and_deployed",
+ "rolledBack": false,
+ "seq": 59,
+ "prev": "dfd9c583088125d392437ad33bc18d0d1130f23c2fd5cf6f9f608bbb59b2b034",
+ "recordedAt": "2026-11-27T07:08:09.633Z",
+ "hash": "9c249c4477d0bfac1c65fd032d168641b0385acc2e832d66b036be79acd8bc3d"
+}
