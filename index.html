@@ -9574,8 +9574,7 @@ table td, table th { padding-block: 11px; }
     const parts = [head];
     const imp = importCard();
     if (imp) parts.push(imp);
-    parts.push(addBox());
-    parts.push(pasteSyncCard());
+    parts.push(myListsCard());
     if (!scr) { parts.push(loadErrCard('Could not load today’s data.', ['data/screen.json'])); el.replaceChildren(...parts); return; }
     const w = W.load();
     if (!w.items.length) {
@@ -9637,6 +9636,28 @@ table td, table th { padding-block: 11px; }
     return h('section', { class: 'card', 'aria-label': 'Tracked swing ideas' }, h('h2', { text: `Tracked swing ideas (${items.length})` }),
       h('p', { class: 'sub', text: 'Ideas you added from the Swing scanner, followed on paper from end-of-day prices, before costs. No order is placed. This is bookkeeping, not a track record: the Record page keeps that.' }),
       rows);
+  }
+  // Stage 4: one place for your lists. One add field, chips grouped "I own" and "I follow" (tap a chip to move or remove it),
+  // and the sync-link import folded underneath. Same stored list as before; nothing new is read or written anywhere.
+  function myListsCard() {
+    const w = W.load();
+    const owned = w.items.filter((it) => it.own || it.shares > 0);
+    const followed = w.items.filter((it) => !(it.own || it.shares > 0));
+    const panel = h('div', { class: 'note', hidden: true, 'aria-live': 'polite' });
+    const chip = (it) => h('button', { class: 'chip', type: 'button', 'aria-label': `${it.t}: move or remove`, onclick: () => {
+      const held = it.shares > 0;
+      panel.hidden = false;
+      panel.replaceChildren(h('span', { text: `${it.t}: ` }),
+        held ? h('span', { text: 'it has shares recorded, so it stays under “I own”. ' }) : h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { W.update(it.t, { own: !it.own }); renderWatchlist(); } }, it.own ? 'Move to “I follow”' : 'Move to “I own”'), ' ',
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { W.remove(it.t); renderWatchlist(); } }, 'Remove from my lists'), ' ',
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { panel.hidden = true; } }, 'Close'));
+    } }, it.t);
+    const group = (title, items, empty) => h('div', null, h('h3', { class: 'sub', style: 'margin:10px 0 4px', text: `${title} (${items.length})` }),
+      items.length ? h('div', { style: 'display:flex;flex-wrap:wrap;gap:6px' }, items.map(chip)) : h('p', { class: 'empty', text: empty }));
+    return h('section', { class: 'card', 'aria-label': 'My lists' }, h('h2', { text: 'My lists' }),
+      h('p', { class: 'sub', text: 'Add a ticker here. Tap a ticker to move it between the two lists or remove it.' }),
+      addBox(), group('I own', owned, 'Nothing yet. Add a ticker, then move it here.'), group('I follow', followed, 'Nothing yet.'), panel,
+      pasteSyncCard());
   }
   function addBox() {
     const inp = h('input', { type: 'search', placeholder: 'Add any ticker, e.g. MSFT', 'aria-label': 'Ticker to add', autocapitalize: 'characters', spellcheck: 'false', enterkeyhint: 'done' });
