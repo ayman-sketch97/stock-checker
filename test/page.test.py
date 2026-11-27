@@ -320,7 +320,7 @@ async def main():
         def relay(age, is_open=True):
             now = int(_time.time())
             return {'source': 'Finnhub', 'fetchedAt': now, 'market': {'isOpen': is_open, 'session': 'regular', 'holiday': None, 't': now},
-                    'quotes': {'KO': {'c': 71.23, 'd': 1.0, 'dp': 1.42, 'h': 72, 'l': 70, 'o': 70.5, 'pc': 70.23, 't': now - age}}, 'missing': [], 'stale': []}
+                    'quotes': {'KO': {'c': 71.23, 'd': 1.0, 'dp': 1.42, 'h': 72, 'l': 70, 'o': 70.5, 'pc': 70.23, 't': now - age}, 'AAPL': {'c': 300.0, 'd': 1.0, 'dp': 0.3, 'h': 301, 'l': 299, 'o': 299.5, 'pc': 299.0, 't': now - age}}, 'missing': [], 'stale': []}
         for label, rl, want_live in [('fresh', relay(20), True), ('old trade', relay(600), False), ('market closed', relay(20, False), False)]:
             pg, errs = await page_with(ctx, base, fresh, {'watch': {'items': [{'t': 'KO', 'added': '2026-11-01'}]}}, '', 'stock-ok')
             def _mk(body):
@@ -333,11 +333,15 @@ async def main():
             await pg.wait_for_timeout(2500)
             head = await pg.inner_text('.co .px')
             if want_live:
-                check('$71.23' in head and 'Live, Finnhub' in head and '+1.4%' in head, f'live price ({label}): headline price and day change are live: {head!r}')
+                check('$71.23' in head and 'live ' in head and '+1.4%' in head and 'Live, Finnhub' not in head, f'live price ({label}): headline price and day change are live: {head!r}')
                 rt = await pg.inner_text('.rt-line')
+                ds = await pg.inner_text('.data-status')
+                check('Live prices' in ds and 'STALE' not in ds, f'live relay: the status bar says live prices and no stale warning: {ds[:160]!r}')
+                px = await pg.evaluate("(() => { const m = document.querySelector('.px .m'); const co = document.querySelector('.co .meta'); if (!m || !co) return null; const a = m.getBoundingClientRect(), b = co.getBoundingClientRect(); return !(a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top); })()")
+                check(px is True, 'live price pill does not overlap the ticker line at 390px')
                 check('Scores and signals use the last daily close' in rt, 'live price: the page says scores use the last daily close')
             else:
-                check(head.split('\n')[0] == '$50.00' and 'Live, Finnhub' not in head, f'live price ({label}): headline falls back to the close: {head!r}')
+                check(head.split('\n')[0] == '$50.00' and 'live ' not in head.split('\n')[1].lower(), f'live price ({label}): headline falls back to the close: {head!r}')
             check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), f'live price ({label}): no sideways scroll')
             await pg.goto(base + '?p=watchlist')
             await pg.wait_for_timeout(2500)

@@ -1338,6 +1338,7 @@ table td, table th { padding-block: 11px; }
 .tbl .tag { font-size: 11px; padding: 2px 8px; }
 .tbl-unk { color: var(--muted, #8fa0bd); }
 @media (max-width: 700px) { .tbl th:nth-child(2), .tbl td:nth-child(2), .tbl th:nth-child(4), .tbl td:nth-child(4), .tbl th:nth-child(7), .tbl td:nth-child(7), .tbl th:nth-child(8), .tbl td:nth-child(8) { display: none; } }
+.px .m.up, .px .m.down { white-space: normal; max-width: 150px; margin-left: auto; line-height: 1.25; text-align: right; }
 </style>
 </head>
 <body>
@@ -6051,7 +6052,7 @@ table td, table th { padding-block: 11px; }
     const Lv = t.relayLive;
     if (Lv) {
       t.pxEl.textContent = price(Lv.c);
-      t.pxSub.textContent = `${isNum(Lv.dp) ? pctS(Lv.dp / 100, 1) + ' today · ' : ''}Live, Finnhub · ${liveClock(Lv.t)}`;
+      t.pxSub.textContent = `${isNum(Lv.dp) ? pctS(Lv.dp / 100, 1) + ' · ' : ''}live ${liveClock(Lv.t)}`;
       t.pxSub.className = 'm' + (isNum(Lv.dp) ? (Lv.dp >= 0 ? ' up' : ' down') : '');
     } else {
       t.pxEl.textContent = price(t.pxBase.px);
@@ -6103,6 +6104,16 @@ table td, table th { padding-block: 11px; }
     LIVE_LIST.obs.observe(document.body, { childList: true, subtree: true });
     LIVE_LIST.timer = setInterval(() => { if (document.visibilityState !== 'hidden') livePaintList(); }, 45000);
   }
+  // One light check (one call a minute): is the live relay answering with a fresh quote? If yes, the page says so and does not
+  // call the older 15-minute quotes file stale, since that file is only a fallback (GitHub runs its schedule only a few times a day).
+  const RELAY_PROBE = { ok: false, timer: null };
+  function probeRelay() {
+    fetch(RELAY_URL + '?s=AAPL', { cache: 'no-store' }).then((res) => (res.ok ? res.json() : null)).then((r) => {
+      const ok = Boolean(liveFresh(r, 'AAPL', Date.now()));
+      if (ok !== RELAY_PROBE.ok) { RELAY_PROBE.ok = ok; if (typeof renderDataStatus === 'function') renderDataStatus(); }
+    }).catch(() => { if (RELAY_PROBE.ok) { RELAY_PROBE.ok = false; renderDataStatus(); } });
+  }
+  if (typeof document !== 'undefined') { probeRelay(); RELAY_PROBE.timer = setInterval(() => { if (document.visibilityState !== 'hidden') probeRelay(); }, 60000); }
   function paintRelay(t) {
     if (!t || !t.rtEl || !t.rtEl.isConnected || !t.d || !t.d.ticker) return;
     const sym = String(t.d.ticker).toUpperCase();
@@ -8899,7 +8910,7 @@ table td, table th { padding-block: 11px; }
     const bad = checks ? checks.filter((c) => c && c.status === 'bad').length : 0;
     kids.push(h('div', { class: 'stampbar' },
       stampEl(st ? 'late' : '', 'Prices', `close of ${niceDates(scr.priceDate)}`, st ? `${st.missed} trading days late` : 'Nasdaq, end of day'),
-      live ? (() => { const F = QUOTES && QUOTES.asOf ? quoteFreshness(QUOTES.asOf, Date.now(), /open/i.test(live.status || '') && !/pre|after|closed/i.test(live.status || '')) : null; return stampEl(F && F.stale ? 'late' : '', 'Quotes', `delayed last sale${tm ? ', ' + tm[1].toLowerCase() + ' New York' : ', ' + niceDates(live.session)}`, F ? F.text + ' · not real-time' : 'not real-time'); })() : null,
+      RELAY_PROBE.ok ? stampEl('', 'Live prices', 'Finnhub, about a minute behind', 'market open') : live ? (() => { const F = QUOTES && QUOTES.asOf ? quoteFreshness(QUOTES.asOf, Date.now(), /open/i.test(live.status || '') && !/pre|after|closed/i.test(live.status || '')) : null; return stampEl(F && F.stale ? 'late' : '', 'Quotes', `delayed last sale${tm ? ', ' + tm[1].toLowerCase() + ' New York' : ', ' + niceDates(live.session)}`, F ? F.text + ' · not real-time' : 'not real-time'); })() : null,
       stampEl(!checks ? 'warn' : bad ? 'late' : '', 'Nightly checks', !checks ? 'not checked yet' : bad ? `${bad} failed` : 'passed', null, () => navigate('record'))));
     el.replaceChildren(...kids);
     el.className = 'data-status' + (NARROW_PAGES.has(page) ? ' ds-narrow' : '');
