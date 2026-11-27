@@ -9914,8 +9914,21 @@ table td, table th { padding-block: 11px; }
     const box = h('textarea', { rows: 3, placeholder: 'Paste the whole link here', style: 'width:100%;font-size:16px', 'aria-label': 'Sync link' });
     const out = h('div');
     const go = h('button', { class: 'btn btn-sm', type: 'button', onclick: () => {
-      const code = syncCodeFrom(box.value);
-      if (!code) { out.replaceChildren(h('p', { class: 'sub', text: 'That does not look like a sync link. Paste the whole link, from https to the end.' })); return; }
+      let code = syncCodeFrom(box.value);
+      if (!code) {
+        // a plain list also works: "own: AAPL MSFT" marks holdings, any other tickers go on the watchlist
+        const parts = String(box.value).split(/\n|;/);
+        const rows = [];
+        for (const part of parts) {
+          const own = /^\s*own\s*:/i.test(part);
+          for (const w of part.replace(/^\s*(own|watch)\s*:/i, '').split(/[\s,]+/)) {
+            const t = tickerFromInput(w);
+            if (t && MANUAL_T.test(t) && !rows.some((r) => r[0] === t)) rows.push([t, '', 0, 0, 0, 0, 0, 0, 0, 0, '', own ? 1 : 0]);
+          }
+        }
+        if (rows.length) code = b64url(JSON.stringify({ v: 1, i: rows }));
+      }
+      if (!code) { out.replaceChildren(h('p', { class: 'sub', text: 'Nothing to import there. Paste the whole link, or a list of tickers like: own: AAPL MSFT' })); return; }
       history.replaceState(history.state, '', location.pathname + '?p=watchlist#w=' + code);
       renderWatchlist();
     } }, 'Show what it holds');
