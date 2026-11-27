@@ -477,7 +477,7 @@ async def main():
         await to_dash(pg)
         brief = await pg.inner_text('section[aria-label="Your daily brief"]')
         brief = brief + '\n' + await pg.inner_text('.dash')  # stage 11: items already listed in the Alerts block are not repeated in the brief, so read both
-        check('MSFT' in brief and 'of everything you own, above your 15% limit: sell about $' in brief and 'to bring it back to 10%' in brief, f'brief: with nothing else recorded, MSFT is 44% of everything and is trimmed: {brief[:500]!r}')
+        check('MSFT' in brief and 'of everything you own, above your 15% limit. Back to 10% would mean selling about $' in brief, f'brief: with nothing else recorded, MSFT is 44% of everything and is trimmed: {brief[:500]!r}')
         await pg.close()
         # with the rest of the portfolio recorded ($10,000 in cash and funds), no stock is above 15%
         own['advisor'] = {'v': 1, 'profile': None, 'hp': {}, 'other': [{'id': 'o1', 'sym': 'CASH', 'kind': 'cash', 'market': '', 'shares': None, 'value': 10000}]}
