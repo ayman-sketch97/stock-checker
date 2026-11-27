@@ -1015,7 +1015,11 @@ async def main():
             for pname in ['stock', 'shortlist', 'watchlist', 'advisor', 'journal', 'record']:
                 pg, errs = await page_with(ctx, base, pdate, None, '', None, {'data/lt-summary.json': LT, 'data/record-summary.json': rec_summary, 'data/health.json': fix})
                 if pname != 'stock':
-                    await pg.click(f'#nav button[data-page="{pname}"]')
+                    if pname in ('shortlist', 'record'):
+                        await pg.click('#nav button[data-page="%s"]' % ('stock' if pname == 'shortlist' else 'journal'))
+                        await pg.click(f'#subnav button[data-page="{pname}"]')
+                    else:
+                        await pg.click(f'#nav button[data-page="{pname}"]')
                 await pg.wait_for_timeout(900)
                 vis = await pg.locator('#healthBanner').is_visible()
                 if pname == 'record':

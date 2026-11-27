@@ -290,7 +290,7 @@ async def main():
         await pg.click('#page-shortlist .presets button:has-text("Swing scanner")')
         await pg.wait_for_timeout(900)
         check('p=scanner' in pg.url and await pg.locator('#page-scanner details.scan-row').count() == 3, 'the Swing scanner button opens the scanner')
-        check(await pg.locator('#nav button[aria-current="page"]').inner_text() == 'Shortlist', 'the scanner sits under the Shortlist in the navigation')
+        check(await pg.locator('#nav button[aria-current="page"]').inner_text() == 'Discover', 'the scanner sits under the Discover tab')
         check(not errs, f'no page errors on the strategy filter {errs}')
         await pg.close()
 

@@ -191,7 +191,8 @@ async def main():
 
         # ---- 8. titles, landmarks and keyboard reach
         pg, errs = await page_with(ctx, base, fresh, HELD, '&p=dashboard', zoya=['AAPL'])
-        await pg.click('#nav button[data-page="shortlist"]')
+        await pg.click('#nav button[data-page="stock"]')
+        await pg.click('#subnav button[data-page="shortlist"]')
         await pg.wait_for_timeout(500)
         title = await pg.title()
         check(title.startswith('Shortlist'), f'navigation: the page title follows the page: {title!r}')
