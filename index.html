@@ -1697,6 +1697,7 @@ table td, table th { padding-block: 11px; }
             ? `No company with the ticker "${tk}" in today's list.`
             : `"${tk}" isn't covered. This site checks US-listed companies worth $2 billion or more that file reports with the SEC, and updates them every weekday after the market closes.`,
           suggestions: sugg.filter((s) => s.ticker !== tk),
+          uncovered: tk,
         };
       };
       if (!/^[A-Z0-9-]{1,12}$/.test(tk)) return notCovered();
@@ -1852,6 +1853,18 @@ table td, table th { padding-block: 11px; }
     const box = h('div', { class: 'card err', 'data-load': j.kind || null },
       h('h2', { text: j.name ? `${j.name} (${t})` : j.kind && LOAD_TITLE[j.kind] ? LOAD_TITLE[j.kind] : 'Can’t analyze this one' }),
       h('p', { class: 'sub', text: j.error || 'Something went wrong.' }));
+    if (j.uncovered && MANUAL_T.test(j.uncovered)) {
+      // a company the nightly update does not analyse: say so plainly, and let it still be tracked and followed
+      const u = j.uncovered;
+      box.querySelector('h2').textContent = `${u}: not analysed yet`;
+      box.querySelector('p').textContent = 'This site only analyses US companies worth $2 billion or more, and this one is not on that list. So there is no halal screen, score or price for it here, and nothing is guessed. You can still keep it in your lists, and check its halal status on Zoya.';
+      const done = h('p', { class: 'note', role: 'status', text: '' });
+      const add = (own) => { const w = W.load(); const ex = w.items.find((x) => x.t === u); if (ex) { if (own) ex.own = true; W.save(w); } else { W.addManual(u); if (own) W.update(u, { own: true }); } done.textContent = own ? `${u} is now in your holdings.` : `${u} is now on your watchlist.`; };
+      box.append(h('div', { class: 'ai' },
+        h('button', { class: 'btn btn-sm', type: 'button', onclick: () => add(true) }, 'Add to my holdings'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => add(false) }, 'Add to my watchlist')),
+        h('div', { class: 'links' }, h('a', { href: zoyaUrl(u), target: '_blank', rel: 'noopener' }, 'Halal check on Zoya')), done);
+    }
     if (j.retry) box.append(h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => run(t, true) }, 'Try again')));
     if (j.suggestions && j.suggestions.length) {
       box.append(h('p', { class: 'sub', style: 'margin-top:10px', text: 'Did you mean:' }));

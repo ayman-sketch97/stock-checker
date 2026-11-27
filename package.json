@@ -9,6 +9,6 @@
   },
   "scripts": {
     "test": "node --test test/alert-bell.test.mjs test/push-worker.test.mjs test/cloud-worker.test.mjs test/formulas.test.mjs test/technical-wording.test.mjs test/filing-wording.test.mjs test/stage8-untouched.test.mjs test/portfolio.test.mjs test/shariah-ledger.test.mjs test/thesis.test.mjs test/alerts.test.mjs test/scanner.test.mjs test/intel.test.mjs test/opportunity.test.mjs test/deploy-safety.test.mjs test/restore-and-log.test.mjs test/assessment.test.mjs test/simexit.test.mjs test/freshness.test.mjs test/screener-lookahead.test.mjs test/pricesafety.test.mjs test/reversal.test.mjs test/price-sources.test.mjs",
-    "test:pages": "for f in test/page.test.py test/layout-page.test.py test/dashboard-page.test.py test/alerts-page.test.py test/scanner-page.test.py test/stage11-page.test.py; do python3 \"$f\" || exit 1; done"
+    "test:pages": "for f in test/page.test.py test/layout-page.test.py test/dashboard-page.test.py test/alerts-page.test.py test/scanner-page.test.py test/stage11-page.test.py test/cloud-page.test.py test/uncovered-page.test.py; do python3 \"$f\" || exit 1; done"
   }
 }
