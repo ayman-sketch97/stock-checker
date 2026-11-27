@@ -210,6 +210,9 @@ header.top {
 .brand svg { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 4px 10px var(--brand-glow)); }
 .brand span b { color: var(--accent-ink); font-weight: 750; }
 .ghost { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; font-size: 14px; font-weight: 600; color: var(--ink-2); cursor: pointer; box-shadow: var(--shadow-sm); transition: background 0.15s, color 0.15s, border-color 0.15s; white-space: nowrap; flex: none; }
+.bell { position: relative; display: inline-flex; align-items: center; justify-content: center; padding: 7px 10px; min-width: 40px; min-height: 36px; }
+.bell-n { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--bad); color: #fff; font-size: 11px; line-height: 18px; text-align: center; font-weight: 800; box-shadow: 0 0 0 2px var(--surface); }
+@media (max-width: 520px) { .tbl th, .tbl td { padding: 9px 4px; } .tbl th:first-child, .tbl td:first-child { padding-left: 10px; } .tbl th:last-child, .tbl td:last-child { padding-right: 10px; } .tbl { font-size: 12px; } .tbl th { font-size: 10px; letter-spacing: .02em; white-space: normal; line-height: 1.15; vertical-align: bottom; } .tbl .tag { font-size: 10px; padding: 2px 6px; } .tbl .th-btn { white-space: normal; text-align: inherit; max-width: 62px; } }
 .ghost:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
 
 /* home hero */
@@ -1345,6 +1348,7 @@ table td, table th { padding-block: 11px; }
       <button type="button" data-page="journal" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h10.5a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6zM6 3.5v17M9.5 8h5M9.5 12h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Journal</span></button>
       <button type="button" data-page="advisor" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5H12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 3.9A8.5 8.5 0 0 1 20.1 9H15z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Portfolio</span></button>
     </nav>
+    <button class="ghost bell" id="bellBtn" type="button" aria-label="Alert Centre, no open alerts"><svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><b class="bell-n" hidden></b></button>
     <button class="ghost" id="howBtn">How it works</button>
   </header>
 
@@ -9066,10 +9070,10 @@ table td, table th { padding-block: 11px; }
       if (k === 'fair') return isNum(r.fair) ? price(r.fair) : unk();
       return isNum(r.upside) ? h('span', { class: r.upside >= 0 ? 'up' : 'down', text: pctS(r.upside, 0) }) : unk();
     };
-    const head = h('tr', null, TBL_COLS.map(([k, lab, , al]) => h('th', { class: al === 'r' ? 'num' : '', 'aria-sort': srt.k === k ? (srt.dir > 0 ? 'ascending' : 'descending') : 'none' },
+    const head = h('tr', null, TBL_COLS.map(([k, lab, , al]) => h('th', { class: (al === 'r' ? 'num' : '') + (k === 'name' ? ' col-name' : ''), 'aria-sort': srt.k === k ? (srt.dir > 0 ? 'ascending' : 'descending') : 'none' },
       h('button', { type: 'button', class: 'th-btn', onclick: () => onSort(k) }, lab, srt.k === k ? (srt.dir > 0 ? ' ▲' : ' ▼') : ''))));
     const body = rows.map((r) => h('tr', { class: 'tbl-row', tabindex: '0', onclick: () => openStock(r.ticker, 'fund'), onkeydown: (e) => { if (e.key === 'Enter') openStock(r.ticker, 'fund'); } },
-      TBL_COLS.map(([k, , , al]) => h('td', { class: al === 'r' ? 'num' : '' }, cell(k, r)))));
+      TBL_COLS.map(([k, , , al]) => h('td', { class: (al === 'r' ? 'num' : '') + (k === 'name' ? ' col-name' : '') }, cell(k, r)))));
     return h('div', { class: 'tbl-scroll' }, h('table', { class: 'tbl' }, h('thead', null, head), h('tbody', null, body)));
   }
   function slRow(r, preset, scr) {
@@ -11070,6 +11074,15 @@ table td, table th { padding-block: 11px; }
     if (more) { try { const n = new Notification(`${more} more alert${more === 1 ? '' : 's'}`, { body: 'Open the Alert Centre to read them. Information only.', tag: 'alerts-more' }); n.onclick = () => { open(); n.close(); }; } catch { /* ignore */ } }
   }
   let alertLast = null;
+  // the bell in the header: how many alerts are open, on every page; on a Home Screen app the icon badge shows the same number where the browser allows it
+  function updateBell(n) {
+    const b = document.getElementById('bellBtn'); if (!b) return;
+    const c = b.querySelector('.bell-n');
+    c.hidden = !n; c.textContent = n > 99 ? '99+' : String(n || '');
+    b.setAttribute('aria-label', n ? `Alert Centre, ${n} open alert${n === 1 ? '' : 's'}` : 'Alert Centre, no open alerts');
+    try { if (navigator.setAppBadge) { if (n) navigator.setAppBadge(n).catch(() => {}); else navigator.clearAppBadge().catch(() => {}); } } catch { /* badge not supported */ }
+  }
+  { const bb = document.getElementById('bellBtn'); if (bb) bb.addEventListener('click', () => navigate('alerts')); }
   let alertRun = Promise.resolve();
   // Checks every condition once and returns what the page needs. Runs after the page loads and after every live-price refresh
   // (about every 4 minutes while the site is open); two overlapping calls are run one after the other.
@@ -11093,6 +11106,7 @@ table td, table th { padding-block: 11px; }
       const prevN = alertLast ? alertLast.count : null;
       alertLast = { at: Date.now(), info, checked, count: alertShown(al).length, scr, sc, fresh: r.fresh.length };
       if (prevN !== alertLast.count) renderSubnav(page);
+      updateBell(alertLast.count);
       if (page === 'alerts') renderAlerts(true);
       return alertLast;
     }).catch(() => alertLast);
