@@ -192,7 +192,11 @@ async def grab(ctx, base, price_date, storage, patch, stock, page, health=None, 
     await pg.goto(base + '?selftest=1' + ('&t=KO' if page == 'stock' else ''))
     await pg.wait_for_timeout(1800)
     if page != 'stock':
-        await pg.click(f'#nav button[data-page="{page}"]')
+        if page in ('shortlist', 'record'):
+            await pg.click('#nav button[data-page="%s"]' % ('stock' if page == 'shortlist' else 'journal'))
+            await pg.click(f'#subnav button[data-page="{page}"]')
+        else:
+            await pg.click(f'#nav button[data-page="{page}"]')
         await pg.wait_for_timeout(1800)
     box = '#page-stock' if page == 'stock' else f'#page-{page}'
     secs = await pg.evaluate("""(box) => { const root = document.querySelector(box); const seen = {};
