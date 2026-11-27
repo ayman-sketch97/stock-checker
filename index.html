@@ -213,6 +213,11 @@ header.top {
 .bell { position: relative; display: inline-flex; align-items: center; justify-content: center; padding: 7px 10px; min-width: 40px; min-height: 36px; }
 .bell-n { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--bad); color: #fff; font-size: 11px; line-height: 18px; text-align: center; font-weight: 800; box-shadow: 0 0 0 2px var(--surface); }
 @media (max-width: 520px) { .tbl th, .tbl td { padding: 9px 4px; } .tbl th:first-child, .tbl td:first-child { padding-left: 10px; } .tbl th:last-child, .tbl td:last-child { padding-right: 10px; } .tbl { font-size: 12px; } .tbl th { font-size: 10px; letter-spacing: .02em; white-space: normal; line-height: 1.15; vertical-align: bottom; } .tbl .tag { font-size: 10px; padding: 2px 6px; } .tbl .th-btn { white-space: normal; text-align: inherit; max-width: 62px; } }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 13px; background: var(--surface); }
+.chip button { background: none; border: 0; color: var(--muted, #8fa0bd); cursor: pointer; font: inherit; font-size: 12px; padding: 4px 6px; min-height: 28px; }
+.chip button:hover { color: var(--ink); }
+.push-card input[type=text], .push-card input[type=url] { width: 100%; box-sizing: border-box; }
 .ghost:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
 
 /* home hero */
@@ -9255,7 +9260,7 @@ table td, table th { padding-block: 11px; }
       const w = store.get('watch', null);
       return w && Array.isArray(w.items) ? w : { v: 1, items: [], snap: null, prev: null };
     },
-    save(w) { store.set('watch', w); refreshNavDot(); },
+    save(w) { store.set('watch', w); refreshNavDot(); pushSync(); },
     has(t) { return this.load().items.some((i) => i.t === t); },
     get(t) { return this.load().items.find((i) => i.t === t) || null; },
     toggle(t, px) {
@@ -9826,7 +9831,7 @@ table td, table th { padding-block: 11px; }
     return card;
   }
   function syncCard(w) {
-    const data = w.items.map((it) => [it.t, it.added || '', isNum(it.addPx) ? it.addPx : 0, it.shares || 0, it.cost || 0, it.swing ? 1 : 0, it.stop || 0, it.t1 || 0, it.manual ? 1 : 0, it.px || 0, it.pxDate || '']);
+    const data = w.items.map((it) => [it.t, it.added || '', isNum(it.addPx) ? it.addPx : 0, it.shares || 0, it.cost || 0, it.swing ? 1 : 0, it.stop || 0, it.t1 || 0, it.manual ? 1 : 0, it.px || 0, it.pxDate || '', it.own ? 1 : 0]);
     const link = location.origin + location.pathname + '?p=watchlist#w=' + b64url(JSON.stringify({ v: 1, i: data }));
     const box = h('textarea', { class: 'promptbox', readonly: true, rows: '3', hidden: true, 'aria-label': 'Sync link' });
     box.value = link;
@@ -9889,7 +9894,7 @@ table td, table th { padding-block: 11px; }
     const items = data.i.filter((x) => Array.isArray(x) && typeof x[0] === 'string' && x[0]).slice(0, 200).map((x) => ({
       t: tickerFromInput(x[0]), added: /^\d{4}-\d{2}-\d{2}$/.test(x[1]) ? x[1] : todayISO(), addPx: x[2] > 0 ? Number(x[2]) : null,
       shares: x[3] > 0 ? Number(x[3]) : null, cost: x[4] > 0 ? Number(x[4]) : null, swing: !!x[5], stop: x[6] > 0 ? Number(x[6]) : null, t1: x[7] > 0 ? Number(x[7]) : null,
-      manual: !!x[8], px: x[9] > 0 ? Number(x[9]) : null, pxDate: /^\d{4}-\d{2}-\d{2}$/.test(x[10]) ? x[10] : null,
+      manual: !!x[8], px: x[9] > 0 ? Number(x[9]) : null, pxDate: /^\d{4}-\d{2}-\d{2}$/.test(x[10]) ? x[10] : null, own: !!x[11],
     })).filter((x) => MANUAL_T.test(x.t));
     const apply = (mode) => {
       const w = W.load();
@@ -11220,7 +11225,7 @@ table td, table th { padding-block: 11px; }
       if (past.length > 60) hist.append(h('p', { class: 'note', text: `${past.length - 60} older alerts are not shown.` }));
       hist.append(h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', id: 'clearHist', onclick: () => save((c) => { c.hist = clearHistory(c.hist); }) }, 'Clear history')));
     }
-    el.append(h('div', { class: 'ac-grid' }, h('div', { class: 'ac-main' }, open, pr, hist), h('div', { class: 'ac-side' }, fresh, nf)));
+    el.append(h('div', { class: 'ac-grid' }, h('div', { class: 'ac-main' }, open, pr, hist), h('div', { class: 'ac-side' }, fresh, pushCard(rerender, alertLast && alertLast.scr), nf)));
   }
   // one alert as a list row: icon, ticker, wording, then when it opened and which price it used
   function alertRow(e, scr, buttons) {
@@ -11231,6 +11236,89 @@ table td, table th { padding-block: 11px; }
         e.t ? h('button', { class: 'tk', type: 'button', onclick: () => (scr.by.has(e.t) ? openStock(e.t) : navigate('watchlist')) }, e.t) : null, e.t ? ' ' : '', e.text,
         h('span', { class: 'al-meta', text: `${ALERT_TYPE_NAME[e.type]} · opened ${fmtUtc(e.first)} · ${e.asOf ? 'data: ' + e.asOf + ' · ' : ''}${state}${e.count > 1 ? ` · seen ${e.count} times` : ''}` })),
       h('span', { class: 'al-act' }, buttons.filter(Boolean)));
+  }
+  // ------------------------------------------------------------------ phone notifications (free Cloudflare Worker you own; push works on a Home Screen app on iPhone)
+  const PUSH = {
+    load() { const p = store.get('push', null); return p && typeof p === 'object' ? { url: String(p.url || ''), id: String(p.id || ''), on: !!p.on } : { url: '', id: '', on: false }; },
+    save(p) { store.set('push', p); },
+  };
+  const pushOK = () => typeof navigator !== 'undefined' && 'serviceWorker' in navigator && typeof PushManager !== 'undefined' && notifySupported();
+  const isStandalone = () => navigator.standalone === true || (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches);
+  const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const pushList = () => W.load().items.map((it) => ({ t: it.t, held: it.shares > 0 || !!it.own }));
+  let pushTimer = 0;
+  function pushSync() {
+    let p; try { p = PUSH.load(); } catch { return; } // not ready yet while the page is still starting
+    if (!p.on || !p.id || !p.url) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => { fetch(p.url + '/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.id, list: pushList() }) }).catch(() => {}); }, 2500);
+  }
+  const pushBase = (v) => { const m = /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?/i.exec(String(v || '').trim()); return m ? m[0].toLowerCase() : ''; };
+  const keyBytes = (k) => Uint8Array.from(atob(k.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+  const pushPost = async (base, path, body) => { const r = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'The notification service said no.'); return j; };
+  async function pushEnable(base) {
+    const reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    let perm = Notification.permission;
+    if (perm !== 'granted') perm = await Notification.requestPermission();
+    if (perm !== 'granted') throw new Error('Notifications were not allowed on this device.');
+    const v = await (await fetch(base + '/vapid')).json();
+    if (!v.publicKey) throw new Error('The notification service did not answer. Check the address.');
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(v.publicKey) });
+    const j = await pushPost(base, '/subscribe', { subscription: sub.toJSON(), list: pushList() });
+    await (await caches.open('sc-push-cfg')).put('cfg', new Response(JSON.stringify({ base, id: j.id })));
+    PUSH.save({ url: base, id: j.id, on: true });
+  }
+  async function pushDisable() {
+    const p = PUSH.load();
+    try { const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch { /* already gone */ }
+    if (p.url && p.id) { try { await pushPost(p.url, '/unsubscribe', { id: p.id }); } catch { /* the Worker forgets it on its own when the phone drops it */ } }
+    try { await caches.delete('sc-push-cfg'); } catch { /* ignore */ }
+    PUSH.save({ url: p.url, id: '', on: false });
+  }
+  function listEditor(rerender, scr) {
+    const w = W.load();
+    const held = w.items.filter((it) => it.shares > 0 || it.own);
+    const watching = w.items.filter((it) => !(it.shares > 0 || it.own));
+    const chip = (it) => h('span', { class: 'chip' }, h('b', { text: it.t }),
+      it.shares > 0 ? null : h('button', { type: 'button', 'aria-label': it.own ? `Move ${it.t} to the watchlist` : `Mark ${it.t} as owned`, onclick: () => { W.update(it.t, { own: !it.own }); rerender(); } }, it.own ? 'to watchlist' : 'I own it'),
+      h('button', { type: 'button', 'aria-label': `Remove ${it.t}`, onclick: () => { W.remove(it.t); rerender(); } }, '×'));
+    const inp = h('input', { type: 'text', placeholder: 'Add a ticker, e.g. NVDA', 'aria-label': 'Ticker to add', autocapitalize: 'characters', maxlength: '15' });
+    const add = (own) => { const t = String(inp.value || '').trim().toUpperCase(); if (!TICKER.test(t)) return; const ww = W.load(); const known = !!(scr && scr.by && scr.by.get(t)); const ex = ww.items.find((x) => x.t === t); if (ex) { ex.own = own; } else ww.items.unshift({ t, added: todayISO(), addPx: null, own, ...(known ? {} : { manual: true }) }); W.save(ww); rerender(); };
+    return h('div', null,
+      h('h3', { text: `Holdings (${held.length})` }), held.length ? h('div', { class: 'chips' }, held.map(chip)) : h('p', { class: 'note', text: 'None yet. Mark a company as owned, or add one below.' }),
+      h('h3', { text: `Watchlist (${watching.length})` }), watching.length ? h('div', { class: 'chips' }, watching.map(chip)) : h('p', { class: 'note', text: 'None yet.' }),
+      h('div', { class: 'ai' }, inp, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => add(true) }, 'Add to holdings'), h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => add(false) }, 'Add to watchlist')),
+      h('p', { class: 'note', text: 'Alerts follow these lists. Add or remove a company here, on the Watchlist page or with the star on a company page, and the alerts change with it. Amounts you enter on the Watchlist page stay on this device.' }));
+  }
+  function pushCard(rerender, scr) {
+    const p = PUSH.load();
+    const card = h('section', { class: 'card push-card', 'aria-label': 'Phone notifications' }, h('h2', { text: 'Phone notifications' }));
+    const msg = h('p', { class: 'note', role: 'status', text: '' });
+    const fail = (e) => { msg.textContent = (e && e.message) || 'That did not work.'; };
+    const iosNeedsInstall = isIOS() && !isStandalone();
+    card.append(h('p', { class: 'sub', text: p.on
+      ? 'On for this device. One notification each weekday morning, only when something changed: a company reaches its buy price, a holding gets weaker on the numbers, a halal status changes or a serious filing appears, or the data is late. Information only, never a buy or sell instruction.'
+      : 'Get a notification on your phone or laptop when something changes, even when the site is closed. It needs a small free service of your own (set up once) and, on iPhone, the site added to your Home Screen.' }));
+    if (!pushOK()) {
+      card.append(h('p', { class: 'note', text: iosNeedsInstall ? 'On iPhone: tap Share, then Add to Home Screen, open Stock Checker from the new icon and come back to this page.' : 'This browser cannot receive push notifications. Alerts still show here and in the bell.' }));
+      card.append(listEditor(rerender, scr));
+      return card;
+    }
+    if (iosNeedsInstall) card.append(h('p', { class: 'note', text: 'On iPhone, notifications work only from the Home Screen app: tap Share, then Add to Home Screen, open Stock Checker from the new icon and come back to this page.' }));
+    const url = h('input', { type: 'url', placeholder: 'https://stock-push.your-name.workers.dev', 'aria-label': 'Notification service address', value: p.url });
+    if (!p.on) card.append(h('label', { class: 'note', text: 'Address of your notification service' }), url);
+    const btns = h('div', { class: 'ai' });
+    if (!p.on) btns.append(h('button', { class: 'btn btn-sm', type: 'button', id: 'pushOn', onclick: async (e) => { const b = pushBase(url.value); if (!b) { fail({ message: 'Paste the https address of your notification service first.' }); return; } e.target.disabled = true; msg.textContent = 'Setting up…'; try { await pushEnable(b); rerender(); } catch (x) { fail(x); e.target.disabled = false; } } }, 'Turn on phone notifications'));
+    else {
+      btns.append(h('button', { class: 'btn btn-outline btn-sm', type: 'button', id: 'pushTest', onclick: async () => { msg.textContent = 'Sending a test…'; try { await pushPost(p.url, '/test', { id: p.id }); msg.textContent = 'Test sent. It should appear in a few seconds.'; } catch (x) { fail(x); } } }, 'Send a test'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', id: 'pushOff', onclick: async () => { await pushDisable(); rerender(); } }, 'Turn off'));
+    }
+    card.append(btns, msg);
+    card.append(h('p', { class: 'note', text: 'Privacy: your service stores only this device’s push address and your ticker names with an owned flag. No amounts, no prices you paid. It reads the same public data files this site shows.' }));
+    card.append(listEditor(rerender, scr));
+    return card;
   }
   async function renderAlerts(quiet) {
     const el = $('#page-alerts');

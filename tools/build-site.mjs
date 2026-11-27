@@ -60,7 +60,7 @@ function buildPage() {
   // self-hosted font (no font service sees who visits) and its licence
   fs.mkdirSync(path.join(OUT, 'fonts'), { recursive: true });
   for (const f of ['inter-var-latin.woff2', 'OFL.txt']) fs.copyFileSync(path.join(root, 'fonts', f), path.join(OUT, 'fonts', f));
-  for (const f of ['favicon.svg', 'manifest.json', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png']) {
+  for (const f of ['favicon.svg', 'manifest.json', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'sw.js']) {
     fs.copyFileSync(path.join(root, f), path.join(OUT, f));
   }
   // unlisted: ask search engines not to index anything
