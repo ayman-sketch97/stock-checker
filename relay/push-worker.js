@@ -165,6 +165,9 @@ function cleanList(list) {
   return out;
 }
 
+const MAX_SYNC_BYTES = 2000000;
+const MAX_SYNC_IDS = 5;
+
 // ---------------------------------------------------------------- http
 function cors(req) {
   const o = req.headers.get('Origin');
@@ -227,6 +230,30 @@ export default {
           const old = await getSub(env, id);
           await putSub(env, id, { sub: { endpoint: s.endpoint }, list: cleanList(body.list), state: (old && old.state) || {}, at: Date.now() });
           return reply(req, { id });
+        }
+        if (url.pathname === '/sync/put' || url.pathname === '/sync/get' || url.pathname === '/sync/delete') {
+          // encrypted backup copy: the phone encrypts it, the Worker only keeps the scrambled text under a hash of the secret
+          const id = String(body.id || '');
+          if (!/^[0-9a-f]{64}$/.test(id)) return reply(req, { error: 'bad id' }, 400);
+          const key = 'sync:' + id;
+          if (url.pathname === '/sync/get') { const v = await env.PUSH.get(key); return v ? reply(req, { data: JSON.parse(v) }) : reply(req, { error: 'none' }, 404); }
+          const ids = (await env.PUSH.get('syncids', 'json')) || [];
+          if (url.pathname === '/sync/delete') {
+            await env.PUSH.delete(key); await env.PUSH.delete('syncprev:' + id);
+            await env.PUSH.put('syncids', JSON.stringify(ids.filter((x) => x !== id)));
+            return reply(req, { ok: true });
+          }
+          const d = body.data;
+          const text = JSON.stringify(d || null);
+          if (!d || typeof d.ct !== 'string' || typeof d.iv !== 'string' || text.length > MAX_SYNC_BYTES) return reply(req, { error: 'bad data' }, 400);
+          const cur = await env.PUSH.get(key);
+          if (cur) await env.PUSH.put('syncprev:' + id, cur);
+          else {
+            if (ids.length >= MAX_SYNC_IDS) return reply(req, { error: 'too many backups' }, 409);
+            await env.PUSH.put('syncids', JSON.stringify([...ids, id]));
+          }
+          await env.PUSH.put(key, text);
+          return reply(req, { ok: true, at: Date.now() });
         }
         if (url.pathname === '/list' || url.pathname === '/unsubscribe' || url.pathname === '/test') {
           const id = String(body.id || '');
