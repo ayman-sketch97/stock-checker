@@ -11151,7 +11151,7 @@ table td, table th { padding-block: 11px; }
 
   async function renderDashboard() {
     const el = $('#page-dashboard');
-    const head = pageHead('Dashboard', 'Your holdings, tonight’s scanner candidates and the system’s alerts. Each block says where its numbers come from.');
+    const head = pageHead('Dashboard', 'Your holdings first, then what needs attention today, ideas to research and the market. Each block says where its numbers come from.');
     if (!HAS_SITE) { el.replaceChildren(head); return; }
     const my = ++dashToken;
     el.replaceChildren(head, loadingBox('Loading the dashboard…'));
@@ -11176,7 +11176,8 @@ table td, table th { padding-block: 11px; }
     const id = todayCard(scr);
     id.classList.add('dash-ideas');
     const recs = recordsCard();
-    el.replaceChildren(head, h('div', { class: 'dash' }, mk, al, pfCard, recs, dashScanner(sc), br, id));
+    // stage 2: what he owns and what needs attention come first, then the backup card, ideas and the market; scanner and brief follow
+    el.replaceChildren(head, h('div', { class: 'dash' }, pfCard, al, recs, id, mk, dashScanner(sc), br));
     // ask the browser to keep the data (only once there is something to keep), then redraw the card with its answer
     const before = persistState;
     checkPersist(recordCounts().n.any).then(() => { if (persistState !== before && my === dashToken && page === 'dashboard') { const cur = el.querySelector('.rec-box'); if (cur) cur.replaceWith(recordsCard()); } });
