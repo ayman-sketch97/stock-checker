@@ -101,6 +101,14 @@ async def main():
         await pg.fill('input[aria-label="Recovery key to restore from"]', other)
         await pg.click('button:text-is("Restore")'); await pg.wait_for_timeout(1000)
         check('No backup was found' in await pg.inner_text('.cloud-box'), 'a key that does not match any copy finds nothing')
+        # a second phone signed in with the same key: opening the site joins the newer copy in, without removing anything
+        import base64
+        sec = json.loads(base64.urlsafe_b64decode(key[5:] + '=' * (-len(key[5:]) % 4)))['s']
+        pg2, errs2 = await page_with(ctx, base, fresh, storage={'cloud': {'url': BASE_W, 'secret': sec, 'last': '', 'hash': ''}, 'watch': {'v': 1, 'items': [{'t': 'KO', 'added': '2026-11-04', 'addPx': None}], 'snap': None, 'prev': None}}, path='&p=dashboard')
+        await pg2.wait_for_timeout(9000)
+        items2 = await pg2.evaluate("JSON.parse(localStorage.getItem('watch')).items.map((i) => i.t).sort()")
+        check(items2 == ['AAPL', 'KO', 'MSFT', 'NVDA'], f'a second phone with the same key gets the lists and keeps its own stock: {items2}')
+        await pg2.close()
         # turn off deletes the copy
         await pg.reload(); await pg.wait_for_timeout(1500)
         pg.on('dialog', lambda d: asyncio.ensure_future(d.accept()))

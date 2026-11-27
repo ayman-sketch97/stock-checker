@@ -10963,19 +10963,20 @@ table td, table th { padding-block: 11px; }
     try { const o = JSON.parse(new TextDecoder().decode(cunb64u(m[1]))); const url = pushBase(o.u); return url && typeof o.s === 'string' && o.s.length >= 24 ? { url, secret: o.s } : null; } catch { return null; }
   }
   let cloudBusy = false;
+  const cloudHashOf = (text) => String(text.length) + ':' + [...text].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7);
   // saves the copy when something changed; never sends an empty device state over a copy that may hold real records
   async function cloudPush(force) {
     const c = CLOUD.load();
     if (!c || cloudBusy) return 'off';
     if (!recordCounts().n.any) return 'empty';
     const text = JSON.stringify(backupOf(JR.load()));
-    const hash = String(text.length) + ':' + [...text].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7);
+    const hash = cloudHashOf(text);
     if (!force && hash === c.hash) return 'same';
     cloudBusy = true;
     try {
       const s = await cloudSeal(c.secret, text);
       await cloudPost(c.url, '/sync/put', s);
-      CLOUD.save({ ...c, last: new Date().toISOString(), hash });
+      CLOUD.save({ ...c, last: new Date().toISOString(), hash, rh: hash });
       return 'saved';
     } finally { cloudBusy = false; }
   }
@@ -11007,9 +11008,37 @@ table td, table th { padding-block: 11px; }
     if (c && forget) { try { const { id } = await cloudKeys(c.secret); await cloudPost(c.url, '/sync/delete', { id }); } catch { /* the copy stays; it is only readable with the key */ } }
     CLOUD.clear();
   }
-  function cloudAuto() { try { if (CLOUD.load()) cloudPush(false).catch(() => {}); } catch { /* not ready */ } }
+  // Signed in with the same recovery key on a second phone: each time the site opens or comes back to the front, the newer copy is
+  // joined into this device with the same no-overwrite rule as the file restore (nothing here is replaced), then the joined result is saved back.
+  let cloudPulledAt = 0;
+  async function cloudPull() {
+    const c = CLOUD.load();
+    if (!c || cloudBusy) return 'off';
+    cloudPulledAt = Date.now();
+    const { id } = await cloudKeys(c.secret);
+    let r;
+    try { r = await cloudPost(c.url, '/sync/get', { id }); } catch (e) { return e && e.status === 404 ? 'none' : 'error'; }
+    let text;
+    try { text = await cloudOpen(c.secret, r.data); } catch { return 'bad'; }
+    const rh = cloudHashOf(text);
+    if (rh === c.rh) return 'same';
+    let inc;
+    try { inc = JSON.parse(text); } catch { return 'bad'; }
+    if (!inc || !Array.isArray(inc.trades)) return 'bad';
+    applyBackup(inc);
+    CLOUD.save({ ...CLOUD.load(), rh });
+    return 'merged';
+  }
+  async function cloudAuto() {
+    try {
+      if (!CLOUD.load()) return;
+      const r = await cloudPull().catch(() => 'error');
+      if (r === 'merged' && typeof showPage === 'function' && page && page !== 'stock') { try { showPage(page); } catch { /* keep the page as it is */ } }
+      await cloudPush(false);
+    } catch { /* not ready or offline: the next round tries again */ }
+  }
   if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') cloudAuto(); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { const c = CLOUD.load(); if (c) cloudPush(false).catch(() => {}); } else if (Date.now() - cloudPulledAt > 30000) cloudAuto(); });
     setInterval(() => { if (document.visibilityState === 'visible') cloudAuto(); }, 60000);
     setTimeout(cloudAuto, 6000);
   }
@@ -11048,7 +11077,7 @@ table td, table th { padding-block: 11px; }
     }
     const rk = h('input', { type: 'text', placeholder: 'scr1.…', 'aria-label': 'Recovery key to restore from', autocapitalize: 'none', autocorrect: 'off' });
     box.append(h('details', { class: 'which' }, h('summary', null, h('span', { text: 'Restore from a cloud backup' }), h('span', { class: 'chev', 'aria-hidden': 'true', text: '⌄' })),
-      h('p', { class: 'note', text: 'After a reinstall or on a new phone: paste your recovery key and tap Restore. Your records come back and this device keeps backing up to the same copy. Anything already here is kept.' }),
+      h('p', { class: 'note', text: 'After a reinstall or on a new phone: paste your recovery key and tap Restore. This is the sign-in. Your records come back, and every phone with the same key stays in step: each time you open the site, the newest copy is joined in. Anything already on a phone is kept, so a stock removed on one phone can come back from another.' }),
       h('div', { class: 'ai' }, rk, h('button', { class: 'btn btn-sm', type: 'button', onclick: async (ev) => {
         ev.target.disabled = true; say('Restoring…');
         try { const note = await cloudRestore(rk.value); say(note); setTimeout(rerender, 1500); } catch (e) { say((e && e.message) || 'That did not work.'); }
