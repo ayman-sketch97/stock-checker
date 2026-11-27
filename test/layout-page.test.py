@@ -19,11 +19,12 @@ def check(cond, msg):
 
 
 ALL = ['dashboard', 'alerts', 'stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger']
-TABS = [('dashboard', 'Dashboard'), ('stock', 'Search'), ('shortlist', 'Shortlist'), ('watchlist', 'Watchlist'), ('record', 'Record'), ('journal', 'Journal'), ('advisor', 'Portfolio')]
-PARENT = {'alerts': 'dashboard', 'scanner': 'shortlist', 'shariah': 'advisor', 'thesis': 'advisor', 'pfledger': 'advisor'}
+TABS = [('dashboard', 'Home'), ('watchlist', 'Watchlist'), ('stock', 'Discover'), ('advisor', 'Portfolio'), ('journal', 'Journal')]
+PARENT = {'alerts': 'dashboard', 'shortlist': 'stock', 'scanner': 'stock', 'record': 'journal', 'shariah': 'advisor', 'thesis': 'advisor', 'pfledger': 'advisor'}
 GROUPS = {
     'dashboard': ['dashboard', 'alerts'],
-    'shortlist': ['shortlist', 'scanner'],
+    'stock': ['stock', 'shortlist', 'scanner'],
+    'journal': ['journal', 'record'],
     'advisor': ['advisor', 'pfledger', 'thesis', 'shariah'],
 }
 HELD = {'watch': {'v': 1, 'items': [{'t': 'AAPL', 'added': '2026-01-01', 'shares': 10, 'cost': 200}, {'t': 'KO', 'added': '2026-01-01', 'shares': 3, 'cost': 50}, {'t': 'MSFT', 'added': '2026-01-01'}], 'snap': None, 'prev': None}}
@@ -53,7 +54,7 @@ async def main():
         # ---- the top-level tabs and every address
         pg, errs = await page_with(ctx, base, fresh)
         tabs = await pg.evaluate("[...document.querySelectorAll('#nav button')].map((x) => [x.dataset.page, x.innerText.trim()])")
-        check(tabs == [list(t) for t in TABS], f'the tabs are Dashboard, Search, Shortlist, Watchlist, Record, Journal, Portfolio with their data-page ids unchanged: {tabs}')
+        check(tabs == [list(t) for t in TABS], f'the tabs are Home, Watchlist, Discover, Portfolio, Journal with their data-page ids unchanged: {tabs}')
         await pg.close()
         for name in ALL:
             pg, errs = await page_with(ctx, base, fresh, path='&p=' + name)
@@ -106,7 +107,7 @@ async def main():
                     check(not cut, f'{w}px {theme}: no tab label is cut off: {cut}')
                     # the labels are at least 12px, each one sits fully inside its own tab, the tabs do not overlap and none passes the screen edge
                     lab = await pg.evaluate("(() => { const bs = [...document.querySelectorAll('#nav button')]; const vw = document.documentElement.clientWidth; let prev = -1; const out = { small: [], outside: [], overlap: [], edge: [], tight: 99 }; for (const b of bs) { const s = b.querySelector('span'); const rb = b.getBoundingClientRect(); const rs = s.getBoundingClientRect(); const fs = parseFloat(getComputedStyle(s).fontSize); if (fs < 12) out.small.push(s.innerText + ' ' + fs); if (rs.left < rb.left - 0.5 || rs.right > rb.right + 0.5) out.outside.push(s.innerText); if (rb.left < prev - 0.5) out.overlap.push(s.innerText); prev = rb.right; if (rb.left < 0 || rb.right > vw + 0.5) out.edge.push(s.innerText); out.tight = Math.min(out.tight, Math.min(rs.left - rb.left, rb.right - rs.right)); } out.n = bs.length; return out; })()")
-                    check(lab['n'] == 7 and not lab['small'] and not lab['outside'] and not lab['overlap'] and not lab['edge'], f'{w}px {theme}: all 7 tab labels are 12px or larger and inside their own tab, with no overlap or edge overflow: {lab}')
+                    check(lab['n'] == 5 and not lab['small'] and not lab['outside'] and not lab['overlap'] and not lab['edge'], f'{w}px {theme}: all 5 tab labels are 12px or larger and inside their own tab, with no overlap or edge overflow: {lab}')
                 else:
                     check(box['pos'] != 'fixed' and box['top'] < 100, f'{w}px {theme}: the tabs sit in the header: {box}')
                 # ---- no sideways scroll and nothing wider than the screen, on every page
