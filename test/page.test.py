@@ -305,6 +305,11 @@ async def main():
         act = await pg.inner_text('section.card.act')
         check('null' not in act and 'undefined' not in act, f'"What to do now" with fresh data shows no stray "null": {act[:160]!r}')
         check('Close of Mar 14, 2025' in act, f'without chart data the date comes from "close on 2025-03-14" (it used to be blank, which also hid live prices): {act[:60]!r}')
+        # stage 5: the summary card at the top of a company page
+        sm = await pg.inner_text('section[aria-label="At a glance summary"]')
+        sml = sm.lower()
+        check('halal screen' in sml and 'passes the screen' in sml and '88/100' in sm and 'financial health' in sml and 'under' in sm and 'High confidence' in sm, f'summary card shows halal, quality, health, fair value and confidence: {sm[:200]!r}')
+        check('Not a call to buy or sell' in sm and 'null' not in sm and 'undefined' not in sm and 'NaN' not in sm, 'summary card: education wording and no stray null')
         check(not errs, f'no page errors on a normal stock page {errs}')
         await pg.close()
         # the Technical tab with a full chart file, written by the site's own engine (test/make-tech-fixture.mjs), every section open

@@ -2073,6 +2073,31 @@ table td, table th { padding-block: 11px; }
   let tech = null; // technical tab state for the company on screen
   // First view of a company: four separate boxes (quote, Shariah status, quality, what the tool does not know). Display only: it
   // reads fields the page already has and decides nothing. A missing field is shown as unknown, never filled in or carried over.
+  // Stage 5: one-glance summary at the top of a company page. Display only: it repeats numbers the page already has, each with its
+  // own wording and tone, and an unknown stays "Unknown". Not a verdict and not a call to buy or sell.
+  function summaryCard(d) {
+    const L = d.labels || {};
+    const sh = d.shariah && typeof d.shariah === 'object' ? d.shariah : null;
+    const SHT = { pass: ['Passes the screen', 'good'], fail: ['Fails the screen', 'bad'], review: ['Needs checking', 'warn'] };
+    const unrel = isUnreliable(d);
+    const row = (k, val, tag, tone) => h('tr', null, h('th', { scope: 'row', text: k }), h('td', { text: val }), h('td', null, tag ? tagEl(tag, tone || 'neutral') : null));
+    const shp = sh && SHT[sh.status] ? SHT[sh.status] : null;
+    const q = L.quality && isNum(L.quality.score) ? L.quality : null;
+    const hl = L.health && isNum(L.health.score) ? L.health : null;
+    const f = d.fairValue;
+    const fv = !unrel && f && isNum(f.base) && f.base > 0 && isNum(d.price)
+      ? (d.price <= f.base ? `${pct(1 - d.price / f.base, 0)} under` : `${pct(d.price / f.base - 1, 0)} above`) : null;
+    const dq = d.dataQuality && d.dataQuality.label ? d.dataQuality : null;
+    const dqTone = dq && dq.level === 'high' ? 'good' : dq ? 'warn' : 'neutral';
+    return h('section', { class: 'card', 'aria-label': 'At a glance summary' }, h('h2', { text: 'At a glance' }),
+      h('table', { class: 'data' }, h('tbody', null,
+        row('Halal screen', shp ? shp[0] : 'Unknown', shp ? 'tool’s screen' : '', shp ? shp[1] : 'neutral'),
+        row('Quality', q ? `${q.score}/100` : 'Unknown', q ? q.label : '', 'neutral'),
+        row('Financial health', hl ? `${hl.score}/100` : 'Unknown', hl ? hl.label : '', 'neutral'),
+        row('Price vs fair value', fv || 'Unknown', fv ? 'estimate' : '', 'neutral'),
+        row('Confidence in the data', dq ? dq.label.replace(/ in the data$/, '') : 'Unknown', '', dqTone))),
+      h('p', { class: 'note', text: 'The tool’s own numbers, from SEC filings and end-of-day prices. Details and sources are below. Not a call to buy or sell; confirm halal status on Zoya or Musaffa.' }));
+  }
   function firstView(d) {
     const box = (title, ...kids) => h('div', { class: 'fv-box' }, h('h2', { text: title }), ...kids);
     const sh = d.shariah && typeof d.shariah === 'object' ? d.shariah : null;
@@ -2111,6 +2136,7 @@ table td, table th { padding-block: 11px; }
         (tech.rtEl = h('div', { class: 'm rt-line', hidden: true })),
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' })),
       (tech.spark = h('div', { class: 'spark', hidden: true }))));
+    result.append(summaryCard(d));
     result.append(firstView(d));
     tech.banner = decisionBanner(d, d.price, null);
     result.append(tech.banner);
