@@ -1,0 +1,56 @@
+{
+ "v": 1,
+ "kind": "run",
+ "run": {
+  "id": 45971210781,
+  "attempt": 1,
+  "event": "push",
+  "ref": "refs/heads/main",
+  "url": "https://github.com/ayman-sketch97/stock-checker/actions/runs/45971210781"
+ },
+ "analysisCommit": "c904cfda14be7be84c17800f1422bf8d031f5184",
+ "build": {
+  "builtAt": null,
+  "priceDate": null,
+  "siteDigest": null
+ },
+ "record": {
+  "state": "unknown",
+  "headBefore": null,
+  "headAfter": null,
+  "files": []
+ },
+ "gates": {
+  "formulas": "success",
+  "page-tests": "failure",
+  "security": "success",
+  "build": "skipped",
+  "verify-site": "skipped",
+  "restore-point": "success",
+  "gate": "failure"
+ },
+ "deploy": {
+  "result": "skipped"
+ },
+ "live": {
+  "result": "skipped",
+  "commit": null
+ },
+ "rollback": {
+  "result": "skipped"
+ },
+ "restorePoint": {
+  "used": {
+   "commit": "afae82de7bc86130da1c5aceb3ff0166b30da99f",
+   "digest": "b28bd7e59c7e464b84835775176628e8f644acd2eb626945c9f7e278d4e31ea5",
+   "runId": 45964670423
+  },
+  "created": null
+ },
+ "status": "neither",
+ "rolledBack": false,
+ "seq": 63,
+ "prev": "44f48bcb1c27502208dd19f22795331344b5dfe6e7e0d526954a4b72be58cecf",
+ "recordedAt": "2026-11-27T09:19:43.591Z",
+ "hash": "65a1891d116666de6d8483c722ec9bdc151ba898e1f43d693293a77c16e57a23"
+}
