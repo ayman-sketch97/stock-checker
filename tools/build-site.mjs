@@ -10,6 +10,14 @@
 //   --log-file f.json   read the previous signal log from a file instead of the live site (testing)
 //   --no-log            start the signal log empty (testing)
 import fs from 'node:fs';
+// Node's built-in HTTP client can throw an internal assertion when a server closes a connection badly (seen when Nasdaq starts
+// refusing requests). That is one failed request, which the code already handles by retrying or using the backup source,
+// so it must not end the whole nightly build. Anything else still stops the build.
+process.on('uncaughtException', (e) => {
+  if (e && e.code === 'ERR_ASSERTION' && /undici/.test(String(e.stack || ''))) { console.log('one network request failed inside Node (ignored): ' + String(e.message).split('\n')[0]); return; }
+  console.error(e);
+  process.exit(1);
+});
 import path from 'node:path';
 
 process.env.STOCKCHECKER_BATCH = '1'; // no caches, polite pacing and retries in lib/data.js
