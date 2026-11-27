@@ -608,6 +608,8 @@ ol.exits li { margin: 5px 0; }
   }
   .nav { box-shadow: var(--shadow-sm); }
 }
+/* small phones: the name gives way before the bell and the How it works button push the page sideways */
+@media (max-width: 520px) { header.top { gap: 6px; } .brand { flex: 1 1 auto; min-width: 0; } .brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; } header.top .ghost { flex: none; } }
 @media (max-width: 1023px) {
   /* phones and tablets: a tab bar docked to the bottom edge, clear of the home indicator */
   .nav {
