@@ -9,11 +9,11 @@ import * as A from '../lib/alerts.js';
 const eq = assert.deepEqual;
 const H = 3600 * 1000;
 const T0 = Date.parse('2026-11-09T14:00:00Z');
-const cond = (key, over = {}) => ({ key, type: 'risk', tone: 'warn', t: 'AAA', text: 'Above the trim level ($250.00): consider selling part.', asOf: 'close of Nov 6', px: 251, ...over });
+const cond = (key, over = {}) => ({ key, type: 'risk', tone: 'warn', t: 'AAA', text: 'Above the trim level ($250.00). Owners sometimes sell part at this level.', asOf: 'close of Nov 6', px: 251, ...over });
 
 test('sigOf: the wording without its numbers, so a drifting number is the same condition', () => {
-  assert.equal(A.sigOf('Above the trim level ($250.00): consider selling part.'), 'Above the trim level (#): consider selling part.');
-  assert.equal(A.sigOf('15.2% of everything you own, above your 15% limit: sell about $3,400'), '# of everything you own, above your # limit: sell about #');
+  assert.equal(A.sigOf('Above the trim level ($250.00). Owners sometimes sell part at this level.'), 'Above the trim level (#). Owners sometimes sell part at this level.');
+  assert.equal(A.sigOf('15.2% of everything you own, above your 15% limit. Back to 10% would mean selling about $3,400'), '# of everything you own, above your # limit. Back to # would mean selling about #');
   assert.equal(A.sigOf('Earnings in 3 trading days (Nov 12).'), 'Earnings in # trading days (Nov #).');
   assert.equal(A.sigOf('  a   b '), 'a b');
   assert.equal(A.sigOf(null), '');

@@ -2630,7 +2630,7 @@ table td, table th { padding-block: 11px; }
       'strong-buy': ['Strong buy zone', 'good', 'The price is at or below the pessimistic (bear-case) value. If the business checks out, this is the best zone to buy. Spread your purchases over a few weeks rather than buying all at once.'],
       buy: ['Buy zone', 'good', `The price is below the buy level. A sensible approach: buy part of your position now and keep cash to add more if it falls toward ${price(P.strongBuyBelow)}.`],
       hold: ['Hold zone', 'na', `The price is between the buy level and the trim level. If you own it, keep holding. If you don't, be patient and wait for ${price(P.buyBelow)}, or use the Technical tab for a short-term entry.`],
-      trim: ['Trim zone', 'ok', 'The price is above even the optimistic (bull-case) value. If you own it, consider selling part to lock in gains, and don’t add more here.'],
+      trim: ['Trim zone', 'ok', 'The price is above even the optimistic (bull-case) value. Owners sometimes sell part at this level to lock in gains; the price already assumes the optimistic case, so there is less room for error.'],
     };
     const z = ZONE[P.zone] || ZONE.hold;
     // stage 11: while advice is paused the zone call and its instruction are hidden; the levels above stay as numbers
@@ -5941,7 +5941,7 @@ table td, table th { padding-block: 11px; }
     if (!P || !isNum(P.buyBelow) || !isNum(px)) return { tone: '', title: 'No buy price', text: 'There is no reliable fair-value estimate, so there is no long-term buy price. Judge the business itself, or use the chart for timing.' };
     if (isNum(P.strongBuyBelow) && px <= P.strongBuyBelow) return { tone: 'good', title: 'Strong buy price now', text: `${price(px)} is below the strong-buy level of ${price(P.strongBuyBelow)}. Buying in two or three parts lowers the risk of bad timing.` };
     if (px <= P.buyBelow) return { tone: 'good', title: 'Good price now', text: `${price(px)} is below the buy price of ${price(P.buyBelow)}. Buying in two or three parts lowers the risk of bad timing.` };
-    if (isNum(P.trimAbove) && px >= P.trimAbove) return { tone: 'bad', title: 'Expensive: don’t buy', text: `${price(px)} is above the trim level of ${price(P.trimAbove)}. Owners can consider selling part.` };
+    if (isNum(P.trimAbove) && px >= P.trimAbove) return { tone: 'bad', title: 'Expensive at this price', text: `${price(px)} is above the trim level of ${price(P.trimAbove)}. Owners sometimes sell part at this level.` };
     const gap = 1 - P.buyBelow / px;
     return { tone: gap <= 0.1 ? 'warn' : '', title: gap <= 0.1 ? 'Close to a good price' : 'Wait for a better price', text: `A good price is ${price(P.buyBelow)} or less, about ${pct(gap, 0)} below ${price(px)}.` };
   }
@@ -8803,7 +8803,7 @@ table td, table th { padding-block: 11px; }
     kids.push(h('div', { class: 'stampbar' },
       stampEl(st ? 'late' : '', 'Prices', `close of ${niceDates(scr.priceDate)}`, st ? `${st.missed} trading days late` : 'Nasdaq, end of day'),
       live ? (() => { const F = QUOTES && QUOTES.asOf ? quoteFreshness(QUOTES.asOf, Date.now(), /open/i.test(live.status || '') && !/pre|after|closed/i.test(live.status || '')) : null; return stampEl(F && F.stale ? 'late' : '', 'Quotes', `delayed last sale${tm ? ', ' + tm[1].toLowerCase() + ' New York' : ', ' + niceDates(live.session)}`, F ? F.text + ' · not real-time' : 'not real-time'); })() : null,
-      stampEl(!checks ? 'warn' : bad ? 'late' : '', 'Nightly checks', !checks ? 'report not loaded' : bad ? `${bad} failed` : 'passed', null, () => navigate('record'))));
+      stampEl(!checks ? 'warn' : bad ? 'late' : '', 'Nightly checks', !checks ? 'not checked yet' : bad ? `${bad} failed` : 'passed', null, () => navigate('record'))));
     el.replaceChildren(...kids);
     el.className = 'data-status' + (NARROW_PAGES.has(page) ? ' ds-narrow' : '');
     el.hidden = false;
@@ -8874,8 +8874,8 @@ table td, table th { padding-block: 11px; }
       if (isNum(r.chg)) dayMove += v - v / (1 + r.chg);
       if (r.shariah === 'fail') todo.push(['bad', x.t, 'Fails the halal screen now. Check it on Zoya; if it still fails, your rule is to sell within 90 days.']);
       else if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) todo.push(['bad', x.t, `The business itself got worse (now “${VERDICT_SHORT[r.verdict]}”). Your rule: sell when the business weakens, not when the price falls.`]);
-      else if (isNum(r.trimAbove) && r.price >= r.trimAbove) todo.push(['warn', x.t, `Above its trim price (${price(r.trimAbove)}): consider selling part, and do not add.`]);
-      else if (sizeTrim(snap0.byT.get(x.t) || 0, snap0.total)) todo.push(['warn', x.t, `${pct((snap0.byT.get(x.t) || 0) / snap0.total, 1)} of everything you own, above your ${pct(limits().trimAt, 0)} limit: sell about ${money0(sizeTrim(snap0.byT.get(x.t) || 0, snap0.total))} to bring it back to ${pct(limits().buyCap, 0)} (Portfolio page).`]);
+      else if (isNum(r.trimAbove) && r.price >= r.trimAbove) todo.push(['warn', x.t, `Above its trim price (${price(r.trimAbove)}). Owners sometimes sell part at this level.`]);
+      else if (sizeTrim(snap0.byT.get(x.t) || 0, snap0.total)) todo.push(['warn', x.t, `${pct((snap0.byT.get(x.t) || 0) / snap0.total, 1)} of everything you own, above your ${pct(limits().trimAt, 0)} limit. Back to ${pct(limits().buyCap, 0)} would mean selling about ${money0(sizeTrim(snap0.byT.get(x.t) || 0, snap0.total))} (Portfolio page).`]);
       else if (isNum(x.cost) && x.cost > 0 && r.price <= x.cost * 0.9) hold.push([x.t, `${pctS(r.price / x.cost - 1, 0)} from what you paid, business still healthy (“${VERDICT_SHORT[r.verdict] || 'n/a'}”): hold and wait.`]);
       const ed = earnDays(r, scr);
       if (ed != null && ed <= 5) todo.push(['info', x.t, `Reports results ${ed <= 1 ? 'in the next session' : `in ${ed} trading days`}. Nothing to do; the tool re-checks the business after the report.`]);
@@ -9314,10 +9314,10 @@ table td, table th { padding-block: 11px; }
     }
     if (held && !it.swing) {
       if (['AVOID_WEAK', 'SPECULATIVE'].includes(r.verdict)) a.push(['bad', `The business got worse (now “${VERDICT_SHORT[r.verdict]}”): your rule says sell.`]);
-      if (isNum(r.trimAbove) && r.price >= r.trimAbove) a.push(['warn', `Above the trim level (${price(r.trimAbove)}): consider selling part.`]);
+      if (isNum(r.trimAbove) && r.price >= r.trimAbove) a.push(['warn', `Above the trim level (${price(r.trimAbove)}). Owners sometimes sell part at this level.`]);
       const s = holdingsSnapshot(scr);
       const sale = sizeTrim(s.byT.get(it.t) || 0, s.total);
-      if (sale) a.push(['warn', `${pct((s.byT.get(it.t) || 0) / s.total, 1)} of everything you own, above your ${pct(limits().trimAt, 0)} limit: sell about ${money0(sale)} to bring it back to ${pct(limits().buyCap, 0)}.`]);
+      if (sale) a.push(['warn', `${pct((s.byT.get(it.t) || 0) / s.total, 1)} of everything you own, above your ${pct(limits().trimAt, 0)} limit. Back to ${pct(limits().buyCap, 0)} would mean selling about ${money0(sale)}.`]);
     }
     // buy alerts only for a clear halal pass, and only if the risk check allows a buy (a "review" already warns above)
     if (!held && r.shariah === 'pass') {
