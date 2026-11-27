@@ -1339,6 +1339,12 @@ table td, table th { padding-block: 11px; }
 .tbl-unk { color: var(--muted, #8fa0bd); }
 @media (max-width: 700px) { .tbl th:nth-child(2), .tbl td:nth-child(2), .tbl th:nth-child(4), .tbl td:nth-child(4), .tbl th:nth-child(7), .tbl td:nth-child(7), .tbl th:nth-child(8), .tbl td:nth-child(8) { display: none; } }
 .px .m.up, .px .m.down { white-space: normal; max-width: 150px; margin-left: auto; line-height: 1.25; text-align: right; }
+.profile { margin: 2px 4px 10px; font-size: 13px; }
+.profile summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; list-style: none; }
+.profile summary::-webkit-details-marker { display: none; }
+.pf-k { color: var(--muted, #667); margin-right: 2px; }
+.pf-tag { border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; font-weight: 600; opacity: .85; }
+.pf-rules { margin: 6px 0 0; padding-left: 18px; }
 </style>
 </head>
 <body>
@@ -2146,6 +2152,42 @@ table td, table th { padding-block: 11px; }
     if (dq && dq !== 'high') ag.push(`Confidence in the data is ${dq}, so read every figure with care.`);
     return { pf, ag, unk };
   }
+  // Profile tags: a plain description of what kind of company this is, from fixed rules on numbers the tool already has. Not advice,
+  // not a score, and nothing else reads it. A rule with a missing number gives no tag. Daily-price volatility is not used here
+  // because the price history loads separately from the company numbers.
+  const PROFILE_RULES = Object.freeze({ blueChipCap: 50e9, blueChipQuality: 75, growthRate: 0.1, valueGap: 0.15, valueQuality: 50, incomeYield: 0.02, incomeYears: 3, specQuality: 50, turnaroundGrowth: 0.03,
+    cyclical: ['mining', 'metal', 'steel', 'oil', 'petroleum', 'gas', 'coal', 'chemical', 'paper', 'lumber', 'motor vehicle', 'auto', 'aircraft', 'airline', 'air transportation', 'trucking', 'railroad', 'shipping', 'construction', 'homebuilder', 'residential building', 'hotel', 'casino', 'semiconductor', 'machinery', 'real estate'] });
+  function profileOf(d) {
+    if (!d || isUnreliable(d)) return [];
+    const R = PROFILE_RULES, L = d.labels || {}, K = d.keyNumbers || {}, f = d.fairValue, out = [];
+    const q = L.quality && isNum(L.quality.score) ? L.quality.score : null;
+    const g = L.growth && isNum(L.growth.rate) ? L.growth.rate : null;
+    const prof = isNum(K.netIncome) ? K.netIncome > 0 : null;
+    if (isNum(d.marketCap) && d.marketCap >= R.blueChipCap && q !== null && q >= R.blueChipQuality && prof === true)
+      out.push({ tag: 'Blue chip', rule: `Market value ${money(d.marketCap)} (${money(R.blueChipCap)} or more), quality ${q}/100 (${R.blueChipQuality} or more) and profitable last year.` });
+    if (g !== null && g >= R.growthRate) out.push({ tag: 'Growth', rule: `Growth ${pct(g, 0)} a year (${pct(R.growthRate, 0)} or more).` });
+    if (f && isNum(f.base) && f.base > 0 && isNum(d.price) && d.price / f.base - 1 <= -R.valueGap && q !== null && q >= R.valueQuality)
+      out.push({ tag: 'Value', rule: `Price ${price(d.price)} is ${pct(1 - d.price / f.base, 0)} under the fair value estimate ${price(f.base)} (${pct(R.valueGap, 0)} or more) and quality ${q}/100 (${R.valueQuality} or more).` });
+    const dv = d.dividends;
+    if (dv && dv.pays && isNum(dv.yield) && dv.yield >= R.incomeYield && isNum(dv.yearsPaid) && dv.yearsPaid >= R.incomeYears)
+      out.push({ tag: 'Dividend / income', rule: `Yield ${pct(dv.yield, 1)} (${pct(R.incomeYield, 0)} or more), paid ${dv.yearsPaid} years in a row (${R.incomeYears} or more).` });
+    const ind = String(d.industry || '').toLowerCase();
+    const hit = R.cyclical.find((w) => ind.includes(w));
+    if (hit) out.push({ tag: 'Cyclical', rule: `Its industry (${industry(d.industry)}) is on the fixed list of industries whose earnings rise and fall with the economy (matched “${hit}”).` });
+    const hist = Array.isArray(d.history) ? d.history : [];
+    const everProfit = hist.slice(0, -1).some((h2) => isNum(h2.netIncome) && h2.netIncome > 0);
+    if (prof === false && everProfit && g !== null && g >= R.turnaroundGrowth) out.push({ tag: 'Turnaround', rule: `Lost money last year, made money in an earlier year, and sales grow ${pct(g, 0)} a year (${pct(R.turnaroundGrowth, 0)} or more).` });
+    else if (prof === false && (!isNum(K.fcf) || K.fcf <= 0)) out.push({ tag: 'Speculative', rule: 'Lost money last year and cash profit is not positive.' });
+    else if (q !== null && q < R.specQuality) out.push({ tag: 'Speculative', rule: `Quality score ${q}/100 (under ${R.specQuality}).` });
+    return out;
+  }
+  function profileEl(d) {
+    const P = profileOf(d);
+    if (!P.length) return null;
+    return h('details', { class: 'profile' }, h('summary', null, h('span', { class: 'pf-k', text: 'Profile' }), P.map((x) => h('span', { class: 'pf-tag', text: x.tag }))),
+      h('ul', { class: 'pf-rules' }, P.map((x) => h('li', null, h('b', { text: x.tag + ': ' }), h('span', { text: x.rule })))),
+      h('p', { class: 'note', text: 'A description of the company’s profile from fixed rules on the tool’s own numbers. Not advice and not a score. Tap to see each rule.' }));
+  }
   function caseCard(d) {
     if (isUnreliable(d)) return h('section', { class: 'card', 'aria-label': 'Case for and against' }, h('h2', { text: 'Case for and against' }), h('p', { class: 'sub', text: 'The data check failed for this company, so no case is shown. Not a call to buy or sell.' }));
     const c = caseOf(d);
@@ -2194,6 +2236,7 @@ table td, table th { padding-block: 11px; }
         (tech.rtEl = h('div', { class: 'm rt-line', hidden: true })),
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' })),
       (tech.spark = h('div', { class: 'spark', hidden: true }))));
+    { const pe = profileEl(d); if (pe) result.append(pe); }
     result.append(summaryCard(d));
     result.append(caseCard(d));
     result.append(firstView(d));
@@ -11818,7 +11861,7 @@ table td, table th { padding-block: 11px; }
     });
   }
   // test hook for the automated page tests (test/page.test.py); inert unless the page is opened with ?selftest=1
-  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { weekdaysStrictlyBetween, tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, shariahGate, ledgerGate, SHL }, thesis: { appendThesis, verifyThesisLog, thesisState, thesisOverview, thesisChanges, explainDecision, conditionStates, mergeThesisLogs, THS, thesisEvidence, decisionDraft }, portfolio: { appendPortfolio, verifyPortfolioLog, mergePortfolioLogs, pfReplay, pfValue, pfExposure, pfBuyCheck, pfSellPreview, pfReconcile, pfProposeOpening, pfHistLine, pfHistAdd, pfHistMerge, PFL, pfPicture, pfContext }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
+  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { profileOf, weekdaysStrictlyBetween, tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, shariahGate, ledgerGate, SHL }, thesis: { appendThesis, verifyThesisLog, thesisState, thesisOverview, thesisChanges, explainDecision, conditionStates, mergeThesisLogs, THS, thesisEvidence, decisionDraft }, portfolio: { appendPortfolio, verifyPortfolioLog, mergePortfolioLogs, pfReplay, pfValue, pfExposure, pfBuyCheck, pfSellPreview, pfReconcile, pfProposeOpening, pfHistLine, pfHistAdd, pfHistMerge, PFL, pfPicture, pfContext }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
 })();
 </script>
 </body>

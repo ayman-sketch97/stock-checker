@@ -321,6 +321,14 @@ async def main():
         check(not errs, f'no page errors on a normal stock page {errs}')
         wd = await pg.evaluate("() => { const f = window.__sc.weekdaysStrictlyBetween; return [f('2026-11-25', '2026-11-28'), f('2026-11-20', '2026-11-25'), f('2026-12-23', '2026-12-28'), f('2026-11-27', '2026-11-27')]; }")
         check(wd == [1, 2, 1, 0], f'stale guard: US market holidays are not counted as missed updates (Thanksgiving, Christmas): {wd}')
+        pf = await pg.evaluate("""() => { const P = window.__sc.profileOf; const tags = (d) => P(d).map((x) => x.tag);
+          const big = { marketCap: 90e9, price: 70, labels: { quality: { score: 80 }, growth: { rate: 0.12 } }, keyNumbers: { netIncome: 5e9, fcf: 4e9 }, fairValue: { base: 100 }, dividends: { pays: true, yield: 0.03, yearsPaid: 10 }, industry: 'services-prepackaged-software', history: [] };
+          const loss = { marketCap: 3e9, price: 10, labels: { quality: { score: 40 }, growth: { rate: -0.05 } }, keyNumbers: { netIncome: -1e8, fcf: -5e7 }, industry: 'crude petroleum and natural gas', history: [{ netIncome: 2e8 }, { netIncome: -1e8 }] };
+          const turn = { marketCap: 3e9, price: 10, labels: { quality: { score: 60 }, growth: { rate: 0.05 } }, keyNumbers: { netIncome: -1e8, fcf: -5e7 }, history: [{ netIncome: 2e8 }, { netIncome: -1e8 }] };
+          return [tags(big), tags(loss), tags(turn), tags({}), tags({ verdict: { code: 'UNRELIABLE' }, marketCap: 9e10 })]; }""")
+        check(pf == [['Blue chip', 'Growth', 'Value', 'Dividend / income'], ['Cyclical', 'Speculative'], ['Turnaround'], [], []], f'profile tags follow the fixed rules and give nothing for missing or unreliable data: {pf}')
+        pt = await pg.inner_text('.profile summary') if await pg.query_selector('.profile') else ''
+        check(pt.startswith('Profile') and await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), f'profile line shows on the company page without sideways scroll: {pt!r}')
         await pg.close()
         # live price: headline and lists use the Finnhub relay only while it is fresh; scores stay on the close
         import time as _time
