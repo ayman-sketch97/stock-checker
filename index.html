@@ -719,6 +719,10 @@ ol.exits li { margin: 5px 0; }
 .stat .val { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 4px; line-height: 1.15; letter-spacing: -0.035em; }
 .stat .s { font-size: 12px; color: var(--ink-2); margin-top: 3px; }
 .tscroll { overflow-x: auto; margin-top: 10px; }
+.gl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.gl-row:last-child { border-bottom: 0; }
+.gl-k { flex: 1 1 150px; color: var(--muted); font-size: 14px; }
+.gl-v { font-variant-numeric: tabular-nums; }
 table.data { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
 table.data th { text-align: right; color: var(--muted); font-weight: 700; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.07em; padding: 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 table.data td { text-align: right; padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -2080,7 +2084,7 @@ table td, table th { padding-block: 11px; }
     const sh = d.shariah && typeof d.shariah === 'object' ? d.shariah : null;
     const SHT = { pass: ['Passes the screen', 'good'], fail: ['Fails the screen', 'bad'], review: ['Needs checking', 'warn'] };
     const unrel = isUnreliable(d);
-    const row = (k, val, tag, tone) => h('tr', null, h('th', { scope: 'row', text: k }), h('td', { text: val }), h('td', null, tag ? tagEl(tag, tone || 'neutral') : null));
+    const row = (k, val, tag, tone) => h('div', { class: 'gl-row' }, h('span', { class: 'gl-k', text: k }), h('b', { class: 'gl-v', text: val }), tag ? tagEl(tag, tone || 'neutral') : null);
     const shp = sh && SHT[sh.status] ? SHT[sh.status] : null;
     const q = L.quality && isNum(L.quality.score) ? L.quality : null;
     const hl = L.health && isNum(L.health.score) ? L.health : null;
@@ -2090,12 +2094,12 @@ table td, table th { padding-block: 11px; }
     const dq = d.dataQuality && d.dataQuality.label ? d.dataQuality : null;
     const dqTone = dq && dq.level === 'high' ? 'good' : dq ? 'warn' : 'neutral';
     return h('section', { class: 'card', 'aria-label': 'At a glance summary' }, h('h2', { text: 'At a glance' }),
-      h('table', { class: 'data' }, h('tbody', null,
+      h('div', { class: 'gl-list' },
         row('Halal screen', shp ? shp[0] : 'Unknown', shp ? 'tool’s screen' : '', shp ? shp[1] : 'neutral'),
         row('Quality', q ? `${q.score}/100` : 'Unknown', q ? q.label : '', 'neutral'),
         row('Financial health', hl ? `${hl.score}/100` : 'Unknown', hl ? hl.label : '', 'neutral'),
         row('Price vs fair value', fv || 'Unknown', fv ? 'estimate' : '', 'neutral'),
-        row('Confidence in the data', dq ? dq.label.replace(/ in the data$/, '') : 'Unknown', '', dqTone))),
+        row('Confidence in the data', dq ? dq.label.replace(/ in the data$/, '') : 'Unknown', '', dqTone)),
       h('p', { class: 'note', text: 'The tool’s own numbers, from SEC filings and end-of-day prices. Details and sources are below. Not a call to buy or sell; confirm halal status on Zoya or Musaffa.' }));
   }
   function firstView(d) {
