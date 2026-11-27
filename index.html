@@ -1161,6 +1161,143 @@ body { letter-spacing: -0.003em; }
   .card:not(.verdict):not(.err) { padding: var(--sp-5) var(--sp-4); }
 }
 @media (prefers-reduced-motion: reduce) { .tile { transition: none; } .tile:hover { transform: none; } }
+
+/* ===== Premium skin (26 Nov 2026): visual layer only. It restyles with colour, depth, spacing and type; it changes no words, numbers,
+   data, rules or behaviour. Remove this block and the site is exactly as before. ===== */
+:root {
+  --gold: #b7791f; --gold-soft: rgba(212, 160, 23, 0.16);
+  --radius: 22px; --radius-sm: 16px;
+  --hair: color-mix(in srgb, var(--ink) 9%, transparent);
+  --shadow: 0 1px 1px rgba(15, 23, 42, 0.04), 0 2px 4px rgba(15, 23, 42, 0.03), 0 18px 40px -22px rgba(15, 23, 42, 0.22);
+  --shadow-lg: 0 2px 4px rgba(15, 23, 42, 0.05), 0 28px 60px -26px rgba(15, 23, 42, 0.38);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #04070d; --surface: #0b1220; --surface-2: #0f192b; --gold: #e6b84d; --gold-soft: rgba(230, 184, 77, 0.16);
+    --hair: rgba(255, 255, 255, 0.075);
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 20px 44px -24px rgba(0, 0, 0, 0.85);
+    --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 32px 64px -28px rgba(0, 0, 0, 0.9);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #04070d; --surface: #0b1220; --surface-2: #0f192b; --gold: #e6b84d; --gold-soft: rgba(230, 184, 77, 0.16);
+  --hair: rgba(255, 255, 255, 0.075);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 20px 44px -24px rgba(0, 0, 0, 0.85);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 32px 64px -28px rgba(0, 0, 0, 0.9);
+}
+body { font-feature-settings: "cv11"; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+h1, h2, h3 { letter-spacing: -0.03em; }
+h1 { font-weight: 780; }
+
+/* cards: hairline edge, deeper layered shadow, a quiet lift on hover */
+.card:not(.verdict):not(.err), details.sec, .co {
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 100%, #fff 0%), var(--surface)) padding-box,
+    linear-gradient(160deg, color-mix(in srgb, var(--gold) 32%, var(--hair)), var(--hair) 38%, color-mix(in srgb, var(--series-1) 22%, var(--hair))) border-box;
+  box-shadow: var(--lift), var(--shadow);
+  transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease);
+}
+@media (hover: hover) { .card:not(.verdict):not(.err):hover { transform: translateY(-2px); box-shadow: var(--lift), var(--shadow-lg); } }
+.card h2 { font-weight: 760; }
+
+/* background light: emerald, a warm gold touch and blue, softer and deeper */
+:root { --aurora-2: rgba(212, 160, 23, 0.10); }
+:root[data-theme="dark"] { --aurora-1: rgba(16, 185, 129, 0.16); --aurora-2: rgba(230, 184, 77, 0.09); --aurora-3: rgba(59, 130, 246, 0.12); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --aurora-1: rgba(16, 185, 129, 0.16); --aurora-2: rgba(230, 184, 77, 0.09); --aurora-3: rgba(59, 130, 246, 0.12); } }
+
+/* page title rule: gold into emerald */
+.page-head h1::before { width: 46px; height: 4px; background: linear-gradient(90deg, var(--gold), var(--brand-1)); box-shadow: 0 2px 14px var(--gold-soft); }
+.page-head p { color: var(--ink-2); max-width: 62ch; }
+
+/* the market card: a deeper, richer surface so it reads as the headline of the page */
+.card[class*="market"], #page-dashboard .card:first-of-type { box-shadow: var(--lift), var(--shadow-lg); }
+
+/* the small status pills under the tabs: quieter, finer, more like a ticker strip */
+.data-status span, .data-status .pill { font-size: 12.5px; box-shadow: none; border-color: var(--hair); }
+
+/* eyebrow labels (the small caps over a card) */
+.kicker, .eyebrow, .card .tag { letter-spacing: 0.1em; font-weight: 720; }
+
+/* navigation: a deeper glass bar, a gold hairline under the active page */
+.nav { backdrop-filter: saturate(1.6) blur(18px); -webkit-backdrop-filter: saturate(1.6) blur(18px); border-color: var(--hair); }
+.nav button[aria-current="page"] { position: relative; }
+.nav button[aria-current="page"]::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 3px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+
+/* the brand mark */
+.brand-mark, .logo, .brand svg { filter: drop-shadow(0 6px 14px var(--brand-glow)); }
+
+/* buttons: richer emerald, a crisp top light, a softer shadow */
+.btn:not(.btn-outline) { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset, 0 10px 22px -10px var(--brand-glow), 0 2px 4px rgba(5, 80, 60, 0.18); letter-spacing: 0.005em; }
+.btn { transition: transform 0.2s var(--ease), box-shadow 0.25s var(--ease), filter 0.2s; }
+@media (hover: hover) { .btn:not(.btn-outline):hover { filter: brightness(1.06); transform: translateY(-1px); } }
+
+/* meters and bars: slimmer, rounder, a faint glow */
+progress, .meter, .bar { border-radius: 999px; }
+.card [role="progressbar"], .card .track { border-radius: 999px; }
+
+/* chips and badges: finer borders, tabular numerals */
+.chip, .gchip, .badge, .pill { font-variant-numeric: tabular-nums; }
+table { font-variant-numeric: tabular-nums; }
+th { letter-spacing: 0.06em; }
+
+/* the market card and company quote card: a faint gold glow in one corner */
+.co::before { background: radial-gradient(closest-side, var(--gold-soft), transparent); }
+
+/* phones: more air between cards, a larger touch-friendly tab bar with a lit active tab */
+@media (max-width: 700px) {
+  .card:not(.verdict):not(.err) { border-radius: 20px; }
+}
+
+/* ===== Bold preview (visual only, on top of the premium skin): a ticker-strip status bar, a large price, a taller glowing chart line,
+   glass cards, bigger titles. No words, numbers, data, rules or behaviour change. ===== */
+.data-status > * { font-size: 12.5px; }
+
+.page-head h1 { font-size: clamp(32px, 7vw, 46px); font-weight: 820; letter-spacing: -0.045em; }
+.page-head h1::before { width: 56px; height: 5px; margin-bottom: 16px; }
+.page-head p { font-size: 16.5px; }
+
+/* glass cards over the aurora */
+.card:not(.verdict):not(.err), details.sec, .co {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 86%, transparent), color-mix(in srgb, var(--surface) 72%, transparent)) padding-box,
+    linear-gradient(160deg, color-mix(in srgb, var(--gold) 40%, var(--hair)), var(--hair) 36%, color-mix(in srgb, var(--series-1) 26%, var(--hair))) border-box;
+  -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+}
+
+/* the company card: the price is the hero */
+.co { padding: 26px 26px 22px; border-radius: 26px; }
+.co h1 { font-size: clamp(26px, 6.6vw, 38px); font-weight: 820; letter-spacing: -0.04em; }
+.px .p { font-size: clamp(38px, 9vw, 58px); font-weight: 840; letter-spacing: -0.055em; }
+.px .m.up, .px .m.down { font-size: 14px; padding: 4px 12px; font-weight: 700; }
+.spark-plot { height: 104px; margin-top: 10px; }
+.spark-line { stroke-width: 2.6; filter: drop-shadow(0 4px 10px color-mix(in srgb, currentColor 0%, transparent)); }
+.is-up .spark-line { filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--good) 55%, transparent)); }
+.is-down .spark-line { filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--bad) 55%, transparent)); }
+.sf-a { stop-opacity: 0.38; }
+.spark-dot { width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; }
+.r52 .bar { height: 8px; }
+.r52 .bar i { width: 16px; height: 16px; margin: -8px 0 0 -8px; border-width: 4px; }
+
+/* the bottom-line verdict: bolder */
+.verdict { border-radius: 24px; padding: 26px 24px; }
+.verdict .title { font-size: clamp(28px, 6vw, 38px); letter-spacing: -0.045em; }
+
+/* dashboard: the market card reads as the hero, the others sit lower and quieter */
+#page-dashboard .card:first-of-type { padding: 28px 28px 26px; border-radius: 28px; box-shadow: var(--lift), var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--gold) 14%, transparent); }
+#page-dashboard .card:first-of-type h2 { font-size: clamp(24px, 5vw, 30px); letter-spacing: -0.04em; }
+
+/* nav: larger, rounder active pill */
+.nav button { border-radius: 999px; }
+.nav button[aria-current="page"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent), 0 8px 22px -10px var(--brand-glow); }
+
+/* buttons: pill, glowing */
+.btn { border-radius: 999px; padding-inline: 22px; }
+.btn:not(.btn-outline) { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 14px 30px -12px var(--brand-glow), 0 2px 6px rgba(5, 80, 60, 0.25); }
+
+/* tables and lists: airier rows, a hairline between them */
+table td, table th { padding-block: 11px; }
+.srow { border-radius: 18px; }
+@media (max-width: 700px) { .co { padding: 20px 18px 18px; border-radius: 22px; } .spark-plot { height: 84px; } #page-dashboard .card:first-of-type { padding: 22px 18px; } }
 </style>
 </head>
 <body>
