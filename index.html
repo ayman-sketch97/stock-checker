@@ -7160,6 +7160,22 @@ table td, table th { padding-block: 11px; }
     }
     return { journal, watch, advisor, added, shariah, thesis, portfolio, pfHist };
   }
+  // joins a backup object into this device (nothing is overwritten) and returns the sentence to show; used by the file restore and the cloud restore
+  function applyBackup(inc) {
+    const anc = { s: SHL.load().anchor, t: THS.load().anchor, p: PFL.load().anchor }; // what this device had recorded before the join
+    const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load(), shariah: SHL.load(), thesis: THS.load(), portfolio: PFL.load(), pfHist: PFL.hist() }, inc);
+    JR.save(m.journal);
+    W.save(m.watch);
+    ADV.save(m.advisor);
+    let lgNote = '';
+    // joined entries are saved only if they still contain everything this device had recorded (its saved anchor); otherwise the join would hide the missing entries
+    const lacks = 'Not saved: after joining, it still lacks entries this device had recorded, so the backup is not the one that restores them.';
+    if (m.shariah) { if (m.shariah.ok && m.shariah.added > 0 && checkAnchor(m.shariah.entries, anc.s).ok) SHL.save(m.shariah.entries); lgNote = ` Shariah ledger: ${m.shariah.ok && m.shariah.added > 0 && !checkAnchor(m.shariah.entries, anc.s).ok ? lacks : m.shariah.note}`; }
+    if (m.thesis) { if (m.thesis.ok && m.thesis.added > 0 && checkAnchor(m.thesis.entries, anc.t).ok) THS.save(m.thesis.entries); lgNote += ` Thesis record: ${m.thesis.ok && m.thesis.added > 0 && !checkAnchor(m.thesis.entries, anc.t).ok ? lacks : m.thesis.note}`; }
+    if (m.portfolio) { if (m.portfolio.ok && m.portfolio.added > 0 && checkAnchor(m.portfolio.entries, anc.p).ok) PFL.save(m.portfolio.entries); lgNote += ` Portfolio ledger: ${m.portfolio.ok && m.portfolio.added > 0 && !checkAnchor(m.portfolio.entries, anc.p).ok ? lacks : m.portfolio.note}`; }
+    if (m.pfHist && m.pfHist.added > 0) { PFL.saveHist(m.pfHist.hist); lgNote += ` Value history: ${m.pfHist.added} line${m.pfHist.added === 1 ? '' : 's'} added.`; }
+    return `Added ${m.added.trades} trade${m.added.trades === 1 ? '' : 's'}, ${m.added.watch} watchlist stock${m.added.watch === 1 ? '' : 's'} and ${m.added.holdings} portfolio holding${m.added.holdings === 1 ? '' : 's'}. Anything already on this device was kept as it is.${lgNote}`;
+  }
   function logTrade(t, plan) {
     journalPrefill = { t, ...plan };
     navigate('journal');
@@ -7525,19 +7541,7 @@ table td, table th { padding-block: 11px; }
         try {
           const inc = JSON.parse(String(rd.result));
           if (!inc || !Array.isArray(inc.trades)) throw new Error('bad');
-          const anc = { s: SHL.load().anchor, t: THS.load().anchor, p: PFL.load().anchor }; // what this device had recorded before the join
-          const m = mergeBackup({ journal: JR.load(), watch: W.load(), advisor: ADV.load(), shariah: SHL.load(), thesis: THS.load(), portfolio: PFL.load(), pfHist: PFL.hist() }, inc);
-          JR.save(m.journal);
-          W.save(m.watch);
-          ADV.save(m.advisor);
-          let lgNote = '';
-          // joined entries are saved only if they still contain everything this device had recorded (its saved anchor); otherwise the join would hide the missing entries
-          const lacks = 'Not saved: after joining, it still lacks entries this device had recorded, so the backup is not the one that restores them.';
-          if (m.shariah) { if (m.shariah.ok && m.shariah.added > 0 && checkAnchor(m.shariah.entries, anc.s).ok) SHL.save(m.shariah.entries); lgNote = ` Shariah ledger: ${m.shariah.ok && m.shariah.added > 0 && !checkAnchor(m.shariah.entries, anc.s).ok ? lacks : m.shariah.note}`; }
-          if (m.thesis) { if (m.thesis.ok && m.thesis.added > 0 && checkAnchor(m.thesis.entries, anc.t).ok) THS.save(m.thesis.entries); lgNote += ` Thesis record: ${m.thesis.ok && m.thesis.added > 0 && !checkAnchor(m.thesis.entries, anc.t).ok ? lacks : m.thesis.note}`; }
-          if (m.portfolio) { if (m.portfolio.ok && m.portfolio.added > 0 && checkAnchor(m.portfolio.entries, anc.p).ok) PFL.save(m.portfolio.entries); lgNote += ` Portfolio ledger: ${m.portfolio.ok && m.portfolio.added > 0 && !checkAnchor(m.portfolio.entries, anc.p).ok ? lacks : m.portfolio.note}`; }
-          if (m.pfHist && m.pfHist.added > 0) { PFL.saveHist(m.pfHist.hist); lgNote += ` Value history: ${m.pfHist.added} line${m.pfHist.added === 1 ? '' : 's'} added.`; }
-          bmsg.textContent = `Added ${m.added.trades} trade${m.added.trades === 1 ? '' : 's'}, ${m.added.watch} watchlist stock${m.added.watch === 1 ? '' : 's'} and ${m.added.holdings} portfolio holding${m.added.holdings === 1 ? '' : 's'}. Anything already on this device was kept as it is.${lgNote}`;
+          bmsg.textContent = applyBackup(inc);
           setTimeout(rerender, 1200);
         } catch { bmsg.textContent = 'That file is not a journal backup from this site.'; }
       };
@@ -10871,6 +10875,140 @@ table td, table th { padding-block: 11px; }
       h('div', { class: 'ai' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', id: 'toAlertCentre', onclick: () => navigate('alerts') }, 'Open the Alert Centre')));
     return card;
   }
+  // ------------------------------------------------------------------ cloud backup (scrambled on this device, kept in your own free Cloudflare storage)
+  // The backup file stays as it is. This adds an automatic second copy: the phone encrypts everything with a long random secret
+  // (AES-GCM), and the Worker you own only ever stores the scrambled text under a hash of that secret. No account, no password.
+  // The recovery key (shown on this device, copy it into Notes or a password manager) holds the Worker address and the secret.
+  // Restoring joins the copy into this device with the same rules as the file restore: nothing here is overwritten.
+  const CLOUD = {
+    load() { const c = store.get('cloud', null); return c && typeof c === 'object' && c.url && c.secret ? { url: String(c.url), secret: String(c.secret), last: String(c.last || ''), hash: String(c.hash || '') } : null; },
+    save(c) { store.set('cloud', c); },
+    clear() { try { localStorage.removeItem('cloud'); } catch { /* ignore */ } },
+  };
+  const cb64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); };
+  const cunb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const cb64u = (u8) => cb64(u8).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const cunb64u = (s) => cunb64(String(s).replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((String(s).length + 3) % 4));
+  async function cloudKeys(secret) {
+    const enc = new TextEncoder();
+    const sha = async (t) => new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(t)));
+    const id = [...await sha('sc-id|' + secret)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const key = await crypto.subtle.importKey('raw', await sha('sc-key|' + secret), 'AES-GCM', false, ['encrypt', 'decrypt']);
+    return { id, key };
+  }
+  async function cloudSeal(secret, text) {
+    const { id, key } = await cloudKeys(secret);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(text)));
+    return { id, data: { v: 1, iv: cb64(iv), ct: cb64(ct) } };
+  }
+  async function cloudOpen(secret, data) {
+    const { key } = await cloudKeys(secret);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: cunb64(data.iv) }, key, cunb64(data.ct));
+    return new TextDecoder().decode(pt);
+  }
+  const cloudPost = async (base, path, body) => { const r = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.error || 'failed'); e.status = r.status; throw e; } return j; };
+  const recoveryKeyOf = (c) => 'scr1.' + cb64u(new TextEncoder().encode(JSON.stringify({ u: c.url, s: c.secret })));
+  function parseRecoveryKey(v) {
+    const m = /^scr1\.([A-Za-z0-9_-]+)$/.exec(String(v || '').trim());
+    if (!m) return null;
+    try { const o = JSON.parse(new TextDecoder().decode(cunb64u(m[1]))); const url = pushBase(o.u); return url && typeof o.s === 'string' && o.s.length >= 24 ? { url, secret: o.s } : null; } catch { return null; }
+  }
+  let cloudBusy = false;
+  // saves the copy when something changed; never sends an empty device state over a copy that may hold real records
+  async function cloudPush(force) {
+    const c = CLOUD.load();
+    if (!c || cloudBusy) return 'off';
+    if (!recordCounts().n.any) return 'empty';
+    const text = JSON.stringify(backupOf(JR.load()));
+    const hash = String(text.length) + ':' + [...text].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7);
+    if (!force && hash === c.hash) return 'same';
+    cloudBusy = true;
+    try {
+      const s = await cloudSeal(c.secret, text);
+      await cloudPost(c.url, '/sync/put', s);
+      CLOUD.save({ ...c, last: new Date().toISOString(), hash });
+      return 'saved';
+    } finally { cloudBusy = false; }
+  }
+  async function cloudEnable(base) {
+    const secret = cb64u(crypto.getRandomValues(new Uint8Array(24)));
+    const c = { url: base, secret, last: '', hash: '' };
+    CLOUD.save(c);
+    try {
+      if (recordCounts().n.any) { const r = await cloudPush(true); if (r !== 'saved') throw new Error('The copy was not saved.'); }
+      else { const s = await cloudSeal(secret, JSON.stringify(backupOf(JR.load()))); await cloudPost(base, '/sync/put', s); }
+    } catch (e) { CLOUD.clear(); throw new Error(e && e.status === 403 ? 'The Worker refused this site. It needs the newest Worker code.' : e && e.status === 404 ? 'That address is not the backup Worker, or it needs the newest code.' : 'Could not reach that address. Check it and try again.'); }
+    return recoveryKeyOf(c);
+  }
+  async function cloudRestore(key) {
+    const k = parseRecoveryKey(key);
+    if (!k) throw new Error('That is not a recovery key. It starts with scr1. and is one long line.');
+    const { id } = await cloudKeys(k.secret);
+    let r;
+    try { r = await cloudPost(k.url, '/sync/get', { id }); } catch (e) { throw new Error(e && e.status === 404 ? 'No backup was found for that key.' : 'Could not reach the backup. Check the connection and try again.'); }
+    let inc;
+    try { inc = JSON.parse(await cloudOpen(k.secret, r.data)); } catch { throw new Error('The backup could not be unlocked with that key.'); }
+    if (!inc || !Array.isArray(inc.trades)) throw new Error('The backup is not a Stock Checker backup.');
+    const note = applyBackup(inc);
+    CLOUD.save({ url: k.url, secret: k.secret, last: '', hash: '' });
+    return note;
+  }
+  async function cloudOff(forget) {
+    const c = CLOUD.load();
+    if (c && forget) { try { const { id } = await cloudKeys(c.secret); await cloudPost(c.url, '/sync/delete', { id }); } catch { /* the copy stays; it is only readable with the key */ } }
+    CLOUD.clear();
+  }
+  function cloudAuto() { try { if (CLOUD.load()) cloudPush(false).catch(() => {}); } catch { /* not ready */ } }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') cloudAuto(); });
+    setInterval(() => { if (document.visibilityState === 'visible') cloudAuto(); }, 60000);
+    setTimeout(cloudAuto, 6000);
+  }
+  function cloudBox(rerender) {
+    const c = CLOUD.load();
+    const { n } = recordCounts();
+    const box = h('div', { class: 'cloud-box' });
+    const msg = h('p', { class: 'note', role: 'status', text: '' });
+    const say = (t) => { msg.textContent = t; };
+    const copy = async (t) => { try { await navigator.clipboard.writeText(t); say('Copied. Paste it into Notes or your password manager now.'); } catch { say('Could not copy. Press and hold the key to copy it.'); } };
+    const keyBox = (t) => h('input', { type: 'text', readonly: true, value: t, 'aria-label': 'Recovery key', class: 'cloud-key', onfocus: (e) => e.target.select() });
+    box.append(h('h4', { text: 'Cloud backup' }));
+    if (c) {
+      const when = c.last ? `${shortDate(c.last.slice(0, 10))}, ${new Date(c.last).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'not yet';
+      box.append(h('p', { class: 'rec-line' }, icon('good', 'On'), h('span', null, h('b', { text: 'On. ' }), `Saved automatically after changes, and each time you open the site. Last copy: ${when}. It is scrambled on this device first, so only your recovery key can read it.`)));
+      const shown = h('div');
+      box.append(h('div', { class: 'ai' },
+        h('button', { class: 'btn btn-sm', type: 'button', onclick: async () => { say('Saving…'); try { const r = await cloudPush(true); say(r === 'saved' ? 'Saved.' : 'Nothing to save yet.'); setTimeout(rerender, 900); } catch { say('Could not reach the backup. Try again later.'); } } }, 'Back up now'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => { shown.replaceChildren(keyBox(recoveryKeyOf(c)), h('div', { class: 'ai' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => copy(recoveryKeyOf(c)) }, 'Copy key'))); } }, 'Show recovery key'),
+        h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: async () => { if (!confirm('Stop cloud backup and delete the cloud copy? This device keeps its data.')) return; await cloudOff(true); rerender(); } }, 'Turn off and delete the cloud copy')));
+      box.append(shown);
+    } else {
+      box.append(h('p', { class: 'rec-line' }, icon('ok', 'Off'), h('span', null, h('b', { text: 'Off. ' }), n.any ? 'If this app is deleted or its data is cleared, your records are gone. Cloud backup keeps a scrambled copy in your own free Cloudflare storage and brings everything back with one key.' : 'Turn it on before you add records, so nothing is ever lost.')));
+      const url = h('input', { type: 'text', placeholder: 'https://your-worker.workers.dev', 'aria-label': 'Backup Worker address', value: PUSH.load().url || '', autocapitalize: 'none', autocorrect: 'off' });
+      const out = h('div');
+      box.append(h('div', { class: 'ai' }, url, h('button', { class: 'btn btn-sm', type: 'button', onclick: async (ev) => {
+        const base = pushBase(url.value);
+        if (!base) { say('Enter your Worker address first (the same one used for phone notifications).'); return; }
+        ev.target.disabled = true; say('Turning on…');
+        try {
+          const k = await cloudEnable(base);
+          say('Cloud backup is on. Save this recovery key now: it is the only way to restore on a new phone.');
+          out.replaceChildren(keyBox(k), h('div', { class: 'ai' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => copy(k) }, 'Copy key')));
+        } catch (e) { say((e && e.message) || 'That did not work.'); ev.target.disabled = false; }
+      } }, 'Turn on cloud backup')), out);
+    }
+    const rk = h('input', { type: 'text', placeholder: 'scr1.…', 'aria-label': 'Recovery key to restore from', autocapitalize: 'none', autocorrect: 'off' });
+    box.append(h('details', { class: 'which' }, h('summary', null, h('span', { text: 'Restore from a cloud backup' }), h('span', { class: 'chev', 'aria-hidden': 'true', text: '⌄' })),
+      h('p', { class: 'note', text: 'After a reinstall or on a new phone: paste your recovery key and tap Restore. Your records come back and this device keeps backing up to the same copy. Anything already here is kept.' }),
+      h('div', { class: 'ai' }, rk, h('button', { class: 'btn btn-sm', type: 'button', onclick: async (ev) => {
+        ev.target.disabled = true; say('Restoring…');
+        try { const note = await cloudRestore(rk.value); say(note); setTimeout(rerender, 1500); } catch (e) { say((e && e.message) || 'That did not work.'); }
+        ev.target.disabled = false;
+      } }, 'Restore'))));
+    box.append(msg);
+    return box;
+  }
   // ------------------------------------------------------------------ your records on this device (stage 11, display and one browser request)
   // What you record here lives in this browser only. This card says what is kept, when the last backup file was saved and whether the
   // browser has agreed to keep the data. It reads the same stores as the Journal page and writes nothing except the backup date the
@@ -10921,6 +11059,7 @@ table td, table th { padding-block: 11px; }
         ? 'This browser does not offer a way to ask it to keep this data, so it may clear it. A backup file is the only safe copy.'
         : 'The browser has not promised to keep this data and may clear it (Safari can clear a website you have not opened for about a week). A backup file is the only safe copy.';
     box.append(h('p', { class: 'rec-line', 'data-persist': persistState }, icon(persistState === 'yes' ? 'good' : 'ok', persistState === 'yes' ? 'Requested and accepted' : 'Not promised'), h('span', null, h('b', { text: 'Browser storage: ' }), ps)));
+    box.append(cloudBox(() => { const cur = document.querySelector('.rec-box'); if (cur) cur.replaceWith(recordsCard()); }));
     const acts = h('div', { class: 'ai' });
     if (n.any) acts.append(h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { const k = JR.load(); k.backup = localISO(); JR.save(k); saveFile(`stock-checker-backup-${localISO()}.json`, JSON.stringify(backupOf(k), null, 1), 'application/json'); setTimeout(() => { if (page === 'dashboard') renderDashboard(); }, 800); } }, 'Save a backup now'));
     acts.append(h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('journal') }, 'Backup and restore'));

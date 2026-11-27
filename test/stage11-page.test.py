@@ -173,7 +173,7 @@ async def main():
         await ctx3.close()
         # the Home Screen note never promises
         pg, errs = await page_with(ctx, base, fresh, HELD, '&p=dashboard', zoya=['AAPL'])
-        note = await pg.evaluate("document.querySelector('.rec-box details.which').textContent.replace(/\\s+/g, ' ')")
+        note = await pg.evaluate("[...document.querySelectorAll('.rec-box details.which')].find((d) => /Home Screen/.test(d.textContent)).textContent.replace(/\\s+/g, ' ')")
         check('Add to Home Screen' in note and 'does not guarantee' in note, 'Home Screen note: explains how, and says it does not guarantee anything')
         await pg.goto(base + '?selftest=1&p=journal')
         await pg.wait_for_timeout(800)
