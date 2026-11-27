@@ -761,7 +761,9 @@ if (!ONLY.length && !LIMIT && priceDate && !fs.existsSync(RECORDS_DIR)) {
     analysed: items.length,
     failed: failed.map((f) => ({ t: f.t, err: String(f.err || '').slice(0, 80) })),
     noHistory: screen.filter((row) => row[F.techScore] === null || row[F.techScore] === undefined).length,
-    historyOff,
+    // Nasdaq slowing down is only a "bad" night when the backup source did not cover the gap; when it did, the normal
+    // share-without-history check speaks (and the price-data check names the backup)
+    historyOff: historyOff && screen.filter((row) => row[F.techScore] === null || row[F.techScore] === undefined).length / Math.max(1, items.length) > 0.05,
     verdicts: counts,
     shariah,
     earnings: { companies: screen.filter((row) => earnings.byTicker.has(row[F.ticker])).length, failures: earnings.failures, days: earnings.days },
