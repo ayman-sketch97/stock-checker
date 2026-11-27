@@ -2103,6 +2103,59 @@ table td, table th { padding-block: 11px; }
         row('Confidence in the data', dq ? dq.label.replace(/ in the data$/, '') : 'Unknown', '', dqTone)),
       h('p', { class: 'note', text: 'The tool’s own numbers, from SEC filings and end-of-day prices. Details and sources are below. Not a call to buy or sell; confirm halal status on Zoya or Musaffa.' }));
   }
+  // Case for / Case against: fixed rules over the tool's own numbers. Each point carries its figure and the rule it met; a missing
+  // number is listed as not known, never guessed. Display only: not a verdict, not a call to buy or sell, and no score changes.
+  const CASE_RULES = Object.freeze({ qualityStrong: 75, qualityWeak: 50, healthStrong: 70, healthWeak: 50, valueGap: 0.15, cashMargin: 0.15, thinMargin: 0.05, growthStrong: 0.1, growthWeak: 0.03, debtYears: 4 });
+  function caseOf(d) {
+    const R = CASE_RULES, L = d.labels || {}, K = d.keyNumbers || {}, f = d.fairValue;
+    const pf = [], ag = [], unk = [];
+    const q = L.quality && isNum(L.quality.score) ? L.quality.score : null;
+    if (q === null) unk.push('Quality score');
+    else if (q >= R.qualityStrong) pf.push(`Quality score ${q}/100 (${R.qualityStrong} or more counts as strong).`);
+    else if (q < R.qualityWeak) ag.push(`Quality score ${q}/100 (under ${R.qualityWeak} counts as weak).`);
+    const hl = L.health && isNum(L.health.score) ? L.health.score : null;
+    if (hl === null) unk.push('Financial health score');
+    else if (hl >= R.healthStrong) pf.push(`Financial health ${hl}/100 (${R.healthStrong} or more counts as strong).`);
+    else if (hl < R.healthWeak) ag.push(`Financial health ${hl}/100 (under ${R.healthWeak} counts as weak).`);
+    if (f && isNum(f.base) && f.base > 0 && isNum(d.price)) {
+      const gap = d.price / f.base - 1;
+      if (gap <= -R.valueGap) pf.push(`Price ${price(d.price)} is ${pct(-gap, 0)} under the fair value estimate ${price(f.base)} (a gap of ${pct(R.valueGap, 0)} or more counts).`);
+      else if (gap >= R.valueGap) ag.push(`Price ${price(d.price)} is ${pct(gap, 0)} above the fair value estimate ${price(f.base)} (a gap of ${pct(R.valueGap, 0)} or more counts).`);
+    } else unk.push('Fair value estimate');
+    const rev = isNum(K.revenue) && K.revenue > 0 ? K.revenue : null;
+    if (rev !== null && isNum(K.fcf)) {
+      const m = K.fcf / rev;
+      if (m >= R.cashMargin) pf.push(`Cash profit is ${pct(m, 0)} of sales (${pct(R.cashMargin, 0)} or more counts as strong).`);
+      else if (m < R.thinMargin) ag.push(`Cash profit is ${pct(m, 0)} of sales (under ${pct(R.thinMargin, 0)} counts as thin).`);
+    } else unk.push('Cash profit margin');
+    if (isNum(K.debt) && isNum(K.cash)) {
+      if (K.debt <= 0 || K.cash >= K.debt) pf.push(`Cash ${money(K.cash)} covers debt ${money(K.debt)}.`);
+      else if (isNum(K.fcf) && K.fcf > 0 && K.debt / K.fcf > R.debtYears) ag.push(`Debt ${money(K.debt)} is ${(K.debt / K.fcf).toFixed(1)} years of cash profit (over ${R.debtYears} years counts as heavy).`);
+      else if (isNum(K.fcf) && K.fcf <= 0) ag.push(`Debt ${money(K.debt)} against cash ${money(K.cash)}, and no positive cash profit.`);
+    } else unk.push('Debt and cash');
+    const g = L.growth && isNum(L.growth.rate) ? L.growth.rate : null;
+    if (g === null) unk.push('Growth rate');
+    else if (g >= R.growthStrong) pf.push(`Growth ${pct(g, 0)} a year (${pct(R.growthStrong, 0)} or more counts as strong).`);
+    else if (g < R.growthWeak) ag.push(`Growth ${pct(g, 0)} a year (under ${pct(R.growthWeak, 0)} counts as weak).`);
+    const sh = d.shariah && d.shariah.status;
+    if (sh === 'pass') pf.push('Passes the tool’s halal screen (confirm on Zoya).');
+    else if (sh === 'fail') ag.push('Fails the tool’s halal screen.');
+    else if (sh === 'review') ag.push('The halal screen needs checking.');
+    else unk.push('Halal status');
+    const dq = d.dataQuality && d.dataQuality.level;
+    if (dq && dq !== 'high') ag.push(`Confidence in the data is ${dq}, so read every figure with care.`);
+    return { pf, ag, unk };
+  }
+  function caseCard(d) {
+    if (isUnreliable(d)) return h('section', { class: 'card', 'aria-label': 'Case for and against' }, h('h2', { text: 'Case for and against' }), h('p', { class: 'sub', text: 'The data check failed for this company, so no case is shown. Not a call to buy or sell.' }));
+    const c = caseOf(d);
+    const list = (title, items, empty) => h('div', null, h('h3', { class: 'sub', style: 'margin:12px 0 4px', text: title }),
+      items.length ? h('ul', { class: 'alert-list' }, items.map((x) => h('li', null, h('span', { text: x })))) : h('p', { class: 'empty', text: empty }));
+    return h('section', { class: 'card', 'aria-label': 'Case for and against' }, h('h2', { text: 'Case for and against' }),
+      list('Case for', c.pf, 'Nothing on these rules.'), list('Case against', c.ag, 'Nothing on these rules.'),
+      c.unk.length ? h('p', { class: 'note', text: `Not known: ${c.unk.join(', ')}.` }) : null,
+      h('p', { class: 'note', text: 'Fixed rules on the tool’s own numbers, each shown with its figure and its limit. They are the same for every company and never tuned to a result. Not a call to buy or sell.' }));
+  }
   function firstView(d) {
     const box = (title, ...kids) => h('div', { class: 'fv-box' }, h('h2', { text: title }), ...kids);
     const sh = d.shariah && typeof d.shariah === 'object' ? d.shariah : null;
@@ -2142,6 +2195,7 @@ table td, table th { padding-block: 11px; }
         h('div', { class: 'm', text: isNum(d.marketCap) ? `Market value ${money(d.marketCap)}` : '' })),
       (tech.spark = h('div', { class: 'spark', hidden: true }))));
     result.append(summaryCard(d));
+    result.append(caseCard(d));
     result.append(firstView(d));
     tech.banner = decisionBanner(d, d.price, null);
     result.append(tech.banner);
