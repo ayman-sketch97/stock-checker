@@ -315,7 +315,7 @@ async def main():
         check('could not be loaded' in fr, f'a missing scanner file is stated: {fr[:260]}')
         check(len(await rows(pg, 'open', 'scanner')) == 1 and len(await rows(pg, 'open', 'price')) == 1, 'the open scanner alert is not closed because its file did not load')
         await pg.close()
-        pg, errs = await ac(ctx, base, fresh, seed, scanner=scanner_file(weekday_back(4)))
+        pg, errs = await ac(ctx, base, fresh, seed, scanner=scanner_file(weekday_back(8)))
         fr = await pg.inner_text('#page-alerts section[aria-label="Data freshness"]')
         check('paused' in fr.lower() and len(await rows(pg, 'open', 'scanner')) == 1, 'a scanner file that is two or more sessions late pauses scanner alerts and leaves the open one')
         await pg.close()

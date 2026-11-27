@@ -319,6 +319,8 @@ async def main():
         check('Case against' in cs and 'Nothing on these rules' in cs and 'Not a call to buy or sell' in cs and 'undefined' not in cs and 'NaN' not in cs, 'case against: empty on these rules, education wording, no stray values')
         check('Not a call to buy or sell' in sm and 'null' not in sm and 'undefined' not in sm and 'NaN' not in sm, 'summary card: education wording and no stray null')
         check(not errs, f'no page errors on a normal stock page {errs}')
+        wd = await pg.evaluate("() => { const f = window.__sc.weekdaysStrictlyBetween; return [f('2026-11-25', '2026-11-28'), f('2026-11-20', '2026-11-25'), f('2026-12-23', '2026-12-28'), f('2026-11-27', '2026-11-27')]; }")
+        check(wd == [1, 2, 1, 0], f'stale guard: US market holidays are not counted as missed updates (Thanksgiving, Christmas): {wd}')
         await pg.close()
         # live price: headline and lists use the Finnhub relay only while it is fresh; scores stay on the close
         import time as _time
