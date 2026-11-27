@@ -8811,7 +8811,7 @@ table td, table th { padding-block: 11px; }
   function route() {
     const sp = new URLSearchParams(location.search);
     const p = sp.get('p');
-    if (/^#w=/.test(location.hash)) { showPage('watchlist'); return; }
+    if (/w=[A-Za-z0-9_-]{20,}/.test(location.hash.replace(/%23/gi, '#')) || /^#w=/.test(location.hash)) { showPage('watchlist'); return; }
     if (p && PAGES.includes(p) && p !== 'stock') { showPage(p); return; }
     // the address with nothing after it opens the Dashboard; ?p=stock and ?t=TICKER open the Search page as before
     if (HAS_SITE && !p && !sp.get('t')) { showPage('dashboard'); return; }
@@ -9576,6 +9576,7 @@ table td, table th { padding-block: 11px; }
     const imp = importCard();
     if (imp) parts.push(imp);
     parts.push(addBox());
+    parts.push(pasteSyncCard());
     if (!scr) { parts.push(loadErrCard('Could not load today’s data.', ['data/screen.json'])); el.replaceChildren(...parts); return; }
     const w = W.load();
     if (!w.items.length) {
@@ -9903,9 +9904,28 @@ table td, table th { padding-block: 11px; }
           catch { box.hidden = false; box.focus(); box.select(); }
         } }, 'Copy it instead'), ok), box);
   }
+  // a sync link can arrive with a full stop, a quote or a line break glued on by a chat app, or with the # turned into %23:
+  // read the code after "w=" and ignore anything after it
+  function syncCodeFrom(text) {
+    const m = /w=([A-Za-z0-9_-]{20,})/.exec(String(text || '').replace(/%23/gi, '#'));
+    return m ? m[1] : null;
+  }
+  function pasteSyncCard() {
+    const box = h('textarea', { rows: 3, placeholder: 'Paste the whole link here', style: 'width:100%;font-size:16px', 'aria-label': 'Sync link' });
+    const out = h('div');
+    const go = h('button', { class: 'btn btn-sm', type: 'button', onclick: () => {
+      const code = syncCodeFrom(box.value);
+      if (!code) { out.replaceChildren(h('p', { class: 'sub', text: 'That does not look like a sync link. Paste the whole link, from https to the end.' })); return; }
+      history.replaceState(history.state, '', location.pathname + '?p=watchlist#w=' + code);
+      renderWatchlist();
+    } }, 'Show what it holds');
+    return h('details', { class: 'card' }, h('summary', { text: 'Have a sync link? Paste it here' }), box, h('div', { class: 'ai' }, go), out);
+  }
   function importCard() {
-    const m = /^#w=([A-Za-z0-9_-]+)$/.exec(location.hash || '');
-    if (!m) return null;
+    const raw = location.hash || '';
+    const code = syncCodeFrom(raw);
+    if (!code) return /^#w=/.test(raw) ? errCard('That sync link looks cut short, so nothing was imported. Paste the whole link in the box below.') : null;
+    const m = [null, code];
     const clear = () => history.replaceState(history.state, '', location.pathname + location.search);
     let data = null;
     try { data = JSON.parse(fromB64url(m[1])); } catch { data = null; }
