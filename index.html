@@ -5917,7 +5917,7 @@ table td, table th { padding-block: 11px; }
   }
   // the nightly update is two or more trading days late: every action is paused, the numbers stay readable
   function staleOf(scr) {
-    const missed = scr && scr.priceDate ? weekdaysStrictlyBetween(scr.priceDate, localISO()) : 0;
+    const missed = scr && scr.priceDate ? weekdaysStrictlyBetween(scr.priceDate, nyISO()) : 0;
     return missed >= 2 ? { missed, priceDate: scr.priceDate } : null;
   }
   const staleText = (s) => `Advice paused: the nightly update is ${s.missed} trading days late (last full update ${niceDates(s.priceDate)}). The numbers are shown for reference only; act after the next update.`;
@@ -6028,12 +6028,18 @@ table td, table th { padding-block: 11px; }
     const gap = 1 - P.buyBelow / px;
     return { tone: gap <= 0.1 ? 'warn' : '', title: gap <= 0.1 ? 'Close to a good price' : 'Wait for a better price', text: `A good price is ${price(P.buyBelow)} or less, about ${pct(gap, 0)} below ${price(px)}.` };
   }
+  // US stock market full-day closures (NYSE calendar). A holiday is not a missed update. Past 2027 the list ends and every
+  // weekday counts, which is the stricter side.
+  const US_MARKET_HOLIDAYS = new Set(['2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
+    '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18', '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24']);
+  // today's date in New York, where the market and the nightly update live (the phone may be hours ahead)
+  const nyISO = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   function weekdaysStrictlyBetween(a, b) {
     if (!a || !b || b <= a) return 0;
     let n = 0;
     for (let t = Date.parse(a + 'T12:00:00Z') + 86400000; t < Date.parse(b + 'T12:00:00Z'); t += 86400000) {
       const wd = new Date(t).getUTCDay();
-      if (wd !== 0 && wd !== 6) n++;
+      if (wd !== 0 && wd !== 6 && !US_MARKET_HOLIDAYS.has(new Date(t).toISOString().slice(0, 10))) n++;
     }
     return n;
   }
@@ -9661,7 +9667,7 @@ table td, table th { padding-block: 11px; }
     const [sc, scr] = await Promise.all([loadScanner(), loadScreen(), loadSwingProof()]);
     if (page !== 'scanner') return;
     if (!sc || !Array.isArray(sc.rows) || !sc.summary || !Array.isArray(sc.weights)) { if (sc) loadFail.set('data/scanner.json', 'damaged'); el.replaceChildren(head, loadErrCard('The scanner file could not be loaded.', ['data/scanner.json'], 'No candidates are shown without it.')); return; }
-    const late = sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, localISO()) : 99;
+    const late = sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, nyISO()) : 99;
     const stale = late >= 2;
     const proven = swingProven();
     const st = { ...SCAN_LS, ...store.get('scan', {}) };
@@ -11025,7 +11031,7 @@ table td, table th { padding-block: 11px; }
       return card;
     }
     const proven = swingProven();
-    const late = sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, localISO()) : 99;
+    const late = sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, nyISO()) : 99;
     card.append(h('p', { class: 'note', text: `End-of-day closes of ${niceDates(sc.priceDate)}. Not real-time prices.` }));
     card.append(h('div', { class: 'paper-note' }, icon('ok'), h('span', null, h('b', { text: proven ? 'The live record has passed its gate. ' : 'Paper trade only. ' }),
       proven ? 'A candidate is still only an idea: it is eligible for real money only when it also has a current Zoya check in your Shariah ledger, shown on each row.' : paperWhy())));
@@ -11418,7 +11424,7 @@ table td, table th { padding-block: 11px; }
       }
     }
     // 2. scanner setups: candidates with an entry set for the next session, among tonight's top five and the stocks you follow
-    const late = sc && sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, localISO()) : 99;
+    const late = sc && sc.priceDate ? weekdaysStrictlyBetween(sc.priceDate, nyISO()) : 99;
     if (!sc || !Array.isArray(sc.rows) || !sc.setups) info.scan = 'missing';
     else if (late >= 2 || info.stale) info.scan = 'late';
     else {
@@ -11807,12 +11813,12 @@ table td, table th { padding-block: 11px; }
         : `data as of ${new Date(idx.asOf).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
       $('#hint').textContent = `Covers ${idx.count.toLocaleString()} US companies worth $2 billion or more, ${when}. The full analysis is meant to refresh every night and prices every 15 minutes while the US market is open.`;
       // GitHub sometimes delays or skips scheduled runs: say so when the data is more than one session old
-      const missed = idx.priceDate ? weekdaysStrictlyBetween(idx.priceDate, localISO()) : 0;
+      const missed = idx.priceDate ? weekdaysStrictlyBetween(idx.priceDate, nyISO()) : 0;
       if (missed >= 2) $('#hint').after(h('p', { class: 'hint stale', text: `Warning: the nightly update has not run for ${missed} trading days (last prices from ${niceDates(idx.priceDate)}). Analyses and buy signals may be out of date.` }));
     });
   }
   // test hook for the automated page tests (test/page.test.py); inert unless the page is opened with ?selftest=1
-  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, shariahGate, ledgerGate, SHL }, thesis: { appendThesis, verifyThesisLog, thesisState, thesisOverview, thesisChanges, explainDecision, conditionStates, mergeThesisLogs, THS, thesisEvidence, decisionDraft }, portfolio: { appendPortfolio, verifyPortfolioLog, mergePortfolioLogs, pfReplay, pfValue, pfExposure, pfBuyCheck, pfSellPreview, pfReconcile, pfProposeOpening, pfHistLine, pfHistAdd, pfHistMerge, PFL, pfPicture, pfContext }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
+  if (/[?&]selftest=1\b/.test(location.search)) window.__sc = { weekdaysStrictlyBetween, tradeCalc, journalStats, mergeBackup, backupOf, shariah: { appendEntry, verifyLedger, ledgerView, mergeLedgers, anchorOf, checkAnchor, holdingState, shariahGate, ledgerGate, SHL }, thesis: { appendThesis, verifyThesisLog, thesisState, thesisOverview, thesisChanges, explainDecision, conditionStates, mergeThesisLogs, THS, thesisEvidence, decisionDraft }, portfolio: { appendPortfolio, verifyPortfolioLog, mergePortfolioLogs, pfReplay, pfValue, pfExposure, pfBuyCheck, pfSellPreview, pfReconcile, pfProposeOpening, pfHistLine, pfHistAdd, pfHistMerge, PFL, pfPicture, pfContext }, tradeCost, batchAdvice, weekdaysStrictlyBetween, holdingsFrom, sizePosition, swingNow, roundTripCost, targetMix, swingProven, buyRoom, trimSale, sectorOpen, worthAnOrder, POLICY_RULES, buyCheck, sizeTrim, limits, screen: () => SCR_NOW };
 })();
 </script>
 </body>
