@@ -315,6 +315,43 @@ async def main():
         check('Not a call to buy or sell' in sm and 'null' not in sm and 'undefined' not in sm and 'NaN' not in sm, 'summary card: education wording and no stray null')
         check(not errs, f'no page errors on a normal stock page {errs}')
         await pg.close()
+        # live price: headline and lists use the Finnhub relay only while it is fresh; scores stay on the close
+        import time as _time
+        def relay(age, is_open=True):
+            now = int(_time.time())
+            return {'source': 'Finnhub', 'fetchedAt': now, 'market': {'isOpen': is_open, 'session': 'regular', 'holiday': None, 't': now},
+                    'quotes': {'KO': {'c': 71.23, 'd': 1.0, 'dp': 1.42, 'h': 72, 'l': 70, 'o': 70.5, 'pc': 70.23, 't': now - age}}, 'missing': [], 'stale': []}
+        for label, rl, want_live in [('fresh', relay(20), True), ('old trade', relay(600), False), ('market closed', relay(20, False), False)]:
+            pg, errs = await page_with(ctx, base, fresh, {'watch': {'items': [{'t': 'KO', 'added': '2026-11-01'}]}}, '', 'stock-ok')
+            def _mk(body):
+                async def _relay(r, *_):
+                    await r.fulfill(status=200, body=json.dumps(body), headers={'content-type': 'application/json', 'access-control-allow-origin': '*'})
+                return _relay
+            await pg.route('**/stock-quotes-relay.*/**', _mk(rl))
+            await pg.set_viewport_size({'width': 390, 'height': 844})
+            await pg.goto(base + '?selftest=1&t=KO')
+            await pg.wait_for_timeout(2500)
+            head = await pg.inner_text('.co .px')
+            if want_live:
+                check('$71.23' in head and 'Live, Finnhub' in head and '+1.4%' in head, f'live price ({label}): headline price and day change are live: {head!r}')
+                rt = await pg.inner_text('.rt-line')
+                check('Scores and signals use the last daily close' in rt, 'live price: the page says scores use the last daily close')
+            else:
+                check(head.split('\n')[0] == '$50.00' and 'Live, Finnhub' not in head, f'live price ({label}): headline falls back to the close: {head!r}')
+            check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), f'live price ({label}): no sideways scroll')
+            await pg.goto(base + '?p=watchlist')
+            await pg.wait_for_timeout(2500)
+            lst = await pg.inner_text('#page-watchlist')
+            if want_live:
+                check('$71.23' in lst and 'live price from Finnhub' in lst, 'live price: the Watchlist row shows the live price with its note')
+            else:
+                check('$71.23' not in lst, f'live price ({label}): the Watchlist row stays on the close')
+            check(not errs, f'no page errors ({label}) {errs[:2]}')
+            await pg.close()
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok')
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1000)
+        await pg.close()
         # the Technical tab with a full chart file, written by the site's own engine (test/make-tech-fixture.mjs), every section open
         tech_ok = json.load(open(os.path.join(FIX, 'tech-ok.json')))
         pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok', {'data/tech/KO.json': tech_ok})
