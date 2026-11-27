@@ -6036,6 +6036,73 @@ table td, table th { padding-block: 11px; }
     const day = new Date(q.t * 1000).toISOString().slice(0, 10);
     return `US market closed${mk.holiday ? ' (' + mk.holiday + ')' : ''} · Finnhub ${px}, ${shortDate(day)}`;
   }
+  // The headline price and day change use the live quote only while it is fresh (market open, last trade under 2 minutes old).
+  // Otherwise the last close stays, with its own label. Scores, signals and the advice rows never read the live quote.
+  function liveFresh(r, sym, nowMs) {
+    const q = r && r.quotes && r.quotes[sym];
+    if (!q || !isNum(q.c) || !(q.c > 0) || !isNum(q.t) || q.t <= 0 || !(r.market && r.market.isOpen)) return null;
+    const ageS = Math.round(nowMs / 1000 - q.t);
+    if (ageS > 120 || ageS < -60) return null;
+    return { c: q.c, dp: isNum(q.dp) ? q.dp : null, t: q.t };
+  }
+  const liveClock = (tSec) => new Date(tSec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  function applyHeaderPrice(t) {
+    if (!t || !t.pxEl || !t.pxBase) return;
+    const Lv = t.relayLive;
+    if (Lv) {
+      t.pxEl.textContent = price(Lv.c);
+      t.pxSub.textContent = `${isNum(Lv.dp) ? pctS(Lv.dp / 100, 1) + ' today · ' : ''}Live, Finnhub · ${liveClock(Lv.t)}`;
+      t.pxSub.className = 'm' + (isNum(Lv.dp) ? (Lv.dp >= 0 ? ' up' : ' down') : '');
+    } else {
+      t.pxEl.textContent = price(t.pxBase.px);
+      t.pxSub.textContent = t.pxBase.sub;
+      t.pxSub.className = t.pxBase.cls;
+    }
+  }
+  // Lists: price spans marked data-lv get the live quote when it is fresh (same rule as the headline). Anything else keeps the last
+  // close. Display only; nothing here feeds a score, signal, limit or portfolio value.
+  const LIVE_LIST = { cache: new Map(), at: 0, busy: false, timer: null, obs: null, asked: new Set() };
+  function livePaintList() {
+    const els = [...document.querySelectorAll('[data-lv]')].filter((e) => e.isConnected && e.dataset.lv);
+    if (!els.length) return;
+    const now = Date.now();
+    const syms = [...new Set(els.map((e) => e.dataset.lv.toUpperCase()))].filter((x) => /^[A-Z.\-]{1,6}$/.test(x)).slice(0, 36);
+    const paint = () => {
+      const seen = new Set();
+      for (const e of els) {
+        const sym = e.dataset.lv.toUpperCase();
+        const Lv = LIVE_LIST.cache.get(sym);
+        if (e.dataset.lvDone === (Lv ? String(Lv.t) : 'x')) continue;
+        if (!e.dataset.lvOrig) e.dataset.lvOrig = e.innerHTML;
+        if (Lv) {
+          e.replaceChildren(price(Lv.c), isNum(Lv.dp) ? h('span', { class: 'chg ' + (Lv.dp >= 0 ? 'up' : 'down'), text: pctS(Lv.dp / 100, 1) }) : null, h('span', { class: 'live-dot', title: `Live price from Finnhub, ${liveClock(Lv.t)}`, 'aria-label': 'live price', text: ' ●' }));
+        } else e.innerHTML = e.dataset.lvOrig;
+        e.dataset.lvDone = Lv ? String(Lv.t) : 'x';
+        const list = e.closest('.list') || e.parentElement;
+        if (Lv && list && !seen.has(list) && !(list.previousElementSibling && list.previousElementSibling.classList.contains('live-note'))) {
+          list.before(h('p', { class: 'note live-note', text: '● means a live price from Finnhub (market open, last trade under 2 minutes old). Other prices are the last close. Scores and signals use the last daily close.' }));
+        }
+        if (list) seen.add(list);
+      }
+    };
+    if (LIVE_LIST.busy || (now - LIVE_LIST.at < 20000 && syms.every((x) => LIVE_LIST.asked.has(x)))) { paint(); return; }
+    LIVE_LIST.busy = true; LIVE_LIST.at = now; LIVE_LIST.asked = new Set(syms);
+    const chunks = [];
+    for (let i = 0; i < syms.length; i += 12) chunks.push(syms.slice(i, i + 12));
+    Promise.all(chunks.map((c) => fetch(RELAY_URL + '?s=' + encodeURIComponent(c.join(',')), { cache: 'no-store' }).then((res) => (res.ok ? res.json() : null)).catch(() => null)))
+      .then((rs) => {
+        LIVE_LIST.cache.clear();
+        for (const r of rs) for (const sym of Object.keys((r && r.quotes) || {})) { const Lv = liveFresh(r, sym, Date.now()); if (Lv) LIVE_LIST.cache.set(sym, Lv); }
+        for (const e of document.querySelectorAll('[data-lv-done]')) delete e.dataset.lvDone;
+        paint();
+      }).finally(() => { LIVE_LIST.busy = false; });
+  }
+  if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+    let deb = null;
+    LIVE_LIST.obs = new MutationObserver(() => { clearTimeout(deb); deb = setTimeout(() => { if (document.querySelector('[data-lv]:not([data-lv-done])')) livePaintList(); }, 400); });
+    LIVE_LIST.obs.observe(document.body, { childList: true, subtree: true });
+    LIVE_LIST.timer = setInterval(() => { if (document.visibilityState !== 'hidden') livePaintList(); }, 45000);
+  }
   function paintRelay(t) {
     if (!t || !t.rtEl || !t.rtEl.isConnected || !t.d || !t.d.ticker) return;
     const sym = String(t.d.ticker).toUpperCase();
@@ -6043,12 +6110,14 @@ table td, table th { padding-block: 11px; }
       .then((res) => (res.ok ? res.json() : null))
       .then((r) => {
         if (!t.rtEl.isConnected) return;
-        const txt = relayLine(r, sym, Date.now());
+        t.relayLive = liveFresh(r, sym, Date.now());
+        applyHeaderPrice(t);
+        const txt = t.relayLive ? `The headline price is live. Scores and signals use the last daily close${t.pxBase && t.pxBase.close ? ' (' + niceDates(t.pxBase.close) + ')' : ''}.` : relayLine(r, sym, Date.now());
         t.rtEl.textContent = txt; t.rtEl.hidden = !txt;
         if (txt) t.rtEl.title = 'Display only. Source: Finnhub free plan via a relay. It does not change any score or signal.';
       })
-      .catch(() => { if (t.rtEl) t.rtEl.hidden = true; });
-    if (!t.rtTimer) t.rtTimer = setInterval(() => { if (!t.rtEl || !t.rtEl.isConnected) { clearInterval(t.rtTimer); t.rtTimer = null; } else paintRelay(t); }, 60000);
+      .catch(() => { t.relayLive = null; applyHeaderPrice(t); if (t.rtEl) t.rtEl.hidden = true; });
+    if (!t.rtTimer) t.rtTimer = setInterval(() => { if (!t.rtEl || !t.rtEl.isConnected) { clearInterval(t.rtTimer); t.rtTimer = null; } else paintRelay(t); }, 30000);
   }
   function paintAction() {
     const t = tech;
@@ -6077,9 +6146,8 @@ table td, table th { padding-block: 11px; }
       h('p', { class: 'note', text: `Rules applied to the data, not a guarantee. Size every trade so the stop loses at most ${pct(limits().swingRisk, 1)} of your portfolio.` })].filter(Boolean));
     // the price in the header
     if (t.pxEl) {
-      t.pxEl.textContent = price(px);
-      t.pxSub.textContent = L ? `${isNum(L.chg) ? pctS(L.chg, 1) + ' · ' : ''}${L.open ? 'delayed last sale' : shortDate(L.session)}` : b.date ? `Close of ${niceDates(b.date)}` : '';
-      t.pxSub.className = 'm' + (L && isNum(L.chg) ? (L.chg >= 0 ? ' up' : ' down') : '');
+      t.pxBase = { px, sub: L ? `${isNum(L.chg) ? pctS(L.chg, 1) + ' · ' : ''}${L.open ? 'delayed last sale' : shortDate(L.session)}` : b.date ? `Close of ${niceDates(b.date)}` : '', cls: 'm' + (L && isNum(L.chg) ? (L.chg >= 0 ? ' up' : ' down') : ''), close: b.date };
+      applyHeaderPrice(t);
     }
     if (t.updateNow) t.updateNow();
     if (!t.rtStarted) { t.rtStarted = true; paintRelay(t); }
@@ -7012,7 +7080,7 @@ table td, table th { padding-block: 11px; }
       if (!list.length) { ideaCard.append(h('p', { class: 'sub', text: 'No company passes these filters today.' })); continue; }
       ideaCard.append(h('div', { class: 'list' }, list.map((r) => h('button', { class: 'srow', type: 'button', onclick: () => openStock(r.ticker, k === 'short' ? 'tech' : 'fund') },
         h('span', { class: 'top' }, h('span', { class: 'tk', text: r.ticker }), h('span', { class: 'nm', text: r.name || '' }),
-          h('span', { class: 'pr' }, price(r.price), isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
+          h('span', { class: 'pr', 'data-lv': r.ticker || r[0] }, price(r.price), isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
         h('span', { class: 'tags' }, [verdictTag(r.verdict), tagEl(r.sector || 'Other', 'neutral'), ...blockTags(buyCheck(r.ticker, scr, snap))].filter(Boolean)),
         h('span', { class: 'det', text: (() => { const c = buyCheck(r.ticker, scr, snap); return c.ok ? ideaReason(r, k) : `${ideaReason(r, k)}. Not for you now: ${c.why.join('; ')}.`; })() })))));
     }
@@ -9164,7 +9232,7 @@ table td, table th { padding-block: 11px; }
     det.forEach((parts, i) => { if (i) detEl.append(' · '); detEl.append(...parts); });
     return h('button', { class: 'srow vt-' + (VERDICT_TONE[r.verdict] || 'neutral'), type: 'button', onclick: () => openStock(r.ticker, P.view) },
       h('span', { class: 'top' }, h('span', { class: 'tk', text: r.ticker }), h('span', { class: 'nm', text: r.name || '' }),
-        h('span', { class: 'pr' }, price(r.price), isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
+        h('span', { class: 'pr', 'data-lv': r.ticker || r[0] }, price(r.price), isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
       h('span', { class: 'tags' }, tags.filter(Boolean)),
       det.length ? detEl : null);
   }
@@ -9720,7 +9788,7 @@ table td, table th { padding-block: 11px; }
     const own = r ? null : ownPrice(it);
     const box = h('div', { class: 'wl-item' });
     const inner = [h('span', { class: 'top' }, h('span', { class: 'tk', text: it.t }), h('span', { class: 'nm', text: r ? r.name : it.manual ? 'Your own ticker' : 'Not in today’s data' }),
-        h('span', { class: 'pr' }, r ? price(r.price) : isNum(own) ? price(own) : it.manual ? 'No price yet' : 'n/a', r && isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
+        h('span', { class: 'pr', 'data-lv': r ? it.t : null }, r ? price(r.price) : isNum(own) ? price(own) : it.manual ? 'No price yet' : 'n/a', r && isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
       r ? h('span', { class: 'tags' }, [verdictTag(r.verdict), shariahTag(r.shariah), staleOf(scr) ? null : setupTag(r.setup, r.status)].filter(Boolean)) : h('span', { class: 'tags' }, tagEl('No analysis here', 'neutral'))];
     // a ticker without site data has no page to open
     box.append(r ? h('button', { class: 'srow', type: 'button', onclick: () => openStock(it.t, it.swing ? 'tech' : null) }, ...inner) : h('div', { class: 'srow' }, ...inner));
