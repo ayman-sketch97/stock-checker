@@ -1346,6 +1346,8 @@ table td, table th { padding-block: 11px; }
 .pf-tag { border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; font-weight: 600; opacity: .85; }
 .pf-rules { margin: 6px 0 0; padding-left: 18px; }
 .pfg-total { font-size: 32px; font-weight: 800; letter-spacing: -.5px; margin: 2px 0 4px; }
+.reb-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; padding: 6px 0; border-top: 1px solid var(--line, #e3e8f0); }
+.reb-set { display: inline-flex; gap: 6px; align-items: center; }
 </style>
 </head>
 <body>
@@ -6885,6 +6887,42 @@ table td, table th { padding-block: 11px; }
     syncKind();
     nowCard.append(oForm);
     parts.push(nowCard);
+    // rebalance (stage 7 of the queue): how far each part and each stock sits from the target, in points, and how new money could
+    // close the gap without selling. Reads the same target mix and values as above; changes no rule and no limit.
+    if (total > 0) {
+      const REB_ON = 0.01; // within one point counts as on target
+      const cur = { core: coreVal / total, stocks: ltVal / total, swing: swVal / total, safe: safeVal / total };
+      const pts = (x) => `${Math.round(Math.abs(x) * 100)} point${Math.round(Math.abs(x) * 100) === 1 ? '' : 's'}`;
+      const driftTxt = (d) => (Math.abs(d) <= REB_ON ? 'on your target' : d > 0 ? `${pts(d)} above your target` : `${pts(d)} below your target`);
+      const reb = h('section', { class: 'card', 'aria-label': 'Rebalance' }, h('h2', { text: 'Rebalance: how far from your target' }),
+        h('p', { class: 'sub', text: `Drift is the gap between what you hold and your target, in percentage points. Within ${Math.round(REB_ON * 100)} point counts as on target.` }));
+      const groups = ['core', 'stocks', 'swing', 'safe'].filter((k) => T[k] > 0 || cur[k] > 0);
+      reb.append(h('ul', { class: 'alert-list' }, groups.map((k) => { const d = cur[k] - T[k]; return h('li', null, h('span', { text: `${MIX_LABEL[k]}: ${pct(cur[k], 0)} now, target ${pct(T[k], 0)}. ${driftTxt(d)[0].toUpperCase() + driftTxt(d).slice(1)}.` })); })));
+      // new money: spread over the parts below target in proportion to their gap, never more than the gap itself
+      const monthlyUsd = isNum(a.profile && a.profile.monthlyAed) && a.profile.monthlyAed > 0 ? a.profile.monthlyAed / AED_PER_USD : null;
+      const under = groups.map((k) => ({ k, gap: (T[k] - cur[k]) * total })).filter((x) => x.gap > REB_ON * total);
+      if (under.length) {
+        const gapSum = under.reduce((sm, x) => sm + x.gap, 0);
+        reb.append(h('h3', { class: 'sub', style: 'margin:12px 0 4px', text: 'Closing the gap with new money' }),
+          h('p', { text: monthlyUsd ? `New money does the work without selling anything. Your monthly amount (about ${money0(monthlyUsd)}) would be shared over the parts below target: ${under.map((x) => `${MIX_LABEL[x.k].toLowerCase()} about ${money0(Math.min(x.gap, monthlyUsd * x.gap / gapSum))}`).join(', ')}.` : `Putting new money into the parts below target (${under.map((x) => MIX_LABEL[x.k].toLowerCase()).join(', ')}) closes the gap without selling anything. Add your monthly amount in “About you” to see a split.` }),
+          h('p', { class: 'note', text: `All the gaps together are about ${money0(gapSum)}. Which stock or fund to buy is still decided by the plan below, your limits and the halal check.` }));
+      } else reb.append(h('p', { class: 'note', text: 'No part is below its target by more than one point, so no new money is needed to rebalance.' }));
+      // a target for one stock, set by you; without one the stock is compared with your one-stock limit
+      const HT = (ADV.load().htarget) || {};
+      if (lt.length) {
+        reb.append(h('h3', { class: 'sub', style: 'margin:12px 0 4px', text: 'Your stocks' }));
+        for (const x of lt) {
+          const wgt = wOf(val(x)), tg = isNum(HT[x.t]) ? HT[x.t] : null, LMT = limits();
+          const inp = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', 'aria-label': `Your target for ${x.t} in percent`, placeholder: 'target %', style: 'width:84px' });
+          if (tg !== null) inp.value = String(+(tg * 100).toFixed(1));
+          const save = () => { const v = toNum(inp.value); const k = ADV.load(); k.htarget = { ...(k.htarget || {}) }; if (inp.value.trim() === '') delete k.htarget[x.t]; else if (Number.isFinite(v) && v > 0 && v <= 100) k.htarget[x.t] = v / 100; else return; ADV.save(k); rerender(); };
+          reb.append(h('div', { class: 'reb-row' }, h('span', null, h('b', { text: x.t + ' ' }), tg !== null ? `${pct(wgt, 1)} of everything, target ${pct(tg, 0)}: ${driftTxt(wgt - tg)}.` : `${pct(wgt, 1)} of everything. No target set; your limit for one stock is ${pct(LMT.buyCap, 0)}${wgt > LMT.buyCap ? `, so it is ${pts(wgt - LMT.buyCap)} above it` : ''}.`),
+            h('span', { class: 'reb-set' }, inp, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: save }, 'Set'))));
+        }
+        reb.append(h('p', { class: 'note', text: 'A target is yours to set. It does not change your one-stock limit.' }));
+      }
+      parts.push(reb);
+    }
 
     // 5. advice on each holding. Buys go through the one risk check (buyCheck), fed with this page's own values.
     const L = limits();
@@ -7407,6 +7445,7 @@ table td, table th { padding-block: 11px; }
       const have = new Set(advisor.other.map((o) => o.id));
       for (const o of ex.advisor.other || []) if (o && o.id && !have.has(o.id)) { advisor.other.push(o); have.add(o.id); added.holdings++; }
       for (const [t, v] of Object.entries(ex.advisor.hp || {})) if (!advisor.hp[t]) advisor.hp[t] = v;
+      for (const [t, v] of Object.entries(ex.advisor.htarget || {})) if (isNum(v) && v > 0 && v <= 1 && !(advisor.htarget && isNum(advisor.htarget[t]))) advisor.htarget = { ...(advisor.htarget || {}), [t]: v };
     }
     // the Shariah ledger is joined, never overwritten: see mergeLedgers
     let shariah = null;
@@ -8808,6 +8847,24 @@ table td, table th { padding-block: 11px; }
         stat('Fees', money0(st.tradeFees + st.otherFees), `${money0(st.tradeFees)} on trades (already inside cost and sales), ${money0(st.otherFees)} other`)));
       sum.append(h('p', { class: 'note', text: 'Total gain = realized + unrealized + dividends - other fees. Trade fees are already part of each position’s cost and of each sale’s result, so they are not taken off twice.' }));
       parts.push(sum);
+
+      // 2b. monthly returns from the saved month-end lines: the change in value after taking out money put in or taken out
+      {
+        const lines = (PFL.hist() || []).filter(pfHistOk);
+        const byMonth = new Map();
+        for (const l of lines) byMonth.set(l.d.slice(0, 7), l);
+        const ms = [...byMonth.values()];
+        const mr = h('section', { class: 'card', 'aria-label': 'Monthly returns' }, h('h2', { text: 'Monthly returns' }));
+        const rows = [];
+        for (let i = 1; i < ms.length; i++) {
+          const a0 = ms[i - 1], b0 = ms[i];
+          if (a0.v > 0) rows.push({ m: b0.d.slice(0, 7), r: (b0.v - a0.v - (b0.i - a0.i)) / a0.v });
+        }
+        if (rows.length) mr.append(h('ul', { class: 'alert-list' }, rows.slice(-12).reverse().map((x) => h('li', null, h('span', { text: `${MONTHS[Number(x.m.slice(5)) - 1]} ${x.m.slice(0, 4)}: ${x.r >= 0 ? '+' : '-'}${pct(Math.abs(x.r), 1)}` })))),
+          h('p', { class: 'note', text: 'Change in value over the month, after taking out money you put in or took out. Taken from the last saved line of each month, so it only covers months this device has seen. Past months say nothing about the next one.' }));
+        else mr.append(h('p', { class: 'sub', text: 'Not enough history yet. A month needs a saved line at its end and one from the month before. One line is saved each time you open this page with prices loaded.' }));
+        parts.push(mr);
+      }
 
       // 3. positions against your limits
       const pos = h('section', { class: 'card', 'aria-label': 'Ledger positions' }, h('h2', { text: 'Positions, average cost and your limits' }));
