@@ -1208,6 +1208,17 @@ async def main():
             check('Limits check' in gt and '$' in gt and not any(w in gt for w in ('BUY', 'SELL', 'WAIT')), f'at-a-glance card: total, limits check, no verdict words: {gt[:300]!r}')
             await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
             check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'at-a-glance card: no sideways scroll at 390px')
+        rb = pg.locator('#page-advisor section[aria-label="Rebalance"]')
+        check(await rb.count() == 1, 'Portfolio page has the rebalance card')
+        if await rb.count():
+            rbt = await rb.inner_text()
+            check('points above your target' in rbt or 'points below your target' in rbt or 'on your target' in rbt, f'rebalance: drift is stated in points against the target: {rbt[:400]!r}')
+            check(not any(w in rbt for w in ('BUY', 'SELL', 'WAIT')) and 'undefined' not in rbt and 'NaN' not in rbt, 'rebalance: no verdict words, no stray values')
+            await rb.locator('input').first.fill('10')
+            await rb.locator('button:has-text("Set")').first.click(); await pg.wait_for_timeout(600)
+            rbt2 = await pg.locator('#page-advisor section[aria-label="Rebalance"]').inner_text()
+            check('target 10%' in rbt2, f'rebalance: a target set for one stock is kept and used: {rbt2[-300:]!r}')
+            check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'rebalance card: no sideways scroll')
         card = pg.locator('#page-advisor section[aria-label="Shariah ledger"]')
         check(await card.count() == 1, 'Portfolio page shows the Shariah ledger summary card')
         if await card.count():
