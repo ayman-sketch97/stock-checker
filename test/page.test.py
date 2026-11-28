@@ -287,6 +287,30 @@ async def main():
         check(not errs, f'no page errors on the Record page with a young log {errs}')
         await pg.close()
 
+        # ---- Terminal page: dense watchlist table and detail pane
+        pg, errs = await page_with(ctx, base, fresh, None, '')
+        await pg.goto(base + '?p=terminal')
+        await pg.evaluate('localStorage.clear()')
+        await pg.goto(base + '?p=terminal')
+        for wdt in (320, 390, 430, 1200):
+            await pg.set_viewport_size({'width': wdt, 'height': 800}); await pg.wait_for_timeout(400)
+            check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), f'terminal: no sideways scroll at {wdt}px')
+        await pg.set_viewport_size({'width': 390, 'height': 800})
+        await pg.wait_for_timeout(1500)
+        tm = await pg.inner_text('#page-terminal')
+        check('Terminal' in tm and 'Market trend' in tm and 'KO' in tm and 'Open the full analysis' in tm, f'terminal: strip, table and detail pane: {tm[:200]!r}')
+        check(not re.search(r'\b(BUY|SELL|WAIT)\b', tm) and 'NaN' not in tm and 'undefined' not in tm and 'null' not in tm, 'terminal: no verdict words or stray values')
+        await pg.click('#page-terminal th button:has-text("Price")'); await pg.wait_for_timeout(200)
+        first = await pg.inner_text('#page-terminal tbody tr:first-child td:first-child')
+        await pg.click('#page-terminal th button:has-text("Price")'); await pg.wait_for_timeout(200)
+        first2 = await pg.inner_text('#page-terminal tbody tr:first-child td:first-child')
+        check(first != first2, f'terminal: sorting by a heading flips the order ({first} then {first2})')
+        await pg.click('#page-terminal tbody tr:last-child'); await pg.wait_for_timeout(200)
+        pn = await pg.inner_text('#page-terminal section[aria-label="Stock details"]')
+        check('Quality score' in pn and 'Fair value estimate' in pn and 'without a call to buy or sell' in pn, f'terminal: tapping a row fills the detail pane: {pn[:120]!r}')
+        check(not errs, f'no page errors on the terminal page {errs}')
+        await pg.close()
+
         # ---- stock page: compared with peers (screen.json numbers only)
         def add_peers(scr):
             ko = next(r for r in scr['rows'] if r[0] == 'KO')

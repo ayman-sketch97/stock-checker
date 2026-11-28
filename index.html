@@ -578,6 +578,23 @@ ol.exits li { margin: 5px 0; }
 .toggles button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 11px; font-size: 13px; cursor: pointer; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
 .toggles button[aria-pressed="true"] { color: var(--ink); background: var(--surface-2); }
 .toggles button[aria-pressed="false"] .sw { opacity: 0.3; }
+/* Terminal page: a dense table of your watchlist with a detail pane. Own code, reads the same screen numbers as every other page. */
+.tm-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: var(--sp-2); margin: var(--sp-3) 0; }
+.tm-strip > div { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; min-width: 0; }
+.tm-strip .k { font-size: var(--fs-xs, 12px); color: var(--ink-3); }
+.tm-strip .v { font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tm-wrap { display: grid; gap: var(--sp-3); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .tm-wrap { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; } }
+.tm-tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
+.tm-tbl th, .tm-tbl td { padding: 7px 6px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.tm-tbl th:first-child, .tm-tbl td:first-child { text-align: left; }
+.tm-tbl th button { all: unset; cursor: pointer; font-weight: 700; color: var(--ink-2); }
+.tm-tbl tr.tm-row { cursor: pointer; }
+.tm-tbl tr.tm-sel td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.tm-tbl .up { color: var(--good); } .tm-tbl .dn { color: var(--bad); }
+@media (max-width: 519px) { .tm-tbl .x { display: none; } }
+.tm-pane dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 10px; margin: 8px 0; }
+.tm-pane dt { color: var(--ink-3); } .tm-pane dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; overflow-wrap: anywhere; }
 .tv-box { height: 520px; margin-top: 12px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
 .lvl { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; margin-top: 6px; }
 .lvl th { text-align: left; color: var(--muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; padding: 7px 4px; border-bottom: 1px solid var(--line); }
@@ -1400,6 +1417,7 @@ table td, table th { padding-block: 11px; }
     <section id="status" aria-live="polite"></section>
     <div id="result" hidden></div>
   </div>
+  <section id="page-terminal" role="main" tabindex="-1" aria-label="Terminal" hidden></section>
   <section id="page-shortlist" role="main" tabindex="-1" aria-label="Shortlist" hidden></section>
   <section id="page-scanner" role="main" tabindex="-1" aria-label="Swing scanner" hidden></section>
   <section id="page-watchlist" role="main" tabindex="-1" aria-label="Watchlist" hidden></section>
@@ -9114,13 +9132,13 @@ table td, table th { padding-block: 11px; }
       h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => navigate('pfledger') }, pic.cur.entries.length ? 'Open the ledger' : 'Start the ledger')));
   }
 
-  const PAGES = ['dashboard', 'alerts', 'stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
+  const PAGES = ['dashboard', 'alerts', 'stock', 'terminal', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger'];
   // Secondary pages are reached through a parent section: the parent's tab stays highlighted and a sub-navigation strip
   // above the page links the pages of the group. Page ids and ?p= addresses are unchanged.
-  const NAV_PARENT = { alerts: 'dashboard', shortlist: 'stock', scanner: 'stock', record: 'journal', shariah: 'advisor', thesis: 'advisor', pfledger: 'advisor' };
+  const NAV_PARENT = { alerts: 'dashboard', terminal: 'stock', shortlist: 'stock', scanner: 'stock', record: 'journal', shariah: 'advisor', thesis: 'advisor', pfledger: 'advisor' };
   const SUBNAV = {
     dashboard: [['dashboard', 'Overview'], ['alerts', 'Alert Centre']],
-    stock: [['stock', 'Search'], ['shortlist', 'Shortlist'], ['scanner', 'Swing scanner']],
+    stock: [['stock', 'Search'], ['terminal', 'Terminal'], ['shortlist', 'Shortlist'], ['scanner', 'Swing scanner']],
     journal: [['journal', 'Paper trades'], ['record', 'Our track record']],
     advisor: [['advisor', 'Portfolio'], ['pfledger', 'Portfolio ledger'], ['thesis', 'Thesis and decisions'], ['shariah', 'Shariah ledger']],
   };
@@ -9146,6 +9164,7 @@ table td, table th { padding-block: 11px; }
     hideTip();
     if (p === 'dashboard') renderDashboard();
     else if (p === 'alerts') renderAlerts();
+    else if (p === 'terminal') renderTerminal();
     else if (p === 'shortlist') renderShortlist();
     else if (p === 'watchlist') renderWatchlist();
     else if (p === 'scanner') renderScanner();
@@ -9162,7 +9181,7 @@ table td, table th { padding-block: 11px; }
   }
   // Stage 11 (accessibility): each page has its own browser title, and moving to a page with the tabs or a button moves the keyboard and
   // screen-reader position to that page (the page container, which stays in place while its content loads).
-  const PAGE_TITLE = { dashboard: 'Dashboard', alerts: 'Alert Centre', stock: 'Search', shortlist: 'Shortlist', scanner: 'Swing scanner', watchlist: 'Watchlist', record: 'Track record', journal: 'Journal', advisor: 'Portfolio', shariah: 'Shariah ledger', thesis: 'Thesis and decisions', pfledger: 'Portfolio ledger' };
+  const PAGE_TITLE = { dashboard: 'Dashboard', alerts: 'Alert Centre', stock: 'Search', shortlist: 'Shortlist', terminal: 'Terminal', scanner: 'Swing scanner', watchlist: 'Watchlist', record: 'Track record', journal: 'Journal', advisor: 'Portfolio', shariah: 'Shariah ledger', thesis: 'Thesis and decisions', pfledger: 'Portfolio ledger' };
   function setTitle(p) {
     const co = p === 'stock' && current && !result.hidden ? `${current.ticker} ${current.name || ''}`.trim() : '';
     document.title = `${co || PAGE_TITLE[p] || 'Stock Checker'} · Stock Checker`;
@@ -9553,6 +9572,77 @@ table td, table th { padding-block: 11px; }
         h('span', { class: 'pr', 'data-lv': r.ticker || r[0] }, price(r.price), isNum(r.chg) ? h('span', { class: 'chg ' + (r.chg >= 0 ? 'up' : 'down'), text: pctS(r.chg, 1) }) : null)),
       h('span', { class: 'tags' }, tags.filter(Boolean)),
       det.length ? detEl : null);
+  }
+  // ------------------------------------------------------------------ Terminal: your watchlist as a dense table, with a detail pane
+  // Reads the nightly screen plus the delayed quotes already loaded for every page, and the list kept on this device. Nothing is
+  // calculated here that another page does not already show, and no verdict is shown.
+  async function renderTerminal() {
+    const el = $('#page-terminal');
+    const head = pageHead('Terminal', 'Your watchlist in one dense table. Tap a row for the details. Prices are the nightly close, or delayed quotes when they are available.');
+    el.replaceChildren(head, loadingBox('Loading…'));
+    const scr = await loadScreen();
+    if (page !== 'terminal') return;
+    if (!scr) { el.replaceChildren(head, loadErrCard('Could not load today’s numbers.', ['data/screen.json'])); return; }
+    const w = store.get('watch', null);
+    const mine = w && Array.isArray(w.items) ? w.items.map((i) => scr.by.get(i && i.t)).filter(Boolean) : [];
+    const own = mine.length > 0;
+    const rows0 = own ? mine : [...scr.list].filter((r) => r.shariah === 'pass').sort((a, b) => (b.capM || 0) - (a.capM || 0)).slice(0, 25);
+    const M = scr.market || {};
+    const sp = M.spy || {};
+    const regimeTxt = { up: 'Rising', down: 'Falling', mixed: 'Mixed' }[M.regime] || 'Unknown';
+    const cell = (k, v) => h('div', null, h('div', { class: 'k', text: k }), h('div', { class: 'v', text: v }));
+    const strip = h('div', { class: 'tm-strip', role: 'group', 'aria-label': 'Market' },
+      cell('Market trend', regimeTxt),
+      cell('S&P 500 (SPY)', isNum(sp.close) ? '$' + sp.close.toFixed(2) : 'n/a'),
+      cell('SPY 3 months', pctS(sp.r3m, 1)),
+      cell('SPY 12 months', pctS(sp.r12m, 1)),
+      cell('Above 50-day line', M.breadth && isNum(M.breadth.above50) ? pct(M.breadth.above50, 0) + ' of stocks' : 'n/a'));
+    const COLS = [
+      ['ticker', 'Stock', (r) => r.ticker, (r) => r.ticker, ''],
+      ['price', 'Price', (r) => r.price, (r) => (isNum(r.price) ? r.price.toFixed(2) : 'n/a'), ''],
+      ['chg', 'Day', (r) => r.chg, (r) => pctS(r.chg, 1), 'chg'],
+      ['r3m', '3 mo', (r) => r.r3m, (r) => pctS(r.r3m, 0), 'chg'],
+      ['pe', 'P/E', (r) => r.pe, (r) => (isNum(r.pe) && r.pe > 0 ? r.pe.toFixed(1) : 'n/a'), 'x'],
+      ['quality', 'Quality', (r) => r.quality, (r) => (isNum(r.quality) ? String(r.quality) : 'n/a'), 'x'],
+      ['shariah', 'Halal', (r) => (r.shariah === 'pass' ? 1 : 0), (r) => ({ pass: 'Pass', fail: 'Fail', review: 'Review' }[r.shariah] || 'n/a'), 'x'],
+    ];
+    const st = { k: 'ticker', dir: 1, sel: rows0[0] ? rows0[0].ticker : '' };
+    const body = h('tbody');
+    const pane = h('section', { class: 'card tm-pane', 'aria-label': 'Stock details' });
+    const paintPane = () => {
+      const r = scr.by.get(st.sel);
+      if (!r) { pane.replaceChildren(h('p', { class: 'empty', text: 'Tap a row to see its details.' })); return; }
+      const li = (k, v) => [h('dt', { text: k }), h('dd', { text: v })];
+      pane.replaceChildren(h('h2', { text: `${r.ticker} · ${r.name || ''}` }),
+        h('p', { class: 'sub', text: [r.sector, r.industry].filter(Boolean).join(' · ') }),
+        h('dl', null, ...li('Price', isNum(r.price) ? '$' + r.price.toFixed(2) : 'n/a'), ...li('Day', pctS(r.chg, 1)), ...li('1 / 3 / 12 months', `${pctS(r.r1m, 0)} / ${pctS(r.r3m, 0)} / ${pctS(r.r12m, 0)}`),
+          ...li('Market value', isNum(r.capM) ? money(r.capM * 1e6) : 'n/a'), ...li('P/E', isNum(r.pe) && r.pe > 0 ? r.pe.toFixed(1) : 'n/a'), ...li('Price to free cash flow', isNum(r.pfcf) && r.pfcf > 0 ? r.pfcf.toFixed(1) : 'n/a'),
+          ...li('Quality score', isNum(r.quality) ? `${r.quality}/100` : 'n/a'), ...li('Financial health', isNum(r.health) ? `${r.health}/100` : 'n/a'),
+          ...li('Fair value estimate', isNum(r.fair) ? '$' + r.fair.toFixed(2) : 'n/a'), ...li('Halal screen', { pass: 'Passes', fail: 'Does not pass', review: 'Needs checking' }[r.shariah] || 'n/a'),
+          ...li('Next earnings', r.earnings ? niceDates(r.earnings) : 'n/a')),
+        h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openStock(r.ticker) }, 'Open the full analysis')),
+        h('p', { class: 'note', text: 'Numbers are the tool’s own and are shown without a call to buy or sell.' }));
+    };
+    const paintRows = () => {
+      const c = COLS.find((x) => x[0] === st.k) || COLS[0];
+      const rows = [...rows0].sort((a, b) => {
+        const x = c[2](a), y = c[2](b);
+        if (x == null && y == null) return 0;
+        if (x == null) return 1;
+        if (y == null) return -1;
+        return (typeof x === 'string' ? x.localeCompare(y) : x - y) * st.dir;
+      });
+      body.replaceChildren(...rows.map((r) => h('tr', { class: 'tm-row' + (r.ticker === st.sel ? ' tm-sel' : ''), tabindex: '0', 'aria-selected': String(r.ticker === st.sel), onclick: () => { st.sel = r.ticker; paintRows(); paintPane(); },
+        onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); st.sel = r.ticker; paintRows(); paintPane(); } } },
+        COLS.map((col) => h('td', { class: col[4] === 'x' ? 'x' : (col[4] === 'chg' && isNum(col[2](r)) ? (col[2](r) >= 0 ? 'up' : 'dn') : ''), text: col[3](r) })))));
+    };
+    const headRow = h('tr', null, COLS.map((col) => h('th', { class: col[4] === 'x' ? 'x' : '', scope: 'col' },
+      h('button', { type: 'button', onclick: () => { st.dir = st.k === col[0] ? -st.dir : (col[0] === 'ticker' ? 1 : -1); st.k = col[0]; paintRows(); } }, col[1]))));
+    paintRows(); paintPane();
+    el.replaceChildren(head, strip,
+      h('p', { class: 'sub', text: own ? `${rows0.length} stocks from your watchlist. Tap a heading to sort.` : 'Your watchlist is empty, so this shows the 25 largest halal-passing companies. Add stocks to your watchlist to see your own.' }),
+      h('div', { class: 'tm-wrap' }, h('div', { class: 'card' }, h('div', { class: 'tscroll' }, h('table', { class: 'tm-tbl' }, h('thead', null, headRow), body))), pane));
+    livePainters.add(() => { if (page !== 'terminal') return false; paintRows(); paintPane(); return true; });
   }
   async function renderShortlist() {
     const el = $('#page-shortlist');

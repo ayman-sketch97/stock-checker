@@ -18,12 +18,12 @@ def check(cond, msg):
         failures.append(msg)
 
 
-ALL = ['dashboard', 'alerts', 'stock', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger']
+ALL = ['dashboard', 'alerts', 'stock', 'terminal', 'shortlist', 'scanner', 'watchlist', 'record', 'journal', 'advisor', 'shariah', 'thesis', 'pfledger']
 TABS = [('dashboard', 'Home'), ('watchlist', 'Watchlist'), ('stock', 'Discover'), ('advisor', 'Portfolio'), ('journal', 'Journal')]
-PARENT = {'alerts': 'dashboard', 'shortlist': 'stock', 'scanner': 'stock', 'record': 'journal', 'shariah': 'advisor', 'thesis': 'advisor', 'pfledger': 'advisor'}
+PARENT = {'alerts': 'dashboard', 'terminal': 'stock', 'shortlist': 'stock', 'scanner': 'stock', 'record': 'journal', 'shariah': 'advisor', 'thesis': 'advisor', 'pfledger': 'advisor'}
 GROUPS = {
     'dashboard': ['dashboard', 'alerts'],
-    'stock': ['stock', 'shortlist', 'scanner'],
+    'stock': ['stock', 'terminal', 'shortlist', 'scanner'],
     'journal': ['journal', 'record'],
     'advisor': ['advisor', 'pfledger', 'thesis', 'shariah'],
 }
