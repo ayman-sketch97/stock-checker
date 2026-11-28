@@ -1345,6 +1345,7 @@ table td, table th { padding-block: 11px; }
 .pf-k { color: var(--muted, #667); margin-right: 2px; }
 .pf-tag { border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; font-weight: 600; opacity: .85; }
 .pf-rules { margin: 6px 0 0; padding-left: 18px; }
+.pfg-total { font-size: 32px; font-weight: 800; letter-spacing: -.5px; margin: 2px 0 4px; }
 </style>
 </head>
 <body>
@@ -2884,6 +2885,26 @@ table td, table th { padding-block: 11px; }
     panel.replaceChildren();
     renderTech(panel, t.d, T);
   }
+  // stage 6: the trend and the paper status in one plain sentence each. Reads numbers the Technical tab already has; adds no rule.
+  function trendPlainCard(d, T, halalFail) {
+    const I = T.indicators || {}, px = T.close;
+    const kids = [];
+    if (isNum(px) && (isNum(I.sma50) || isNum(I.sma200))) {
+      const a50 = isNum(I.sma50) ? px >= I.sma50 : null, a200 = isNum(I.sma200) ? px >= I.sma200 : null;
+      const known = [a50, a200].filter((x) => x !== null);
+      const up = known.length && known.every((x) => x), down = known.length && known.every((x) => !x);
+      const txt = a50 !== null && a200 !== null ? (up ? 'Above its 50 and 200-day averages.' : down ? 'Below its 50 and 200-day averages.' : a50 ? 'Above its 50-day average but below its 200-day average.' : 'Below its 50-day average but above its 200-day average.')
+        : `${(a50 === null ? a200 : a50) ? 'Above' : 'Below'} its ${a50 === null ? '200' : '50'}-day average (the other is not available).`;
+      kids.push(h('div', { class: 'tech-head' }, h('h2', { text: 'Trend' }), h('span', { class: 'badge ' + (up ? 'b-active' : down ? 'b-none' : 'b-wait'), text: up ? 'Up' : down ? 'Down' : 'Mixed' })), h('p', { class: 'sub', text: txt }));
+    } else kids.push(h('div', { class: 'tech-head' }, h('h2', { text: 'Trend' })), h('p', { class: 'sub', text: 'The 50 and 200-day averages are not available for this stock.' }));
+    const p = T.setup;
+    if (!halalFail && p && p.status !== 'none' && isNum(p.entry) && isNum(px) && !document.body.classList.contains('advice-paused')) {
+      kids.push(h('h3', { class: 'sub', style: 'margin:12px 0 4px', text: 'Paper trade status' }),
+        h('p', { text: px < p.entry ? `Not entered. A paper trade would open only if the price goes above ${price(p.entry)}.` : `The price is at or above the entry level of ${price(p.entry)}. What the rules say about it is in the plan below.` }),
+        h('p', { class: 'note', text: 'A setup is an idea to study on paper, not a signal.' }));
+    }
+    return h('section', { class: 'card', 'aria-label': 'Trend in plain words' }, ...kids);
+  }
   function renderTech(panel, d, T) {
     const halalFail = d.labels && d.labels.shariah && d.labels.shariah.status === 'fail';
     const tone = T.score >= 70 ? 'good' : T.score >= 45 ? 'neutral' : T.score >= 31 ? 'warn' : 'bad';
@@ -2895,6 +2916,7 @@ table td, table th { padding-block: 11px; }
       h('div', { class: 'title', text: T.trendLabel }),
       h('p', { text: T.guidance }),
       h('div', { class: 'conf', text: `Daily prices: close of ${niceDates(T.asOf)}. The score counts how many chart signals point up (100) or down (0). It is not a probability of profit.` })));
+    panel.append(trendPlainCard(d, T, halalFail));
     panel.append(tradePlanCard(d, T, halalFail));
     panel.append(reversalCard(d, T, halalFail));
     panel.append(chartCard(d, T, halalFail));
@@ -6739,6 +6761,31 @@ table td, table th { padding-block: 11px; }
             h('td', { text: pct(T[k], 0) }));
         }))));
     } else nowCard.append(h('p', { class: 'sub', text: 'Starting from zero? That is fine: the monthly plan below builds the whole portfolio step by step.' }));
+    // at a glance (stage 6): the same numbers as below in plain words. Nothing here changes a limit or a rule.
+    {
+      const LM = limits();
+      const glance = h('section', { class: 'card pf-glance', 'aria-label': 'Portfolio at a glance' }, h('h2', { text: 'Your portfolio at a glance' }));
+      if (total > 0) {
+        const costed = lt.filter((x) => isNum(x.cost) && isNum(priceOf(x.t)));
+        const allCosted = lt.length > 0 && costed.length === lt.length && other.length === 0 && sw.length === 0;
+        const gain = allCosted ? costed.reduce((sm, x) => sm + (priceOf(x.t) - x.cost) * x.shares, 0) : null;
+        const basis = allCosted ? costed.reduce((sm, x) => sm + x.cost * x.shares, 0) : null;
+        glance.append(h('div', { class: 'pfg-total', text: money0(total) }),
+          h('p', { class: 'sub', text: isNum(gain) && basis > 0 ? `Gain ${gain >= 0 ? '+' : '-'}${money0(Math.abs(gain))} (${gain >= 0 ? '+' : '-'}${pct(Math.abs(gain) / basis, 0)}) on what you paid · stocks, funds, cash` : 'Total value of what you own. Gain is shown only when every holding has a price and the cost you paid.' }),
+          mixBar(['core', 'stocks', 'swing', 'safe'].map((k) => ({ key: k, label: MIX_LABEL[k], w: { core: coreVal, stocks: ltVal, swing: swVal, safe: safeVal }[k] / total }))),
+          h('p', { class: 'note', text: [['Index funds', coreVal], ['Your stocks', ltVal], ['Swing trades', swVal], ['Sukuk or cash', safeVal]].filter(([, v]) => v > 0).map(([n, v]) => `${pct(v / total, 0)} ${n.toLowerCase()}`).join(' · ') }));
+        const over = lt.map((x) => ({ t: x.t, w: wOf(val(x)) })).filter((x) => x.w > LM.buyCap).sort((x, y) => y.w - x.w);
+        glance.append(h('h3', { class: 'sub', style: 'margin:12px 0 4px', text: 'Limits check' }),
+          over.length ? h('ul', { class: 'alert-list' }, over.map((x) => h('li', null, h('span', { text: `${x.t} is ${pct(x.w, 0)} of everything you own. Your limit for one stock is ${pct(LM.buyCap, 0)}${x.w >= LM.trimAt ? `, and it is above your trim line of ${pct(LM.trimAt, 0)}` : ''}.` }))))
+            : h('p', { class: 'empty', text: lt.length ? `No stock is above your limit of ${pct(LM.buyCap, 0)} for one stock.` : 'No US stocks entered yet.' }));
+        const hs = lt.map((x) => { const r = scr.by.get(x.t); return r && ['pass', 'fail', 'review'].includes(r.shariah) ? r.shariah : 'unknown'; });
+        const hp = hs.filter((x) => x === 'pass').length, hc = hs.length - hp;
+        if (lt.length) glance.append(h('h3', { class: 'sub', style: 'margin:12px 0 4px', text: 'Halal' }),
+          h('p', { text: `${hp} of your ${lt.length} US stock${lt.length === 1 ? '' : 's'} pass${hp === 1 ? 'es' : ''} the tool’s screen${hc ? `, ${hc} need${hc === 1 ? 's' : ''} checking or fail${hc === 1 ? 's' : ''}` : ''}. Confirm on Zoya or Musaffa.` }),
+          h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-outline btn-sm', type: 'button', onclick: () => navigate('shariah') }, 'Shariah ledger')));
+      } else glance.append(h('p', { class: 'sub', text: 'Nothing entered yet. Add what you own below and this card shows its total, mix, limits and halal status in plain words.' }));
+      parts.splice(1, 0, glance);
+    }
     // your US stocks: recorded here by hand, from a company's page ("I own it") or on the Watchlist; all three write the
     // same Watchlist entry, so nothing is counted twice
     const ownBox = h('div', { class: 'own-box' });

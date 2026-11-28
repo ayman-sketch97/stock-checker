@@ -386,6 +386,9 @@ async def main():
         await pg.wait_for_timeout(400)
         tt = await pg.inner_text('#page-stock')
         check('Signals' in tt and 'Close of Nov 2, 2026' in tt and not re.search(r'\bnull\b|\bundefined\b|\bNaN\b', tt), f'Technical tab: signals and the chart date shown, no missing values printed: {tt[:120]!r}')
+        tr = pg.locator('#page-stock section[aria-label="Trend in plain words"]')
+        trt = (await tr.inner_text()) if await tr.count() else ''
+        check(await tr.count() == 1 and any(x in trt for x in ('Above its', 'Below its', 'not available')), f'Technical tab: the trend is stated in one plain sentence: {trt[:160]!r}')
         check(not errs, f'no page errors on the Technical tab {errs}')
         await pg.close()
 
@@ -1198,6 +1201,13 @@ async def main():
         full = {**hold, 'advisor': {'v': 1, 'profile': {'horizon': 'long', 'drop': 'hold', 'time': 'mid', 'focus': 'test', 'hold': 'auto', 'swing': 'no', 'broker': 'tiered', 'monthlyAed': 1000}, 'coreName': 'ISDW', 'core': None, 'safe': None, 'hp': {}, 'other': []}}
         pg, errs = await page_with(ctx, base, fresh, full, '&p=advisor')
         await pg.wait_for_timeout(800)
+        gl = pg.locator('#page-advisor section[aria-label="Portfolio at a glance"]')
+        check(await gl.count() == 1, 'Portfolio page starts with the at-a-glance card')
+        if await gl.count():
+            gt = await gl.inner_text()
+            check('Limits check' in gt and '$' in gt and not any(w in gt for w in ('BUY', 'SELL', 'WAIT')), f'at-a-glance card: total, limits check, no verdict words: {gt[:300]!r}')
+            await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
+            check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'at-a-glance card: no sideways scroll at 390px')
         card = pg.locator('#page-advisor section[aria-label="Shariah ledger"]')
         check(await card.count() == 1, 'Portfolio page shows the Shariah ledger summary card')
         if await card.count():
