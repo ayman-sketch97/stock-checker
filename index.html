@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stock Checker</title>
 <meta name="description" content="Fundamental analysis and a halal screen for US stocks, explained in plain words.">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#f3f6fb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#060b16" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3636,17 +3637,19 @@ table td, table th { padding-block: 11px; }
   }
   function tvWidget(sym, url) {
     const dark = getComputedStyle(document.documentElement).colorScheme === 'dark';
-    const wrap = h('div', { class: 'tv-box tradingview-widget-container' },
-      h('div', { class: 'tradingview-widget-container__widget', style: 'height:100%;width:100%' }));
-    const sc = document.createElement('script');
-    sc.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    sc.async = true;
-    sc.textContent = JSON.stringify({
+    // The TradingView script runs inside a sandboxed frame with no access to this site's storage (your holdings, backup key and
+    // settings live there). Without allow-same-origin the frame is a separate, empty origin.
+    const cfg = JSON.stringify({
       autosize: true, symbol: sym, interval: 'D', timezone: 'America/New_York', theme: dark ? 'dark' : 'light', style: '1',
       locale: 'en', allow_symbol_change: false, withdateranges: true, studies: ['STD;RSI', 'STD;MACD'], support_host: 'https://www.tradingview.com',
-    });
-    wrap.append(sc);
-    return h('div', null, wrap, h('p', { class: 'sub', style: 'margin-top:6px' }, 'Chart not showing? ', h('a', { href: url, target: '_blank', rel: 'noopener' }, 'Open it on TradingView'), '.'));
+    }).replace(/</g, '\\u003c');
+    const doc = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:' + (dark ? '#0b1220' : '#fff') + '}.tradingview-widget-container,.tradingview-widget-container__widget{height:100%;width:100%}</style></head><body>' +
+      '<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div>' +
+      '<script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>' + cfg + '<\/script></div></body></html>';
+    const fr = h('iframe', { class: 'tv-box', title: 'TradingView chart', style: 'width:100%', loading: 'lazy', referrerpolicy: 'no-referrer' });
+    fr.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
+    fr.srcdoc = doc;
+    return h('div', null, fr, h('p', { class: 'sub', style: 'margin-top:6px' }, 'Chart not showing? ', h('a', { href: url, target: '_blank', rel: 'noopener' }, 'Open it on TradingView'), '.'));
   }
 
   function signalsCard(T) {
