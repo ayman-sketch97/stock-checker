@@ -25,6 +25,7 @@ const { getTickerIndex, getSubmissions, getCompanyFacts, getNasdaqScreener, getN
   await import('../lib/data.js');
 const { analyze } = await import('../lib/engine.js');
 const { redflagMetrics, redflagCard } = await import('../lib/redflags.js');
+const { parseTreasuryCsv, TREASURY_URL } = await import('../lib/rates.js');
 const { prepare, analyzeTechnical, techContextFrom, TECH_VERSION } = await import('../lib/technical.js');
 const BT = await import('../lib/backtest.js');
 const SG = await import('../lib/signals.js');
@@ -588,6 +589,21 @@ try {
     fs.writeFileSync(path.join(dataDir, 'redflags', `${t}.json`), JSON.stringify(card));
   }
 } catch (e) { console.log('redflags skipped: ' + String(e && e.message || e).slice(0, 80)); }
+// US Treasury yields (lib/rates.js): its own file. Any problem here leaves the site without the rates strip and nothing else.
+try {
+  let rates = null;
+  for (const yr of [started.getUTCFullYear(), started.getUTCFullYear() - 1]) {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 20000);
+    try {
+      const r = await fetch(TREASURY_URL(yr), { signal: ctl.signal, headers: { 'User-Agent': 'stock-checker (educational, static site)' } });
+      if (r.ok) rates = parseTreasuryCsv(await r.text());
+    } finally { clearTimeout(to); }
+    if (rates) break;
+  }
+  if (rates) fs.writeFileSync(path.join(dataDir, 'rates.json'), JSON.stringify({ v: 1, fetchedAt: started.toISOString(), source: 'US Treasury, daily par yield curve', url: 'https://home.treasury.gov/resource-center/data-chart-center/interest-rates', ...rates }));
+  else console.log('rates skipped: no readable Treasury file');
+} catch (e) { console.log('rates skipped: ' + String(e && e.message || e).slice(0, 80)); }
 fs.writeFileSync(path.join(dataDir, 'index.json'), JSON.stringify(index));
 fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: started.toISOString(), priceDate, techVersion: TECH_VERSION, market, fields: SCREEN_FIELDS, rows: screen }));
 if (scannerFile) fs.writeFileSync(path.join(dataDir, 'scanner.json'), JSON.stringify(scannerFile));

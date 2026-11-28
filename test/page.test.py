@@ -300,6 +300,8 @@ async def main():
         tm = await pg.inner_text('#page-terminal')
         check('Terminal' in tm and 'Market trend' in tm and 'KO' in tm and 'Open the full analysis' in tm, f'terminal: strip, table and detail pane: {tm[:200]!r}')
         check(not re.search(r'\b(BUY|SELL|WAIT)\b', tm) and 'NaN' not in tm and 'undefined' not in tm and 'null' not in tm, 'terminal: no verdict words or stray values')
+        rt0 = await pg.inner_text('#page-terminal section[aria-label="Interest rates"]')
+        check('not available right now' in rt0, f'rates: a missing file says so plainly: {rt0[:100]!r}')
         await pg.click('#page-terminal th button:has-text("Price")'); await pg.wait_for_timeout(200)
         first = await pg.inner_text('#page-terminal tbody tr:first-child td:first-child')
         await pg.click('#page-terminal th button:has-text("Price")'); await pg.wait_for_timeout(200)
@@ -309,6 +311,21 @@ async def main():
         pn = await pg.inner_text('#page-terminal section[aria-label="Stock details"]')
         check('Quality score' in pn and 'Fair value estimate' in pn and 'without a call to buy or sell' in pn, f'terminal: tapping a row fills the detail pane: {pn[:120]!r}')
         check(not errs, f'no page errors on the terminal page {errs}')
+        await pg.close()
+
+        # ---- rates strip on the Terminal page and the Dashboard
+        RATES = {'v': 1, 'source': 'US Treasury, daily par yield curve', 'asOf': fresh, 'y3m': 4.35, 'y2y': 4.69, 'y10y': 4.94, 'prev': {'asOf': fresh, 'y3m': 4.34, 'y2y': 4.61, 'y10y': 4.85}}
+        pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/rates.json': RATES})
+        await pg.set_viewport_size({'width': 390, 'height': 800})
+        await pg.goto(base + '?p=terminal'); await pg.wait_for_timeout(1500)
+        rt = await pg.inner_text('section[aria-label="Interest rates"]')
+        check('4.35%' in rt and '4.69%' in rt and '4.94%' in rt and 'normal curve' in rt and 'Source: US Treasury' in rt and '+0.08 pts' in rt, f'rates: three yields, change, curve shape, source: {rt[:240]!r}')
+        check(not re.search(r'\b(BUY|SELL|WAIT)\b', rt) and 'NaN' not in rt and 'undefined' not in rt and 'null' not in rt, 'rates: no verdict words or stray values')
+        check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'rates: no sideways scroll at 390px')
+        await pg.goto(base + '?p=dashboard'); await pg.wait_for_timeout(2500)
+        check(await pg.locator('#page-dashboard section[aria-label="Interest rates"]').count() == 1, 'rates: the strip is on the Dashboard too')
+        check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'rates: dashboard has no sideways scroll at 390px')
+        check(not errs, f'no page errors with the rates strip {errs}')
         await pg.close()
 
         # ---- stock page: compared with peers (screen.json numbers only)
