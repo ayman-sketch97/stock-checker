@@ -287,6 +287,33 @@ async def main():
         check(not errs, f'no page errors on the Record page with a young log {errs}')
         await pg.close()
 
+        # ---- stock page: compared with peers (screen.json numbers only)
+        def add_peers(scr):
+            ko = next(r for r in scr['rows'] if r[0] == 'KO')
+            F = scr['fields']
+            for i in range(10):
+                r = list(ko)
+                r[F.index('ticker')] = f'PEER{i}'
+                r[F.index('pe')] = 10.0 + i * 3
+                r[F.index('pfcf')] = 12.0 + i * 3
+                r[F.index('roic')] = 0.05 + i * 0.02
+                r[F.index('revGrowth')] = 0.01 * i
+                r[F.index('fcfMargin')] = 0.05 + i * 0.01
+                scr['rows'].append(r)
+            kr = next(r for r in scr['rows'] if r[0] == 'KO')
+            kr[F.index('pe')] = 12.0; kr[F.index('pfcf')] = 40.0; kr[F.index('roic')] = 0.5; kr[F.index('revGrowth')] = 0.05; kr[F.index('fcfMargin')] = 0.2
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok', patch=add_peers)
+        await pg.set_viewport_size({'width': 390, 'height': 844})
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1800)
+        pc = await pg.inner_text('section[aria-label="Compared with peers"]')
+        check('Against 10 other companies' in pc and 'Price to earnings' in pc and 'peer median' in pc.lower(), f'peers card: group size and table: {pc[:260]!r}')
+        check('Lower than most peers' in pc and 'Higher than most peers' in pc and 'Stronger than most peers' in pc and 'Closest in size' in pc, 'peers card: plain wording for each side')
+        check('not a call to buy or sell' in pc and not re.search(r'\b(BUY|SELL|WAIT)\b', pc) and 'NaN' not in pc and 'undefined' not in pc and 'null' not in pc, 'peers card: education wording, no stray values')
+        check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'peers card: no sideways scroll at 390px')
+        check(not errs, f'no page errors with the peers card {errs}')
+        await pg.close()
+
         # ---- stock page: accounting red flags card (own file, own wording, no verdict words)
         rfd = {'ok': True, 'v': 1, 'fyEnd': '2025-12-31', 'peerLabel': 'companies with SIC code starting 20 in this run', 'wording': 'Unusual vs peers, read the filing.',
                'checks': [{'key': 'conv', 'title': 'Cash vs profit', 'value': 0.62, 'peers': 12, 'rank': 0.05, 'unusual': True},
@@ -337,6 +364,8 @@ async def main():
         check('Case against' in cs and 'Nothing on these rules' in cs and 'Not a call to buy or sell' in cs and 'undefined' not in cs and 'NaN' not in cs, 'case against: empty on these rules, education wording, no stray values')
         check('Not a call to buy or sell' in sm and 'null' not in sm and 'undefined' not in sm and 'NaN' not in sm, 'summary card: education wording and no stray null')
         rf0 = await pg.inner_text('section[aria-label="Accounting red flags"]')
+        pc0 = await pg.inner_text('section[aria-label="Compared with peers"]')
+        check('Too few similar companies' in pc0, f'peers card: says so when there are too few peers: {pc0[:120]!r}')
         check('No accounting screen for this company yet' in rf0, f'red flags: a missing file says so plainly: {rf0[:120]!r}')
         check(not errs, f'no page errors on a normal stock page {errs}')
         wd = await pg.evaluate("() => { const f = window.__sc.weekdaysStrictlyBetween; return [f('2026-11-25', '2026-11-28'), f('2026-11-20', '2026-11-25'), f('2026-12-23', '2026-12-28'), f('2026-11-27', '2026-11-27')]; }")
