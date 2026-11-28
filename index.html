@@ -2232,6 +2232,70 @@ table td, table th { padding-block: 11px; }
     }).catch(() => { sec.append(h('p', { class: 'empty', text: 'Could not load this card. Try again later.' })); });
     return sec;
   }
+  // Compared with peers: where this company sits among the other companies of its industry (or sector) on the site, using the same
+  // screen.json numbers as everywhere else. No new calculation of any score. "Cheaper" only ever means a lower multiple, not a better buy.
+  const PEER_MIN_N = 8;
+  const PEER_METRICS = [
+    ['pe', 'Price to earnings', -1, (v) => v.toFixed(1), true],
+    ['pfcf', 'Price to free cash flow', -1, (v) => v.toFixed(1), true],
+    ['roic', 'Return on capital', 1, (v) => (v * 100).toFixed(0) + '%', false],
+    ['revGrowth', 'Sales growth a year', 1, (v) => (v * 100).toFixed(0) + '%', false],
+    ['fcfMargin', 'Cash profit margin', 1, (v) => (v * 100).toFixed(0) + '%', false],
+  ];
+  function peerGroup(list, row) {
+    if (!row) return null;
+    for (const [key, label] of [['industry', 'industry'], ['sector', 'sector']]) {
+      if (!row[key]) continue;
+      const peers = list.filter((o) => o.ticker !== row.ticker && o[key] === row[key]);
+      if (peers.length >= PEER_MIN_N) return { peers, label: `${row[key]} (${label})` };
+    }
+    return null;
+  }
+  function peerRank(peers, row, k, dir, positiveOnly) {
+    const v = row[k];
+    if (!isNum(v) || (positiveOnly && v <= 0)) return null;
+    const vals = peers.map((o) => o[k]).filter((x) => isNum(x) && (!positiveOnly || x > 0));
+    if (vals.length < PEER_MIN_N) return null;
+    const worse = vals.filter((x) => (dir < 0 ? x > v : x < v)).length / vals.length; // share of peers this company is ahead of
+    const sorted = [...vals].sort((a, b) => a - b);
+    const med = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+    return { v, med, ahead: worse, n: vals.length };
+  }
+  function peerCard(d) {
+    const sec = h('section', { class: 'card', 'aria-label': 'Compared with peers' }, h('h2', { text: 'Compared with peers' }));
+    sec.append(h('p', { class: 'sub', text: 'Loading…' }));
+    loadScreen().then((scr) => {
+      sec.querySelector('p.sub') && sec.querySelector('p.sub').remove();
+      const row = scr && scr.by && scr.by.get(d.ticker);
+      const grp = row && peerGroup(scr.list, row);
+      if (!grp) { sec.append(h('p', { class: 'empty', text: 'Too few similar companies on the site to compare this one fairly.' })); return; }
+      sec.append(h('p', { class: 'sub', text: `Against ${grp.peers.length} other companies in ${grp.label}, from the site’s own numbers.` }));
+      const lines = [];
+      for (const [k, name, dir, fmtv, pos] of PEER_METRICS) {
+        const r = peerRank(grp.peers, row, k, dir, pos);
+        if (!r) { lines.push([name, 'Not known or not meaningful', '', '']); continue; }
+        const word = dir < 0
+          ? (r.ahead >= 0.67 ? 'Lower than most peers' : r.ahead <= 0.33 ? 'Higher than most peers' : 'In the middle of peers')
+          : (r.ahead >= 0.67 ? 'Stronger than most peers' : r.ahead <= 0.33 ? 'Weaker than most peers' : 'In the middle of peers');
+        lines.push([name, fmtv(r.v), fmtv(r.med), word]);
+      }
+      sec.append(h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' },
+        h('tr', null, ['', 'This company', 'Peer median', 'Where it sits'].map((x) => (x ? h('th', { text: x }) : h('th', null, h('span', { class: 'vh', text: 'Measure' }))))),
+        lines.map((l) => h('tr', null, l.map((x, i) => h('td', { text: x, ...(i === 0 ? { style: 'font-weight:600' } : {}) })))))));
+      const near = [...grp.peers].filter((o) => isNum(o.capM)).sort((a, b) => Math.abs(a.capM - row.capM) - Math.abs(b.capM - row.capM)).slice(0, 5);
+      if (near.length) {
+        sec.append(h('h3', { class: 'sub', style: 'margin:12px 0 4px', text: 'Closest in size' }));
+        sec.append(h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' },
+          h('tr', null, ['Company', 'P/E', 'P/FCF', 'Return on capital', 'Sales growth'].map((x) => h('th', { text: x }))),
+          [row, ...near].map((o, i) => h('tr', null,
+            h('td', { text: (i === 0 ? 'This: ' : '') + o.ticker, style: i === 0 ? 'font-weight:600' : '' }),
+            h('td', { text: isNum(o.pe) && o.pe > 0 ? o.pe.toFixed(1) : 'n/a' }), h('td', { text: isNum(o.pfcf) && o.pfcf > 0 ? o.pfcf.toFixed(1) : 'n/a' }),
+            h('td', { text: isNum(o.roic) ? (o.roic * 100).toFixed(0) + '%' : 'n/a' }), h('td', { text: isNum(o.revGrowth) ? (o.revGrowth * 100).toFixed(0) + '%' : 'n/a' }))))));
+      }
+      sec.append(h('p', { class: 'note', text: 'A lower multiple is not the same as a better company: businesses in one industry still differ in debt, growth and risk. This is context to read next to the fair value estimate, not a call to buy or sell.' }));
+    }).catch(() => { sec.append(h('p', { class: 'empty', text: 'Could not load the peer data. Try again later.' })); });
+    return sec;
+  }
   function firstView(d) {
     const box = (title, ...kids) => h('div', { class: 'fv-box' }, h('h2', { text: title }), ...kids);
     const sh = d.shariah && typeof d.shariah === 'object' ? d.shariah : null;
@@ -2274,6 +2338,7 @@ table td, table th { padding-block: 11px; }
     result.append(summaryCard(d));
     result.append(caseCard(d));
     { const rf = redflagCard(d); if (rf) result.append(rf); }
+    if (HAS_SITE) result.append(peerCard(d));
     result.append(firstView(d));
     tech.banner = decisionBanner(d, d.price, null);
     result.append(tech.banner);
