@@ -2220,7 +2220,7 @@ table td, table th { padding-block: 11px; }
         else peerTxt = k.unusual ? 'Unusual vs peers, read the filing.' : 'In line with peers.';
         return h('li', null, h('span', null, h('b', { text: k.title + ': ' }), k.value == null ? '' : fmt[k.key](k.value) + '. ', peerTxt));
       })));
-      if (c.benford) sec.append(h('p', { class: 'note', text: 'Footnote: ' + c.benford.note }));
+      if (c.benford) sec.append(h('p', { class: 'note', text: c.benford.note }));
       sec.append(h('p', { class: 'note', text: 'Fixed checks from the company’s annual SEC filings, the same for every company. A flag is a reason to read the filing, not a finding of wrongdoing. Not a call to buy or sell.' }));
     };
     if (MODE !== 'static' || !d || !d.ticker) return null;
@@ -10597,7 +10597,7 @@ table td, table th { padding-block: 11px; }
         h('li', { text: 'Live recorded paper signals: signals logged on the day they appeared and followed with the same rules. No real money.' }),
         h('li', { text: 'Independently verified performance: none yet. No outside party has checked these results.' }),
         h('li', { text: 'Real-money performance: none is recorded here. Your broker statement is the record.' })));
-    el.replaceChildren(head, evKey, healthCard(hl, scrH, rec), recordCard(rec), ltCard(lts), h('h2', { class: 'page-sec', text: 'The swing plan' }),
+    el.replaceChildren(head, evKey, healthCard(hl, scrH, rec), recordCard(rec), rankingCard(lts), ltCard(lts), h('h2', { class: 'page-sec', text: 'The swing plan' }),
       h('div', { class: 'callout' }, h('b', { text: 'How it was tested. ' }),
         `Every trading day of the past ${bt.years} years, on ${bt.stocks.toLocaleString()} stocks, the rules looked only at prices up to that day, wrote the same plan this site shows, and followed it: the order for the next session, the stop, target 1, and the exit rule. One trade per stock at a time. Results are in R: +1R means you made as much as you risked, −1R means the stop was hit.`),
       controls, body, liveCard(log, bt), limitsCard(bt));
@@ -10866,6 +10866,41 @@ table td, table th { padding-block: 11px; }
     const [y, mo] = String(m || '').split('-').map(Number);
     return y && mo ? new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'n/a';
   };
+  // "Did our ranking work?": a plain summary of the walk-forward test (data/lt-summary.json), from its own numbers only.
+  // The rule is fixed: an average lead counts as real only when its t-statistic is 2 or more. Otherwise it is stated as no measurable edge.
+  function rankingCard(L) {
+    const card = h('section', { class: 'card', 'aria-label': 'Did our ranking work' }, h('h2', { text: 'Did our ranking work?' }));
+    const F = L && L.forward;
+    if (!F || !F.h12 || !isNum(F.h12.picks)) {
+      card.append(h('p', { class: 'sub', text: 'The walk-forward test is not available right now, so there is no answer yet.' }));
+      return card;
+    }
+    const rows = [['h12', '1 year'], ['h24', '2 years'], ['h36', '3 years']].filter(([k]) => F[k] && F[k].vsUniverse && isNum(F[k].vsUniverse.mean));
+    const real = rows.filter(([k]) => Math.abs(F[k].vsUniverse.t) >= 2 && F[k].vsUniverse.mean > 0);
+    const worse = rows.filter(([k]) => Math.abs(F[k].vsUniverse.t) >= 2 && F[k].vsUniverse.mean < 0);
+    const f = F.h12;
+    const yrs = (f.byYear || []).filter((y) => isNum(y.picks) && isNum(y.universe));
+    const yrsAhead = yrs.filter((y) => y.picks > y.universe).length;
+    let head;
+    if (real.length) head = `Yes, on the tool’s own fixed rule. The list led the average stock by a measurable margin at ${real.map(([, n]) => n).join(' and ')} after buying.`;
+    else if (worse.length) head = 'No. The list trailed the average stock by a measurable margin at some horizons.';
+    else head = 'No measurable edge. The list’s average lead over the average stock is small enough that luck alone could produce it.';
+    card.append(h('div', { class: real.length ? 'callout' : 'paper-note' }, icon(real.length ? 'good' : 'ok'), h('span', null, h('b', { text: head }))));
+    card.append(h('p', { class: 'sub', text: `Walk-forward means: at each month-end from ${monthTxt(L.from)} to ${monthTxt(L.to)}, the list was rebuilt using only reports filed by then, then followed forward. Nothing was tuned to the result.` }));
+    card.append(h('div', { class: 'tscroll' }, h('table', { class: 'data wrap1 wraph' },
+      h('tr', null, ['Horizon', 'List', 'Avg stock', 'Lead', 'Test score'].map((x) => h('th', { text: x }))),
+      rows.map(([k, n]) => { const q = F[k]; return h('tr', null, h('td', { text: n }), h('td', { text: pctS(q.picks, 1) }), h('td', { text: pctS(q.universe, 1) }), h('td', { text: pctS(q.vsUniverse.mean, 1) }),
+        h('td', { text: isNum(q.vsUniverse.t) ? q.vsUniverse.t.toFixed(1) : 'n/a' })); }))));
+    const extra = [];
+    if (yrs.length) extra.push(`The list beat the average stock in ${yrsAhead} of ${yrs.length} calendar years (1 year later).`);
+    const H = L.forwardHalves;
+    if (H && H.half1 && H.half2 && H.half1.vsUniverse && H.half2.vsUniverse) extra.push(`First half of the period: ${pctS(H.half1.vsUniverse.mean, 1)} vs the average stock. Second half: ${pctS(H.half2.vsUniverse.mean, 1)}.`);
+    if (isNum(f.monthsBeatingUniverse)) extra.push(`In ${pct(f.monthsBeatingUniverse, 0)} of months the list was ahead of the average stock one year later.`);
+    if (isNum(f.picksBeatingSpy)) extra.push(`${pct(f.picksBeatingSpy, 0)} of individual picks beat the S&P 500 one year later.`);
+    if (extra.length) card.append(h('ul', { class: 'alert-list' }, extra.map((x) => h('li', null, h('span', { text: x })))));
+    card.append(h('p', { class: 'note', text: 'Test score is the average lead divided by its normal swing. Below 2 means luck could explain it. Overlapping months are not independent, so even a score above 2 is weaker than it looks. Only companies still listed today are in the data, which flatters stock picking, and prices ignore dividends. This describes the past and is not a promise or a call to buy or sell.' }));
+    return card;
+  }
   function ltCard(L) {
     const card = h('section', { class: 'card', 'aria-label': 'Long-term list test' }, h('h2', { text: 'The stock picks, tested on 10 years' }));
     if (!L || !L.forward || !L.forward.h12 || !L.portfolio || !L.portfolio.full) {

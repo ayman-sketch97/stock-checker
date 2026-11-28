@@ -625,6 +625,12 @@ async def main():
         pg, errs = await page_with(ctx, base, fresh, None, '', None, {'data/lt-summary.json': LT})
         await pg.click('#nav button:has-text("Journal")'); await pg.click('#subnav button[data-page="record"]')
         await pg.wait_for_timeout(1200)
+        rk = await pg.inner_text('section[aria-label="Did our ranking work"]')
+        check('Did our ranking work?' in rk and 'No measurable edge' in rk and 'Walk-forward means' in rk and '1 year' in rk and 'Test score' in rk and 'of months the list was ahead' in rk, f'ranking card: plain answer, even when there is no edge: {rk[:260]!r}')
+        check('Not a promise' in rk or 'not a promise' in rk, 'ranking card: past-only wording')
+        check(not re.search(r'\b(BUY|SELL|WAIT)\b', rk) and 'NaN' not in rk and 'undefined' not in rk and 'null' not in rk, 'ranking card: no verdict words or stray values')
+        await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
+        check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'ranking card: no sideways scroll at 390px')
         ltc = await pg.inner_text('section[aria-label="Long-term list test"]')
         check('The list did not beat the average stock' in ltc and '17.6%' in ltc and 'Companies that disappeared are missing' in ltc and 'Whether that flatters or understates the results, against random halal stocks or the S&P 500, cannot be measured with free data' in ltc, f'record: the long-term test, its verdict and its limits: {ltc[:200]!r}')
         check('Other ways to build the list' in ltc and 'Ahead, but not clearly more than luck' in ltc and 'Did worse than the average' in ltc and 'None passed every check' in ltc,
