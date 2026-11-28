@@ -24,6 +24,7 @@ process.env.STOCKCHECKER_BATCH = '1'; // no caches, polite pacing and retries in
 const { getTickerIndex, getSubmissions, getCompanyFacts, getNasdaqScreener, getNasdaqHistory, getEarningsCalendar, normalizeTicker, batchStats } =
   await import('../lib/data.js');
 const { analyze } = await import('../lib/engine.js');
+const { redflagMetrics, redflagCard } = await import('../lib/redflags.js');
 const { prepare, analyzeTechnical, techContextFrom, TECH_VERSION } = await import('../lib/technical.js');
 const BT = await import('../lib/backtest.js');
 const SG = await import('../lib/signals.js');
@@ -142,6 +143,8 @@ const dataDir = path.join(OUT, 'data');
 fs.rmSync(dataDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(dataDir, 'tech'), { recursive: true });
 fs.mkdirSync(path.join(dataDir, 'tech-ext'), { recursive: true });
+fs.mkdirSync(path.join(dataDir, 'redflags'), { recursive: true });
+const rfAll = new Map(); // ticker -> { m, group }: accounting metrics, compared with peers once every company is read
 
 const [{ byTicker }, screener, prevLog] = await Promise.all([getTickerIndex(), getNasdaqScreener(), previousLog()]);
 // market gauge: S&P 500 ETF (used only to read the market's trend, never as a holding)
@@ -266,6 +269,8 @@ async function one(u) {
   // the company's own news: notable filings of the last 120 days (lib/data.js, notableFilings)
   res.filings = submissions?.filings || [];
   fs.writeFileSync(path.join(dataDir, `${u.t}.json`), JSON.stringify(res));
+  // accounting red-flag screen: own file, no effect on any score. A problem costs this one stock its card, never the build.
+  try { if (res.ok) rfAll.set(u.t, { m: redflagMetrics(facts), group: String(res.sic || '').slice(0, 2), sic: res.sic || null, industry: res.industry || null }); } catch { /* no card for this stock */ }
 
   // everything that changes the run-wide totals is applied at the end, so a retry after an error cannot double-count
   let tech = null;
@@ -574,6 +579,15 @@ const index = {
   fields: ['ticker', 'name', 'verdict', 'shariah', 'quality', 'valuation', 'marketCapMillions', 'techSetup', 'techScore'],
   items,
 };
+try {
+  const byGroup = new Map();
+  for (const [t, r] of rfAll) { if (r.group) { if (!byGroup.has(r.group)) byGroup.set(r.group, []); byGroup.get(r.group).push(t); } }
+  for (const [t, r] of rfAll) {
+    const mates = (byGroup.get(r.group) || []).filter((x) => x !== t).map((x) => rfAll.get(x).m);
+    const card = redflagCard(r.m, mates, r.group ? `companies with SIC code starting ${r.group} in this run` : null);
+    fs.writeFileSync(path.join(dataDir, 'redflags', `${t}.json`), JSON.stringify(card));
+  }
+} catch (e) { console.log('redflags skipped: ' + String(e && e.message || e).slice(0, 80)); }
 fs.writeFileSync(path.join(dataDir, 'index.json'), JSON.stringify(index));
 fs.writeFileSync(path.join(dataDir, 'screen.json'), JSON.stringify({ asOf: started.toISOString(), priceDate, techVersion: TECH_VERSION, market, fields: SCREEN_FIELDS, rows: screen }));
 if (scannerFile) fs.writeFileSync(path.join(dataDir, 'scanner.json'), JSON.stringify(scannerFile));

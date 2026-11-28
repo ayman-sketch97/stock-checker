@@ -287,6 +287,24 @@ async def main():
         check(not errs, f'no page errors on the Record page with a young log {errs}')
         await pg.close()
 
+        # ---- stock page: accounting red flags card (own file, own wording, no verdict words)
+        rfd = {'ok': True, 'v': 1, 'fyEnd': '2025-12-31', 'peerLabel': 'companies with SIC code starting 20 in this run', 'wording': 'Unusual vs peers, read the filing.',
+               'checks': [{'key': 'conv', 'title': 'Cash vs profit', 'value': 0.62, 'peers': 12, 'rank': 0.05, 'unusual': True},
+                          {'key': 'accruals', 'title': 'Accruals ratio', 'value': 0.031, 'peers': 12, 'rank': 0.5, 'unusual': False},
+                          {'key': 'recGap', 'title': 'Receivables vs sales', 'value': None, 'note': 'Receivables or sales not reported in the SEC filings, so unknown.'}],
+               'benford': {'mad': 0.01, 'n': 900, 'note': 'Footnote only. Many honest companies differ from this pattern, and it proves nothing alone.'}}
+        pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-ok', {'data/redflags/KO.json': rfd})
+        await pg.set_viewport_size({'width': 390, 'height': 844})
+        await pg.goto(base + '?selftest=1&t=KO')
+        await pg.wait_for_timeout(1500)
+        rf = await pg.inner_text('section[aria-label="Accounting red flags"]')
+        check('Cash flow was 62% of net profit' in rf and 'Unusual vs peers, read the filing.' in rf and 'In line with peers.' in rf and 'so unknown' in rf, f'red flags: figures and peer wording: {rf[:300]!r}')
+        check('Footnote' in rf and 'Not a call to buy or sell' in rf and 'NaN' not in rf and 'undefined' not in rf and 'null' not in rf, 'red flags: footnote, education wording, no stray values')
+        check(not re.search(r'\b(BUY|SELL|WAIT)\b', rf) and 'fraud' not in rf.lower() and 'manipulat' not in rf.lower(), 'red flags: no verdict or accusation words')
+        check(await pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'red flags: no sideways scroll at 390px')
+        check(not errs, f'no page errors with the red flags card {errs}')
+        await pg.close()
+
         # ---- stock page: the data-quality line, and a withheld verdict when the data is not reliable
         pg, errs = await page_with(ctx, base, fresh, None, '', 'stock-unreliable')
         await pg.goto(base + '?selftest=1&t=KO')
@@ -318,6 +336,8 @@ async def main():
         check('Quality score 88/100' in cs and 'Financial health 88/100' in cs and 'under the fair value estimate' in cs and 'Cash profit is 20% of sales' in cs and 'Growth 10% a year' in cs and 'Passes the tool’s halal screen' in cs, f'case for: each point shows its figure: {cs[:300]!r}')
         check('Case against' in cs and 'Nothing on these rules' in cs and 'Not a call to buy or sell' in cs and 'undefined' not in cs and 'NaN' not in cs, 'case against: empty on these rules, education wording, no stray values')
         check('Not a call to buy or sell' in sm and 'null' not in sm and 'undefined' not in sm and 'NaN' not in sm, 'summary card: education wording and no stray null')
+        rf0 = await pg.inner_text('section[aria-label="Accounting red flags"]')
+        check('No accounting screen for this company yet' in rf0, f'red flags: a missing file says so plainly: {rf0[:120]!r}')
         check(not errs, f'no page errors on a normal stock page {errs}')
         wd = await pg.evaluate("() => { const f = window.__sc.weekdaysStrictlyBetween; return [f('2026-11-25', '2026-11-28'), f('2026-11-20', '2026-11-25'), f('2026-12-23', '2026-12-28'), f('2026-11-27', '2026-11-27')]; }")
         check(wd == [1, 2, 1, 0], f'stale guard: US market holidays are not counted as missed updates (Thanksgiving, Christmas): {wd}')
