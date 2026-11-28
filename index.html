@@ -2201,6 +2201,37 @@ table td, table th { padding-block: 11px; }
       c.unk.length ? h('p', { class: 'note', text: `Not known: ${c.unk.join(', ')}.` }) : null,
       h('p', { class: 'note', text: 'Fixed rules on the tool’s own numbers, each shown with its figure and its limit. They are the same for every company and never tuned to a result. Not a call to buy or sell.' }));
   }
+  // Accounting red-flag screen: three ratios from the company's own SEC filings, compared with peers of the same SIC group in the same
+  // nightly run. Own file (data/redflags/<ticker>.json), no effect on any score, limit or Shariah result. Not a claim about the company.
+  function redflagCard(d) {
+    const sec = h('section', { class: 'card', 'aria-label': 'Accounting red flags' }, h('h2', { text: 'Accounting red flags' }));
+    const fmt = {
+      conv: (v) => `Cash flow was ${Math.round(v * 100)}% of net profit`,
+      accruals: (v) => `Profit not backed by cash: ${(v * 100).toFixed(1)}% of assets`,
+      recGap: (v) => `Receivables grew ${Math.abs(v).toFixed(1)} points ${v >= 0 ? 'faster' : 'slower'} than sales`,
+    };
+    const nullNote = { conv: 'Not meaningful: net profit was not positive over these years.', accruals: 'Not reported in the SEC filings, so unknown.', recGap: 'Receivables or sales not reported in the SEC filings, so unknown.' };
+    const fill = (c) => {
+      sec.append(h('p', { class: 'sub', text: `Latest filed year ending ${c.fyEnd}. ${c.peerLabel ? 'Peers: ' + c.peerLabel + '.' : ''}` }));
+      sec.append(h('ul', { class: 'alert-list' }, c.checks.map((k) => {
+        let peerTxt;
+        if (k.value == null) peerTxt = k.note || nullNote[k.key];
+        else if (k.unusual === null || k.unusual === undefined) peerTxt = 'Too few peers in this run to compare.';
+        else peerTxt = k.unusual ? 'Unusual vs peers, read the filing.' : 'In line with peers.';
+        return h('li', null, h('span', null, h('b', { text: k.title + ': ' }), k.value == null ? '' : fmt[k.key](k.value) + '. ', peerTxt));
+      })));
+      if (c.benford) sec.append(h('p', { class: 'note', text: 'Footnote: ' + c.benford.note }));
+      sec.append(h('p', { class: 'note', text: 'Fixed checks from the company’s annual SEC filings, the same for every company. A flag is a reason to read the filing, not a finding of wrongdoing. Not a call to buy or sell.' }));
+    };
+    if (MODE !== 'static' || !d || !d.ticker) return null;
+    sec.append(h('p', { class: 'sub', text: 'Loading…' }));
+    getJson('data/redflags/' + encodeURIComponent(d.ticker) + '.json').then((c) => {
+      sec.querySelector('p.sub') && sec.querySelector('p.sub').remove();
+      if (!c || !c.ok) { sec.append(h('p', { class: 'empty', text: c && c.reason ? c.reason : 'No accounting screen for this company yet.' })); return; }
+      fill(c);
+    }).catch(() => { sec.append(h('p', { class: 'empty', text: 'Could not load this card. Try again later.' })); });
+    return sec;
+  }
   function firstView(d) {
     const box = (title, ...kids) => h('div', { class: 'fv-box' }, h('h2', { text: title }), ...kids);
     const sh = d.shariah && typeof d.shariah === 'object' ? d.shariah : null;
@@ -2242,6 +2273,7 @@ table td, table th { padding-block: 11px; }
     { const pe = profileEl(d); if (pe) result.append(pe); }
     result.append(summaryCard(d));
     result.append(caseCard(d));
+    { const rf = redflagCard(d); if (rf) result.append(rf); }
     result.append(firstView(d));
     tech.banner = decisionBanner(d, d.price, null);
     result.append(tech.banner);
