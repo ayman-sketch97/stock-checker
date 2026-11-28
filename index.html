@@ -9573,6 +9573,30 @@ table td, table th { padding-block: 11px; }
       h('span', { class: 'tags' }, tags.filter(Boolean)),
       det.length ? detEl : null);
   }
+  // ------------------------------------------------------------------ Interest rates strip (US Treasury, data/rates.json from the nightly build)
+  // Three yields, the one-day change, and the shape of the curve in words. Description only: it says nothing about what to buy or sell.
+  const loadRates = () => (HAS_SITE ? getJson('data/rates.json') : Promise.resolve(null));
+  function curveWords(r) {
+    const d = r.y10y - r.y3m;
+    if (d >= 0.25) return 'Longer-term rates are above short-term rates (a normal curve).';
+    if (d <= -0.1) return 'Short-term rates are above longer-term rates (an inverted curve).';
+    return 'Short-term and longer-term rates are close (a flat curve).';
+  }
+  function ratesCard() {
+    const sec = h('section', { class: 'card rates-card', 'aria-label': 'Interest rates' }, h('h2', { text: 'Interest rates' }));
+    sec.append(h('p', { class: 'sub', text: 'Loading…' }));
+    loadRates().then((R) => {
+      sec.querySelector('p.sub') && sec.querySelector('p.sub').remove();
+      if (!R || ![R.y3m, R.y2y, R.y10y].every(isNum)) { sec.append(h('p', { class: 'empty', text: 'Treasury rates are not available right now, so none are shown.' })); return; }
+      const days = Math.round((Date.now() - Date.parse(R.asOf + 'T12:00:00Z')) / 86400000);
+      const chg = (k) => (R.prev && isNum(R.prev[k]) ? `${R[k] - R.prev[k] >= 0 ? '+' : '−'}${Math.abs(R[k] - R.prev[k]).toFixed(2)} pts` : '');
+      const cell = (k, key) => h('div', null, h('div', { class: 'k', text: k }), h('div', { class: 'v', text: R[key].toFixed(2) + '%' }), h('div', { class: 'k', text: chg(key) }));
+      sec.append(h('div', { class: 'tm-strip', role: 'group', 'aria-label': 'Treasury yields' }, cell('3-month', 'y3m'), cell('2-year', 'y2y'), cell('10-year', 'y10y')));
+      sec.append(h('p', { class: 'sub', text: curveWords(R) }));
+      sec.append(h('p', { class: 'note', text: `Source: US Treasury, daily yield curve, for ${niceDates(R.asOf)}.${days > 6 ? ` This is ${days} days old, so it may be out of date.` : ''} Context only, not a call to buy or sell.` }));
+    }).catch(() => { sec.append(h('p', { class: 'empty', text: 'Treasury rates could not be loaded.' })); });
+    return sec;
+  }
   // ------------------------------------------------------------------ Terminal: your watchlist as a dense table, with a detail pane
   // Reads the nightly screen plus the delayed quotes already loaded for every page, and the list kept on this device. Nothing is
   // calculated here that another page does not already show, and no verdict is shown.
@@ -9639,7 +9663,7 @@ table td, table th { padding-block: 11px; }
     const headRow = h('tr', null, COLS.map((col) => h('th', { class: col[4] === 'x' ? 'x' : '', scope: 'col' },
       h('button', { type: 'button', onclick: () => { st.dir = st.k === col[0] ? -st.dir : (col[0] === 'ticker' ? 1 : -1); st.k = col[0]; paintRows(); } }, col[1]))));
     paintRows(); paintPane();
-    el.replaceChildren(head, strip,
+    el.replaceChildren(head, strip, ratesCard(),
       h('p', { class: 'sub', text: own ? `${rows0.length} stocks from your watchlist. Tap a heading to sort.` : 'Your watchlist is empty, so this shows the 25 largest halal-passing companies. Add stocks to your watchlist to see your own.' }),
       h('div', { class: 'tm-wrap' }, h('div', { class: 'card' }, h('div', { class: 'tscroll' }, h('table', { class: 'tm-tbl' }, h('thead', null, headRow), body))), pane));
     livePainters.add(() => { if (page !== 'terminal') return false; paintRows(); paintPane(); return true; });
@@ -11738,7 +11762,7 @@ table td, table th { padding-block: 11px; }
     id.classList.add('dash-ideas');
     const recs = recordsCard();
     // stage 2: what he owns and what needs attention come first, then the backup card, ideas and the market; scanner and brief follow
-    el.replaceChildren(head, h('div', { class: 'dash' }, pfCard, al, recs, id, mk, dashScanner(sc), br));
+    el.replaceChildren(head, h('div', { class: 'dash' }, pfCard, al, recs, id, mk, ratesCard(), dashScanner(sc), br));
     // ask the browser to keep the data (only once there is something to keep), then redraw the card with its answer
     const before = persistState;
     checkPersist(recordCounts().n.any).then(() => { if (persistState !== before && my === dashToken && page === 'dashboard') { const cur = el.querySelector('.rec-box'); if (cur) cur.replaceWith(recordsCard()); } });
